@@ -15,7 +15,7 @@
 * Support for PCIe 6.0 Flit Mode
 * Support for CXL 2.0 Mode
 * Support for Streaming Mode
-     
+
 ## Command Types
 
 | Command        | 31:12      |  11:8     |  OPCODE   |
@@ -29,7 +29,7 @@
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0101 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0110 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0111 |
-|----------------|-----------|-----------|
+|----------------|------------|-----------|-----------|
 | READ           | USER[19:0] | SIZE[3:0] | XXXX_1000 |
 | ATOMIC-SWAP    | USER[19:0] | SIZE[3:0] | 0000_1001 |
 | ATOMIC-ADD     | USER[19:0] | SIZE[3:0] | 0001_1001 |
@@ -45,81 +45,101 @@
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_1100 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_1101 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_1110 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_1111 | 
+| USER           | USER[19:0] | SIZE[3:0] | XXXX_1111 |
 
 ## Data Sizes
 
 * The number of bytes transferred is 2^SIZE.
 * The range of sizes supported is system dependent.
-* The minimum data transfer size if >=AW. 
+* The minimum data transfer size if >=AW.
 
-| SIZE    | MEANING   |
-|---------|-----------|
-| 0       | 1B        |
-| 1       | 2B        |
-| 2       | 4B        |
-| ...     | ...       |
-| 8       | 256B      |
-| ...     | ...       |
-| 15      | 32,657B   |
+| SIZE    | TRANSER   | NOTE              |
+|---------|-----------|-------------------|
+| 0       | 1B        | Single byte       |
+| 1       | 2B        |                   |
+| 2       | 4B        |                   |
+| 3       | 8B        |                   |
+| 4       | 16B       | 128b single cycle |
+| 5       | 32B       |                   |
+| 6       | 64B       |                   |
+| 7       | 128B      |                   |
+| 8       | 256B      | Cache line        |
+| ...     | ...       |                   |
+| 14      | 16,384B   | >Jumbo frame      |
+| 15      | 32,657B   |                   |
 
 ## Packet Formats
 
-| Bits    | AW==32 | AW==64 | AW==128 |
-|---------|--------|--------|---------|
-| 31:0    | CMD/D6 | CMD/D6 | CMD/D6  |
-| 63:32   | DA0/D7 | DA0/D7 | DA0/D7  |
-| 95:64   | D0/SA0 | D0/SA0 | D0/SA0  |
-| 127:96  | D1/0   | D1/SA1 | D1/SA1  |
-| 159:128 | D5     | DA1/D5 | DA1/D5  |
-| 191:160 | D2     | D2     | D2/SA2  |
-| 223:192 | D3     | D3     | D3/SA3  |
-| 255:224 | D4     | D4     | D4/SA3  |
-
-## Examples
-
 * For AW=64 and PW=256
+* DA is the most important field,so always keep in the same space
+* AW32 and AW64 are binary compatible
+* Min wires for AW32 is 128
+* Min wires for AW64 us 256 (dicated by placement and atomics)
 
-### 802.3 Ethernet Packet 
+### Single Cycle Write
 
-| Cycle | Content                      |
-|-------|------------------------------|
-| 0     | UMI Transaction, 112b Header |
-| 1,2   | Data (64B)                   |
-| 3,4   | Data (64B)                   |
-| 5,6   | Data (64B)                   |
-| 7,8   | Data (64B)                   |
+|AW |255:224   |223:160   |159:128   |127:96  |95:64   | 63:32  | 31:0    |
+|---|----------|----------|----------|--------|--------|--------|---------|
+|32 |          |          |          |D[31:0] |        |DA[31:0]|CMD[31:0]|
+|32 |          |          |          |D[31:0] |        |DA[31:0]|CMD[31:0]|
+|64 |          |          |D[63:32]  |D[31:0] |        |DA[31:0]|CMD[31:0]|
+|64 |DA[63:32] |D[127:64] |D[63:32]  |D[31:0] |        |DA[31:0]|CMD[31:0]|
 
-### CXL.IO Latency Optimized 256B Flit 
+### Single Cycle Read Request
 
-| Cycle | Content                     |
-|-------|-----------------------------|
-| 0     | UMI Transaction, 16b Header |
-| 1,2   | Flit Chunk0                 |
-| 3,4   | Flit Chunk1, DLP, CRC0      |
-| 5,6   | Flit Chunk2                 |
-| 7,8   | Flit Chunk3, Marke3, CRC2   |
+|AW |255:224   |223:160   |159:128   |127:96  |95:64   | 63:32  | 31:0    |
+|---|----------|----------|----------|--------|--------|--------|---------|
+|32 |          |          |          |        |SA[31:0]|DA[31:0]|CMD[31:0]|
+|64 |DA[63:32] |SA[63:32] |          |        |SA[31:0]|DA[31:0]|CMD[31:0]|
 
-### OpenCAPI 
+### Single Cycle Atomic
 
-| Cycle | Content                     |
-|-------|-----------------------------|
-| 0     | UMI Transaction, 64b Header |
-| 1,2   | 64B Data                    |
-| 3,4   | 64B Data                    |
-| 5,6   | 64B Data                    |
-| 7,8   | 64B Data                    |
+|AW |255:224   |223:160   |159:128   |127:96  |95:64   | 63:32  | 31:0    |
+|---|----------|----------|----------|--------|--------|--------|---------|
+|32 |          |          |D[63:32]  |D[31:0] |SA[31:0]|DA[31:0]|CMD[31:0]|
+|64 |DA[63:32] |SA[63:32] |D[63:32]  |D[31:0] |SA[31:0]|DA[31:0]|CMD[31:0]|
 
+### Multi Cycle Write
 
+|AW |255:224   |223:160   |159:128  |127:96  |95:64     | 63:32    | 31:0     |
+|---|----------|----------|---------|--------|----------|----------|----------|
+|64 |DA[63:32] |D[127:64] |D[63:32] |D[31:0] |          |DA[31:0]  |CMD[31:0] |
+|64 |D[159:128]|D[127:64] |D[63:32] |D[31:0] |D[255:224]|D[223:192]|D[191:160]|
 
 
+### 802.3 Ethernet Packet (AW=64)
+
+* 112 ethernet header sent on first cycle
+* Transaction size set to total ethernet frame + control + 2 empty bytes on first cycle
+
+|255:224   |223:160     |159:128  |127:96  |95:64     | 63:32    | 31:0     |
+|----------|------------|---------|--------|----------|----------|----------|
+|DA[63:32] |0,HD[112:64]|HD[63:32]|HD[31:0]|          |DA[31:0]  |CMD[31:0] |
+|D[159:128]|D[127:64]   |D[63:32] |D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[63:32] |D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[63:32] |D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[63:32] |D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[63:32] |D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+
+### CXL.IO Latency Optimized 256B Flit (AW=64)
+
+* 16 bit cxl header setn on first cycle
+* Transaction size set to 256 bytes (plus 14 empty byts on first cycle)
+
+|255:224   |223:160   |159:128  |127:96     |95:64         | 63:32    | 31:0     |
+|----------|----------|---------|---------- |--------------|----------|----------|
+|DA[63:32] |          |         |00,HD[15:0]|              |DA[31:0]  |CMD[31:0] |
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |D[255:224]    |D[223:192]|D[191:160]|
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |00,D[239:224] |D[223:192]|D[191:160]|
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |D[255:224]    |D[223:192]|D[191:160]|
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |CRC,D[239:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |D[255:224]    |D[223:192]|D[191:160]|
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |D[255:224]    |D[223:192]|D[191:160]|
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |D[255:224]    |D[223:192]|D[191:160]|
+|D[159:128]|D[127:64] |D[63:32] |D[31:0]    |CRC,M,TLP]    |D[223:192]|D[191:160]|
 
 
 ## Signal Interface
 
 
-
-
 ## File format
-
-
