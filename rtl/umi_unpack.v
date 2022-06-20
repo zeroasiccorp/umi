@@ -3,7 +3,8 @@
  * Author:    Andreas Olofsson
  ******************************************************************************/
 module umi_unpack
-  #(parameter AW = 64)
+  #(parameter AW = 64,
+    parameter PW = 256)
    (
     // Input packet
     input [PW-1:0]    packet_in,
@@ -25,7 +26,7 @@ module umi_unpack
     //Address/Data
     output [AW-1:0]   dstaddr, // read/write target address
     output [AW-1:0]   srcaddr, // read return address
-    output [4*AW-1:0] data     // write data
+    output [AW-1:0] data     // write data
     );
 
 endmodule // umi_unpack
