@@ -12,6 +12,9 @@
 * Valid transaction indicated by separate physical valid bit.
 * TX/RX operating modes set up through separate side channels.
 * Support for 32b, 64b, 128b memory architectures.
+* Support for PCIe 6.0 Flit Mode
+* Support for CXL 2.0 Mode
+* Support for Streaming Mode
      
 ## Command Types
 
@@ -79,23 +82,38 @@
 
 ### 802.3 Ethernet Packet 
 
-| Cycle   | Content                  |
-|---------|--------------------------|
-| 0       | UMI Transaction          |
-| 1       | Header (14B), data(18B)  |
-| 3,4     | Data (64B)               |
-| 5,6     | Data (64B)               |
-| 7,8     | Data (64B)               |
+| Cycle | Content                      |
+|-------|------------------------------|
+| 0     | UMI Transaction, 112b Header |
+| 1,2   | Data (64B)                   |
+| 3,4   | Data (64B)                   |
+| 5,6   | Data (64B)                   |
+| 7,8   | Data (64B)                   |
 
 ### CXL.IO Latency Optimized 256B Flit 
 
-| Cycle   | Content                  |
-|---------|--------------------------|
-| 0       | UMI Transaction          |
-| 1,2     | CXL header + Flit Chunk0 |
-| 3,4     | Flit Chunk1, DLP, CRC0   |
-| 5,6     | Flit Chunk2              |
-| 7,8     | Flit Chunk3, Market, CRC2|
+| Cycle | Content                     |
+|-------|-----------------------------|
+| 0     | UMI Transaction, 16b Header |
+| 1,2   | Flit Chunk0                 |
+| 3,4   | Flit Chunk1, DLP, CRC0      |
+| 5,6   | Flit Chunk2                 |
+| 7,8   | Flit Chunk3, Marke3, CRC2   |
+
+### OpenCAPI 
+
+| Cycle | Content                     |
+|-------|-----------------------------|
+| 0     | UMI Transaction, 64b Header |
+| 1,2   | 64B Data                    |
+| 3,4   | 64B Data                    |
+| 5,6   | 64B Data                    |
+| 7,8   | 64B Data                    |
+
+
+
+
+
 
 ## Signal Interface
 
