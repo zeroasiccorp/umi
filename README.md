@@ -11,21 +11,18 @@
 * Transaction behavior controlled through 32bit command
 * Native 64bit addressing with 32bit compatibilty mode
 * 256 bit flit size
+* Write always has priority over read
 
 ## Transaction Types
 
 | Command        | 31:12      |  11:8     |  OPCODE   |
 |----------------|------------|-----------|-----------|
 | INVALID        | USER[19:0] | SIZE[3:0] | 0000_0000 |
-| WRITE          | USER[19:0] | SIZE[3:0] | 0001_0000 |
-| WRITE-RESPONSE | USER[19:0] | SIZE[3:0] | 0010_0000 |
-| WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | 0011_0000 |
-| WRITE-STREAM   | USER[19:0] | --        | 0100_0000 |
-| WRITE-ACK      | USER[19:0] | --        | 0101_0000 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_0001 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_0010 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_0011 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_0100 |
+| WRITE-NORMAL   | USER[19:0] | SIZE[3:0] | XXXX_0000 |
+| WRITE-RESPONSE | USER[19:0] | SIZE[3:0] | XXXX_0001 |
+| WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | XXXX_0010 |
+| WRITE-STREAM   | USER[19:0] | --        | XXXX_0011 |
+| WRITE-ACK      | USER[19:0] | --        | XXXX_0100 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0101 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0110 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0111 |
@@ -38,7 +35,6 @@
 | ATOMIC-XOR     | USER[19:0] | SIZE[3:0] | 0100_1001 |
 | ATOMIC-MAX     | USER[19:0] | SIZE[3:0] | 0101_1001 |
 | ATOMIC-MIN     | USER[19:0] | SIZE[3:0] | 0110_1001 |
-| ATOMIC-ADD     | USER[19:0] | SIZE[3:0] | 0111_1001 |
 | ATOMIC-USER    | USER[19:0] | SIZE[3:0] | 1XXX_1001 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_1011 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_1100 |
@@ -91,7 +87,7 @@
 |AW |255:224 |223:192  |191:160 |159:128 |127:96 |95:64  | 63:32 | 31:0  |
 |---|--------|---------|--------|--------|-------|-------|-------|-------|
 |64 |A[63:32]|S[63:32] |D[95:64]|D[63:32]|D[31:0]|S[31:0]|A[31:0]|C[31:0]|
-|32 |        |         |        |D[63:32]|D[31:0]|S[31:0]|A[31:0]|C[31:0]|
+|32 |        |         |        |        |D[31:0]|S[31:0]|A[31:0]|C[31:0]|
 
 
 ### Multi Cycle Write
@@ -99,7 +95,7 @@
 |255:224   |223:192  |191:160 |159:128 |127:96 |95:64     |63:32     | 31:0    |
 |----------|---------|--------|--------|-------|----------|----------|----------|
 |A[63:32]  |D[127:96]|D[95:64]|D[63:32]|D[31:0]|          |A[31:0]   |C[31:0]   |
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]|D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:96]|D[95:64]|D[63:32]|D[31:0]|D[255:224]|D[223:192]|D[191:160]|
 
 ### 802.3 Ethernet Packet (AW=64)
 
