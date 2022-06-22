@@ -128,8 +128,9 @@
 |D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
 |D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |CRC,M,TLP     |D[223:192]|D[191:160]|
 
-## Signal Interface
+## Ready/valid handshake protocol
 
+![UMI](docs/_images/ready_valid.svg)
 
 ## Transaction File Format (AW=64)
 
