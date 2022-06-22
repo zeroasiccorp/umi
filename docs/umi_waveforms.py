@@ -11,4 +11,4 @@ svg = wavedrom.render("""
  { "name": "ready_in",  "wave": "1....01.."},
 
 ]}""")
-svg.saveas("ready_valid.svg")
+svg.saveas("_images/ready_valid.svg")
