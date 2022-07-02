@@ -7,6 +7,11 @@
  *
  *
  ******************************************************************************/
+
+`resetall
+`timescale 1ns / 1ps
+`default_nettype none
+
 module umi_decode
   (
    // Packet Command
@@ -39,7 +44,7 @@ module umi_decode
    // Command grouping
    assign cmd_opcode[7:0] = cmd[7:0];
    assign cmd_size[3:0]   = cmd[11:8];
-   assign cmd_user[3:0]   = cmd[31:12];
+   assign cmd_user[19:0]  = cmd[31:12];
    assign cmd_read        =  cmd_opcode[3];
    assign cmd_write       = ~cmd_opcode[3];
    assign cmd_atomic      = cmd_opcode[3:0]==4'b1001;
@@ -63,3 +68,5 @@ module umi_decode
 
 
 endmodule // umi_decode
+
+`resetall
