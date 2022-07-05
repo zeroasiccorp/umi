@@ -8,10 +8,6 @@
  *
  ******************************************************************************/
 
-`resetall
-`timescale 1ns / 1ps
-`default_nettype none
-
 module umi_decode
   (
    // Packet Command
@@ -68,5 +64,3 @@ module umi_decode
 
 
 endmodule // umi_decode
-
-`resetall

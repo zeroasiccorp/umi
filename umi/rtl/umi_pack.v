@@ -8,10 +8,6 @@
  *
  ******************************************************************************/
 
-`resetall
-`timescale 1ns / 1ps
-`default_nettype none
-
 module umi_pack
   #(parameter AW = 64,
     parameter PW = 256)
@@ -54,13 +50,9 @@ module umi_pack
    endgenerate
 
    // decoding signals needed for packet mux
-   // verilator lint_off PINMISSING
    umi_decode umi_decode (// input
 			  .cmd      (cmd_out[31:0]),
 			  // output
 			  .cmd_read (cmd_read));
-   // verilator lint_on PINMISSING
 
 endmodule // umi_pack
-
-`resetall
