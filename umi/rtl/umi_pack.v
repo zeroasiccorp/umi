@@ -33,15 +33,15 @@ module umi_pack
    assign cmd_out[31:12] = user[19:0];
 
    // data/address packer
+   wire cmd_read;
    generate
       if(AW==64 & PW==256) begin : p256
-	 assign cmd_read       = ~burst & cmd_read;
 	 // see README to understand why...
 	 assign data_out[255:0] = {data[159:0], data[255:160]};
 	 // driving data baseed on transaction type
 	 assign packet_out[31:0]    = burst ? data_out[31:0]  : cmd_out[31:0];
 	 assign packet_out[63:32]   = burst ? data_out[63:32] : dstaddr[31:0];
-	 assign packet_out[95:64]   = burst ? data_out[95:65] : srcaddr[31:0];
+	 assign packet_out[95:64]   = burst ? data_out[95:64] : srcaddr[31:0];
 	 assign packet_out[191:96]  = data_out[191:96];
 	 assign packet_out[223:192] = cmd_read ? srcaddr[63:32] : data_out[223:192];
 	 assign packet_out[255:224] = burst ? data_out[255:224] : dstaddr[63:32];
