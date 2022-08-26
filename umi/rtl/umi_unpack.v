@@ -41,16 +41,8 @@ module umi_unpack
     output [4*AW-1:0] data     // write data
     );
 
-
-   // command fields
-   assign cmd_opcode[7:0] = packet_in[7:0];
-   assign cmd_size[3:0]   = packet_in[3:0];
-   assign cmd_user[19:0]  = packet_in[19:0];
-
    // command decode
-   umi_decode umi_decode(.cmd ({cmd_user[19:0],
-				cmd_size[3:0],
-				cmd_opcode[7:0]}),
+   umi_decode umi_decode(.cmd(packet_in[31:0]),
 			 /*AUTOINST*/
 			 // Outputs
 			 .cmd_invalid		(cmd_invalid),
@@ -76,7 +68,7 @@ module umi_unpack
    // data field unpacker
    generate
       if(AW==64 & PW==256) begin : p256
-	 assign dstaddr[31:0]   = packet_in[63:31];
+	 assign dstaddr[31:0]   = packet_in[63:32];
 	 assign dstaddr[63:32]  = packet_in[255:224];
 	 assign srcaddr[31:0]   = packet_in[95:64];
 	 assign srcaddr[63:32]  = packet_in[223:192];
