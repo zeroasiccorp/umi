@@ -15,6 +15,8 @@
 
 ## Transaction Types
 
+!!TODO: Add interrupt support
+
 | Command        | 31:12      |  11:8     |  OPCODE   |
 |----------------|------------|-----------|-----------|
 | INVALID        | USER[19:0] | SIZE[3:0] | 0000_0000 |
