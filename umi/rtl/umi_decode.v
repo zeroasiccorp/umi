@@ -46,7 +46,7 @@ module umi_decode
    assign cmd_invalid     = ~|cmd_opcode[7:0];
 
    // Write controls
-   assign cmd_write_signal   = cmd_opcode[2:0]==3'b001;
+   assign cmd_write_normal   = cmd_opcode[2:0]==3'b000;
    assign cmd_write_response = cmd_opcode[2:0]==3'b001;
    assign cmd_write_signal   = cmd_opcode[2:0]==3'b010;
    assign cmd_write_stream   = cmd_opcode[2:0]==3'b011;
