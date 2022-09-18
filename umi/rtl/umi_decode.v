@@ -35,7 +35,6 @@ module umi_decode
    output [19:0] cmd_user //user field
    );
 
-
    // Command grouping
    assign cmd_opcode[7:0] = cmd[7:0];
    assign cmd_size[3:0]   = cmd[11:8];
@@ -46,11 +45,13 @@ module umi_decode
    assign cmd_invalid     = ~|cmd_opcode[7:0];
 
    // Write controls
-   assign cmd_write_signal   = cmd_opcode[2:0]==3'b001;
-   assign cmd_write_response = cmd_opcode[2:0]==3'b001;
-   assign cmd_write_signal   = cmd_opcode[2:0]==3'b010;
-   assign cmd_write_stream   = cmd_opcode[2:0]==3'b011;
-   assign cmd_write_ack      = cmd_opcode[2:0]==3'b100;
+   assign cmd_write_normal   = cmd_opcode[2:0]==3'b001;
+   assign cmd_write_response = cmd_opcode[2:0]==3'b010;
+   assign cmd_write_signal   = cmd_opcode[2:0]==3'b011;
+   assign cmd_write_stream   = cmd_opcode[2:0]==3'b100;
+   assign cmd_write_ack      = cmd_opcode[2:0]==3'b101;
+   assign cmd_write_user1    = cmd_opcode[2:0]==3'b110;
+   assign cmd_write_user2    = cmd_opcode[2:0]==3'b111;
 
    // Read transactions
    assign cmd_atomic_swap = cmd_atomic & (cmd_opcode[6:4]==3'b000);
