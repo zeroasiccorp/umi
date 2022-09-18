@@ -15,17 +15,14 @@
 
 ## Transaction Types
 
-!!TODO: Add interrupt support
-
 | Command        | 31:12      |  11:8     |  OPCODE   |
 |----------------|------------|-----------|-----------|
 | INVALID        | USER[19:0] | SIZE[3:0] | 0000_0000 |
-| WRITE-NORMAL   | USER[19:0] | SIZE[3:0] | XXXX_0000 |
-| WRITE-RESPONSE | USER[19:0] | SIZE[3:0] | XXXX_0001 |
-| WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | XXXX_0010 |
-| WRITE-STREAM   | USER[19:0] | --        | XXXX_0011 |
-| WRITE-ACK      | USER[19:0] | --        | XXXX_0100 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_0101 |
+| WRITE-NORMAL   | USER[19:0] | SIZE[3:0] | XXXX_0001 |
+| WRITE-RESPONSE | USER[19:0] | SIZE[3:0] | XXXX_0010 |
+| WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | XXXX_0011 |
+| WRITE-STREAM   | USER[19:0] | --        | XXXX_0100 |
+| WRITE-ACK      | USER[19:0] | --        | XXXX_0101 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0110 |
 | USER           | USER[19:0] | SIZE[3:0] | XXXX_0111 |
 |----------------|------------|-----------|-----------|
