@@ -131,6 +131,14 @@
 
 ![UMI](docs/_images/ready_valid.svg)
 
+UMI adheres to the following ready/valid handshake protocol:
+1. A transaction occurs on every rising clock edge in which READY and VALID are both asserted.
+2. Once VALID is asserted, it must not be de-asserted until a transaction completes.
+3. READY, on the other hand, may be de-asserted before a transaction completes.
+3. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
+4. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
+
+We additionally require that a UMI port does not have a combinational path from READY to VALID, or from VALID to READY.  This is to prevent combinational loops and to improve timing.
 
 ## Naming Convention
 
