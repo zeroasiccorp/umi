@@ -131,7 +131,7 @@
 
 ![UMI](docs/_images/ready_valid.svg)
 
-UMI follows a ready/valid handshake protocol that is consistent with AXI (see, for example, Section 2.2.1 in the AXI4-Stream Protocol Specification: https://developer.arm.com/documentation/ihi0051/a/Introduction/About-the-AXI4-Stream-protocol).  Briefly,
+UMI adheres to the following ready/valid handshake protocol:
 1. A transaction occurs on every rising clock edge in which READY and VALID are both asserted.
 2. Once VALID is asserted, it must not be de-asserted until a transaction completes.
 3. READY, on the other hand, may be de-asserted before a transaction completes.
