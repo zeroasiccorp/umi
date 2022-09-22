@@ -140,6 +140,30 @@ UMI adheres to the following ready/valid handshake protocol:
 
 We additionally require that a UMI port does not have a combinational path from READY to VALID, or from VALID to READY.  This is to prevent combinational loops and to improve timing.
 
+## Naming Convention
+
+Blocks implementing UMI shall adhere to the following port naming convention:
+
+```
+<rx|tx><#>_umi_<packet|ready|valid>
+```
+
+* tx denotes an outgoing transaction, rx denotes an incoming transaction
+* A channel is an rx/tx pair with the same channel #
+* A control channel (if there is one) shall use channel number 0.
+* During integration, module tx ports are connected to rx ports of other modules.
+
+Channel Example:
+
+```verilog
+output        tx0_umi_valid;
+output[255:0] tx0_umi_packet;
+input         tx0_umi_ready;
+input         rx0_umi_valid;
+input[255:0]  rx0_umi_packet;
+output        rx0_umi_ready;
+```
+
 ## Transaction File Format (AW=64)
 
 * Transactions can be stored as hexfiles readable/writeable by Verilog's
