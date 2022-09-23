@@ -9,5 +9,6 @@ def setup():
     chip = siliconcompiler.Chip('umi_mem')
     chip.set('input', 'verilog', 'umi_mem.v')
     chip.add('option', 'ydir', f'{umi_root}/umi/rtl')
-    chip.load_target('za_snps_gf12lp')
+    # May load entire target here instead, but only flow required for verif.
+    chip.load_flow('verification')
     return chip
