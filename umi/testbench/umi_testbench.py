@@ -12,7 +12,7 @@ def setup(chip):
     mydir = os.path.dirname(os.path.abspath(__file__))
     sbdir = os.path.join(mydir, '..', '..', 'submodules', 'switchboard')
 
-    # Add testbench sources from ebrick and switchboard
+    # Add testbench sources
     chip.add('input', 'verilog', f'{mydir}/verilog/umi_testbench.sv')
     chip.add('input', 'verilog', f'{sbdir}/verilog/sim/umi_rx_sim.sv')
     chip.add('input', 'verilog', f'{sbdir}/verilog/sim/umi_tx_sim.sv')
