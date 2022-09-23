@@ -127,7 +127,35 @@
 |D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
 |D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |CRC,M,TLP     |D[223:192]|D[191:160]|
 
-## Ready/valid handshake protocol
+## Signal Interface
+
+Blocks implementing UMI shall adhere to the following port naming convention:
+
+```
+umi<#>_<in|out>_<packet|ready|valid>
+```
+
+* A channel include packet, ready, valid signals
+" Channel direction is with respect to self (out"= outgoing, "in"= incoming)
+* Bidirectional channels consist of an outgoing channel("out") and incoming channel("in")
+* Optional control channels shall use channel number 0.
+* Modules with only one channel can ommit the channel number from the name.
+* During integration, module "out" channels are connected to "in" channels.
+
+Channel Example:
+
+```verilog
+output        umi0_out_valid;
+output[255:0] umi0_out_packet;
+input         umi0_out_ready;
+input         umi0_in_valid;
+input[255:0]  umi0_in_packet;
+output        umi0_in_ready;
+```
+![UMI](docs/_images/umi_connections.png)
+
+
+## Handshake Protocol
 
 ![UMI](docs/_images/ready_valid.svg)
 
@@ -140,34 +168,9 @@ UMI adheres to the following ready/valid handshake protocol:
 
 We additionally require that a UMI port does not have a combinational path from READY to VALID, or from VALID to READY.  This is to prevent combinational loops and to improve timing.
 
-## Naming Convention
-
-Blocks implementing UMI shall adhere to the following port naming convention:
-
-```
-<rx|tx><#>_umi_<packet|ready|valid>
-```
-
-* tx denotes an outgoing transaction, rx denotes an incoming transaction
-* A channel is an rx/tx pair with the same channel #
-* A control channel (if there is one) shall use channel number 0.
-* During integration, module tx ports are connected to rx ports of other modules.
-
-Channel Example:
-
-```verilog
-output        tx0_umi_valid;
-output[255:0] tx0_umi_packet;
-input         tx0_umi_ready;
-input         rx0_umi_valid;
-input[255:0]  rx0_umi_packet;
-output        rx0_umi_ready;
-```
-
 ## Transaction File Format (AW=64)
 
-* Transactions can be stored as hexfiles readable/writeable by Verilog's
-$readmemh/$writememh.
+* Transactions can be stored as hexfiles readable/writeable by Verilog's $readmemh/$writememh.
 * The recommended file extension is ".memh"
 * For $readmemh compatible readers, comments can be embedded using the "//" syntax.
 * An optional single byte control field (TV) can be included with each transaction
