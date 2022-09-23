@@ -100,12 +100,13 @@ module umi_endpoint
    assign write        = cmd_write;
    assign read         = cmd_read;
    assign cmd[31:0]    = packet_in[31:0];
+   assign write_data   = data[DW-1:0];
 
    //########################################
    //# Pipeline
    //#######################################
 
-   reg   	    valid_out;
+   reg   	    valid_out_reg;
    reg [3:0] 	    size_out;
    reg [19:0] 	    user_out;
    reg [7:0] 	    opcode_out;
@@ -116,16 +117,20 @@ module umi_endpoint
    // valid
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       valid_out <= 1'b0;
-     else if(ready_in)
-       valid_out <= valid_in & cmd_read;
+       valid_out_reg <= 1'b0;
+     else if(valid_in & cmd_read)
+       valid_out_reg <= 1'b1;
+     else if(valid_out & ready_in)
+       valid_out_reg <= 1'b0;
+
+   assign valid_out = valid_out_reg;
 
    // ready signal
-   assign ready_out = ready_in;
+   assign ready_out = 1'b1;
 
    // turn around transaction
    always @ (posedge clk)
-     if(ready_in & valid_in & cmd_read)
+     if(valid_in & cmd_read)
        begin
 	  dstaddr_out[AW-1:0] <= srcaddr[AW-1:0];
 	  size_out[3:0]       <= cmd_size[3:0];
