@@ -9,10 +9,18 @@
  ******************************************************************************/
 module umi_unpack
   #(parameter AW = 64,
-    parameter PW = 256)
+    parameter UW = 256)
    (
     // Input packet
-    input [PW-1:0]    packet_in,
+    input [UW-1:0]    packet,
+    //Address/Data
+    output [AW-1:0]   dstaddr, // read/write target address
+    output [AW-1:0]   srcaddr, // read return address
+    output [4*AW-1:0] data, // write data
+    //Command Fields
+    output [7:0]      cmd_opcode,// raw opcode
+    output [3:0]      cmd_size, // burst length(up to 16)
+    output [19:0]     cmd_user, //user field
     // Decoded signals
     output 	      cmd_invalid,// invalid transaction
     output 	      cmd_write,// write indicator
@@ -30,19 +38,11 @@ module umi_unpack
     output 	      cmd_atomic_or,
     output 	      cmd_atomic_xor,
     output 	      cmd_atomic_min,
-    output 	      cmd_atomic_max,
-    //Command Fields
-    output [7:0]      cmd_opcode,// raw opcode
-    output [3:0]      cmd_size, // burst length(up to 16)
-    output [19:0]     cmd_user, //user field
-    //Address/Data
-    output [AW-1:0]   dstaddr, // read/write target address
-    output [AW-1:0]   srcaddr, // read return address
-    output [4*AW-1:0] data     // write data
+    output 	      cmd_atomic_max
     );
 
    // command decode
-   umi_decode umi_decode(.cmd(packet_in[31:0]),
+   umi_decode umi_decode(.cmd(packet[31:0]),
 			 /*AUTOINST*/
 			 // Outputs
 			 .cmd_invalid		(cmd_invalid),
@@ -67,19 +67,19 @@ module umi_unpack
 
    // data field unpacker
    generate
-      if(AW==64 & PW==256) begin : p256
-	 assign dstaddr[31:0]   = packet_in[63:32];
-	 assign dstaddr[63:32]  = packet_in[255:224];
-	 assign srcaddr[31:0]   = packet_in[95:64];
-	 assign srcaddr[63:32]  = packet_in[223:192];
-	 assign data[31:0]      = packet_in[127:96];
-	 assign data[63:32]     = packet_in[159:128];
-	 assign data[95:64]     = packet_in[191:160];
-	 assign data[127:96]    = packet_in[223:192];
-	 assign data[159:128]   = packet_in[255:224];
-	 assign data[191:160]   = packet_in[31:0];
-	 assign data[223:192]   = packet_in[63:32];
-	 assign data[255:224]   = packet_in[95:64];
+      if(AW==64 & UW==256) begin : p256
+	 assign dstaddr[31:0]   = packet[63:32];
+	 assign dstaddr[63:32]  = packet[255:224];
+	 assign srcaddr[31:0]   = packet[95:64];
+	 assign srcaddr[63:32]  = packet[223:192];
+	 assign data[31:0]      = packet[127:96];
+	 assign data[63:32]     = packet[159:128];
+	 assign data[95:64]     = packet[191:160];
+	 assign data[127:96]    = packet[223:192];
+	 assign data[159:128]   = packet[255:224];
+	 assign data[191:160]   = packet[31:0];
+	 assign data[223:192]   = packet[63:32];
+	 assign data[255:224]   = packet[95:64];
       end
    endgenerate
 
