@@ -9,7 +9,7 @@
  ******************************************************************************/
 module umi_pack
   #(parameter AW = 64,
-    parameter PW = 256)
+    parameter UW = 256)
    (
     // Command inputs
     input [7:0]      opcode,
@@ -21,7 +21,7 @@ module umi_pack
     input [AW-1:0]   srcaddr, // source address (for reads/atomics)
     input [4*AW-1:0] data, // data
     // Output packet
-    output [PW-1:0]  packet_out
+    output [UW-1:0]  packet
     );
 
    wire [31:0] 	     cmd_out;
@@ -35,16 +35,16 @@ module umi_pack
    // data/address packer
    wire cmd_read;
    generate
-      if(AW==64 & PW==256) begin : p256
+      if(AW==64 & UW==256) begin : p256
 	 // see README to understand why...
 	 assign data_out[255:0] = {data[159:0], data[255:160]};
 	 // driving data baseed on transaction type
-	 assign packet_out[31:0]    = burst ? data_out[31:0]  : cmd_out[31:0];
-	 assign packet_out[63:32]   = burst ? data_out[63:32] : dstaddr[31:0];
-	 assign packet_out[95:64]   = burst ? data_out[95:64] : srcaddr[31:0];
-	 assign packet_out[191:96]  = data_out[191:96];
-	 assign packet_out[223:192] = cmd_read ? srcaddr[63:32] : data_out[223:192];
-	 assign packet_out[255:224] = burst ? data_out[255:224] : dstaddr[63:32];
+	 assign packet[31:0]    = burst ? data_out[31:0]  : cmd_out[31:0];
+	 assign packet[63:32]   = burst ? data_out[63:32] : dstaddr[31:0];
+	 assign packet[95:64]   = burst ? data_out[95:64] : srcaddr[31:0];
+	 assign packet[191:96]  = data_out[191:96];
+	 assign packet[223:192] = cmd_read ? srcaddr[63:32] : data_out[223:192];
+	 assign packet[255:224] = burst ? data_out[255:224] : dstaddr[63:32];
       end
    endgenerate
 

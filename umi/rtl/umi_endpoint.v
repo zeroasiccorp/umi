@@ -20,13 +20,13 @@ module umi_endpoint
     input 	    nreset,
     input 	    clk,
     // Incoming UMI request
-    input 	    valid_in,
-    input [UW-1:0]  packet_in,
-    output 	    ready_out,
+    input 	    umi_in_valid,
+    input [UW-1:0]  umi_in_packet,
+    output 	    umi_in_ready,
     // Outgoing UMI response
-    output 	    valid_out,
-    output [UW-1:0] packet_out,
-    input 	    ready_in,
+    output 	    umi_out_valid,
+    output [UW-1:0] umi_out_packet,
+    input 	    umi_out_ready,
     // Memory interface
     output [AW-1:0] addr, // memory address
     output 	    write, // write enable
@@ -36,7 +36,6 @@ module umi_endpoint
     input [DW-1:0]  read_data  // data response
     );
 
-   localparam PW = UW; // temp alias
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire			cmd_atomic;		// From umi_unpack of umi_unpack.v
@@ -67,10 +66,17 @@ module umi_endpoint
    // UMI UNPACK
    //########################
 
-   umi_unpack #(.PW(UW),
+   umi_unpack #(.UW(UW),
 		.AW(AW))
-   umi_unpack(/*AUTOINST*/
+   umi_unpack(.packet			(umi_in_packet[UW-1:0]),
+	      /*AUTOINST*/
 	      // Outputs
+	      .dstaddr			(dstaddr[AW-1:0]),
+	      .srcaddr			(srcaddr[AW-1:0]),
+	      .data			(data[4*AW-1:0]),
+	      .cmd_opcode		(cmd_opcode[7:0]),
+	      .cmd_size			(cmd_size[3:0]),
+	      .cmd_user			(cmd_user[19:0]),
 	      .cmd_invalid		(cmd_invalid),
 	      .cmd_write		(cmd_write),
 	      .cmd_read			(cmd_read),
@@ -86,20 +92,12 @@ module umi_endpoint
 	      .cmd_atomic_or		(cmd_atomic_or),
 	      .cmd_atomic_xor		(cmd_atomic_xor),
 	      .cmd_atomic_min		(cmd_atomic_min),
-	      .cmd_atomic_max		(cmd_atomic_max),
-	      .cmd_opcode		(cmd_opcode[7:0]),
-	      .cmd_size			(cmd_size[3:0]),
-	      .cmd_user			(cmd_user[19:0]),
-	      .dstaddr			(dstaddr[AW-1:0]),
-	      .srcaddr			(srcaddr[AW-1:0]),
-	      .data			(data[4*AW-1:0]),
-	      // Inputs
-	      .packet_in		(packet_in[PW-1:0]));
+	      .cmd_atomic_max		(cmd_atomic_max));
 
    assign addr[AW-1:0] = dstaddr[AW-1:0];
    assign write        = cmd_write;
    assign read         = cmd_read;
-   assign cmd[31:0]    = packet_in[31:0];
+   assign cmd[31:0]    = {cmd_user[19:0],cmd_size[3:0],cmd_opcode[7:0]};
    assign write_data   = data[DW-1:0];
 
    //########################################
@@ -118,19 +116,12 @@ module umi_endpoint
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        valid_out_reg <= 1'b0;
-     else if(valid_in & cmd_read)
-       valid_out_reg <= 1'b1;
-     else if(valid_out & ready_in)
-       valid_out_reg <= 1'b0;
-
-   assign valid_out = valid_out_reg;
-
-   // ready signal
-   assign ready_out = 1'b1;
+     else if (umi_out_ready)
+       valid_out_reg <= umi_in_valid & cmd_read;
 
    // turn around transaction
    always @ (posedge clk)
-     if(valid_in & cmd_read)
+     if(umi_in_valid & cmd_read & umi_out_ready)
        begin
 	  dstaddr_out[AW-1:0] <= srcaddr[AW-1:0];
 	  size_out[3:0]       <= cmd_size[3:0];
@@ -147,7 +138,7 @@ module umi_endpoint
 			                  read_data[DW-1:0];
 
    //########################
-   // UMI PACK
+   // OUTGOING CHANNEL
    //########################
 
    /*umi_pack  AUTO_TEMPLATE (
@@ -158,11 +149,10 @@ module umi_endpoint
     );
     */
 
-   umi_pack #(.PW(UW),
+   umi_pack #(.UW(UW),
 	      .AW(AW))
-   umi_pack(/*AUTOINST*/
-	    // Outputs
-	    .packet_out			(packet_out[PW-1:0]),	 // Templated
+   umi_pack(.packet			(umi_out_packet[UW-1:0]),
+	    /*AUTOINST*/
 	    // Inputs
 	    .opcode			(opcode_out[7:0]),	 // Templated
 	    .size			(size_out[3:0]),	 // Templated
@@ -171,6 +161,13 @@ module umi_endpoint
 	    .dstaddr			(dstaddr_out[AW-1:0]),	 // Templated
 	    .srcaddr			({(AW){1'b0}}),		 // Templated
 	    .data			(data_out[4*AW-1:0]));	 // Templated
+
+
+
+
+   assign umi_out_valid = valid_out_reg;
+
+   assign umi_in_ready = umi_out_ready;
 
 
 endmodule // umi_endpoint
