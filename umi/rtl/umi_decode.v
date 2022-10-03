@@ -39,10 +39,10 @@ module umi_decode
    assign cmd_opcode[7:0] = cmd[7:0];
    assign cmd_size[3:0]   = cmd[11:8];
    assign cmd_user[19:0]  = cmd[31:12];
-   assign cmd_read        =  cmd_opcode[3];
-   assign cmd_write       = ~cmd_opcode[3];
-   assign cmd_atomic      = cmd_opcode[3:0]==4'b1001;
    assign cmd_invalid     = ~|cmd_opcode[7:0];
+   assign cmd_read        =  cmd_opcode[3] &~cmd_invalid;
+   assign cmd_write       = ~cmd_opcode[3] &~cmd_invalid;
+   assign cmd_atomic      = cmd_opcode[3:0]==4'b1001;
 
    // Write controls
    assign cmd_write_normal   = cmd_opcode[2:0]==3'b001;
