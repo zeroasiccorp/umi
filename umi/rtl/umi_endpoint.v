@@ -95,8 +95,8 @@ module umi_endpoint
 	      .cmd_atomic_max		(cmd_atomic_max));
 
    assign addr[AW-1:0] = dstaddr[AW-1:0];
-   assign write        = cmd_write;
-   assign read         = cmd_read;
+   assign write        = umi_in_valid & cmd_write;
+   assign read         = umi_in_valid & cmd_read;
    assign cmd[31:0]    = {cmd_user[19:0],cmd_size[3:0],cmd_opcode[7:0]};
    assign write_data   = data[DW-1:0];
 
