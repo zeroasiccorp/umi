@@ -38,25 +38,25 @@ module umi_endpoint
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire			cmd_atomic;		// From umi_unpack of umi_unpack.v
-   wire			cmd_atomic_add;		// From umi_unpack of umi_unpack.v
-   wire			cmd_atomic_and;		// From umi_unpack of umi_unpack.v
-   wire			cmd_atomic_max;		// From umi_unpack of umi_unpack.v
-   wire			cmd_atomic_min;		// From umi_unpack of umi_unpack.v
-   wire			cmd_atomic_or;		// From umi_unpack of umi_unpack.v
-   wire			cmd_atomic_swap;	// From umi_unpack of umi_unpack.v
-   wire			cmd_atomic_xor;		// From umi_unpack of umi_unpack.v
-   wire			cmd_invalid;		// From umi_unpack of umi_unpack.v
-   wire [7:0]		cmd_opcode;		// From umi_unpack of umi_unpack.v
-   wire			cmd_read;		// From umi_unpack of umi_unpack.v
-   wire [3:0]		cmd_size;		// From umi_unpack of umi_unpack.v
-   wire [19:0]		cmd_user;		// From umi_unpack of umi_unpack.v
-   wire			cmd_write;		// From umi_unpack of umi_unpack.v
-   wire			cmd_write_ack;		// From umi_unpack of umi_unpack.v
-   wire			cmd_write_normal;	// From umi_unpack of umi_unpack.v
-   wire			cmd_write_response;	// From umi_unpack of umi_unpack.v
-   wire			cmd_write_signal;	// From umi_unpack of umi_unpack.v
-   wire			cmd_write_stream;	// From umi_unpack of umi_unpack.v
+   wire			cmd_atomic;		// From umi_decode of umi_decode.v
+   wire			cmd_atomic_add;		// From umi_decode of umi_decode.v
+   wire			cmd_atomic_and;		// From umi_decode of umi_decode.v
+   wire			cmd_atomic_max;		// From umi_decode of umi_decode.v
+   wire			cmd_atomic_min;		// From umi_decode of umi_decode.v
+   wire			cmd_atomic_or;		// From umi_decode of umi_decode.v
+   wire			cmd_atomic_swap;	// From umi_decode of umi_decode.v
+   wire			cmd_atomic_xor;		// From umi_decode of umi_decode.v
+   wire			cmd_invalid;		// From umi_decode of umi_decode.v
+   wire [7:0]		cmd_opcode;		// From umi_decode of umi_decode.v
+   wire			cmd_read;		// From umi_decode of umi_decode.v
+   wire [3:0]		cmd_size;		// From umi_decode of umi_decode.v
+   wire [19:0]		cmd_user;		// From umi_decode of umi_decode.v
+   wire			cmd_write;		// From umi_decode of umi_decode.v
+   wire			cmd_write_ack;		// From umi_decode of umi_decode.v
+   wire			cmd_write_normal;	// From umi_decode of umi_decode.v
+   wire			cmd_write_response;	// From umi_decode of umi_decode.v
+   wire			cmd_write_signal;	// From umi_decode of umi_decode.v
+   wire			cmd_write_stream;	// From umi_decode of umi_decode.v
    wire [4*AW-1:0]	data;			// From umi_unpack of umi_unpack.v
    wire [AW-1:0]	dstaddr;		// From umi_unpack of umi_unpack.v
    wire [AW-1:0]	srcaddr;		// From umi_unpack of umi_unpack.v
@@ -74,25 +74,34 @@ module umi_endpoint
 	      .dstaddr			(dstaddr[AW-1:0]),
 	      .srcaddr			(srcaddr[AW-1:0]),
 	      .data			(data[4*AW-1:0]),
-	      .cmd_opcode		(cmd_opcode[7:0]),
-	      .cmd_size			(cmd_size[3:0]),
-	      .cmd_user			(cmd_user[19:0]),
-	      .cmd_invalid		(cmd_invalid),
-	      .cmd_write		(cmd_write),
-	      .cmd_read			(cmd_read),
-	      .cmd_atomic		(cmd_atomic),
-	      .cmd_write_normal		(cmd_write_normal),
-	      .cmd_write_signal		(cmd_write_signal),
-	      .cmd_write_ack		(cmd_write_ack),
-	      .cmd_write_stream		(cmd_write_stream),
-	      .cmd_write_response	(cmd_write_response),
-	      .cmd_atomic_swap		(cmd_atomic_swap),
-	      .cmd_atomic_add		(cmd_atomic_add),
-	      .cmd_atomic_and		(cmd_atomic_and),
-	      .cmd_atomic_or		(cmd_atomic_or),
-	      .cmd_atomic_xor		(cmd_atomic_xor),
-	      .cmd_atomic_min		(cmd_atomic_min),
-	      .cmd_atomic_max		(cmd_atomic_max));
+	      .cmd			(cmd[31:0]));
+
+
+   umi_decode
+     umi_decode(/*AUTOINST*/
+		// Outputs
+		.cmd_invalid		(cmd_invalid),
+		.cmd_write		(cmd_write),
+		.cmd_read		(cmd_read),
+		.cmd_atomic		(cmd_atomic),
+		.cmd_write_normal	(cmd_write_normal),
+		.cmd_write_signal	(cmd_write_signal),
+		.cmd_write_ack		(cmd_write_ack),
+		.cmd_write_stream	(cmd_write_stream),
+		.cmd_write_response	(cmd_write_response),
+		.cmd_atomic_swap	(cmd_atomic_swap),
+		.cmd_atomic_add		(cmd_atomic_add),
+		.cmd_atomic_and		(cmd_atomic_and),
+		.cmd_atomic_or		(cmd_atomic_or),
+		.cmd_atomic_xor		(cmd_atomic_xor),
+		.cmd_atomic_min		(cmd_atomic_min),
+		.cmd_atomic_max		(cmd_atomic_max),
+		.cmd_opcode		(cmd_opcode[7:0]),
+		.cmd_size		(cmd_size[3:0]),
+		.cmd_user		(cmd_user[19:0]),
+		// Inputs
+		.cmd			(cmd[31:0]));
+
 
    assign addr[AW-1:0] = dstaddr[AW-1:0];
    assign write        = umi_in_valid & cmd_write;
