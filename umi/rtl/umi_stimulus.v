@@ -49,7 +49,7 @@ module umi_stimulus
    reg [MAW-1:0]    rd_addr;
    reg [1:0] 	    sync_pipe;
    reg 		    mem_read;
-   reg [CW:0] 	    rd_delay;
+   reg [CW-2:0]     rd_delay;
    wire 	    dut_start;
    wire 	    data_valid;
 
@@ -121,14 +121,14 @@ module umi_stimulus
 	      rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
 			       ~data_valid ? STIM_DONE  :
                                              STIM_ACTIVE;
-	      rd_addr[MAW-1:0] <= data_valid ? rd_addr[MAW-1:0] + 1'b1 :
-				               rd_addr[MAW-1:0];
+	      rd_addr[MAW-1:0] <= (|rd_delay) ? rd_addr[MAW-1:0] :
+						rd_addr[MAW-1:0] + 1'b1;
 	      rd_delay         <= (CW > 1) ? mem_data[CW-1:1] : 'b0;
 	   end
 	 STIM_PAUSE :
 	   begin
 	      rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE : STIM_ACTIVE;
-	      rd_delay      <= rd_delay - 1'b1;
+	      rd_delay      <= (|rd_delay) ? rd_delay - 1'b1 : rd_delay;
 	   end
        endcase // case (rd_state[1:0])
 
@@ -139,7 +139,8 @@ module umi_stimulus
    //  output drivesrs
    assign data_valid   = (CW==0) | mem_data[0];
    assign mem_done     = (rd_state[1:0] == STIM_DONE);
-   assign mem_valid    = data_valid & mem_read & ~stim_done;
+   assign mem_valid    = data_valid & mem_read &
+			 (rd_state==STIM_ACTIVE);
 
    //#################################
    // Dual Port RAM
@@ -148,10 +149,11 @@ module umi_stimulus
    //write port
    always @(posedge ext_clk)
      if (ext_valid)
-       ram[wr_addr[MAW-1:0]] = ext_packet[UW+CW-1:0];
+       ram[wr_addr[MAW-1:0]] <= ext_packet[UW+CW-1:0];
 
    //read port
    always @ (posedge dut_clk)
+
      mem_data[UW+CW-1:0] <= ram[rd_addr[MAW-1:0]];
 
 
