@@ -12,8 +12,7 @@ module umi_stimulus
   #( parameter UW       = 256,       // stimulus packet width
      parameter CW       = 8,         // width of control words
      parameter DEPTH    = 8192,      // Memory depth
-     parameter TARGET   = "DEFAULT", // pass through variable for hard macro
-     parameter FILENAME = "NONE"     // Simulus hexfile for $readmemh
+     parameter TARGET   = "DEFAULT" // pass through variable for hard macro
      )
    (
     // control
@@ -56,7 +55,6 @@ module umi_stimulus
    reg [UW+CW-1:0]  ram[0:DEPTH-1];
    reg [UW+CW-1:0]  mem_data;
 
-
    //#################################
    // Stimulus selector
    //#################################
@@ -66,18 +64,6 @@ module umi_stimulus
    assign stim_valid          = mem_valid;
    assign stim_packet[UW-1:0] = mem_data[UW+CW-1:CW];
    assign stim_done           = mem_done;
-
-   //#################################
-   // Init memory if configured
-   //#################################
-   generate
-      if(!(FILENAME=="NONE"))
-	initial
-	  begin
-	     $display("Driving stimulus from %s", FILENAME);
-	     $readmemh(FILENAME, ram);
-	  end
-   endgenerate
 
    //#################################
    // Memory write port state machine
