@@ -12,7 +12,7 @@
  ******************************************************************************/
 module umi_endpoint
   #(parameter AW   = 64,
-    parameter REG  = 1,         // register read_data
+    parameter REG  = 0,         // set to 1 if memory access is not registered
     parameter TYPE = "LIGHT",   // FULL, LIGHT
     parameter DW   = 64,        // width of endpoint data
     parameter UW   = 256)
@@ -63,7 +63,7 @@ module umi_endpoint
    // End of automatics
 
    //########################
-   // UMI UNPACK
+   // REQUEST UNPACK
    //########################
 
    umi_unpack #(.UW(UW),
@@ -106,11 +106,10 @@ module umi_endpoint
    assign addr[AW-1:0] = dstaddr[AW-1:0];
    assign write        = umi_in_valid & cmd_write;
    assign read         = umi_in_valid & cmd_read;
-   assign cmd[31:0]    = {cmd_user[19:0],cmd_size[3:0],cmd_opcode[7:0]};
    assign write_data   = data[DW-1:0];
 
    //########################################
-   //# Pipeline
+   //# Pipeline REQUEST ACCESS
    //#######################################
 
    reg   	    valid_out_reg;
@@ -143,11 +142,11 @@ module umi_endpoint
      if (cmd_read)
        read_data_reg[DW-1:0] <= read_data[DW-1:0];
 
-   assign data_out[4*AW-1:0] = (REG==1) ? read_data_reg[DW-1:0] :
-			                  read_data[DW-1:0];
+   assign data_out[4*AW-1:0] = (REG) ? read_data_reg[DW-1:0] :
+			               read_data[DW-1:0];
 
    //########################
-   // OUTGOING CHANNEL
+   // RESPONSE
    //########################
 
    /*umi_pack  AUTO_TEMPLATE (
@@ -170,9 +169,6 @@ module umi_endpoint
 	    .dstaddr			(dstaddr_out[AW-1:0]),	 // Templated
 	    .srcaddr			({(AW){1'b0}}),		 // Templated
 	    .data			(data_out[4*AW-1:0]));	 // Templated
-
-
-
 
    assign umi_out_valid = valid_out_reg;
 
