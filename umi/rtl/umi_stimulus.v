@@ -59,8 +59,6 @@ module umi_stimulus
    // Stimulus selector
    //#################################
 
-   //TODO: implement other modes?
-
    assign stim_valid          = mem_valid;
    assign stim_packet[UW-1:0] = mem_data[UW+CW-1:CW];
    assign stim_done           = mem_done;
@@ -139,8 +137,8 @@ module umi_stimulus
 
    //read port
    always @ (posedge dut_clk)
-
-     mem_data[UW+CW-1:0] <= ram[rd_addr[MAW-1:0]];
+     if (dut_ready)
+       mem_data[UW+CW-1:0] <= ram[rd_addr[MAW-1:0]];
 
 
 endmodule // oh_stimulus
