@@ -59,12 +59,13 @@ module umi_fifo
    always @ (posedge umi_out_clk or negedge umi_out_nreset)
      if (~umi_out_nreset)
        fifo_out_valid <= 1'b0;
-     else
-       fifo_out_valid <= ~fifo_empty | (fifo_out_valid & ~umi_out_ready);
+     else if(umi_out_ready)
+       fifo_out_valid <= ~fifo_empty;
 
    // Registering fifo output to align with valid/avoid timing issues
    always @ (posedge umi_out_clk)
-     fifo_out_data[UW-1:0] <= fifo_dout[UW-1:0];
+     if(umi_out_ready)
+       fifo_out_data[UW-1:0] <= fifo_dout[UW-1:0];
 
    // FIFO pushback
    assign fifo_in_ready = ~fifo_full;

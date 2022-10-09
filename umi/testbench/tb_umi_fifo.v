@@ -140,14 +140,6 @@ module tb_umi_fifo
 		 .umi_out_nreset	(slownreset),		 // Templated
 		 .umi_out_ready		(1'b1));			 // Templated
 
-   //###################################################
-   //# TRAFFIC MONITOR (SLOWCLK)
-   //###################################################
-
-   always @ (negedge slowclk)
-     if(umi_dut2check_valid)
-       $display("dut result: = %h", umi_dut2check_packet[UW-1:0]);
-
    //##################################################
    //# UMI STIMULUS DRIVER (CLK)
    //##################################################
@@ -181,6 +173,15 @@ module tb_umi_fifo
 		 .ext_packet		({(UW+CW){1'b0}}),	 // Templated
 		 .dut_clk		(clk),			 // Templated
 		 .dut_ready		(umi_stim2dut_ready));	 // Templated
+
+   //###################################################
+   //# TRAFFIC MONITOR (SLOWCLK)
+   //###################################################
+
+   always @ (negedge slowclk)
+     if(umi_dut2check_valid)
+       $display("dut result: = %h", umi_dut2check_packet[UW-1:0]);
+
 
 endmodule // testbench
 // Local Variables:
