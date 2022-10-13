@@ -19,7 +19,7 @@ module umi_mem #(
     wire read;
     wire [DW-1:0] write_data;
     wire [DW-1:0] read_data;
-    wire tx_read_passthru;
+    wire tx_ready_passthru;
 
     reg [DW-1:0] mem[1 << (AW - $clog2(DW))];
 
@@ -48,7 +48,7 @@ module umi_mem #(
     // Truncate address - mem only supports DW-aligned accesses.
     wire [AW-1-$clog2(DW):0] mem_addr;
     assign mem_addr = addr[AW-1:$clog2(DW)];
-    assign tx_read_passthru = tx0_umi_ready;
+    assign tx_ready_passthru = tx0_umi_ready;
 
     always @(posedge clk) begin
         if (write) begin
