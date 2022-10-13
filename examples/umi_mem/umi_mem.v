@@ -48,6 +48,8 @@ module umi_mem #(
     // Truncate address - mem only supports DW-aligned accesses.
     wire [AW-1-$clog2(DW):0] mem_addr;
     assign mem_addr = addr[AW-1:$clog2(DW)];
+
+    // Pass-through signal for the 'umi_in_ready' signal, to prevent "assign to input/const" errors.
     assign tx_ready_passthru = tx0_umi_ready;
 
     always @(posedge clk) begin
