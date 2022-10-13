@@ -10,7 +10,7 @@ def setup(chip):
     Assumes that user plans to build using sclib verification flow.
     '''
     mydir = os.path.dirname(os.path.abspath(__file__))
-    sbdir = os.path.join(mydir, '..', '..', 'submodules', 'switchboard')
+    sbdir = os.environ['SBDIR']
 
     # Add testbench sources
     chip.add('input', 'verilog', f'{mydir}/verilog/umi_testbench.sv')

@@ -12,10 +12,13 @@ pytest:
 pip install pytest
 ```
 
-Next, compile switchboard's umidriver executable:
+Next, clone switchboard, compile its umidriver executable, and set an env
+variable pointing to it:
 
 ```shell
-make umidriver -C <umi-root>/submodules/switchboard/cpp
+cd /path/to/switchboard/cpp
+make umidriver
+export SBDIR=/path/to/switchboard
 ```
 
 Then, simply execute pytest to run the tests:
