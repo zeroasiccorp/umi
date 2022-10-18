@@ -50,8 +50,7 @@ module umi_decode
    assign cmd_write_signal   = cmd_opcode[2:0]==3'b011;
    assign cmd_write_stream   = cmd_opcode[2:0]==3'b100;
    assign cmd_write_ack      = cmd_opcode[2:0]==3'b101;
-   assign cmd_write_user1    = cmd_opcode[2:0]==3'b110;
-   assign cmd_write_user2    = cmd_opcode[2:0]==3'b111;
+   // 110 and 111 reserved opcodes
 
    // Read transactions
    assign cmd_atomic_swap = cmd_atomic & (cmd_opcode[6:4]==3'b000);

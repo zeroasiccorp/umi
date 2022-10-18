@@ -38,10 +38,8 @@ module umi_fifo
    reg [UW-1:0]     fifo_out_data;
 
    // local wires
-   wire 	    fifo_full;
    wire 	    fifo_read;
    wire 	    fifo_write;
-   wire 	    fifo_empty;
    wire [UW-1:0]    fifo_dout;
 
    //#################################
