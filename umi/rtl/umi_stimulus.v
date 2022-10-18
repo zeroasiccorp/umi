@@ -55,6 +55,9 @@ module umi_stimulus
    reg [UW+CW-1:0]  ram[0:DEPTH-1];
    reg [UW+CW-1:0]  mem_data;
 
+   wire 	    mem_valid;
+   wire 	    mem_done;
+
    //#################################
    // Stimulus selector
    //#################################

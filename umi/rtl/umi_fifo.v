@@ -41,6 +41,7 @@ module umi_fifo
    wire 	    fifo_read;
    wire 	    fifo_write;
    wire [UW-1:0]    fifo_dout;
+   wire 	    fifo_in_ready;
 
    //#################################
    // UMI Control Logic
