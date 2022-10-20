@@ -14,6 +14,7 @@ module umi_fifo
     )
    (// control/status signals
     input 	    bypass, // bypass FIFO
+    input 	    chaosmode, // enable "random" fifo pushback
     output 	    fifo_full,
     output 	    fifo_empty,
     // Input
@@ -76,21 +77,22 @@ module umi_fifo
    la_asyncfifo  #(.DW(UW),
 		   .DEPTH(DEPTH))
    fifo  (// Outputs
-	  .wr_full			(fifo_full),
-	  .rd_dout			(fifo_dout[UW-1:0]),
-	  .rd_empty			(fifo_empty),
+	  .wr_full	(fifo_full),
+	  .rd_dout	(fifo_dout[UW-1:0]),
+	  .rd_empty	(fifo_empty),
 	  // Inputs
-	  .wr_clk			(umi_in_clk),
-	  .wr_nreset			(umi_in_nreset),
-	  .wr_din			(umi_in_packet[UW-1:0]),
-	  .wr_en			(umi_in_valid),
-	  .rd_clk			(umi_out_clk),
-	  .rd_nreset			(umi_out_nreset),
-	  .rd_en			(fifo_read),
-	  .vss				(vss),
-	  .vdd				(vdd),
-	  .ctrl				(1'b0),
-	  .test				(1'b0));
+	  .wr_clk	(umi_in_clk),
+	  .wr_nreset	(umi_in_nreset),
+	  .wr_din	(umi_in_packet[UW-1:0]),
+	  .wr_en	(umi_in_valid),
+	  .wr_chaosmode (chaosmode),
+	  .rd_clk	(umi_out_clk),
+	  .rd_nreset	(umi_out_nreset),
+	  .rd_en	(fifo_read),
+	  .vss		(vss),
+	  .vdd		(vdd),
+	  .ctrl		(1'b0),
+	  .test		(1'b0));
 
    //#################################
    // FIFO Bypass
