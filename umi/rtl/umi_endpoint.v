@@ -5,15 +5,13 @@
  *
  * Documentation:
  *
- * TODO:
- * - user TYPE to minimize interface for things like registers
- * - add support for burst
  *
  ******************************************************************************/
 module umi_endpoint
-  #(parameter AW   = 64,
-    parameter REG  = 0,         // set to 1 if memory access is not registered
+  #(parameter REG  = 1,         // 1=insert register on read_data
     parameter TYPE = "LIGHT",   // FULL, LIGHT
+    // standard parameters
+    parameter AW   = 64,
     parameter DW   = 64,        // width of endpoint data
     parameter UW   = 256)
    (//
@@ -33,6 +31,7 @@ module umi_endpoint
     output 	    read, // read request
     output [31:0]   cmd, // pass through command
     output [DW-1:0] write_data, // data to write
+    input 	    ready, // device is ready
     input [DW-1:0]  read_data  // data response
     );
 
@@ -172,7 +171,7 @@ module umi_endpoint
 
    assign umi_out_valid = valid_out_reg;
 
-   assign umi_in_ready = umi_out_ready;
+   assign umi_in_ready = ready & (~read | umi_out_ready) ;
 
 
 endmodule // umi_endpoint
