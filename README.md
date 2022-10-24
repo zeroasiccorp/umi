@@ -29,15 +29,15 @@
 | RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1111 |
 |----------------|------------|-----------|-----------|
 | READ           | USER[19:0] | SIZE[3:0] | 0000_0010 |
-| ATOMIC-SWAP    | USER[19:0] | SIZE[3:0] | 0000_0100 |
-| ATOMIC-ADD     | USER[19:0] | SIZE[3:0] | 0001_0100 |
-| ATOMIC-AND     | USER[19:0] | SIZE[3:0] | 0010_0100 |
-| ATOMIC-OR      | USER[19:0] | SIZE[3:0] | 0011_0100 |
-| ATOMIC-XOR     | USER[19:0] | SIZE[3:0] | 0100_0100 |
-| ATOMIC-MAX     | USER[19:0] | SIZE[3:0] | 0101_0100 |
-| ATOMIC-MIN     | USER[19:0] | SIZE[3:0] | 0110_0100 |
-| ATOMIC-MAXU    | USER[19:0] | SIZE[3:0] | 1000_0100 |
-| ATOMIC-MINU    | USER[19:0] | SIZE[3:0] | 1001_0100 |
+| ATOMIC-ADD     | USER[19:0] | SIZE[3:0] | 0000_0100 |
+| ATOMIC-AND     | USER[19:0] | SIZE[3:0] | 0001_0100 |
+| ATOMIC-OR      | USER[19:0] | SIZE[3:0] | 0010_0100 |
+| ATOMIC-XOR     | USER[19:0] | SIZE[3:0] | 0011_0100 |
+| ATOMIC-MAX     | USER[19:0] | SIZE[3:0] | 0100_0100 |
+| ATOMIC-MIN     | USER[19:0] | SIZE[3:0] | 0101_0100 |
+| ATOMIC-MAXU    | USER[19:0] | SIZE[3:0] | 0110_0100 |
+| ATOMIC-MINU    | USER[19:0] | SIZE[3:0] | 0111_0100 |
+| ATOMIC-SWAP    | USER[19:0] | SIZE[3:0] | 1000_0100 |
 | RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_0110 |
 | RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1000 |
 | RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1010 |
