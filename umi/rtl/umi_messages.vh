@@ -1,4 +1,5 @@
 
+// FULL OPCODES
 localparam INVALID         = 8'h00;
 localparam WRITE_POSTED    = 8'h01;
 localparam WRITE_RESPONSE  = 8'h03;
@@ -15,3 +16,6 @@ localparam ATOMIC_MIN      = 8'h54;
 localparam ATOMIC_MAXU     = 8'h64;
 localparam ATOMIC_MINU     = 8'h74;
 localparam ATOMIC_SWAP     = 8'h84;
+
+// GROUPS
+localparam ATOMIC          = 4'h4;
