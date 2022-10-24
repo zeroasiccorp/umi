@@ -22,7 +22,7 @@ module umi_endpoint
     input [UW-1:0]  umi_in_packet,
     output 	    umi_in_ready,
     // Outgoing UMI response
-    output 	    umi_out_valid,
+    output reg 	    umi_out_valid,
     output [UW-1:0] umi_out_packet,
     input 	    umi_out_ready,
     // Memory interface
@@ -34,7 +34,6 @@ module umi_endpoint
     input 	    ready, // device is ready
     input [DW-1:0]  read_data  // data response
     );
-
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -49,9 +48,9 @@ module umi_endpoint
    wire			cmd_atomic_swap;	// From umi_decode of umi_decode.v
    wire			cmd_atomic_xor;		// From umi_decode of umi_decode.v
    wire			cmd_invalid;		// From umi_decode of umi_decode.v
-   wire			cmd_read;		// From umi_decode of umi_decode.v
+   wire			cmd_read_request;	// From umi_decode of umi_decode.v
    wire			cmd_write_ack;		// From umi_decode of umi_decode.v
-   wire			cmd_write_normal;	// From umi_decode of umi_decode.v
+   wire			cmd_write_posted;	// From umi_decode of umi_decode.v
    wire			cmd_write_response;	// From umi_decode of umi_decode.v
    wire			cmd_write_signal;	// From umi_decode of umi_decode.v
    wire			cmd_write_stream;	// From umi_decode of umi_decode.v
@@ -94,13 +93,13 @@ module umi_endpoint
 		 /*AUTOINST*/
 		 // Outputs
 		 .cmd_invalid		(cmd_invalid),
-		 .cmd_read		(cmd_read),
-		 .cmd_atomic		(cmd_atomic),
-		 .cmd_write_normal	(cmd_write_normal),
+		 .cmd_read_request	(cmd_read_request),
+		 .cmd_write_posted	(cmd_write_posted),
 		 .cmd_write_signal	(cmd_write_signal),
 		 .cmd_write_ack		(cmd_write_ack),
 		 .cmd_write_stream	(cmd_write_stream),
 		 .cmd_write_response	(cmd_write_response),
+		 .cmd_atomic		(cmd_atomic),
 		 .cmd_atomic_swap	(cmd_atomic_swap),
 		 .cmd_atomic_add	(cmd_atomic_add),
 		 .cmd_atomic_and	(cmd_atomic_and),
@@ -111,12 +110,12 @@ module umi_endpoint
 		 .cmd_atomic_minu	(cmd_atomic_minu),
 		 .cmd_atomic_maxu	(cmd_atomic_maxu));
 
-   assign read                = cmd_read;
+   assign read                = cmd_read_request;
    assign addr[AW-1:0]        = umi_in_dstaddr[AW-1:0];
    assign write_data[DW-1:0]  = umi_in_data[DW-1:0];
 
    //########################################
-   //# Pipeline REQUEST ACCESS
+   //# Pipeline Request
    //#######################################
 
    reg   	    valid_out_reg;
@@ -128,16 +127,20 @@ module umi_endpoint
    reg [DW-1:0]     read_data_reg;
    wire [4*AW-1:0]  data_out;
 
-   // valid
+   // outgoing valid
+   //1. Set on request
+   //2. Lower when no new requst AND transaction is done (valid&ready)
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       valid_out_reg <= 1'b0;
-     else if (umi_out_ready)
-       valid_out_reg <= umi_in_valid & cmd_read;
+       umi_out_valid <= 1'b0;
+     else if (cmd_read_request)
+       umi_out_valid <= 1'b1;
+     else if (umi_out_valid & umi_out_ready)
+       umi_out_valid <= 1'b0;
 
    // turn around transaction
    always @ (posedge clk)
-     if(umi_in_valid & cmd_read & umi_out_ready)
+     if(umi_out_ready & cmd_read_request)
        begin
 	  dstaddr_out[AW-1:0] <= umi_in_srcaddr[AW-1:0];
 	  write_out           <= umi_in_write;
@@ -148,14 +151,14 @@ module umi_endpoint
 
    // register data
    always @ (posedge clk)
-     if (cmd_read)
+     if (cmd_read_request)
        read_data_reg[DW-1:0] <= read_data[DW-1:0];
 
    assign data_out[4*AW-1:0] = (REG) ? read_data_reg[DW-1:0] :
 			               read_data[DW-1:0];
 
    //########################
-   // RESPONSE
+   // RESPONSE PACKET
    //########################
 
    /*umi_pack  AUTO_TEMPLATE (
@@ -180,9 +183,7 @@ module umi_endpoint
 	    .srcaddr			({(AW){1'b0}}),		 // Templated
 	    .data			(data_out[4*AW-1:0]));	 // Templated
 
-   assign umi_out_valid = valid_out_reg;
-
+   // Flow control
    assign umi_in_ready = ready & (~read | umi_out_ready) ;
-
 
 endmodule // umi_endpoint
