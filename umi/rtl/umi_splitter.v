@@ -9,6 +9,7 @@
  * - UMI 0 carries high priority traffic ("writes")
  * - UMI 1 carries low priority traffic ("read requests")
  * - No cycles allowed since this would deadlock
+ * - Traffic source must be self throttling
  *
  ******************************************************************************/
 module umi_splitter
