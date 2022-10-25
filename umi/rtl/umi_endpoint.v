@@ -17,14 +17,18 @@ module umi_endpoint
    (//
     input 	    nreset,
     input 	    clk,
-    // Incoming UMI request
-    input 	    umi_in_valid,
-    input [UW-1:0]  umi_in_packet,
-    output 	    umi_in_ready,
+    // Write/response
+    input 	    umi0_in_valid,
+    input [UW-1:0]  umi0_in_packet,
+    output 	    umi0_in_ready,
+    // Read/request
+    input 	    umi1_in_valid,
+    input [UW-1:0]  umi1_in_packet,
+    output 	    umi1_in_ready,
     // Outgoing UMI response
-    output reg 	    umi_out_valid,
-    output [UW-1:0] umi_out_packet,
-    input 	    umi_out_ready,
+    output reg 	    umi0_out_valid,
+    output [UW-1:0] umi0_out_packet,
+    input 	    umi0_out_ready,
     // Memory interface
     output [AW-1:0] addr, // memory address
     output 	    write, // write enable
@@ -58,13 +62,36 @@ module umi_endpoint
    wire [4*AW-1:0]	umi_in_data;		// From umi_unpack of umi_unpack.v
    wire [AW-1:0]	umi_in_dstaddr;		// From umi_unpack of umi_unpack.v
    wire [19:0]		umi_in_options;		// From umi_unpack of umi_unpack.v
+   wire [N-1:0]		umi_in_ready;		// From umi_mux of umi_mux.v
    wire [3:0]		umi_in_size;		// From umi_unpack of umi_unpack.v
    wire [AW-1:0]	umi_in_srcaddr;		// From umi_unpack of umi_unpack.v
    wire			umi_in_write;		// From umi_unpack of umi_unpack.v
+   wire [UW-1:0]	umi_out_packet;		// From umi_mux of umi_mux.v
+   wire			umi_out_valid;		// From umi_mux of umi_mux.v
    // End of automatics
 
    //########################
-   // REQUEST UNPACK
+   // UMI UNPACK
+   //########################
+
+   umi_mux #(.N(2))
+   umi_mux(.mode		(2'b00),
+	   .mask		(2'b00),
+	   /*AUTOINST*/
+	   // Outputs
+	   .umi_in_ready		(umi_in_ready[N-1:0]),
+	   .umi_out_valid		(umi_out_valid),
+	   .umi_out_packet		(umi_out_packet[UW-1:0]),
+	   // Inputs
+	   .clk				(clk),
+	   .nreset			(nreset),
+	   .umi_in_valid		(umi_in_valid[N-1:0]),
+	   .umi_in_packet		(umi_in_packet[N*UW-1:0]),
+	   .umi_out_ready		(umi_out_ready));
+
+
+   //########################
+   // UMI UNPACK
    //########################
 
    /*umi_unpack AUTO_TEMPLATE (
