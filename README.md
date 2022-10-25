@@ -168,6 +168,40 @@ UMI adheres to the following ready/valid handshake protocol:
 
 We additionally require that a UMI port does not have a combinational path from READY to VALID, or from VALID to READY.  This is to prevent combinational loops and to improve timing.
 
+### Handshake Examples
+
+As stated above, the VALID signal's assertion must not depend on the READY signal's state, to avoid deadlocks.
+
+#### Legal: VALID asserted before READY
+
+![UMIX1](docs/_images/ok_valid_ready.svg)
+
+#### Legal: READY asserted before VALID
+
+![UMIX2](docs/_images/ok_ready_valid.svg)
+
+#### Legal: READY and VALID asserted simultaneously
+
+![UMIX3](docs/_images/ok_sametime.svg)
+
+#### Legal: READY toggles with no effect
+
+![UMIX4](docs/_images/ok_ready_toggle.svg)
+
+#### **ILLEGAL**: VALID de-asserted without waiting for READY
+
+![UMIX5](docs/_images/bad_valid_toggle.svg)
+
+#### Legal: VALID asserted for multiple cycles
+
+In this case, multiple transactions occur.
+
+![UMIX6](docs/_images/ok_double_xaction.svg)
+
+#### Example Bidirectional Transaction
+
+![UMIX7](docs/_images/example_rw_xaction.svg)
+
 ## Transaction File Format (AW=64)
 
 * Transactions can be stored as hexfiles readable/writeable by Verilog's $readmemh/$writememh.
