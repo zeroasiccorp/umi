@@ -64,7 +64,7 @@ module umi_mux
 	for(i=0;i<N;i=i+1)
 	  begin
 	     umi_out_packet[UW-1:0] = umi_out_packet |
-	                              {UW{umi_arbiter_valid[i]}} & umi_in_packet[i+:UW];
+	                              {UW{umi_arbiter_valid[i]}} & umi_in_packet[i*UW+:UW];
 	  end
      end
 
