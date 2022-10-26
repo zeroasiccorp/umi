@@ -13,27 +13,18 @@
  *
  ******************************************************************************/
 module umi_splitter
-  #(parameter REG  = 1,         // 1=insert register on read_data
-    parameter TYPE = "LIGHT",   // FULL, LIGHT
-    // standard parameters
+  #(// standard parameters
     parameter AW   = 64,
-    parameter DW   = 64,        // width of endpoint data
     parameter UW   = 256)
-   (//
-    input 	    nreset,
-    input 	    clk,
-    // UMI Input
+   (// UMI Input
     input 	    umi_in_valid,
     input [UW-1:0]  umi_in_packet,
-    output 	    umi_in_ready,
     // UMI Output (0)
     output 	    umi0_out_valid,
     output [UW-1:0] umi0_out_packet,
-    input 	    umi0_out_ready,
     // UMI Output (1)
     output 	    umi1_out_valid,
-    output [UW-1:0] umi1_out_packet,
-    input 	    umi1_out_ready
+    output [UW-1:0] umi1_out_packet
     );
 
    /*AUTOWIRE*/
@@ -71,10 +62,5 @@ module umi_splitter
    // Broadcasting packet
    assign umi0_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
    assign umi1_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
-
-   // Not very safe...
-   assign umi_in_ready = (umi0_out_ready & ~umi1_out_valid) |
-			 (umi1_out_ready & ~umi0_out_valid);
-
 
 endmodule // umi_splitter
