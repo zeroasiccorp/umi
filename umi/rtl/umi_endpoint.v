@@ -50,16 +50,14 @@ module umi_endpoint
    // local wires
    wire [AW-1:0] 	loc_srcaddr;
    wire [4*AW-1:0] 	data_mux;
-   wire 		umi_ready;
 
+   wire 		umi_ready;
    wire [UW-1:0] 	umi_in_packet;
    wire 		umi_in_valid;
 
    //########################
    // INPUT ARBITER
    //########################
-
-   assign umi_ready = loc_ready & (~loc_read | umi0_out_ready) ;
 
    umi_mux #(.N(2))
    umi_mux(// Outputs
@@ -97,12 +95,14 @@ module umi_endpoint
    //# Outgoing Transaction
    //############################
 
+   assign umi_ready = loc_ready & (~loc_read | umi0_out_ready) ;
+
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        umi0_out_valid <= 1'b0;
-     else if (loc_read)
+     else if (loc_read & umi_in_valid)
        umi0_out_valid <= 1'b1;
-     else if (umi0_out_valid & umi0_out_ready)
+     else if (umi0_out_valid & umi_ready)
        umi0_out_valid <= 1'b0;
 
    //#############################
@@ -110,7 +110,7 @@ module umi_endpoint
    //##############################
 
    always @ (posedge clk)
-     if(umi0_out_ready & loc_read)
+     if(umi_ready & loc_read)
        begin
 	  data_out[DW-1:0]    <= loc_rddata[DW-1:0];
 	  dstaddr_out[AW-1:0] <= loc_srcaddr[AW-1:0];
