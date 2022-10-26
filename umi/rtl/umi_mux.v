@@ -20,12 +20,11 @@ module umi_mux
     input [N-1:0] 	mask, // 1=disables input request
     // Incoming UMI
     input [N-1:0] 	umi_in_valid,
-    output [N-1:0] 	umi_in_ready,
     input [N*UW-1:0] 	umi_in_packet,
+    output [N-1:0] 	umi_in_ready,
     // Outgoing UMI
     output 		umi_out_valid,
-    output reg [UW-1:0] umi_out_packet,
-    input 		umi_out_ready
+    output reg [UW-1:0] umi_out_packet
     );
 
    // local wires
@@ -40,7 +39,7 @@ module umi_mux
 
    umi_arbiter #(.N(N),
 		 .UW(UW))
-   umi_arbiter(.umi_in_ready		(umi_arbiter_ready[N-1:0]),
+   umi_arbiter(.umi_in_ready		(umi_in_ready[N-1:0]),
 	       .umi_out_valid		(umi_arbiter_valid[N-1:0]),
 	       /*AUTOINST*/
 	       // Inputs
@@ -52,13 +51,6 @@ module umi_mux
 
 
    assign umi_out_valid = |umi_arbiter_valid[N-1:0];
-
-   //##############################
-   // Ready Pushback
-   //##############################
-
-   assign umi_in_ready[N-1:0] = umi_arbiter_ready[N-1:0] &
-				{N{umi_out_ready}};
 
    //##############################
    // Packet Mux
