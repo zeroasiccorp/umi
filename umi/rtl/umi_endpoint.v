@@ -33,25 +33,24 @@ module umi_endpoint
     output [AW-1:0]   loc_addr, // memory address
     output 	      loc_write, // write enable
     output 	      loc_read, // read request
-    output [31:0]     loc_cmd, // pass through command
+    output [6:0]      loc_cmd, // pass through command
+    output [3:0]      loc_size, // pass through command
+    output [19:0]     loc_options, // pass through command
     output [4*DW-1:0] loc_wrdata, // data to write
     input [DW-1:0]    loc_rddata, // data response
     input 	      loc_ready  // device is ready
     );
 
    // local regs
-   reg [6:0] 		command_out;
    reg [3:0] 		size_out;
    reg [19:0] 		options_out;
    reg [AW-1:0] 	dstaddr_out;
    reg [DW-1:0] 	data_out;
 
    // local wires
-   wire [6:0]		loc_command;
    wire [AW-1:0] 	loc_srcaddr;
-   wire [19:0]		loc_options;
-   wire [3:0]		loc_size;
    wire [4*AW-1:0] 	data_mux;
+   wire 		umi_ready;
 
    wire [UW-1:0] 	umi_in_packet;
    wire 		umi_in_valid;
@@ -60,7 +59,7 @@ module umi_endpoint
    // INPUT ARBITER
    //########################
 
-   assign umi_in_ready = loc_ready & (~loc_read | umi0_out_ready) ;
+   assign umi_ready = loc_ready & (~loc_read | umi0_out_ready) ;
 
    umi_mux #(.N(2))
    umi_mux(// Outputs
@@ -73,8 +72,7 @@ module umi_endpoint
 	   .clk		     (clk),
 	   .nreset	     (nreset),
 	   .mode	     (2'b00),
-	   .mask	     (2'b00),
-	   .umi_out_ready    (umi_in_ready));
+	   .mask	     (2'b00));
 
    //########################
    // UMI UNPACK
@@ -86,7 +84,7 @@ module umi_endpoint
 		.AW(AW))
    umi_unpack(// Outputs
 	      .write	(loc_write),
-	      .command	(loc_command[6:0]),
+	      .command	(loc_cmd[6:0]),
 	      .size	(loc_size[3:0]),
 	      .options	(loc_options[19:0]),
 	      .dstaddr	(loc_addr[AW-1:0]),
@@ -131,7 +129,7 @@ module umi_endpoint
 	    .packet	(umi0_out_packet[UW-1:0]),
 	    // Inputs
 	    .write	(1'b1),
-	    .command    (7'b0),
+	    .command    (7'b0),//returns normal write
 	    .size	(size_out[3:0]),
 	    .options	(options_out[19:0]),
 	    .burst	(1'b0),
