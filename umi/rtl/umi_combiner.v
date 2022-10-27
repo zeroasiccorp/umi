@@ -16,7 +16,10 @@ module umi_combiner
   #(// standard parameters
     parameter AW   = 64,
     parameter UW   = 256)
-   ( // Input (0), Higher Priority
+   (// controls
+    input 	    clk,
+    input 	    nreset,
+    // Input (0), Higher Priority
     input 	    umi0_in_valid,
     input [UW-1:0]  umi0_in_packet,
     output 	    umi0_in_ready,
