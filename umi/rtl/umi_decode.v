@@ -10,56 +10,51 @@
 module umi_decode
   (
    // Packet Command
-   input [31:0]  cmd,
+   input [6:0] command,
+   input       write,
    // Decoded signals
-   output 	 cmd_invalid,// invalid transaction
-   output 	 cmd_write,// write indicator
-   output 	 cmd_read, // read request
-   output 	 cmd_atomic,// read-modify-write
-    // Controls
-   output 	 cmd_write_normal,// write indicator
-   output 	 cmd_write_signal,// write with eot signal
-   output 	 cmd_write_ack,// write with acknowledge
-   output 	 cmd_write_stream,// write stream
-   output 	 cmd_write_response,// write response
-   output 	 cmd_atomic_swap,
-   output 	 cmd_atomic_add,
-   output 	 cmd_atomic_and,
-   output 	 cmd_atomic_or,
-   output 	 cmd_atomic_xor,
-   output 	 cmd_atomic_min,
-   output 	 cmd_atomic_max,
-   //Command Fields
-   output [7:0]  cmd_opcode,// raw opcode
-   output [3:0]  cmd_size, // burst length(up to 16)
-   output [19:0] cmd_user //user field
+   output      cmd_invalid,// invalid transaction
+   output      cmd_read_request, // read request
+   output      cmd_write_posted,// write indicator
+   output      cmd_write_signal,// write with eot signal
+   output      cmd_write_ack,// write with acknowledge
+   output      cmd_write_stream,// write stream
+   output      cmd_write_response,// write response
+   output      cmd_atomic,// read-modify-write
+   output      cmd_atomic_swap,
+   output      cmd_atomic_add,
+   output      cmd_atomic_and,
+   output      cmd_atomic_or,
+   output      cmd_atomic_xor,
+   output      cmd_atomic_min,
+   output      cmd_atomic_max,
+   output      cmd_atomic_minu,
+   output      cmd_atomic_maxu
    );
 
+`include "umi_messages.vh"
+
    // Command grouping
-   assign cmd_opcode[7:0] = cmd[7:0];
-   assign cmd_size[3:0]   = cmd[11:8];
-   assign cmd_user[19:0]  = cmd[31:12];
-   assign cmd_invalid     = ~|cmd_opcode[7:0];
-   assign cmd_read        =  cmd_opcode[3] &~cmd_invalid;
-   assign cmd_write       = ~cmd_opcode[3] &~cmd_invalid;
-   assign cmd_atomic      = cmd_opcode[3:0]==4'b1001;
+   assign cmd_invalid        = (command[7:0]==INVALID);
+   assign cmd_read_request   = (command[7:0]==READ_REQUEST);
+   assign cmd_atomic         = (command[3:0]==ATOMIC);
 
    // Write controls
-   assign cmd_write_normal   = cmd_opcode[2:0]==3'b001;
-   assign cmd_write_response = cmd_opcode[2:0]==3'b010;
-   assign cmd_write_signal   = cmd_opcode[2:0]==3'b011;
-   assign cmd_write_stream   = cmd_opcode[2:0]==3'b100;
-   assign cmd_write_ack      = cmd_opcode[2:0]==3'b101;
-   // 110 and 111 reserved opcodes
+   assign cmd_write_posted   = (command[7:0]==WRITE_POSTED);
+   assign cmd_write_response = (command[7:0]==WRITE_RESPONSE);
+   assign cmd_write_signal   = (command[7:0]==WRITE_SIGNAL);
+   assign cmd_write_stream   = (command[7:0]==WRITE_STREAM);
+   assign cmd_write_ack      = (command[7:0]==WRITE_ACK);
 
-   // Read transactions
-   assign cmd_atomic_swap = cmd_atomic & (cmd_opcode[6:4]==3'b000);
-   assign cmd_atomic_add  = cmd_atomic & (cmd_opcode[6:4]==3'b001);
-   assign cmd_atomic_and  = cmd_atomic & (cmd_opcode[6:4]==3'b010);
-   assign cmd_atomic_or   = cmd_atomic & (cmd_opcode[6:4]==3'b011);
-   assign cmd_atomic_xor  = cmd_atomic & (cmd_opcode[6:4]==3'b100);
-   assign cmd_atomic_max  = cmd_atomic & (cmd_opcode[6:4]==3'b101);
-   assign cmd_atomic_min  = cmd_atomic & (cmd_opcode[6:4]==3'b110);
-
+   // Atomics
+   assign cmd_atomic_add     = (command[7:0]==ATOMIC_ADD);
+   assign cmd_atomic_and     = (command[7:0]==ATOMIC_AND);
+   assign cmd_atomic_or      = (command[7:0]==ATOMIC_OR);
+   assign cmd_atomic_xor     = (command[7:0]==ATOMIC_XOR);
+   assign cmd_atomic_max     = (command[7:0]==ATOMIC_MAX);
+   assign cmd_atomic_min     = (command[7:0]==ATOMIC_MIN);
+   assign cmd_atomic_maxu    = (command[7:0]==ATOMIC_MAXU);
+   assign cmd_atomic_minu    = (command[7:0]==ATOMIC_MINU);
+   assign cmd_atomic_swap    = (command[7:0]==ATOMIC_SWAP);
 
 endmodule // umi_decode
