@@ -15,163 +15,126 @@ module umi_endpoint
     parameter DW   = 64,        // width of endpoint data
     parameter UW   = 256)
    (//
-    input 	    nreset,
-    input 	    clk,
-    // Incoming UMI request
-    input 	    umi_in_valid,
-    input [UW-1:0]  umi_in_packet,
-    output 	    umi_in_ready,
-    // Outgoing UMI response
-    output 	    umi_out_valid,
-    output [UW-1:0] umi_out_packet,
-    input 	    umi_out_ready,
+    input 	      nreset,
+    input 	      clk,
+    // Write/response
+    input 	      umi0_in_valid,
+    input [UW-1:0]    umi0_in_packet,
+    output 	      umi0_in_ready,
+    // Read/request
+    input 	      umi1_in_valid,
+    input [UW-1:0]    umi1_in_packet,
+    output 	      umi1_in_ready,
+    // Outgoing UMI write response
+    output reg 	      umi0_out_valid,
+    output [UW-1:0]   umi0_out_packet,
+    input 	      umi0_out_ready,
     // Memory interface
-    output [AW-1:0] addr, // memory address
-    output 	    write, // write enable
-    output 	    read, // read request
-    output [31:0]   cmd, // pass through command
-    output [DW-1:0] write_data, // data to write
-    input 	    ready, // device is ready
-    input [DW-1:0]  read_data  // data response
+    output [AW-1:0]   loc_addr, // memory address
+    output 	      loc_write, // write enable
+    output 	      loc_read, // read request
+    output [6:0]      loc_cmd, // pass through command
+    output [3:0]      loc_size, // pass through command
+    output [19:0]     loc_options, // pass through command
+    output [4*DW-1:0] loc_wrdata, // data to write
+    input [DW-1:0]    loc_rddata, // data response
+    input 	      loc_ready  // device is ready
     );
 
-   /*AUTOWIRE*/
-   // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire			cmd_atomic;		// From umi_decode of umi_decode.v
-   wire			cmd_atomic_add;		// From umi_decode of umi_decode.v
-   wire			cmd_atomic_and;		// From umi_decode of umi_decode.v
-   wire			cmd_atomic_max;		// From umi_decode of umi_decode.v
-   wire			cmd_atomic_min;		// From umi_decode of umi_decode.v
-   wire			cmd_atomic_or;		// From umi_decode of umi_decode.v
-   wire			cmd_atomic_swap;	// From umi_decode of umi_decode.v
-   wire			cmd_atomic_xor;		// From umi_decode of umi_decode.v
-   wire			cmd_invalid;		// From umi_decode of umi_decode.v
-   wire [7:0]		cmd_opcode;		// From umi_decode of umi_decode.v
-   wire			cmd_read;		// From umi_decode of umi_decode.v
-   wire [3:0]		cmd_size;		// From umi_decode of umi_decode.v
-   wire [19:0]		cmd_user;		// From umi_decode of umi_decode.v
-   wire			cmd_write;		// From umi_decode of umi_decode.v
-   wire			cmd_write_ack;		// From umi_decode of umi_decode.v
-   wire			cmd_write_normal;	// From umi_decode of umi_decode.v
-   wire			cmd_write_response;	// From umi_decode of umi_decode.v
-   wire			cmd_write_signal;	// From umi_decode of umi_decode.v
-   wire			cmd_write_stream;	// From umi_decode of umi_decode.v
-   wire [4*AW-1:0]	data;			// From umi_unpack of umi_unpack.v
-   wire [AW-1:0]	dstaddr;		// From umi_unpack of umi_unpack.v
-   wire [AW-1:0]	srcaddr;		// From umi_unpack of umi_unpack.v
-   // End of automatics
+   // local regs
+   reg [3:0] 		size_out;
+   reg [19:0] 		options_out;
+   reg [AW-1:0] 	dstaddr_out;
+   reg [DW-1:0] 	data_out;
+
+   // local wires
+   wire [AW-1:0] 	loc_srcaddr;
+   wire [4*AW-1:0] 	data_mux;
+
+   wire 		umi_ready;
+   wire [UW-1:0] 	umi_in_packet;
+   wire 		umi_in_valid;
 
    //########################
-   // REQUEST UNPACK
+   // INPUT ARBITER
    //########################
+
+   umi_mux #(.N(2))
+   umi_mux(// Outputs
+	   .umi_out_valid    (umi_in_valid),
+	   .umi_out_packet   (umi_in_packet[UW-1:0]),
+	   .umi_in_ready     ({umi1_in_ready,umi0_in_ready}),
+	   // Inputs
+	   .umi_in_packet    ({umi1_in_packet,umi0_in_packet}),
+	   .umi_in_valid     ({umi1_in_valid,umi0_in_valid}),
+	   .clk		     (clk),
+	   .nreset	     (nreset),
+	   .mode	     (2'b00),
+	   .mask	     (2'b00));
+
+   //########################
+   // UMI UNPACK
+   //########################
+
+   assign loc_read = ~loc_write;
 
    umi_unpack #(.UW(UW),
 		.AW(AW))
-   umi_unpack(.packet			(umi_in_packet[UW-1:0]),
-	      /*AUTOINST*/
-	      // Outputs
-	      .dstaddr			(dstaddr[AW-1:0]),
-	      .srcaddr			(srcaddr[AW-1:0]),
-	      .data			(data[4*AW-1:0]),
-	      .cmd			(cmd[31:0]));
+   umi_unpack(// Outputs
+	      .write	(loc_write),
+	      .command	(loc_cmd[6:0]),
+	      .size	(loc_size[3:0]),
+	      .options	(loc_options[19:0]),
+	      .dstaddr	(loc_addr[AW-1:0]),
+	      .srcaddr	(loc_srcaddr[AW-1:0]),
+	      .data	(loc_wrdata[4*AW-1:0]),
+	      // Inputs
+	      .packet	(umi_in_packet[UW-1:0]));
 
+   //############################
+   //# Outgoing Transaction
+   //############################
 
-   umi_decode
-     umi_decode(/*AUTOINST*/
-		// Outputs
-		.cmd_invalid		(cmd_invalid),
-		.cmd_write		(cmd_write),
-		.cmd_read		(cmd_read),
-		.cmd_atomic		(cmd_atomic),
-		.cmd_write_normal	(cmd_write_normal),
-		.cmd_write_signal	(cmd_write_signal),
-		.cmd_write_ack		(cmd_write_ack),
-		.cmd_write_stream	(cmd_write_stream),
-		.cmd_write_response	(cmd_write_response),
-		.cmd_atomic_swap	(cmd_atomic_swap),
-		.cmd_atomic_add		(cmd_atomic_add),
-		.cmd_atomic_and		(cmd_atomic_and),
-		.cmd_atomic_or		(cmd_atomic_or),
-		.cmd_atomic_xor		(cmd_atomic_xor),
-		.cmd_atomic_min		(cmd_atomic_min),
-		.cmd_atomic_max		(cmd_atomic_max),
-		.cmd_opcode		(cmd_opcode[7:0]),
-		.cmd_size		(cmd_size[3:0]),
-		.cmd_user		(cmd_user[19:0]),
-		// Inputs
-		.cmd			(cmd[31:0]));
+   assign umi_ready = loc_ready & (~loc_read | umi0_out_ready) ;
 
-
-   assign addr[AW-1:0] = dstaddr[AW-1:0];
-   assign write        = umi_in_valid & cmd_write;
-   assign read         = umi_in_valid & cmd_read;
-   assign write_data   = data[DW-1:0];
-
-   //########################################
-   //# Pipeline REQUEST ACCESS
-   //#######################################
-
-   reg   	    valid_out_reg;
-   reg [3:0] 	    size_out;
-   reg [19:0] 	    user_out;
-   reg [7:0] 	    opcode_out;
-   reg [AW-1:0]     dstaddr_out;
-   reg [DW-1:0]     read_data_reg;
-   wire [4*AW-1:0]  data_out;
-
-   // valid
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       valid_out_reg <= 1'b0;
-     else if (umi_out_ready)
-       valid_out_reg <= umi_in_valid & cmd_read;
+       umi0_out_valid <= 1'b0;
+     else if (loc_read & umi_in_valid)
+       umi0_out_valid <= 1'b1;
+     else if (umi0_out_valid & umi_ready)
+       umi0_out_valid <= 1'b0;
 
-   // turn around transaction
+   //#############################
+   //# Pipeline Packet
+   //##############################
+
    always @ (posedge clk)
-     if(umi_in_valid & cmd_read & umi_out_ready)
+     if(umi_ready & loc_read)
        begin
-	  dstaddr_out[AW-1:0] <= srcaddr[AW-1:0];
-	  size_out[3:0]       <= cmd_size[3:0];
-	  opcode_out[7:0]     <= cmd_opcode[3:0];
-	  user_out[19:0]      <= cmd_user[19:0];
+	  data_out[DW-1:0]    <= loc_rddata[DW-1:0];
+	  dstaddr_out[AW-1:0] <= loc_srcaddr[AW-1:0];
+	  size_out[3:0]       <= loc_size[3:0];
+	  options_out[19:0]   <= loc_options[19:0];
        end
 
-   // register data
-   always @ (posedge clk)
-     if (cmd_read)
-       read_data_reg[DW-1:0] <= read_data[DW-1:0];
+   // selectively add pipestage
+   assign data_mux[4*AW-1:0] = (REG) ? data_out[DW-1:0] :
+			               loc_rddata[DW-1:0];
 
-   assign data_out[4*AW-1:0] = (REG) ? read_data_reg[DW-1:0] :
-			               read_data[DW-1:0];
-
-   //########################
-   // RESPONSE
-   //########################
-
-   /*umi_pack  AUTO_TEMPLATE (
-    .packet_out  (packet_out[]),
-    .srcaddr     ({(AW){1'b0}}),
-    .burst       (1'b0),
-    .\(.*\)      (\1_out[]),
-    );
-    */
-
+   // pack up the packet
    umi_pack #(.UW(UW),
 	      .AW(AW))
-   umi_pack(.packet			(umi_out_packet[UW-1:0]),
-	    /*AUTOINST*/
+   umi_pack(// Outputs
+	    .packet	(umi0_out_packet[UW-1:0]),
 	    // Inputs
-	    .opcode			(opcode_out[7:0]),	 // Templated
-	    .size			(size_out[3:0]),	 // Templated
-	    .user			(user_out[19:0]),	 // Templated
-	    .burst			(1'b0),			 // Templated
-	    .dstaddr			(dstaddr_out[AW-1:0]),	 // Templated
-	    .srcaddr			({(AW){1'b0}}),		 // Templated
-	    .data			(data_out[4*AW-1:0]));	 // Templated
-
-   assign umi_out_valid = valid_out_reg;
-
-   assign umi_in_ready = ready & (~read | umi_out_ready) ;
-
+	    .write	(1'b1),
+	    .command    (7'b0),//returns normal write
+	    .size	(size_out[3:0]),
+	    .options	(options_out[19:0]),
+	    .burst	(1'b0),
+	    .dstaddr	(dstaddr_out[AW-1:0]),
+	    .srcaddr	({(AW){1'b0}}),
+	    .data	(data_mux[4*AW-1:0]));
 
 endmodule // umi_endpoint

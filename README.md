@@ -15,31 +15,35 @@
 
 ## Transaction Types
 
-| Command        | 31:12      |  11:8     |  OPCODE   |
+| Command        | 31:12      |  11:8     |  7:0      |
 |----------------|------------|-----------|-----------|
 | INVALID        | USER[19:0] | SIZE[3:0] | 0000_0000 |
-| WRITE-NORMAL   | USER[19:0] | SIZE[3:0] | XXXX_0001 |
-| WRITE-RESPONSE | USER[19:0] | SIZE[3:0] | XXXX_0010 |
-| WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | XXXX_0011 |
-| WRITE-STREAM   | USER[19:0] | --        | XXXX_0100 |
-| WRITE-ACK      | USER[19:0] | --        | XXXX_0101 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_0110 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_0111 |
 |----------------|------------|-----------|-----------|
-| READ           | USER[19:0] | SIZE[3:0] | 0000_1000 |
-| ATOMIC-SWAP    | USER[19:0] | SIZE[3:0] | 0000_1001 |
-| ATOMIC-ADD     | USER[19:0] | SIZE[3:0] | 0001_1001 |
-| ATOMIC-AND     | USER[19:0] | SIZE[3:0] | 0010_1001 |
-| ATOMIC-OR      | USER[19:0] | SIZE[3:0] | 0011_1001 |
-| ATOMIC-XOR     | USER[19:0] | SIZE[3:0] | 0100_1001 |
-| ATOMIC-MAX     | USER[19:0] | SIZE[3:0] | 0101_1001 |
-| ATOMIC-MIN     | USER[19:0] | SIZE[3:0] | 0110_1001 |
-| ATOMIC-USER    | USER[19:0] | SIZE[3:0] | 1XXX_1001 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_1011 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_1100 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_1101 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_1110 |
-| USER           | USER[19:0] | SIZE[3:0] | XXXX_1111 |
+| WRITE-NORMAL   | USER[19:0] | SIZE[3:0] | XXXX_0001 |
+| WRITE-RESPONSE | USER[19:0] | SIZE[3:0] | XXXX_0011 |
+| WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | XXXX_0101 |
+| WRITE-STREAM   | USER[19:0] | --        | XXXX_0111 |
+| WRITE-ACK      | USER[19:0] | --        | XXXX_1001 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1011 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1101 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1111 |
+|----------------|------------|-----------|-----------|
+| READ           | USER[19:0] | SIZE[3:0] | 0000_0010 |
+| ATOMIC-ADD     | USER[19:0] | SIZE[3:0] | 0000_0100 |
+| ATOMIC-AND     | USER[19:0] | SIZE[3:0] | 0001_0100 |
+| ATOMIC-OR      | USER[19:0] | SIZE[3:0] | 0010_0100 |
+| ATOMIC-XOR     | USER[19:0] | SIZE[3:0] | 0011_0100 |
+| ATOMIC-MAX     | USER[19:0] | SIZE[3:0] | 0100_0100 |
+| ATOMIC-MIN     | USER[19:0] | SIZE[3:0] | 0101_0100 |
+| ATOMIC-MAXU    | USER[19:0] | SIZE[3:0] | 0110_0100 |
+| ATOMIC-MINU    | USER[19:0] | SIZE[3:0] | 0111_0100 |
+| ATOMIC-SWAP    | USER[19:0] | SIZE[3:0] | 1000_0100 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_0110 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1000 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1010 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1100 |
+| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1110 |
+
 
 ## Data Sizes
 
@@ -55,9 +59,9 @@
 | 3       | 8B        |                   |
 | 4       | 16B       | 128b single cycle |
 | 5       | 32B       |                   |
-| 6       | 64B       |                   |
+| 6       | 64B       | Cache line        |
 | 7       | 128B      |                   |
-| 8       | 256B      | Cache line        |
+| 8       | 256B      |                   |
 | ...     | ...       |                   |
 | 14      | 16,384B   | >Jumbo frame      |
 | 15      | 32,657B   |                   |
