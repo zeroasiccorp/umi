@@ -8,8 +8,9 @@
  * - Splits up traffic based on type.
  * - UMI 0 carries high priority traffic ("writes")
  * - UMI 1 carries low priority traffic ("read requests")
- * - No cycles allowed since this would deadlock
- * - Traffic source must be self throttling
+ * - Both outputs must be ready for input to go through.("blocking")
+ *
+ * TODO: implement REG switch to enable non-blocking implementation.
  *
  ******************************************************************************/
 module umi_splitter
@@ -66,8 +67,7 @@ module umi_splitter
    assign umi0_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
    assign umi1_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
 
-   // Ready (use with care!)
-   assign umi_in_ready = ~((umi1_out_valid & ~umi1_out_ready & ~umi0_out_valid) |
-			   (umi0_out_valid & ~umi0_out_ready & ~umi1_out_valid));
+   // Globally blocking ready implementation
+   assign umi_in_ready = umi0_out_ready & umi1_out_ready;
 
 endmodule // umi_splitter
