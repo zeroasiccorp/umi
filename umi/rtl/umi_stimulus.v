@@ -99,7 +99,7 @@ module umi_stimulus
 	  rd_addr[MAW-1:0] <= 'b0;
 	  rd_delay         <= 'b0;
        end
-     else if(dut_ready)
+     else
        case (rd_state[1:0])
 	 STIM_IDLE :
 	   rd_state[1:0] <= dut_start ? STIM_ACTIVE : STIM_IDLE;
@@ -109,7 +109,7 @@ module umi_stimulus
 			       ~data_valid ? STIM_DONE  :
                                              STIM_ACTIVE;
 	      rd_addr[MAW-1:0] <= (|rd_delay) ? rd_addr[MAW-1:0] :
-						rd_addr[MAW-1:0] + 1'b1;
+						rd_addr[MAW-1:0] + dut_ready;
 	      rd_delay         <= (CW > 1) ? mem_data[CW-1:1] : 'b0;
 	   end
 	 STIM_PAUSE :
@@ -121,12 +121,14 @@ module umi_stimulus
 
    // pipeline to match sram pipeline
    always @ (posedge dut_clk)
-     mem_read <= (rd_state==STIM_ACTIVE); //mem-cycle adjust
+     mem_read <= (rd_state==STIM_ACTIVE) |
+		 (rd_state==STIM_PAUSE);
 
    //  output drivesrs
    assign data_valid   = (CW==0) | mem_data[0];
    assign mem_done     = (rd_state[1:0] == STIM_DONE);
-   assign mem_valid    = data_valid & mem_read &
+   assign mem_valid    = data_valid &
+			 mem_read &
 			 (rd_state==STIM_ACTIVE);
 
    //#################################
