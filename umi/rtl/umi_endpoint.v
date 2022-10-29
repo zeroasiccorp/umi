@@ -97,6 +97,9 @@ module umi_endpoint
 
    assign umi_ready = loc_ready & (~loc_read | umi0_out_ready) ;
 
+   //1. Set on incoming valid read
+   //2. Keep high as long as incoming read is set
+   //3. If no incoming read and output is ready, clear
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        umi0_out_valid <= 1'b0;
