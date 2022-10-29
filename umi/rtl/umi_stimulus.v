@@ -42,29 +42,18 @@ module umi_stimulus
    localparam STIM_DONE   = 2'b11;
 
    // Local values
-   reg [UW+CW-1:0]  rd_reg;
    reg [1:0] 	    rd_state;
+   reg [UW+CW-1:0]  ram[0:DEPTH-1];
+   reg [UW+CW-1:0]  mem_data;
    reg [MAW-1:0]    wr_addr;
    reg [MAW-1:0]    rd_addr;
    reg [1:0] 	    sync_pipe;
-   reg 		    mem_read;
    reg [CW-2:0]     rd_delay;
+   reg 		    data_valid;
+
    wire 	    dut_start;
-   wire 	    data_valid;
-
-   reg [UW+CW-1:0]  ram[0:DEPTH-1];
-   reg [UW+CW-1:0]  mem_data;
-
-   wire 	    mem_valid;
-   wire 	    mem_done;
-
-   //#################################
-   // Stimulus selector
-   //#################################
-
-   assign stim_valid          = mem_valid;
-   assign stim_packet[UW-1:0] = mem_data[UW+CW-1:CW];
-   assign stim_done           = mem_done;
+   wire [MAW-1:0]   rd_addr_nxt;
+   wire [CW-2:0]    rd_delay_nxt;
 
    //#################################
    // Memory write port state machine
@@ -89,47 +78,59 @@ module umi_stimulus
    // Memory read port state machine
    //#################################
    //1. Start on dut_start
-   //2. Drive stimulus while dut is ready
+   //2. Drive valid while active
    //3. Set end state on special end packet (bit 0)
+
+   // control signals
+   assign stim_done  = (rd_state[1:0]==STIM_DONE);
+   assign stim_valid = (rd_state[1:0]==STIM_ACTIVE);
+   assign beat       = stim_valid & dut_ready;
+   assign pause      = data_valid & dut_ready & (|rd_delay_nxt);
 
    always @ (posedge dut_clk or negedge nreset)
      if(!nreset)
-       begin
-	  rd_state[1:0]    <= STIM_IDLE;
-	  rd_addr[MAW-1:0] <= 'b0;
-	  rd_delay         <= 'b0;
-       end
+       rd_state[1:0]  <= STIM_IDLE;
      else
        case (rd_state[1:0])
 	 STIM_IDLE :
-	   rd_state[1:0] <= dut_start ? STIM_ACTIVE : STIM_IDLE;
+	   rd_state[1:0] <= dut_start ? STIM_ACTIVE :
+                                        STIM_IDLE;
 	 STIM_ACTIVE :
-	   begin
-	      rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
-			       ~data_valid ? STIM_DONE  :
-                                             STIM_ACTIVE;
-	      rd_addr[MAW-1:0] <= (|rd_delay) ? rd_addr[MAW-1:0] :
-						rd_addr[MAW-1:0] + dut_ready;
-	      rd_delay         <= (CW > 1) ? mem_data[CW-1:1] : 'b0;
-	   end
+	   rd_state[1:0] <= stim_done ? STIM_DONE  :
+                            pause     ? STIM_PAUSE :
+			                STIM_ACTIVE;
 	 STIM_PAUSE :
-	   begin
-	      rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE : STIM_ACTIVE;
-	      rd_delay      <= (|rd_delay) ? rd_delay - 1'b1 : rd_delay;
-	   end
+	   rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
+			    data_valid  ? STIM_ACTIVE :
+			                  STIM_DONE;
+	 STIM_DONE  :
+	   rd_state[1:0] <= STIM_DONE;
+
        endcase // case (rd_state[1:0])
 
-   // pipeline to match sram pipeline
    always @ (posedge dut_clk)
-     mem_read <= (rd_state==STIM_ACTIVE) |
-		 (rd_state==STIM_PAUSE);
+     data_valid <= ((CW==0) | mem_data[0]);
 
-   //  output drivesrs
-   assign data_valid   = (CW==0) | mem_data[0];
-   assign mem_done     = (rd_state[1:0] == STIM_DONE);
-   assign mem_valid    = data_valid &
-			 mem_read &
-			 (rd_state==STIM_ACTIVE);
+   // Read address updates on every beat
+
+   assign rd_addr_nxt = rd_addr[MAW-1:0] + beat;
+
+   always @ (posedge dut_clk or negedge nreset)
+     if(!nreset)
+       rd_addr[MAW-1:0] <= 'b0;
+     else
+       rd_addr[MAW-1:0] <= rd_addr_nxt;
+
+   assign rd_delay_nxt = (CW > 1) ? mem_data[CW-1:1] : 'b0;
+
+   // Update delay when in pause or when active
+   always @ (posedge dut_clk or negedge nreset)
+     if(!nreset)
+       rd_delay   <= 'b0;
+     else if(rd_state[1:0]==STIM_PAUSE)
+       rd_delay   <= rd_delay - 1'b1;
+     else
+       rd_delay <= rd_delay_nxt;
 
    //#################################
    // Dual Port RAM
@@ -142,8 +143,9 @@ module umi_stimulus
 
    //read port
    always @ (posedge dut_clk)
-     if (dut_ready)
-       mem_data[UW+CW-1:0] <= ram[rd_addr[MAW-1:0]];
+     mem_data[UW+CW-1:0] <= ram[rd_addr_nxt[MAW-1:0]];
 
+   // Remove extra CW information from stimulus
+   assign stim_packet[UW-1:0] = mem_data[UW+CW-1:CW];
 
-endmodule // oh_stimulus
+endmodule // umi_stimulus
