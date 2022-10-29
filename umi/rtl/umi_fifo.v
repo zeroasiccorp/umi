@@ -55,12 +55,14 @@ module umi_fifo
    assign fifo_write = umi_in_valid;
 
    //1. Set valid if FIFO is non empty
-   //2. Keep valid high if READY is low
+   //2. Clear valid on beat and
    always @ (posedge umi_out_clk or negedge umi_out_nreset)
      if (~umi_out_nreset)
        fifo_out_valid <= 1'b0;
-     else if(umi_out_ready)
-       fifo_out_valid <= ~fifo_empty;
+     else if(~fifo_empty)
+       fifo_out_valid <= 1'b1;
+     else if(fifo_out_valid & umi_out_ready)
+       fifo_out_valid <= 1'b0;
 
    // Registering fifo output to align with valid/avoid timing issues
    always @ (posedge umi_out_clk)
