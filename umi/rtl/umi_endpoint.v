@@ -55,6 +55,19 @@ module umi_endpoint
    wire [UW-1:0] 	umi_in_packet;
    wire 		umi_in_valid;
 
+   wire 		umi0_ready;
+   wire 		umi1_ready;
+
+   //########################
+   // INPUT ARBITER
+   //########################
+
+   assign umi0_in_ready = loc_ready;
+
+   assign umi1_in_ready = loc_ready &
+			  umi1_ready &
+			  ~(umi1_in_valid & ~umi0_out_ready);
+
    //########################
    // INPUT ARBITER
    //########################
@@ -63,7 +76,7 @@ module umi_endpoint
    umi_mux(// Outputs
 	   .umi_out_valid    (umi_in_valid),
 	   .umi_out_packet   (umi_in_packet[UW-1:0]),
-	   .umi_in_ready     ({umi1_in_ready,umi0_in_ready}),
+	   .umi_in_ready     ({umi1_ready,umi0_ready}),
 	   // Inputs
 	   .umi_in_packet    ({umi1_in_packet,umi0_in_packet}),
 	   .umi_in_valid     ({umi1_in_valid,umi0_in_valid}),
@@ -75,8 +88,6 @@ module umi_endpoint
    //########################
    // UMI UNPACK
    //########################
-
-   assign loc_read = ~loc_write;
 
    umi_unpack #(.UW(UW),
 		.AW(AW))
@@ -91,11 +102,11 @@ module umi_endpoint
 	      // Inputs
 	      .packet	(umi_in_packet[UW-1:0]));
 
+   assign loc_read = ~loc_write & umi_in_valid;
+
    //############################
    //# Outgoing Transaction
    //############################
-
-   assign umi_ready = loc_ready & (~loc_read | umi0_out_ready) ;
 
    //1. Set on incoming valid read
    //2. Keep high as long as incoming read is set
@@ -103,9 +114,9 @@ module umi_endpoint
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        umi0_out_valid <= 1'b0;
-     else if (loc_read & umi_in_valid)
+     else if (loc_read)
        umi0_out_valid <= 1'b1;
-     else if (umi0_out_valid & umi_ready)
+     else if (umi0_out_valid & umi0_out_ready)
        umi0_out_valid <= 1'b0;
 
    //#############################
@@ -113,7 +124,7 @@ module umi_endpoint
    //##############################
 
    always @ (posedge clk)
-     if(umi_ready & loc_read)
+     if(loc_read)
        begin
 	  data_out[DW-1:0]    <= loc_rddata[DW-1:0];
 	  dstaddr_out[AW-1:0] <= loc_srcaddr[AW-1:0];
@@ -132,7 +143,7 @@ module umi_endpoint
 	    .packet	(umi0_out_packet[UW-1:0]),
 	    // Inputs
 	    .write	(1'b1),
-	    .command    (7'b0),//returns normal write
+	    .command    (7'b1),//returns write response
 	    .size	(size_out[3:0]),
 	    .options	(options_out[19:0]),
 	    .burst	(1'b0),
