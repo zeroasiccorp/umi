@@ -96,9 +96,9 @@ module umi_stimulus
 	   rd_state[1:0] <= dut_start ? STIM_ACTIVE :
                                         STIM_IDLE;
 	 STIM_ACTIVE :
-	   rd_state[1:0] <= stim_done ? STIM_DONE  :
-                            pause     ? STIM_PAUSE :
-			                STIM_ACTIVE;
+	   rd_state[1:0] <= pause      ? STIM_PAUSE :
+			    data_valid ? STIM_ACTIVE :
+			                 STIM_DONE;
 	 STIM_PAUSE :
 	   rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
 			    data_valid  ? STIM_ACTIVE :
