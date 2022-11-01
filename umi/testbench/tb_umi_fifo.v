@@ -14,7 +14,7 @@ module tb_umi_fifo
     parameter TIMEOUT    = 5000,        // timeout value (cycles)
     parameter PERIOD_CLK = 10,          // clock period
     parameter FIFODEPTH  = 4,           // fifo depth
-    parameter UW         = 32           // UMI width
+    parameter UW         = 256          // UMI width
     )
    ();
 
@@ -30,6 +30,7 @@ module tb_umi_fifo
    //#####################
    //# SIMCTRL
    //#####################
+   reg umi_dut2check_ready;
 
    reg [128*8-1:0] memhfile;
    reg 		   slowclk;
@@ -68,6 +69,12 @@ module tb_umi_fifo
 	#(TIMEOUT)
         $finish;
      end
+
+   always @ (posedge slowclk or negedge nreset)
+     if(~nreset)
+       umi_dut2check_ready <= 1'b0;
+     else
+       umi_dut2check_ready <= ~umi_dut2check_ready;
 
    // clock divider
    always @ (posedge clk or negedge nreset)
@@ -118,7 +125,7 @@ module tb_umi_fifo
 
    dut_umi_fifo #(.UW(UW),
 		  .DEPTH(FIFODEPTH))
-   dut_umi_fifo (
+   dut_umi_fifo (.umi_out_ready		(umi_dut2check_ready),
 		 /*AUTOINST*/
 		 // Outputs
 		 .error			(error),
@@ -137,8 +144,7 @@ module tb_umi_fifo
 		 .umi_in_valid		(umi_stim2dut_valid),	 // Templated
 		 .umi_in_packet		(umi_stim2dut_packet[UW-1:0]), // Templated
 		 .umi_out_clk		(slowclk),		 // Templated
-		 .umi_out_nreset	(slownreset),		 // Templated
-		 .umi_out_ready		(1'b1));			 // Templated
+		 .umi_out_nreset	(slownreset));		 // Templated
 
    //##################################################
    //# UMI STIMULUS DRIVER (CLK)
@@ -179,7 +185,7 @@ module tb_umi_fifo
    //###################################################
 
    always @ (negedge slowclk)
-     if(umi_dut2check_valid)
+     if(umi_dut2check_valid & umi_dut2check_ready)
        $display("dut result: = %h", umi_dut2check_packet[UW-1:0]);
 
 
