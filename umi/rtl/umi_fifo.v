@@ -55,21 +55,6 @@ module umi_fifo
    // Write fifo when high (blocked inside fifo when full)
    assign fifo_write = ~fifo_full & umi_in_valid ;
 
-   //1. Set valid if FIFO is non empty
-   //2. Clear valid on beat and
-   always @ (posedge umi_out_clk or negedge umi_out_nreset)
-     if (~umi_out_nreset)
-       fifo_out_valid <= 1'b0;
-     else if(~fifo_empty)
-       fifo_out_valid <= 1'b1;
-     else
-       fifo_out_valid <= fifo_out_valid & ~umi_out_ready;
-
-   // Registering fifo output to align with valid/avoid timing issues
-   always @ (posedge umi_out_clk)
-     if(umi_out_ready | ~fifo_out_valid)
-       fifo_out_data[UW-1:0] <= fifo_dout[UW-1:0];
-
    // FIFO pushback
    assign fifo_in_ready = ~fifo_full;
 
@@ -101,8 +86,8 @@ module umi_fifo
    // FIFO Bypass
    //#################################
 
-   assign umi_out_packet[UW-1:0] = bypass ? umi_in_packet[UW-1:0] : fifo_out_data[UW-1:0];
-   assign umi_out_valid          = bypass ? umi_in_valid          : fifo_out_valid;
+   assign umi_out_packet[UW-1:0] = bypass ? umi_in_packet[UW-1:0] : fifo_dout[UW-1:0];
+   assign umi_out_valid          = bypass ? umi_in_valid          : ~fifo_empty;
    assign umi_in_ready           = bypass ? umi_out_ready         : fifo_in_ready;
 
    // debug signals
