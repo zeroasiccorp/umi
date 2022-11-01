@@ -68,6 +68,7 @@ module umi_splitter
    assign umi1_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
 
    // Globally blocking ready implementation
-   assign umi_in_ready = umi0_out_ready & umi1_out_ready;
+   assign umi_in_ready = ~(umi0_out_valid & ~umi0_out_ready) &
+			 ~(umi1_out_valid & ~umi1_out_ready);
 
 endmodule // umi_splitter
