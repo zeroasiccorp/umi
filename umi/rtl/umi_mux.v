@@ -28,8 +28,7 @@ module umi_mux
     );
 
    // local wires
-   wire [N-1:0]       umi_arbiter_ready;
-   wire [N-1:0]       umi_arbiter_valid;
+   wire [N-1:0]       grants;
 
    /*AUTOWIRE*/
 
@@ -37,20 +36,20 @@ module umi_mux
    // Valid Selection
    //##############################
 
-   umi_arbiter #(.N(N),
-		 .UW(UW))
-   umi_arbiter(.umi_in_ready		(umi_in_ready[N-1:0]),
-	       .umi_out_valid		(umi_arbiter_valid[N-1:0]),
-	       /*AUTOINST*/
+   umi_arbiter #(.N(N))
+   umi_arbiter(// outputs
+	       .grants		(grants[N-1:0]),
 	       // Inputs
-	       .clk			(clk),
-	       .nreset			(nreset),
-	       .mode			(mode[1:0]),
-	       .mask			(mask[N-1:0]),
-	       .umi_in_valid		(umi_in_valid[N-1:0]));
+	       .clk		(clk),
+	       .nreset		(nreset),
+	       .mode		(mode[1:0]),
+	       .mask		(mask[N-1:0]),
+	       .requests	(umi_in_valid[N-1:0]));
 
+   assign umi_out_valid = |grants[N-1:0];
 
-   assign umi_out_valid = |umi_arbiter_valid[N-1:0];
+   assign umi_in_ready[N-1:0] = ~umi_in_valid[N-1:0] |
+				(umi_in_valid[N-1:0] & grants[N-1:0]);
 
    //##############################
    // Packet Mux
@@ -64,7 +63,7 @@ module umi_mux
 	for(i=0;i<N;i=i+1)
 	  begin
 	     umi_out_packet[UW-1:0] = umi_out_packet |
-	                              {UW{umi_arbiter_valid[i]}} & umi_in_packet[i*UW+:UW];
+	                              {UW{grants[i]}} & umi_in_packet[i*UW+:UW];
 	  end
      end
 
