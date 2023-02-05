@@ -24,7 +24,7 @@
 | WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | XXXX_0101 |
 | WRITE-STREAM   | USER[19:0] | --        | XXXX_0111 |
 | WRITE-ACK      | USER[19:0] | --        | XXXX_1001 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1011 |
+| WRITE-MULTICAST| USER[19:0] | SIZE[3:0] | XXXX_1011 |
 | RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1101 |
 | RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1111 |
 |----------------|------------|-----------|-----------|
