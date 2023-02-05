@@ -28,7 +28,7 @@ module umi_unpack
     input [UW-1:0]    packet,
     // Control
     output 	      write, // write transaction
-    output [6:0]      command, // raw opcode
+    output [7:0]      command, // raw opcode
     output [3:0]      size, // transaction size
     output [19:0]     options, // raw command
     //Address/Data
@@ -41,7 +41,7 @@ module umi_unpack
    generate
       if(AW==64 & UW==256) begin : p256
 	 assign write           = packet[0];
-	 assign command[6:0]    = packet[7:1];
+	 assign command[7:0]    = packet[7:0];
 	 assign size[3:0]       = packet[11:8];
 	 assign options[19:0]   = packet[31:12];
 	 assign dstaddr[31:0]   = packet[63:32];

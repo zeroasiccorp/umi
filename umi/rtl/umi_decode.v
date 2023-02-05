@@ -10,8 +10,7 @@
 module umi_decode
   (
    // Packet Command
-   input [6:0] command,
-   input       write,
+   input [7:0] command,
    // Decoded signals
    output      cmd_invalid,// invalid transaction
    output      cmd_read_request, // read request
@@ -33,32 +32,32 @@ module umi_decode
    output      cmd_atomic_maxu
    );
 
-   wire [7:0]  opcode = {command[6:0], write};
-
 `include "umi_messages.vh"
 
-   // Command grouping
-   assign cmd_invalid        = (opcode[7:0]==INVALID);
-   assign cmd_read_request   = (opcode[7:0]==READ_REQUEST);
-   assign cmd_atomic         = (opcode[3:0]==ATOMIC);
+   // Invalid
+   assign cmd_invalid        = (command[7:0]==UMI_INVALID);
+
+   // reads
+   assign cmd_read_request   = (command[3:0]==UMI_READ_REQUEST[3:0]);
 
    // Write controls
-   assign cmd_write_posted    = (opcode[3:0]==WRITE_POSTED[3:0]);
-   assign cmd_write_response  = (opcode[3:0]==WRITE_RESPONSE[3:0]);
-   assign cmd_write_signal    = (opcode[3:0]==WRITE_SIGNAL[3:0]);
-   assign cmd_write_stream    = (opcode[3:0]==WRITE_STREAM[3:0]);
-   assign cmd_write_ack       = (opcode[3:0]==WRITE_ACK[3:0]);
-   assign cmd_write_multicast = (opcode[3:0]==WRITE_MULTICAST[3:0]);
+   assign cmd_write_posted    = (command[3:0]==UMI_WRITE_POSTED[3:0]);
+   assign cmd_write_response  = (command[3:0]==UMI_WRITE_RESPONSE[3:0]);
+   assign cmd_write_signal    = (command[3:0]==UMI_WRITE_SIGNAL[3:0]);
+   assign cmd_write_stream    = (command[3:0]==UMI_WRITE_STREAM[3:0]);
+   assign cmd_write_ack       = (command[3:0]==UMI_WRITE_ACK[3:0]);
+   assign cmd_write_multicast = (command[3:0]==UMI_WRITE_MULTICAST[3:0]);
 
    // Atomics
-   assign cmd_atomic_add     = (opcode[7:0]==ATOMIC_ADD);
-   assign cmd_atomic_and     = (opcode[7:0]==ATOMIC_AND);
-   assign cmd_atomic_or      = (opcode[7:0]==ATOMIC_OR);
-   assign cmd_atomic_xor     = (opcode[7:0]==ATOMIC_XOR);
-   assign cmd_atomic_max     = (opcode[7:0]==ATOMIC_MAX);
-   assign cmd_atomic_min     = (opcode[7:0]==ATOMIC_MIN);
-   assign cmd_atomic_maxu    = (opcode[7:0]==ATOMIC_MAXU);
-   assign cmd_atomic_minu    = (opcode[7:0]==ATOMIC_MINU);
-   assign cmd_atomic_swap    = (opcode[7:0]==ATOMIC_SWAP);
+   assign cmd_atomic         = (command[3:0]==UMI_ATOMIC[3:0]);
+   assign cmd_atomic_add     = (command[7:0]==UMI_ATOMIC_ADD);
+   assign cmd_atomic_and     = (command[7:0]==UMI_ATOMIC_AND);
+   assign cmd_atomic_or      = (command[7:0]==UMI_ATOMIC_OR);
+   assign cmd_atomic_xor     = (command[7:0]==UMI_ATOMIC_XOR);
+   assign cmd_atomic_max     = (command[7:0]==UMI_ATOMIC_MAX);
+   assign cmd_atomic_min     = (command[7:0]==UMI_ATOMIC_MIN);
+   assign cmd_atomic_maxu    = (command[7:0]==UMI_ATOMIC_MAXU);
+   assign cmd_atomic_minu    = (command[7:0]==UMI_ATOMIC_MINU);
+   assign cmd_atomic_swap    = (command[7:0]==UMI_ATOMIC_SWAP);
 
 endmodule // umi_decode

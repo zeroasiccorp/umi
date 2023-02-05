@@ -13,7 +13,7 @@ module umi_pack
    (
     // Command inputs
     input 	     write,
-    input [6:0]      command,
+    input [7:0]      command,
     input [3:0]      size,// number of bytes to transfer
     input [19:0]     options, // user options
     input 	     burst, // active burst in process
@@ -30,7 +30,7 @@ module umi_pack
 
    // command packer
    assign cmd_out[0]     = write;
-   assign cmd_out[7:1]   = command[6:0];
+   assign cmd_out[7:1]   = command[7:1];
    assign cmd_out[11:8]  = size[3:0];
    assign cmd_out[31:12] = options[19:0];
 

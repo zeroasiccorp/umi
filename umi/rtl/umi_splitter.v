@@ -33,7 +33,7 @@ module umi_splitter
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [6:0]		command;		// From umi_unpack of umi_unpack.v
+   wire [7:0]		command;		// From umi_unpack of umi_unpack.v
    wire [4*AW-1:0]	data;			// From umi_unpack of umi_unpack.v
    wire [AW-1:0]	dstaddr;		// From umi_unpack of umi_unpack.v
    wire [19:0]		options;		// From umi_unpack of umi_unpack.v
@@ -52,7 +52,7 @@ module umi_splitter
 	      /*AUTOINST*/
 	      // Outputs
 	      .write			(write),
-	      .command			(command[6:0]),
+	      .command			(command[7:0]),
 	      .size			(size[3:0]),
 	      .options			(options[19:0]),
 	      .dstaddr			(dstaddr[AW-1:0]),

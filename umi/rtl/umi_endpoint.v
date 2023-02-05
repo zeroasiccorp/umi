@@ -33,13 +33,15 @@ module umi_endpoint
     output [AW-1:0]   loc_addr, // memory address
     output 	      loc_write, // write enable
     output 	      loc_read, // read request
-    output [6:0]      loc_cmd, // pass through command
+    output [7:0]      loc_cmd, // pass through command
     output [3:0]      loc_size, // pass through command
     output [19:0]     loc_options, // pass through command
     output [4*DW-1:0] loc_wrdata, // data to write
     input [DW-1:0]    loc_rddata, // data response
     input 	      loc_ready  // device is ready
     );
+
+`include "umi_messages.vh"
 
    // local regs
    reg [3:0] 		size_out;
@@ -93,7 +95,7 @@ module umi_endpoint
 		.AW(AW))
    umi_unpack(// Outputs
 	      .write	(loc_write),
-	      .command	(loc_cmd[6:0]),
+	      .command	(loc_cmd[7:0]),
 	      .size	(loc_size[3:0]),
 	      .options	(loc_options[19:0]),
 	      .dstaddr	(loc_addr[AW-1:0]),
@@ -143,7 +145,7 @@ module umi_endpoint
 	    .packet	(umi0_out_packet[UW-1:0]),
 	    // Inputs
 	    .write	(1'b1),
-	    .command    (7'b1),//returns write response
+	    .command    (UMI_WRITE_POSTED),//returns write response
 	    .size	(size_out[3:0]),
 	    .options	(options_out[19:0]),
 	    .burst	(1'b0),
