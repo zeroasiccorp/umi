@@ -20,6 +20,7 @@ module umi_decode
    output      cmd_write_ack,// write with acknowledge
    output      cmd_write_stream,// write stream
    output      cmd_write_response,// write response
+   output      cmd_write_multicast,// write multicast
    output      cmd_atomic,// read-modify-write
    output      cmd_atomic_swap,
    output      cmd_atomic_add,
@@ -42,11 +43,12 @@ module umi_decode
    assign cmd_atomic         = (opcode[3:0]==ATOMIC);
 
    // Write controls
-   assign cmd_write_posted   = (opcode[7:0]==WRITE_POSTED);
-   assign cmd_write_response = (opcode[7:0]==WRITE_RESPONSE);
-   assign cmd_write_signal   = (opcode[7:0]==WRITE_SIGNAL);
-   assign cmd_write_stream   = (opcode[7:0]==WRITE_STREAM);
-   assign cmd_write_ack      = (opcode[7:0]==WRITE_ACK);
+   assign cmd_write_posted    = (opcode[3:0]==WRITE_POSTED[3:0]);
+   assign cmd_write_response  = (opcode[3:0]==WRITE_RESPONSE[3:0]);
+   assign cmd_write_signal    = (opcode[3:0]==WRITE_SIGNAL[3:0]);
+   assign cmd_write_stream    = (opcode[3:0]==WRITE_STREAM[3:0]);
+   assign cmd_write_ack       = (opcode[3:0]==WRITE_ACK[3:0]);
+   assign cmd_write_multicast = (opcode[3:0]==WRITE_MULTICAST[3:0]);
 
    // Atomics
    assign cmd_atomic_add     = (opcode[7:0]==ATOMIC_ADD);
