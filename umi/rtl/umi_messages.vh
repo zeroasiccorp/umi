@@ -1,12 +1,14 @@
 
 // FULL OPCODES
-localparam INVALID         = 8'h00;
+
 localparam WRITE_POSTED    = 8'h01;
 localparam WRITE_RESPONSE  = 8'h03;
 localparam WRITE_SIGNAL    = 8'h05;
 localparam WRITE_STREAM    = 8'h07;
 localparam WRITE_ACK       = 8'h09;
 localparam WRITE_MULTICAST = 8'h0B;
+
+localparam INVALID         = 8'h00;
 localparam READ_REQUEST    = 8'h02;
 localparam ATOMIC_ADD      = 8'h04;
 localparam ATOMIC_AND      = 8'h14;
