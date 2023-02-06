@@ -92,7 +92,7 @@ module umi_regif
 	    .packet	(oob_out_packet[UW-1:0]),
 	    // Inputs
 	    .write	(1'b1),
-	    .command    (UMI_WRITE_POSTED),//returns write response
+	    .command    (UMI_WRITE_RESPONSE),//returns write response
 	    .size	(reg_size[3:0]),
 	    .options	(reg_options[19:0]),
 	    .burst	(1'b0),
