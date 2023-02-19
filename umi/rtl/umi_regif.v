@@ -49,7 +49,7 @@ module umi_regif
    umi_unpack #(.UW(UW),
 		.AW(AW))
    umi_unpack(// Outputs
-	      .write	(reg_write),
+	      .write	(write),
 	      .command	(reg_cmd[7:0]),
 	      .size	(reg_size[3:0]),
 	      .options	(reg_options[19:0]),
@@ -59,7 +59,8 @@ module umi_regif
 	      // Inputs
 	      .packet	(oob_in_packet[UW-1:0]));
 
-   assign reg_read = ~reg_write & oob_in_valid;
+   assign reg_read  = ~write & oob_in_valid;
+   assign reg_write = write & oob_in_valid;
 
    always @ (posedge clk or negedge nreset)
      if(!nreset)
