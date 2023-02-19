@@ -93,8 +93,9 @@ module umi_stimulus
      else
        case (rd_state[1:0])
 	 STIM_IDLE :
-	   rd_state[1:0] <= dut_start ? STIM_ACTIVE :
-                                        STIM_IDLE;
+	   rd_state[1:0] <= (dut_start & data_valid)  ? STIM_ACTIVE :
+			    (dut_start & ~data_valid) ? STIM_DONE :
+                                                        STIM_IDLE;
 	 STIM_ACTIVE :
 	   rd_state[1:0] <= pause      ? STIM_PAUSE :
 			    data_valid ? STIM_ACTIVE :
