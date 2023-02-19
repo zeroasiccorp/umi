@@ -38,7 +38,7 @@ module umi_decode
    assign cmd_invalid        = (command[7:0]==UMI_INVALID);
 
    // reads
-   assign cmd_read_request   = (command[3:0]==UMI_READ_REQUEST[3:0]);
+   assign cmd_read_request   = (command[3:0]==UMI_REQUEST_READ[3:0]);
 
    // Write controls
    assign cmd_write_posted    = (command[3:0]==UMI_WRITE_POSTED[3:0]);
@@ -46,7 +46,6 @@ module umi_decode
    assign cmd_write_signal    = (command[3:0]==UMI_WRITE_SIGNAL[3:0]);
    assign cmd_write_stream    = (command[3:0]==UMI_WRITE_STREAM[3:0]);
    assign cmd_write_ack       = (command[3:0]==UMI_WRITE_ACK[3:0]);
-   assign cmd_write_multicast = (command[3:0]==UMI_WRITE_MULTICAST[3:0]);
 
    // Atomics
    assign cmd_atomic         = (command[3:0]==UMI_ATOMIC[3:0]);
