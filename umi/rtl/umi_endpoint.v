@@ -117,7 +117,7 @@ module umi_endpoint
      if(!nreset)
        umi0_out_valid <= 1'b0;
      else if (loc_read)
-       umi0_out_valid <= 1'b1;
+       umi0_out_valid <= loc_ready;
      else if (umi0_out_valid & umi0_out_ready)
        umi0_out_valid <= 1'b0;
 
