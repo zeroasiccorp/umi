@@ -1,4 +1,4 @@
-\rm a.out
+\rm -f a.out
 
 iverilog tb_umi_fifo.v \
 	 -y . \
