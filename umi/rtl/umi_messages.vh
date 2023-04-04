@@ -17,7 +17,7 @@
 
 localparam UMI_INVALID         = 8'h00;
 
-// Response
+// Response (unilateral)
 localparam UMI_WRITE_POSTED   = 8'h01; // write without ack
 localparam UMI_WRITE_RESPONSE = 8'h03; // response from read request
 localparam UMI_WRITE_SIGNAL   = 8'h05; // signal write without ack
@@ -26,7 +26,7 @@ localparam UMI_WRITE_ACK      = 8'h09; // acknowledge to write request
 localparam UMI_WRITE_RES0     = 8'h0B;
 localparam UMI_WRITE_RES1     = 8'h0D;
 localparam UMI_WRITE_RES2     = 8'h0F;
-// Request
+// Request (demands a respnse)
 localparam UMI_REQUEST_READ   = 8'h02; // read/load
 localparam UMI_REQUEST_WRITE  = 8'h04; // write/store with ack
 localparam UMI_REQUEST_RES0   = 8'h06;
