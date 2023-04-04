@@ -1,0 +1,3 @@
+[submodule "submodules/lambdalib"]
+	path = submodules/lambdalib
+	url = git@github.com:siliconcompiler/lambdalib.git
