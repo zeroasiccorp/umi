@@ -15,7 +15,8 @@
  *
  ******************************************************************************/
 module umi_arbiter
-  #(parameter N   = 4  // number of inputs
+  #(parameter N      = 4,         // number of inputs
+    parameter TARGET = "DEFAULT"  // SIM, ASIC, FPGA, ...
     )
    (// controls
     input 	       clk,
