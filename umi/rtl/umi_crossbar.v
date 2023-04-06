@@ -23,13 +23,12 @@ module umi_crossbar
    generate
      for(i=0;i<N;i=i+1)
        begin: imux
-	  la_mux #(.DW(UW),
-		   .N(N))
-	  la_mux(// Outputs
-		 .out	(out[i*UW+:UW]),
-		 // Inputs
-		 .sel	(sel[i*N+:N]),
-		 .in	(in[UW*N-1:0]));
+	  la_vmux #(.N(N), .W(UW))
+	  la_vmux(// Outputs
+		  .out	(out[i*UW+:UW]),
+		  // Inputs
+		  .sel	(sel[i*N+:N]),
+		  .in	(in[UW*N-1:0]));
 
        end
    endgenerate
