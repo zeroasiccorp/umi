@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Function:  UMI Arbiter
  * Author:    Andreas Olofsson
- * License:
+ * License:   (c) 2023 Zero ASIC Corporation
  *
  * Documentation:
  *
