@@ -28,6 +28,7 @@ module umi_crossbar
     input 	       clk,
     input 	       nreset,
     input [1:0]        mode, // arbiter mode (0=fixed)
+    input [N*N-1:0]    mask, // arbiter mode (0=fixed)
     // Incoming UMI
     input [N*N-1:0]    umi_in_request,
     input [N*UW-1:0]   umi_in_packet,
@@ -40,6 +41,7 @@ module umi_crossbar
 
    wire [N*N-1:0]    grants;
    wire [N*N-1:0]    ready;
+   wire [N*N-1:0]    umi_out_sel;
    genvar 	     i;
 
    //##############################
@@ -56,12 +58,16 @@ module umi_crossbar
 		     .clk      (clk),
 		     .nreset   (nreset),
 		     .mode     (mode[1:0]),
-		     .mask     ({N{1'b0}}),
+		     .mask     (mask[N*i+:N]),
 		     .requests (umi_in_request[N*i+:N]));
 
 	assign umi_out_valid[i] = |grants[N*i+:N];
-
      end // for (i=0;i<N;i=i+1)
+
+   // masking final select to help synthesis pruning
+   // TODO: check in syn if this is strictly needed
+
+   assign umi_out_sel[N*N-1:0] = grants[N*N-1:0] & ~mask[N*N-1:0];
 
    //##############################
    // Ready
@@ -92,7 +98,7 @@ module umi_crossbar
 	la_vmux(// Outputs
 		.out (umi_out_packet[i*UW+:UW]), //.out (umi_out_packet[i*UW+:UW]),
 		// Inputs
-		.sel (grants[i*N+:N]),
+		.sel (umi_out_sel[i*N+:N]),
 		.in  (umi_in_packet[UW*N-1:0]));
 
      end
