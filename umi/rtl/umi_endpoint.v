@@ -18,17 +18,17 @@ module umi_endpoint
     input 	      nreset,
     input 	      clk,
     // Write/response
-    input 	      umi0_in_valid,
-    input [UW-1:0]    umi0_in_packet,
-    output 	      umi0_in_ready,
+    input 	      umi_resp_in_valid,
+    input [UW-1:0]    umi_resp_in_packet,
+    output 	      umi_resp_in_ready,
     // Read/request
-    input 	      umi1_in_valid,
-    input [UW-1:0]    umi1_in_packet,
-    output 	      umi1_in_ready,
+    input 	      umi_req_in_valid,
+    input [UW-1:0]    umi_req_in_packet,
+    output 	      umi_req_in_ready,
     // Outgoing UMI write response
-    output reg 	      umi0_out_valid,
-    output [UW-1:0]   umi0_out_packet,
-    input 	      umi0_out_ready,
+    output reg 	      umi_resp_out_valid,
+    output [UW-1:0]   umi_resp_out_packet,
+    input 	      umi_resp_out_ready,
     // Memory interface
     output [AW-1:0]   loc_addr, // memory address
     output 	      loc_write, // write enable
@@ -57,18 +57,18 @@ module umi_endpoint
    wire [UW-1:0] 	umi_in_packet;
    wire 		umi_in_valid;
 
-   wire 		umi0_ready;
-   wire 		umi1_ready;
+   wire 		umi_resp_ready;
+   wire 		umi_req_ready;
 
    //########################
    // INPUT ARBITER
    //########################
 
-   assign umi0_in_ready = loc_ready;
+   assign umi_resp_in_ready = loc_ready;
 
-   assign umi1_in_ready = loc_ready &
-			  umi1_ready &
-			  ~(umi1_in_valid & ~umi0_out_ready);
+   assign umi_req_in_ready = loc_ready &
+			     umi_req_ready &
+			     ~(umi_req_in_valid & ~umi_resp_out_ready);
 
    //########################
    // INPUT ARBITER
@@ -78,10 +78,10 @@ module umi_endpoint
    umi_mux(// Outputs
 	   .umi_out_valid    (umi_in_valid),
 	   .umi_out_packet   (umi_in_packet[UW-1:0]),
-	   .umi_in_ready     ({umi1_ready,umi0_ready}),
+	   .umi_in_ready     ({umi_req_ready,umi_resp_ready}),
 	   // Inputs
-	   .umi_in_packet    ({umi1_in_packet,umi0_in_packet}),
-	   .umi_in_valid     ({umi1_in_valid,umi0_in_valid}),
+	   .umi_in_packet    ({umi_req_in_packet,umi_resp_in_packet}),
+	   .umi_in_valid     ({umi_req_in_valid,umi_resp_in_valid}),
 	   .clk		     (clk),
 	   .nreset	     (nreset),
 	   .mode	     (2'b00),
@@ -115,11 +115,11 @@ module umi_endpoint
    //3. If no incoming read and output is ready, clear
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       umi0_out_valid <= 1'b0;
+       umi_resp_out_valid <= 1'b0;
      else if (loc_read)
-       umi0_out_valid <= loc_ready;
-     else if (umi0_out_valid & umi0_out_ready)
-       umi0_out_valid <= 1'b0;
+       umi_resp_out_valid <= loc_ready;
+     else if (umi_resp_out_valid & umi_resp_out_ready)
+       umi_resp_out_valid <= 1'b0;
 
    //#############################
    //# Pipeline Packet
@@ -142,7 +142,7 @@ module umi_endpoint
    umi_pack #(.UW(UW),
 	      .AW(AW))
    umi_pack(// Outputs
-	    .packet	(umi0_out_packet[UW-1:0]),
+	    .packet	(umi_resp_out_packet[UW-1:0]),
 	    // Inputs
 	    .write	(1'b1),
 	    .command    (UMI_WRITE_POSTED),//returns write response

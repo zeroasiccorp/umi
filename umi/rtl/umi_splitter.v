@@ -6,11 +6,8 @@
  * Documentation:
  *
  * - Splits up traffic based on type.
- * - UMI 0 carries high priority traffic ("writes")
- * - UMI 1 carries low priority traffic ("read requests")
+ * - Responses (writes) has priority over requests (reads)
  * - Both outputs must be ready for input to go through.("blocking")
- *
- * TODO: implement REG switch to enable non-blocking implementation.
  *
  ******************************************************************************/
 module umi_splitter
@@ -21,14 +18,14 @@ module umi_splitter
     input 	    umi_in_valid,
     input [UW-1:0]  umi_in_packet,
     output 	    umi_in_ready,
-    // UMI Output (0)
-    output 	    umi0_out_valid,
-    output [UW-1:0] umi0_out_packet,
-    input 	    umi0_out_ready,
-    // UMI Output (1)
-    output 	    umi1_out_valid,
-    output [UW-1:0] umi1_out_packet,
-    input 	    umi1_out_ready
+    // UMI Output
+    output 	    umi_resp_out_valid,
+    output [UW-1:0] umi_resp_out_packet,
+    input 	    umi_resp_out_ready,
+    // UMI Output
+    output 	    umi_req_out_valid,
+    output [UW-1:0] umi_req_out_packet,
+    input 	    umi_req_out_ready
     );
 
    /*AUTOWIRE*/
@@ -59,16 +56,16 @@ module umi_splitter
 	      .srcaddr			(srcaddr[AW-1:0]),
 	      .data			(data[4*AW-1:0]));
 
-   // Write traffic sent to umi0
-   assign umi0_out_valid = umi_in_valid & write;
-   assign umi1_out_valid = umi_in_valid & ~write;
+   // Write traffic sent to umi_resp
+   assign umi_resp_out_valid = umi_in_valid & write;
+   assign umi_req_out_valid = umi_in_valid & ~write;
 
    // Broadcasting packet
-   assign umi0_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
-   assign umi1_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
+   assign umi_resp_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
+   assign umi_req_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
 
    // Globally blocking ready implementation
-   assign umi_in_ready = ~(umi0_out_valid & ~umi0_out_ready) &
-			 ~(umi1_out_valid & ~umi1_out_ready);
+   assign umi_in_ready = ~(umi_resp_out_valid & ~umi_resp_out_ready) &
+			 ~(umi_req_out_valid & ~umi_req_out_ready);
 
 endmodule // umi_splitter
