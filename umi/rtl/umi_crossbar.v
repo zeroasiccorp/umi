@@ -96,7 +96,7 @@ module umi_crossbar
 	la_vmux #(.N(N),
 		  .W(UW))
 	la_vmux(// Outputs
-		.out (umi_out_packet[i*UW+:UW]), //.out (umi_out_packet[i*UW+:UW]),
+		.out (umi_out_packet[i*UW+:UW]),
 		// Inputs
 		.sel (umi_out_sel[i*N+:N]),
 		.in  (umi_in_packet[UW*N-1:0]));
