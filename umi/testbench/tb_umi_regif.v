@@ -59,15 +59,15 @@ module testbench();
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [AW-1:0]	reg_addr;
-   wire [7:0]		reg_cmd;
-   wire			reg_read;
-   wire [3:0]		reg_size;
-   wire [4*DW-1:0]	reg_wrdata;
-   wire			reg_write;
    wire			udev_req_ready;
    wire [UW-1:0]	udev_resp_packet;
    wire			udev_resp_valid;
+   wire [AW-1:0]	ureg_addr;
+   wire [7:0]		ureg_cmd;
+   wire			ureg_read;
+   wire [3:0]		ureg_size;
+   wire [4*DW-1:0]	ureg_wrdata;
+   wire			ureg_write;
    // End of automatics
 
    //###########################################
@@ -93,32 +93,32 @@ module testbench();
 	      .udev_req_ready		(udev_req_ready),
 	      .udev_resp_valid		(udev_resp_valid),
 	      .udev_resp_packet		(udev_resp_packet[UW-1:0]),
-	      .reg_addr			(reg_addr[AW-1:0]),
-	      .reg_write		(reg_write),
-	      .reg_read			(reg_read),
-	      .reg_cmd			(reg_cmd[7:0]),
-	      .reg_size			(reg_size[3:0]),
-	      .reg_wrdata		(reg_wrdata[4*DW-1:0]),
+	      .ureg_addr		(ureg_addr[AW-1:0]),
+	      .ureg_write		(ureg_write),
+	      .ureg_read		(ureg_read),
+	      .ureg_cmd			(ureg_cmd[7:0]),
+	      .ureg_size		(ureg_size[3:0]),
+	      .ureg_wrdata		(ureg_wrdata[4*DW-1:0]),
 	      // Inputs
 	      .clk			(clk),
 	      .nreset			(nreset),
 	      .udev_req_valid		(udev_req_valid),
 	      .udev_req_packet		(udev_req_packet[UW-1:0]),
 	      .udev_resp_ready		(udev_resp_ready),
-	      .reg_rddata		(reg_rddata[DW-1:0]));
+	      .ureg_rddata		(ureg_rddata[DW-1:0]));
 
 
    reg [DW-1:0] 	ram [1023:0];
-   reg [DW-1:0] 	reg_rddata;
+   reg [DW-1:0] 	ureg_rddata;
 
    // Dummy RAM
    always @(posedge clk)
-     if (reg_write)
-       ram[reg_addr[$clog2(RAMDEPTH)-1:1]] <= reg_wrdata[DW-1:0];
+     if (ureg_write)
+       ram[ureg_addr[$clog2(RAMDEPTH)-1:1]] <= ureg_wrdata[DW-1:0];
 
    always @ (posedge clk)
-     if(reg_read)
-       reg_rddata[DW-1:0] <= ram[reg_addr[$clog2(RAMDEPTH)-1:1]];
+     if(ureg_read)
+       ureg_rddata[DW-1:0] <= ram[ureg_addr[$clog2(RAMDEPTH)-1:1]];
 
 endmodule
 // Local Variables:
