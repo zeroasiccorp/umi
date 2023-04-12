@@ -7,9 +7,9 @@
  *
  * The module translates a UMI request into a simple register interface.
  * Read data is returned as UMI response packets. Reads requests can occur
- * at a maximum rate of one transaction every two cycles. 
- * 
- * Only read/writes <= DW is supported.  
+ * at a maximum rate of one transaction every two cycles.
+ *
+ * Only read/writes <= DW is supported.
  *
  ******************************************************************************/
 module umi_regif
@@ -29,20 +29,20 @@ module umi_regif
     output [UW-1:0]   udev_resp_packet,
     input 	      udev_resp_ready,
     // Read/Write register interface
-    output [AW-1:0]   reg_addr, // memory address
-    output 	      reg_write, // register write
-    output 	      reg_read, // register read
-    output [7:0]      reg_cmd, // command (eg. atomics)
-    output [3:0]      reg_size, // size (byte, etc)
-    output [4*DW-1:0] reg_wrdata, // data to write
-    input [DW-1:0]    reg_rddata // readback data
+    output [AW-1:0]   ureg_addr, // memory address
+    output 	      ureg_write, // register write
+    output 	      ureg_read, // register read
+    output [7:0]      ureg_cmd, // command (eg. atomics)
+    output [3:0]      ureg_size, // size (byte, etc)
+    output [4*DW-1:0] ureg_wrdata, // data to write
+    input [DW-1:0]    ureg_rddata // readback data
     );
 
 `include "umi_messages.vh"
-   
-   wire [AW-1:0]      reg_srcaddr;
-   wire [19:0] 	      reg_options;
-   
+
+   wire [AW-1:0]      ureg_srcaddr;
+   wire [19:0] 	      ureg_options;
+
    //########################
    // UMI INPUT
    //########################
@@ -51,18 +51,18 @@ module umi_regif
 		.AW(AW))
    umi_unpack(// Outputs
 	      .write	(write),
-	      .command	(reg_cmd[7:0]),
-	      .size	(reg_size[3:0]),
-	      .options	(reg_options[19:0]),
-	      .dstaddr	(reg_addr[AW-1:0]),
-	      .srcaddr	(reg_srcaddr[AW-1:0]),
-	      .data	(reg_wrdata[4*AW-1:0]),
+	      .command	(ureg_cmd[7:0]),
+	      .size	(ureg_size[3:0]),
+	      .options	(ureg_options[19:0]),
+	      .dstaddr	(ureg_addr[AW-1:0]),
+	      .srcaddr	(ureg_srcaddr[AW-1:0]),
+	      .data	(ureg_wrdata[4*AW-1:0]),
 	      // Inputs
 	      .packet	(udev_req_packet[UW-1:0]));
-   
-   assign reg_read  = ~write & udev_req_valid;
-   assign reg_write =  write & udev_req_valid;
-      
+
+   assign ureg_read  = ~write & udev_req_valid;
+   assign ureg_write =  write & udev_req_valid;
+
    // single cycle stall on every ready
    always @ (posedge clk or negedge nreset)
      if(!nreset)
@@ -71,7 +71,7 @@ module umi_regif
        udev_req_ready <= ~udev_req_ready;
      else
        udev_req_ready <= 1'b0;
-    
+
    //############################
    //# UMI OUTPUT
    //############################
@@ -83,11 +83,11 @@ module umi_regif
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if (reg_read)
+     else if (ureg_read)
        udev_resp_valid <= 1'b1;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
-   
+
    umi_pack #(.UW(UW),
 	      .AW(AW))
    umi_pack(// Outputs
@@ -95,11 +95,11 @@ module umi_regif
 	    // Inputs
 	    .write	(1'b1),
 	    .command    (UMI_WRITE_RESPONSE),//returns write response
-	    .size	(reg_size[3:0]),
-	    .options	(reg_options[19:0]),
+	    .size	(ureg_size[3:0]),
+	    .options	(ureg_options[19:0]),
 	    .burst	(1'b0),
-	    .dstaddr	(reg_srcaddr[AW-1:0]),
+	    .dstaddr	(ureg_srcaddr[AW-1:0]),
 	    .srcaddr	({(AW){1'b0}}),
-	    .data	({(4){reg_rddata[DW-1:0]}}));
+	    .data	({(4){ureg_rddata[DW-1:0]}}));
 
 endmodule // umi_regif
