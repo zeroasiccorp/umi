@@ -14,7 +14,7 @@ UMI channel signal bundle consists of a packet, a valid signal,
 and a ready signal with the following naming convention:
 
 ```
-umi<host|dev>_<req|response>_<packet|ready|valid>
+u<host|dev>_<req|resp>_<packet|ready|valid>
 ```
 
 Connections shall only be made between hosts and devices,
@@ -112,7 +112,7 @@ opcodes.
 | REQ_WRITE      | 04   | Write request (with acknowledge)
 | REQ_POSTED     | 06   | Write request (**without** acknowledge)
 | REQ_MULTICAST  | 08   | Multicast request (**without** acknowledge)
-| REQ_YYY        | 0A   | Reserved
+| REQ_STREAM     | 0A   | Stream request (**without** acknowledge)
 | REQ_ZZZ        | 0C   | Reserved
 | REQ_ATOMICADD  | 0E   | Atomic add operation
 | REQ_ATOMICAND  | 1E   | Atomic and operation
@@ -127,7 +127,7 @@ opcodes.
 | RESP_READ      | 01   | Response to read request
 | RESP_WRITE     | 03   | Response (ack) to write request
 | RESP_ATOMIC    | 05   | Response to atomic request
-| RESP_STREAM    | 07   | Streaming unordered write
+| RESP_XXX       | 07   | Streaming unordered write
 | RESP_XXX       | 09   | Reserved
 | RESP_XXX       | 0B   | Reserved
 | RESP_XXX       | 0D   | Reserved
