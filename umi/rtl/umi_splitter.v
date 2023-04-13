@@ -28,15 +28,16 @@ module umi_splitter
     input 	    umi_req_out_ready
     );
 
+   wire 	    write;
+
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [7:0]		command;		// From umi_unpack of umi_unpack.v
-   wire [4*AW-1:0]	data;			// From umi_unpack of umi_unpack.v
-   wire [AW-1:0]	dstaddr;		// From umi_unpack of umi_unpack.v
-   wire [19:0]		options;		// From umi_unpack of umi_unpack.v
-   wire [3:0]		size;			// From umi_unpack of umi_unpack.v
-   wire [AW-1:0]	srcaddr;		// From umi_unpack of umi_unpack.v
-   wire			write;			// From umi_unpack of umi_unpack.v
+   wire [7:0]		command;
+   wire [4*AW-1:0]	data;
+   wire [AW-1:0]	dstaddr;
+   wire [19:0]		options;
+   wire [3:0]		size;
+   wire [AW-1:0]	srcaddr;
    // End of automatics
 
    //########################
@@ -48,13 +49,15 @@ module umi_splitter
    umi_unpack(.packet			(umi_in_packet[UW-1:0]),
 	      /*AUTOINST*/
 	      // Outputs
-	      .write			(write),
 	      .command			(command[7:0]),
 	      .size			(size[3:0]),
 	      .options			(options[19:0]),
 	      .dstaddr			(dstaddr[AW-1:0]),
 	      .srcaddr			(srcaddr[AW-1:0]),
 	      .data			(data[4*AW-1:0]));
+
+   // write decode
+   umi_write umi_write(.write (write), .command	(command[7:0]));
 
    // Write traffic sent to umi_resp
    assign umi_resp_out_valid = umi_in_valid & write;
