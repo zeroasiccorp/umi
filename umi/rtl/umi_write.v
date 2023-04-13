@@ -16,8 +16,10 @@ module umi_write
    umi_decode
      umi_decode(// Outputs
 		.cmd_write		(write),
+		.cmd_request		(),
+		.cmd_response		(),
 		.cmd_invalid		(),
-		.cmd_read_request	(),
+		.cmd_read       	(),
 		.cmd_write_posted	(),
 		.cmd_write_signal	(),
 		.cmd_write_ack		(),
