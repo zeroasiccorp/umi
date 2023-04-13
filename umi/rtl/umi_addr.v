@@ -15,7 +15,6 @@ module umi_addr
 
    umi_unpack #(.UW(UW))
    umi_unpack(// Outputs
-	      .write	(),
 	      .command	(),
 	      .size	(),
 	      .options	(),

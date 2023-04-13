@@ -50,7 +50,6 @@ module umi_regif
    umi_unpack #(.UW(UW),
 		.AW(AW))
    umi_unpack(// Outputs
-	      .write	(write),
 	      .command	(reg_cmd[7:0]),
 	      .size	(reg_size[3:0]),
 	      .options	(reg_options[19:0]),
@@ -59,6 +58,8 @@ module umi_regif
 	      .data	(reg_wrdata[4*AW-1:0]),
 	      // Inputs
 	      .packet	(udev_req_packet[UW-1:0]));
+
+   umi_write umi_write(.write (write), .command	(reg_cmd[7:0]));
 
    assign reg_read  = ~write & udev_req_valid;
    assign reg_write =  write & udev_req_valid;

@@ -40,7 +40,6 @@ module umi_unpack
    // data field unpacker
    generate
       if(AW==64 & UW==256) begin : p256
-	 assign write           = packet[0];
 	 assign command[7:0]    = packet[7:0];
 	 assign size[3:0]       = packet[11:8];
 	 assign options[19:0]   = packet[31:12];

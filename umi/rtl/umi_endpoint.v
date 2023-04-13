@@ -56,7 +56,6 @@ module umi_endpoint
    umi_unpack #(.UW(UW),
 		.AW(AW))
    umi_unpack(// Outputs
-	      .write	(write),
 	      .command	(loc_cmd[7:0]),
 	      .size	(loc_size[3:0]),
 	      .options	(loc_options[19:0]),
@@ -65,6 +64,8 @@ module umi_endpoint
 	      .data	(loc_wrdata[4*AW-1:0]),
 	      // Inputs
 	      .packet	(udev_req_packet[UW-1:0]));
+
+   umi_write umi_write(.write (write), .command	(loc_cmd[7:0]));
 
    assign loc_read  = ~write & udev_req_valid;
    assign loc_write =  write & udev_req_valid;
