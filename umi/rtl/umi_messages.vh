@@ -18,8 +18,8 @@
 localparam UMI_INVALID         = 8'h00;
 
 // Requests (demands a respnse)
-localparam UMI_REQ_READ        = 8'h02; // read/load
-localparam UMI_REQ_WRITE       = 8'h04; // write/store with ack
+localparam UMI_REQ_WRITE       = 8'h02; // write/store with ack
+localparam UMI_REQ_READ        = 8'h04; // read/load
 localparam UMI_REQ_POSTED      = 8'h06;
 localparam UMI_REQ_MULTICAST   = 8'h08;
 localparam UMI_REQ_STREAM      = 8'h0A;
