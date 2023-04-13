@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Function:  UMI Endpoint
+ * Function:  UMI Simple Endpoint
  * Author:    Andreas Olofsson
  * License:
  *
@@ -14,21 +14,16 @@ module umi_endpoint
     parameter AW   = 64,
     parameter DW   = 64,        // width of endpoint data
     parameter UW   = 256)
-   (//
+   (// ctrl
     input 	      nreset,
     input 	      clk,
-    // Write/response
-    input 	      umi_resp_in_valid,
-    input [UW-1:0]    umi_resp_in_packet,
-    output 	      umi_resp_in_ready,
-    // Read/request
-    input 	      umi_req_in_valid,
-    input [UW-1:0]    umi_req_in_packet,
-    output 	      umi_req_in_ready,
-    // Outgoing UMI write response
-    output reg 	      umi_resp_out_valid,
-    output [UW-1:0]   umi_resp_out_packet,
-    input 	      umi_resp_out_ready,
+    // Device port
+    input 	      udev_req_valid,
+    input [UW-1:0]    udev_req_packet,
+    output 	      udev_req_ready,
+    output reg 	      udev_resp_valid,
+    output [UW-1:0]   udev_resp_packet,
+    input 	      udev_resp_ready,
     // Memory interface
     output [AW-1:0]   loc_addr, // memory address
     output 	      loc_write, // write enable
@@ -53,40 +48,6 @@ module umi_endpoint
    wire [AW-1:0] 	loc_srcaddr;
    wire [4*AW-1:0] 	data_mux;
 
-   wire 		umi_ready;
-   wire [UW-1:0] 	umi_in_packet;
-   wire 		umi_in_valid;
-
-   wire 		umi_resp_ready;
-   wire 		umi_req_ready;
-
-   //########################
-   // INPUT ARBITER
-   //########################
-
-   assign umi_resp_in_ready = loc_ready;
-
-   assign umi_req_in_ready = loc_ready &
-			     umi_req_ready &
-			     ~(umi_req_in_valid & ~umi_resp_out_ready);
-
-   //########################
-   // INPUT ARBITER
-   //########################
-
-   umi_mux #(.N(2))
-   umi_mux(// Outputs
-	   .umi_out_valid    (umi_in_valid),
-	   .umi_out_packet   (umi_in_packet[UW-1:0]),
-	   .umi_in_ready     ({umi_req_ready,umi_resp_ready}),
-	   // Inputs
-	   .umi_in_packet    ({umi_req_in_packet,umi_resp_in_packet}),
-	   .umi_in_valid     ({umi_req_in_valid,umi_resp_in_valid}),
-	   .clk		     (clk),
-	   .nreset	     (nreset),
-	   .mode	     (2'b00),
-	   .mask	     (2'b00));
-
    //########################
    // UMI UNPACK
    //########################
@@ -102,9 +63,9 @@ module umi_endpoint
 	      .srcaddr	(loc_srcaddr[AW-1:0]),
 	      .data	(loc_wrdata[4*AW-1:0]),
 	      // Inputs
-	      .packet	(umi_in_packet[UW-1:0]));
+	      .packet	(udev_req_packet[UW-1:0]));
 
-   assign loc_read = ~loc_write & umi_in_valid;
+   assign loc_read = ~loc_write & udev_req_valid;
 
    //############################
    //# Outgoing Transaction
@@ -115,11 +76,14 @@ module umi_endpoint
    //3. If no incoming read and output is ready, clear
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       umi_resp_out_valid <= 1'b0;
+       udev_resp_valid <= 1'b0;
      else if (loc_read)
-       umi_resp_out_valid <= loc_ready;
-     else if (umi_resp_out_valid & umi_resp_out_ready)
-       umi_resp_out_valid <= 1'b0;
+       udev_resp_valid <= loc_ready;
+     else if (udev_resp_valid & udev_resp_ready)
+       udev_resp_valid <= 1'b0;
+
+   // Propagating wait signal
+   assign udev_req_ready = loc_ready & udev_resp_ready;
 
    //#############################
    //# Pipeline Packet
@@ -142,7 +106,7 @@ module umi_endpoint
    umi_pack #(.UW(UW),
 	      .AW(AW))
    umi_pack(// Outputs
-	    .packet	(umi_resp_out_packet[UW-1:0]),
+	    .packet	(udev_resp_packet[UW-1:0]),
 	    // Inputs
 	    .write	(1'b1),
 	    .command    (UMI_WRITE_POSTED),//returns write response
