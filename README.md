@@ -4,72 +4,161 @@
 
 ## Overview
 
-* A simple read/write memory interface
-* Little Endian byte ordering
-* Read requests include full source and destination addreses
-* Valid transaction indicated by separate valid bit
-* Transaction behavior controlled through 32bit command
-* Native 64bit addressing with 32bit compatibilty mode
-* 256 bit flit size
-* Write always has priority over read
+The Universal Memory Interface (UMI) is a latency insensitive
+packet based memory interface with transactions divided into
+physically separate request and response channels.
+
+## Signal Interface
+
+UMI channel signal bundle consists of a packet, a valid signal,
+and a ready signal with the following naming convention:
+
+```
+u<host|dev>_<req|resp>_<packet|ready|valid>
+```
+
+Connections shall only be made between hosts and devices,
+per the diagram below.
+
+![UMI](docs/_images/umi_connections.png)
+
+
+Modules can have a UMI host port, device port, or both.
+
+```verilog
+
+// HOST VERILOG
+output        uhost_req_valid;
+output[255:0] uhost_req_packet;
+input         uhost_req_ready;
+input         uhost_resp_valid;
+input[255:0]  uhost_resp_packet;
+output        uhost_resp_ready;
+
+// DEVICE VERILOG
+input         udev_req_valid;
+input[255:0]  udev_req_packet;
+output        udev_req_ready;
+output        udev_resp_valid;
+output[255:0] udev_resp_packet;
+input         udev_resp_ready;
+```
+
+## Handshake Protocol
+
+![UMI](docs/_images/ready_valid.svg)
+
+UMI adheres to the following ready/valid handshake protocol:
+1. A transaction occurs on every rising clock edge in which READY and VALID are both asserted.
+2. Once VALID is asserted, it must not be de-asserted until a transaction completes.
+3. READY, on the other hand, may be de-asserted before a transaction completes.
+3. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
+4. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
+
+#### Legal: VALID asserted before READY
+
+![UMIX1](docs/_images/ok_valid_ready.svg)
+
+#### Legal: READY asserted before VALID
+
+![UMIX2](docs/_images/ok_ready_valid.svg)
+
+#### Legal: READY and VALID asserted simultaneously
+
+![UMIX3](docs/_images/ok_sametime.svg)
+
+#### Legal: READY toggles with no effect
+
+![UMIX4](docs/_images/ok_ready_toggle.svg)
+
+#### **ILLEGAL**: VALID de-asserted without waiting for READY
+
+![UMIX5](docs/_images/bad_valid_toggle.svg)
+
+#### Legal: VALID asserted for multiple cycles
+
+In this case, multiple transactions occur.
+
+![UMIX6](docs/_images/ok_double_xaction.svg)
+
+#### Example Bidirectional Transaction
+
+![UMIX7](docs/_images/example_rw_xaction.svg)
+
+
+## Packet Structure
+
+UMI packets are encoded with the scheme shown below.
+
+
+| [UW-1:32]  | [31:12]   | [11:8] |  [7:0]       |
+|------------|-----------|--------|--------------|
+| MESSAGE    | OPTIONS   | SIZE   | COMMAND      |
 
 ## Transaction Types
 
-| Command        | 31:12      |  11:8     |  7:0      |
-|----------------|------------|-----------|-----------|
-| INVALID        | USER[19:0] | SIZE[3:0] | 0000_0000 |
-|----------------|------------|-----------|-----------|
-| WRITE-NORMAL   | USER[19:0] | SIZE[3:0] | XXXX_0001 |
-| WRITE-RESPONSE | USER[19:0] | SIZE[3:0] | XXXX_0011 |
-| WRITE-SIGNAL   | USER[19:0] | SIZE[3:0] | XXXX_0101 |
-| WRITE-STREAM   | USER[19:0] | --        | XXXX_0111 |
-| WRITE-ACK      | USER[19:0] | --        | XXXX_1001 |
-| WRITE-MULTICAST| USER[19:0] | SIZE[3:0] | XXXX_1011 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1101 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1111 |
-|----------------|------------|-----------|-----------|
-| READ           | USER[19:0] | SIZE[3:0] | 0000_0010 |
-| ATOMIC-ADD     | USER[19:0] | SIZE[3:0] | 0000_0100 |
-| ATOMIC-AND     | USER[19:0] | SIZE[3:0] | 0001_0100 |
-| ATOMIC-OR      | USER[19:0] | SIZE[3:0] | 0010_0100 |
-| ATOMIC-XOR     | USER[19:0] | SIZE[3:0] | 0011_0100 |
-| ATOMIC-MAX     | USER[19:0] | SIZE[3:0] | 0100_0100 |
-| ATOMIC-MIN     | USER[19:0] | SIZE[3:0] | 0101_0100 |
-| ATOMIC-MAXU    | USER[19:0] | SIZE[3:0] | 0110_0100 |
-| ATOMIC-MINU    | USER[19:0] | SIZE[3:0] | 0111_0100 |
-| ATOMIC-SWAP    | USER[19:0] | SIZE[3:0] | 1000_0100 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_0110 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1000 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1010 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1100 |
-| RESERVED       | USER[19:0] | SIZE[3:0] | XXXX_1110 |
+UMI transactions are split into separate request and
+response channels.
 
+In case of channel multiplexing, responses take priority over requests.
 
-## Data Sizes
+The table below gives a summary of all UMI transaction
+opcodes.
 
-* The number of bytes transferred is 2^SIZE.
+| TRANSACTION    | P7:0 |  DESCRIPTION                               |
+|----------------|------|--------------------------------------------|
+| INVALID        | 00   | Invalid
+| REQ_READ       | 02   | Read request (returns data response)
+| REQ_WRITE      | 04   | Write request (with acknowledge)
+| REQ_POSTED     | 06   | Write request (**without** acknowledge)
+| REQ_MULTICAST  | 08   | Multicast request (**without** acknowledge)
+| REQ_STREAM     | 0A   | Stream request (**without** acknowledge)
+| REQ_ZZZ        | 0C   | Reserved
+| REQ_ATOMICADD  | 0E   | Atomic add operation
+| REQ_ATOMICAND  | 1E   | Atomic and operation
+| REQ_ATOMICOR   | 2E   | Atomic or operation
+| REQ_ATOMICXOR  | 3E   | Atomic xor operation
+| REQ_ATOMICMAX  | 4E   | Atomic max operation
+| REQ_ATOMICMIN  | 5E   | Atomic min operation
+| REQ_ATOMICMAXU | 6E   | Atomic unsigned max operation
+| REQ_ATOMICMINU | 7E   | Atomic unsigned min operation
+| REQ_ATOMICSWAP | 8E   | Atomic swap operation
+| -------------  | ---- | -----------------------
+| RESP_READ      | 01   | Response to read request
+| RESP_WRITE     | 03   | Response (ack) to write request
+| RESP_ATOMIC    | 05   | Response to atomic request
+| RESP_XXX       | 07   | Streaming unordered write
+| RESP_XXX       | 09   | Reserved
+| RESP_XXX       | 0B   | Reserved
+| RESP_XXX       | 0D   | Reserved
+| RESP_XXX       | 0F   | Reserved
+
+## Data Sizes Supported
+
+* The number of bytes in the request/reseponse is 2^SIZE.
 * The range of sizes supported is system dependent.
 * The minimum data transfer size if >=AW.
 
-| SIZE    | TRANSER   | NOTE              |
-|---------|-----------|-------------------|
-| 0       | 1B        | Single byte       |
-| 1       | 2B        |                   |
-| 2       | 4B        |                   |
-| 3       | 8B        |                   |
-| 4       | 16B       | 128b single cycle |
-| 5       | 32B       |                   |
-| 6       | 64B       | Cache line        |
-| 7       | 128B      |                   |
-| 8       | 256B      |                   |
-| ...     | ...       |                   |
-| 14      | 16,384B   | >Jumbo frame      |
-| 15      | 32,657B   |                   |
+| SIZE | TRANSER  | NOTE           |
+|------|----------|----------------|
+| 0    | 1B       | Single byte    |
+| 1    | 2B       |                |
+| 2    | 4B       |                |
+| 3    | 8B       |                |
+| 4    | 16B      | 128b per cycle |
+| 5    | 32B      |                |
+| 6    | 64B      | Cache line     |
+| 7    | 128B     |                |
+| 8    | 256B     |                |
+| 9    | 512B     |                |
+| 10   | 1,024B   |                |
+| 11   | 2,048B   |                |
+| 12   | 4,096B   |                |
+| 13   | 8,192B   |                |
+| 14   | 16,384B  | >Jumbo frame   |
+| 15   | 32,657B  |                |
 
-## Packet Formats
-
-* Fields: A(address), D(data), S(source address), C(command)
-
+## Message Encoding
 
 ### Single Cycle Write
 
@@ -114,6 +203,20 @@
 |D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
 |D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
 
+### 802.3 Ethernet Packet (AW=64)
+
+* 112b ethernet header sent on first cycle
+* Transaction size set to total ethernet frame + control + 2 empty bytes on first cycle
+
+|255:224   |223:192     |191:160 |159:128 |127:96  |95:64     | 63:32    | 31:0     |
+|----------|------------|--------|--------|--------|----------|----------|----------|
+|A[63:32]  |00,H[111:96]|H[95:64]|H[63:32]|H[31:0] |          |A[31:0]   |C[31:0]   |
+|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
+
 ### CXL.IO Latency Optimized 256B Flit (AW=64)
 
 * 16b cxl header set on first cycle
@@ -130,97 +233,3 @@
 |D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
 |D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
 |D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |CRC,M,TLP     |D[223:192]|D[191:160]|
-
-## Signal Interface
-
-Blocks implementing UMI shall adhere to the following port naming convention:
-
-```
-umi<#>_<in|out>_<packet|ready|valid>
-```
-
-* A channel include packet, ready, valid signals
-" Channel direction is with respect to self (out"= outgoing, "in"= incoming)
-* Bidirectional channels consist of an outgoing channel("out") and incoming channel("in")
-* Optional control channels shall use channel number 0.
-* Modules with only one channel can ommit the channel number from the name.
-* During integration, module "out" channels are connected to "in" channels.
-
-Channel Example:
-
-```verilog
-output        umi0_out_valid;
-output[255:0] umi0_out_packet;
-input         umi0_out_ready;
-input         umi0_in_valid;
-input[255:0]  umi0_in_packet;
-output        umi0_in_ready;
-```
-![UMI](docs/_images/umi_connections.png)
-
-
-## Handshake Protocol
-
-![UMI](docs/_images/ready_valid.svg)
-
-UMI adheres to the following ready/valid handshake protocol:
-1. A transaction occurs on every rising clock edge in which READY and VALID are both asserted.
-2. Once VALID is asserted, it must not be de-asserted until a transaction completes.
-3. READY, on the other hand, may be de-asserted before a transaction completes.
-3. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
-4. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
-
-We additionally require that a UMI port does not have a combinational path from READY to VALID, or from VALID to READY.  This is to prevent combinational loops and to improve timing.
-
-### Handshake Examples
-
-As stated above, the VALID signal's assertion must not depend on the READY signal's state, to avoid deadlocks.
-
-#### Legal: VALID asserted before READY
-
-![UMIX1](docs/_images/ok_valid_ready.svg)
-
-#### Legal: READY asserted before VALID
-
-![UMIX2](docs/_images/ok_ready_valid.svg)
-
-#### Legal: READY and VALID asserted simultaneously
-
-![UMIX3](docs/_images/ok_sametime.svg)
-
-#### Legal: READY toggles with no effect
-
-![UMIX4](docs/_images/ok_ready_toggle.svg)
-
-#### **ILLEGAL**: VALID de-asserted without waiting for READY
-
-![UMIX5](docs/_images/bad_valid_toggle.svg)
-
-#### Legal: VALID asserted for multiple cycles
-
-In this case, multiple transactions occur.
-
-![UMIX6](docs/_images/ok_double_xaction.svg)
-
-#### Example Bidirectional Transaction
-
-![UMIX7](docs/_images/example_rw_xaction.svg)
-
-## Transaction File Format (AW=64)
-
-* Transactions can be stored as hexfiles readable/writeable by Verilog's $readmemh/$writememh.
-* The recommended file extension is ".memh"
-* For $readmemh compatible readers, comments can be embedded using the "//" syntax.
-* An optional single byte control field (TV) can be included with each transaction
-(right aligned) to indicate the validity (bit[0]==1) and delayed start of
-transaction (bit[7:1]) specified clock cyces relative to the previous transaction.
-
-```txt
-AAAA_DDDD_DDDD_DDDD_DDDD_XXXX_AAAA_CCCC_TV  // WRITE
-AAAA_SSSS_XXXX_XXXX_XXXX_SSSS_AAAA_CCCC_TV  // READ REQUEST
-AAAA_SSSS_XXXX_DDDD_DDDD_SSSS_AAAA_CCCC_TV  // ATOMIC
-AAAA_DDDD_DDDD_DDDD_DDDD_XXXX_AAAA_CCCC_TV  // WRITE MULTICYCLE
-DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_TV  // ...
-DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_TV  // ...
-DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_DDDD_TV  // ...
-```
