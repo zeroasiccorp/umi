@@ -13,7 +13,9 @@ module umi_decode
    input [7:0] command,
    // Decoded signals
    output      cmd_invalid,// invalid transaction
-   output      cmd_read_request, // read request
+   output      cmd_request, // read request
+   output      cmd_response, // read request
+   output      cmd_read, // read request
    output      cmd_write, // global write indicator
    output      cmd_write_posted,// write indicator
    output      cmd_write_signal,// write with eot signal
@@ -36,18 +38,24 @@ module umi_decode
 `include "umi_messages.vh"
 
    // Invalid
-   assign cmd_invalid        = (command[7:0]==UMI_INVALID);
+   assign cmd_invalid         = (command[7:0]==UMI_INVALID);
+
+   // request/response
+   assign cmd_request         = ~command[0];
+   assign cmd_response        =  command[0];
 
    // reads
-   assign cmd_read_request   = (command[3:0]==UMI_REQ_READ[3:0]);
+   assign cmd_read            = (command[3:0]==UMI_REQ_READ[3:0]);
 
    // writes
-   assign cmd_write           =  ~cmd_read_request; // TODO: check?
+   assign cmd_write           =  ~cmd_read; // TODO: check?
+
    assign cmd_write_posted    = (command[3:0]==UMI_REQ_POSTED[3:0]);
    assign cmd_write_response  = (command[3:0]==UMI_RESP_WRITE[3:0]);
-   assign cmd_write_signal    = 1'b0;
    assign cmd_write_stream    = (command[3:0]==UMI_REQ_STREAM[3:0]);
+   assign cmd_write_multicast = (command[3:0]==UMI_REQ_MULTICAST[3:0]);
    assign cmd_write_ack       = (command[3:0]==UMI_RESP_WRITE[3:0]);
+   assign cmd_write_signal    = 1'b0;
 
    // read modify writes
    assign cmd_atomic         = (command[3:0]==UMI_REQ_ATOMIC[3:0]);
