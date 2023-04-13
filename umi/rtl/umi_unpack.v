@@ -27,7 +27,6 @@ module umi_unpack
     // Input packet
     input [UW-1:0]    packet,
     // Control
-    output 	      write, // write transaction
     output [7:0]      command, // raw opcode
     output [3:0]      size, // transaction size
     output [19:0]     options, // raw command
