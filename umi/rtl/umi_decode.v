@@ -14,6 +14,7 @@ module umi_decode
    // Decoded signals
    output      cmd_invalid,// invalid transaction
    output      cmd_read_request, // read request
+   output      cmd_write, // global write indicator
    output      cmd_write_posted,// write indicator
    output      cmd_write_signal,// write with eot signal
    output      cmd_write_ack,// write with acknowledge
@@ -40,14 +41,15 @@ module umi_decode
    // reads
    assign cmd_read_request   = (command[3:0]==UMI_REQ_READ[3:0]);
 
-   // Write controls
+   // writes
+   assign cmd_write           =  ~cmd_read_request; // TODO: check?
    assign cmd_write_posted    = (command[3:0]==UMI_REQ_POSTED[3:0]);
    assign cmd_write_response  = (command[3:0]==UMI_RESP_WRITE[3:0]);
    assign cmd_write_signal    = 1'b0;
    assign cmd_write_stream    = (command[3:0]==UMI_REQ_STREAM[3:0]);
    assign cmd_write_ack       = (command[3:0]==UMI_RESP_WRITE[3:0]);
 
-   // Atomics
+   // read modify writes
    assign cmd_atomic         = (command[3:0]==UMI_REQ_ATOMIC[3:0]);
    assign cmd_atomic_add     = (command[7:0]==UMI_REQ_ATOMICADD);
    assign cmd_atomic_and     = (command[7:0]==UMI_REQ_ATOMICAND);
