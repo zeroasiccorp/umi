@@ -28,8 +28,6 @@ module umi_splitter
     input 	    umi_req_out_ready
     );
 
-   wire 	    write;
-
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire [7:0]		command;
@@ -56,12 +54,9 @@ module umi_splitter
 	      .srcaddr			(srcaddr[AW-1:0]),
 	      .data			(data[4*AW-1:0]));
 
-   // write decode
-   umi_write umi_write(.write (write), .command	(command[7:0]));
-
-   // Write traffic sent to umi_resp
-   assign umi_resp_out_valid = umi_in_valid & write;
-   assign umi_req_out_valid = umi_in_valid & ~write;
+   // Detect Packet type (request or response)
+   assign umi_resp_out_valid = umi_in_valid & command[0];
+   assign umi_req_out_valid  = umi_in_valid & ~command[0];
 
    // Broadcasting packet
    assign umi_resp_out_packet[UW-1:0] = umi_in_packet[UW-1:0];
