@@ -38,25 +38,25 @@ module umi_decode
    assign cmd_invalid        = (command[7:0]==UMI_INVALID);
 
    // reads
-   assign cmd_read_request   = (command[3:0]==UMI_REQUEST_READ[3:0]);
+   assign cmd_read_request   = (command[3:0]==UMI_REQ_READ[3:0]);
 
    // Write controls
-   assign cmd_write_posted    = (command[3:0]==UMI_WRITE_POSTED[3:0]);
-   assign cmd_write_response  = (command[3:0]==UMI_WRITE_RESPONSE[3:0]);
-   assign cmd_write_signal    = (command[3:0]==UMI_WRITE_SIGNAL[3:0]);
-   assign cmd_write_stream    = (command[3:0]==UMI_WRITE_STREAM[3:0]);
-   assign cmd_write_ack       = (command[3:0]==UMI_WRITE_ACK[3:0]);
+   assign cmd_write_posted    = (command[3:0]==UMI_REQ_POSTED[3:0]);
+   assign cmd_write_response  = (command[3:0]==UMI_RESP_WRITE[3:0]);
+   assign cmd_write_signal    = 1'b0;
+   assign cmd_write_stream    = (command[3:0]==UMI_REQ_STREAM[3:0]);
+   assign cmd_write_ack       = (command[3:0]==UMI_RESP_WRITE[3:0]);
 
    // Atomics
-   assign cmd_atomic         = (command[3:0]==UMI_ATOMIC[3:0]);
-   assign cmd_atomic_add     = (command[7:0]==UMI_ATOMIC_ADD);
-   assign cmd_atomic_and     = (command[7:0]==UMI_ATOMIC_AND);
-   assign cmd_atomic_or      = (command[7:0]==UMI_ATOMIC_OR);
-   assign cmd_atomic_xor     = (command[7:0]==UMI_ATOMIC_XOR);
-   assign cmd_atomic_max     = (command[7:0]==UMI_ATOMIC_MAX);
-   assign cmd_atomic_min     = (command[7:0]==UMI_ATOMIC_MIN);
-   assign cmd_atomic_maxu    = (command[7:0]==UMI_ATOMIC_MAXU);
-   assign cmd_atomic_minu    = (command[7:0]==UMI_ATOMIC_MINU);
-   assign cmd_atomic_swap    = (command[7:0]==UMI_ATOMIC_SWAP);
+   assign cmd_atomic         = (command[3:0]==UMI_REQ_ATOMIC[3:0]);
+   assign cmd_atomic_add     = (command[7:0]==UMI_REQ_ATOMICADD);
+   assign cmd_atomic_and     = (command[7:0]==UMI_REQ_ATOMICAND);
+   assign cmd_atomic_or      = (command[7:0]==UMI_REQ_ATOMICOR);
+   assign cmd_atomic_xor     = (command[7:0]==UMI_REQ_ATOMICXOR);
+   assign cmd_atomic_max     = (command[7:0]==UMI_REQ_ATOMICMAX);
+   assign cmd_atomic_min     = (command[7:0]==UMI_REQ_ATOMICMIN);
+   assign cmd_atomic_maxu    = (command[7:0]==UMI_REQ_ATOMICMAXU);
+   assign cmd_atomic_minu    = (command[7:0]==UMI_REQ_ATOMICMINU);
+   assign cmd_atomic_swap    = (command[7:0]==UMI_REQ_ATOMICSWAP);
 
 endmodule // umi_decode

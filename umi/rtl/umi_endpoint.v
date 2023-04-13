@@ -47,6 +47,7 @@ module umi_endpoint
    // local wires
    wire [AW-1:0] 	loc_srcaddr;
    wire [4*AW-1:0] 	data_mux;
+   wire                 write;
 
    //########################
    // UMI UNPACK
@@ -55,7 +56,7 @@ module umi_endpoint
    umi_unpack #(.UW(UW),
 		.AW(AW))
    umi_unpack(// Outputs
-	      .write	(loc_write),
+	      .write	(write),
 	      .command	(loc_cmd[7:0]),
 	      .size	(loc_size[3:0]),
 	      .options	(loc_options[19:0]),
@@ -65,7 +66,8 @@ module umi_endpoint
 	      // Inputs
 	      .packet	(udev_req_packet[UW-1:0]));
 
-   assign loc_read = ~loc_write & udev_req_valid;
+   assign loc_read  = ~write & udev_req_valid;
+   assign loc_write =  write & udev_req_valid;
 
    //############################
    //# Outgoing Transaction
@@ -109,7 +111,7 @@ module umi_endpoint
 	    .packet	(udev_resp_packet[UW-1:0]),
 	    // Inputs
 	    .write	(1'b1),
-	    .command    (UMI_WRITE_POSTED),//returns write response
+	    .command    (UMI_RESP_WRITE),//returns write response
 	    .size	(size_out[3:0]),
 	    .options	(options_out[19:0]),
 	    .burst	(1'b0),
