@@ -13,10 +13,13 @@
  *
  ******************************************************************************/
 module umi_regif
-  #(parameter TARGET = "DEFAULT", // compile target
-    parameter AW     = 64,        // address width
-    parameter DW     = AW,        // data width
-    parameter UW     = 256        // packet width
+  #(parameter TARGET    = "DEFAULT", // compile target
+    parameter AW        = 64,        // address width
+    parameter DW        = AW,        // data width
+    parameter UW        = 256,       // packet width
+    parameter GRPOFFSET = 24,        // group address offset
+    parameter GRPAW     = 4,         // group address width
+    parameter GRPID     = 0          // group ID
     )
    (// clk, reset
     input 	      clk, //clk
@@ -61,8 +64,10 @@ module umi_regif
 
    umi_write umi_write(.write (write), .command	(reg_cmd[7:0]));
 
-   assign reg_read  = ~write & udev_req_valid;
-   assign reg_write =  write & udev_req_valid;
+   assign group_match = (reg_addr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
+
+   assign reg_read  = ~write & udev_req_valid & group_match;
+   assign reg_write =  write & udev_req_valid & group_match;
 
    // single cycle stall on every ready
    always @ (posedge clk or negedge nreset)
