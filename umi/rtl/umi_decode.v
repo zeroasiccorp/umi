@@ -41,8 +41,8 @@ module umi_decode
    assign cmd_invalid         = (command[7:0]==UMI_INVALID);
 
    // request/response
-   assign cmd_request         = ~command[0];
-   assign cmd_response        =  command[0];
+   assign cmd_request         = ~command[0] & ~cmd_invalid;
+   assign cmd_response        =  command[0] & ~cmd_invalid;
 
    // reads
    assign cmd_read            = (command[3:0]==UMI_REQ_READ[3:0]);
