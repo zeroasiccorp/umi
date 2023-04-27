@@ -31,10 +31,10 @@ module umi_mux
 				(umi_in_valid[N-1:0] & umi_out_ready);
 
    // packet mux
-   la_vmux #(.N(3),
+   la_vmux #(.N(N),
 	     .W(UW))
    la_vmux(.out (umi_out_packet[UW-1:0]),
-	   .sel (umi_in_valid[UW-1:0]),
+	   .sel (umi_in_valid[N-1:0]),
 	   .in  (umi_in_packet[N*UW-1:0]));
 
    //TODO: add checker for one hot!
