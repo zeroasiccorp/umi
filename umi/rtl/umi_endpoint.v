@@ -111,7 +111,6 @@ module umi_endpoint
    umi_pack(// Outputs
 	    .packet	(udev_resp_packet[UW-1:0]),
 	    // Inputs
-	    .write	(1'b1),
 	    .command    (UMI_RESP_WRITE),//returns write response
 	    .size	(size_out[3:0]),
 	    .options	(options_out[19:0]),
