@@ -99,7 +99,6 @@ module umi_regif
    umi_pack(// Outputs
 	    .packet	(udev_resp_packet[UW-1:0]),
 	    // Inputs
-	    .write	(1'b1),
 	    .command    (UMI_RESP_WRITE),//returns write response
 	    .size	(reg_size[3:0]),
 	    .options	(reg_options[19:0]),

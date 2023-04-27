@@ -32,7 +32,32 @@ module umi_pack
    assign cmd_out[11:8]  = size[3:0];
    assign cmd_out[31:12] = options[19:0];
 
-   // data/address packer
+   // Command decode
+   umi_decode
+     umi_decode(// Outputs
+		.cmd_write		(),
+		.cmd_request		(read),
+		.cmd_response		(),
+		.cmd_invalid		(),
+		.cmd_read       	(),
+		.cmd_write_posted	(),
+		.cmd_write_signal	(),
+		.cmd_write_ack		(),
+		.cmd_write_stream	(),
+		.cmd_write_response	(),
+		.cmd_write_multicast	(),
+		.cmd_atomic		(),
+		.cmd_atomic_swap	(),
+		.cmd_atomic_add		(),
+		.cmd_atomic_and		(),
+		.cmd_atomic_or		(),
+		.cmd_atomic_xor		(),
+		.cmd_atomic_min		(),
+		.cmd_atomic_max		(),
+		.cmd_atomic_minu	(),
+		.cmd_atomic_maxu	(),
+		// Inputs
+		.command		(command[7:0]));
 
    generate
       if(AW==64 & UW==256) begin : p256
@@ -43,7 +68,7 @@ module umi_pack
 	 assign packet[63:32]   = burst ? data_out[63:32] : dstaddr[31:0];
 	 assign packet[95:64]   = burst ? data_out[95:64] : srcaddr[31:0];
 	 assign packet[191:96]  = data_out[191:96];
-	 assign packet[223:192] = ~write ? srcaddr[63:32]    : data_out[223:192];
+	 assign packet[223:192] = read   ? srcaddr[63:32]    : data_out[223:192];
 	 assign packet[255:224] = burst  ? data_out[255:224] : dstaddr[63:32];
       end
    endgenerate
