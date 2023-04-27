@@ -12,7 +12,6 @@ module umi_pack
     parameter UW = 256)
    (
     // Command inputs
-    input 	     write,
     input [7:0]      command,
     input [3:0]      size,// number of bytes to transfer
     input [19:0]     options, // user options
@@ -29,8 +28,7 @@ module umi_pack
    wire [255:0]      data_out;
 
    // command packer
-   assign cmd_out[0]     = write;
-   assign cmd_out[7:1]   = command[7:1];
+   assign cmd_out[7:0]   = command[7:0];
    assign cmd_out[11:8]  = size[3:0];
    assign cmd_out[31:12] = options[19:0];
 
