@@ -11,29 +11,36 @@ module umi_endpoint
   #(parameter REG  = 1,         // 1=insert register on read_data
     parameter TYPE = "LIGHT",   // FULL, LIGHT
     // standard parameters
+    parameter CW   = 32,
     parameter AW   = 64,
     parameter DW   = 64,        // width of endpoint data
     parameter UW   = 256)
    (// ctrl
-    input 	      nreset,
-    input 	      clk,
+    input             nreset,
+    input             clk,
     // Device port
-    input 	      udev_req_valid,
+    input             udev_req_valid,
+    input [CW-1:0]    udev_req_cmd,
+    input [AW-1:0]    udev_req_dst_addr,
+    input [AW-1:0]    udev_req_src_addr,
     input [UW-1:0]    udev_req_packet,
-    output 	      udev_req_ready,
-    output reg 	      udev_resp_valid,
+    output            udev_req_ready,
+    output reg        udev_resp_valid,
+    output [CW-1:0]   udev_resp_cmd,
+    output [AW-1:0]   udev_resp_dst_addr,
+    output [AW-1:0]   udev_resp_src_addr,
     output [UW-1:0]   udev_resp_packet,
-    input 	      udev_resp_ready,
+    input             udev_resp_ready,
     // Memory interface
-    output [AW-1:0]   loc_addr, // memory address
-    output 	      loc_write, // write enable
-    output 	      loc_read, // read request
-    output [7:0]      loc_cmd, // pass through command
-    output [3:0]      loc_size, // pass through command
+    output [AW-1:0]   loc_addr,    // memory address
+    output            loc_write,   // write enable
+    output            loc_read,    // read request
+    output [7:0]      loc_cmd,     // pass through command
+    output [3:0]      loc_size,    // pass through command
     output [19:0]     loc_options, // pass through command
-    output [4*DW-1:0] loc_wrdata, // data to write
-    input [DW-1:0]    loc_rddata, // data response
-    input 	      loc_ready  // device is ready
+    output [4*DW-1:0] loc_wrdata,  // data to write
+    input [DW-1:0]    loc_rddata,  // data response
+    input             loc_ready    // device is ready
     );
 
 `include "umi_messages.vh"
