@@ -60,17 +60,32 @@ module umi_endpoint
    // UMI UNPACK
    //########################
 
+   /* umi_unpack AUTO_TEMPLATE(
+    .command         (loc_cmd[]),
+    .dstaddr         (loc_addr[]),
+    .data            (loc_wrdata[]),
+    .packet_\(.*\)   (udev_req_\1[]),
+    .packet_payload  (udev_req_packet[]),
+    .\(.*\)          (loc_\1[]),
+    );
+    */
+
    umi_unpack #(.UW(UW),
+                .CW(CW),
 		.AW(AW))
-   umi_unpack(// Outputs
-	      .command	(loc_cmd[7:0]),
-	      .size	(loc_size[3:0]),
-	      .options	(loc_options[19:0]),
-	      .dstaddr	(loc_addr[AW-1:0]),
-	      .srcaddr	(loc_srcaddr[AW-1:0]),
-	      .data	(loc_wrdata[4*AW-1:0]),
-	      // Inputs
-	      .packet	(udev_req_packet[UW-1:0]));
+   umi_unpack(/*AUTOINST*/
+              // Outputs
+              .command          (loc_cmd[7:0]),          // Templated
+              .size             (loc_size[3:0]),         // Templated
+              .options          (loc_options[19:0]),     // Templated
+              .dstaddr          (loc_addr[AW-1:0]),      // Templated
+              .srcaddr          (loc_srcaddr[AW-1:0]),   // Templated
+              .data             (loc_wrdata[UW-1:0]),    // Templated
+              // Inputs
+              .packet_cmd       (udev_req_cmd[CW-1:0]),  // Templated
+              .packet_src_addr  (udev_req_src_addr[AW-1:0]), // Templated
+              .packet_dst_addr  (udev_req_dst_addr[AW-1:0]), // Templated
+              .packet_payload   (udev_req_packet[UW-1:0])); // Templated
 
    umi_write umi_write(.write (write), .command	(loc_cmd[7:0]));
 
@@ -112,18 +127,34 @@ module umi_endpoint
    assign data_mux[4*AW-1:0] = (REG) ? data_out[DW-1:0] :
 			               loc_rddata[DW-1:0];
 
+   /* umi_pack AUTO_TEMPLATE(
+    .packet_\(.*\)   (udev_resp_\1[]),
+    .packet_payload  (udev_resp_packet[]),
+    .command         (UMI_RESP_WRITE), //TODO: this is incorrect!
+    .burst           (1'b0),
+    .srcaddr         ({(AW){1'b0}}),
+    .data            (data_mux[]),
+    .\(.*\)          (\1_out[]),
+    );
+    */
+
    // pack up the packet
    umi_pack #(.UW(UW),
+              .CW(CW),
 	      .AW(AW))
-   umi_pack(// Outputs
-	    .packet	(udev_resp_packet[UW-1:0]),
-	    // Inputs
-	    .command    (UMI_RESP_WRITE),//returns write response
-	    .size	(size_out[3:0]),
-	    .options	(options_out[19:0]),
-	    .burst	(1'b0),
-	    .dstaddr	(dstaddr_out[AW-1:0]),
-	    .srcaddr	({(AW){1'b0}}),
-	    .data	(data_mux[4*AW-1:0]));
+   umi_pack(/*AUTOINST*/
+            // Outputs
+            .packet_cmd         (udev_resp_cmd[CW-1:0]), // Templated
+            .packet_dst_addr    (udev_resp_dst_addr[AW-1:0]), // Templated
+            .packet_src_addr    (udev_resp_src_addr[AW-1:0]), // Templated
+            .packet_payload     (udev_resp_packet[UW-1:0]), // Templated
+            // Inputs
+            .command            (UMI_RESP_WRITE),        // Templated
+            .size               (size_out[3:0]),         // Templated
+            .options            (options_out[19:0]),     // Templated
+            .burst              (1'b0),                  // Templated
+            .dstaddr            (dstaddr_out[AW-1:0]),   // Templated
+            .srcaddr            ({(AW){1'b0}}),          // Templated
+            .data               (data_mux[UW-1:0]));     // Templated
 
 endmodule // umi_endpoint
