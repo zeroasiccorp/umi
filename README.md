@@ -27,17 +27,17 @@ Key supported features of UMI are:
 |--------|------------------------------------------|
 | Host   | Initiates a request                      |
 | Device | Responds to a request                    |
-| SA     | Source address of request                |
-| DA     | Destination address of request           |
-| DATA   | Data                                     |
-| CMD    | Transaction command (32 bits)            |
-| LEN    | Length of burst (1-256 transfers)        |
-| SIZE   | Size of transfer (1,2,4,8,16,32,64,128B) |
+| SA     | Source address                           |
+| DA     | Destination address                      |
+| DATA   | Data packet                              |
+| CMD    | Transaction command                      |
+| SIZE   | Data size per individual transfer        |
+| LEN    | Number of individual transfers           |
 | EDAC   | Error detect/correction control          |
-| PRIV   | Privelege mode                           |
-| EOT    | End of transfer                          |
-| EXT    | Extended header mode                     |
-| USER   | User reserved bits                       |
+| PRIV   | Privilege mode                           |
+| EOT    | End of transfer indicator                |
+| EXT    | Extended header indicator                |
+| USER   | User command bits                        |
 | ERR    | Error code                               |
 
 ## Transaction Layer
@@ -50,33 +50,33 @@ TBD:
 
 | COMMAND       |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
 |---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
-| INVALID		|    |   |    |--  | --  |--   |--   |--   |0   |000 |0x0 |
-| REQ_RD        |	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |1   |SIZE|0x1 |
+| INVALID		    |    |   |    |--  | --  |--   |--   |--   |0   |000 |0x0 |
+| REQ_RD        |	   |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x1 |
 | REQ_WR        |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x3 |
 | REQ_WRPOSTED  |Y   |   |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x5 |
-| REQ_RDMA	    |	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x7 |
-| REQ_ATOMICADD |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x00 |1	|SIZE|0x9 |
-| REQ_ATOMICAND |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x01 |1	|SIZE|0x9 |
-| REQ_ATOMICOR  |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x02 |1	|SIZE|0x9 |
-| REQ_ATOMICXOR |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x03 |1	|SIZE|0x9 |
-| REQ_ATOMICMAX |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x04 |1	|SIZE|0x9 |
-| REQ_ATOMICMIN |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x05 |1	|SIZE|0x9 |
-| REQ_ATOMICMAXU|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x06 |1	|SIZE|0x9 |
-| REQ_ATOMICMINU|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x07 |1	|SIZE|0x9 |
-| REQ_ATOMICSWAP|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x08 |1	|SIZE|0x9 |
+| REQ_RDMA	    |	   |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x7 |
+| REQ_ATOMICADD |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x00 |1	  |SIZE|0x9 |
+| REQ_ATOMICAND |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x01 |1	  |SIZE|0x9 |
+| REQ_ATOMICOR  |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x02 |1	  |SIZE|0x9 |
+| REQ_ATOMICXOR |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x03 |1	  |SIZE|0x9 |
+| REQ_ATOMICMAX |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x04 |1	  |SIZE|0x9 |
+| REQ_ATOMICMIN |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x05 |1	  |SIZE|0x9 |
+| REQ_ATOMICMAXU|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x06 |1	  |SIZE|0x9 |
+| REQ_ATOMICMINU|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x07 |1	  |SIZE|0x9 |
+| REQ_ATOMICSWAP|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x08 |1	  |SIZE|0x9 |
 | REQ_MULTICAST |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0xB |
-| REQ_ERROR     |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |ERR  |1   |0x0 |0xD |
-| REQ_LINK      |	 |	 |	  |--  |--   |--   |--   |--   |-   |0x1 |0xD |
+| REQ_ERROR     |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |ERR  |USER|0x0 |0xD |
+| REQ_LINK      |	   |	 |	  |EXT |--   |--   |--   |--   |-   |0x1 |0xD |
 | REQ_RESERVED  |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |USER|SIZE|0xF |
 
 | COMMAND       |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
 |---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
 | RESP_READ	    |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x2 |
 | RESP_READANON |Y   |   |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x4 |
-| RESP_WRITE    |	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT	|SIZE|0x6 |
+| RESP_WRITE    |	   |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT	|SIZE|0x6 |
 | RESP_WRITEANON|Y	 |   |Y   |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x8 |
-| RESP_ERROR    |Y 	 |Y  |Y   |EXT |USER |EDAC |PRIV |ERR  |1   |0x0 |0xA |
-| RESP_LINK     |	 |	 |	  |--  |--   |--   |--   |--   |-   |0x1 |0xA |
+| RESP_ERROR    |Y 	 |Y  |Y   |EXT |USER |EDAC |PRIV |ERR  |USER|0x0 |0xA |
+| RESP_LINK     |	   |	 |	  |--  |--   |--   |--   |--   |-   |0x1 |0xA |
 | RESP_RESERVED |Y   |Y  |Y   |EXT |USER |EDAC |PRIV |--   |-   |--  |0xC |
 | RESP_RESERVED |Y   |   |Y   |EXT |USER |EDAC |PRIV |--   |-   |--  |0xE |
 
