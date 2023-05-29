@@ -4,11 +4,110 @@
 
 ## Overview
 
-The Universal Memory Interface (UMI) is a latency insensitive
-packet based memory interface with transactions divided into
-physically separate request and response channels.
+The Universal Memory Interface (UMI) is a stack of standardized abstractions for reading and writing memory, with the core principle being "everything is an address". UMI includes four distinct layers:
 
-## Signal Interface
+* **Protocol**: Overlay of standard communication protocols (Ethernet, PCIE, CXL).   
+* **Transaction**: Address based read/write transactions.
+* **Link**: Communication integrity (flow control, reliability).
+* **Physical**: Electrical signaling (pins, wires, etc.).
+
+Key supported features of UMI are:
+  * separation of concerns though unified abstraction stack
+  * 64b/32b addressing support
+  * bursting of up to 256 transfers
+  * data sizes up to 1024 bits
+  * atomic transactions
+  * error detection and correction
+  * user reserved commands
+  * transaction extendability
+
+## Glossary/Abbreviations
+
+| Word   | Meaning                                  |
+|--------|------------------------------------------|
+| Host   | Initiates a request                      |
+| Device | Responds to a request                    |
+| SA     | Source address of request                |
+| DA     | Destination address of request           |
+| DATA   | Data                                     |
+| CMD    | Transaction command (32 bits)            |
+| LEN    | Length of burst (1-256 transfers)        |
+| SIZE   | Size of transfer (1,2,4,8,16,32,64,128B) |
+| EDAC   | Error detect/correction control          |
+| PRIV   | Privelege mode                           |
+| EOT    | End of transfer                          |
+| EXT    | Extended header mode                     |
+| USER   | User reserved bits                       |
+| ERR    | Error code                               |
+
+## Transaction Layer
+
+The UMI transaction layer defines a set of operations for interacting with a broad set of address based memory systems.
+
+TBD:
+- ordering
+- others...
+
+| COMMAND       |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
+|---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
+| INVALID		|    |   |    |--  | --  |--   |--   |--   |0   |000 |0x0 |
+| REQ_RD        |	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |1   |SIZE|0x1 |
+| REQ_WR        |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x3 |
+| REQ_WRPOSTED  |Y   |   |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x5 |
+| REQ_RDMA	    |	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x7 |
+| REQ_ATOMICADD |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x00 |1	|SIZE|0x9 |
+| REQ_ATOMICAND |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x01 |1	|SIZE|0x9 |
+| REQ_ATOMICOR  |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x02 |1	|SIZE|0x9 |
+| REQ_ATOMICXOR |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x03 |1	|SIZE|0x9 |
+| REQ_ATOMICMAX |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x04 |1	|SIZE|0x9 |
+| REQ_ATOMICMIN |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x05 |1	|SIZE|0x9 |
+| REQ_ATOMICMAXU|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x06 |1	|SIZE|0x9 |
+| REQ_ATOMICMINU|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x07 |1	|SIZE|0x9 |
+| REQ_ATOMICSWAP|Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |0x08 |1	|SIZE|0x9 |
+| REQ_MULTICAST |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0xB |
+| REQ_ERROR     |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |ERR  |1   |0x0 |0xD |
+| REQ_LINK      |	 |	 |	  |--  |--   |--   |--   |--   |-   |0x1 |0xD |
+| REQ_RESERVED  |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |USER|SIZE|0xF |
+
+| COMMAND       |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
+|---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
+| RESP_READ	    |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x2 |
+| RESP_READANON |Y   |   |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x4 |
+| RESP_WRITE    |	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT	|SIZE|0x6 |
+| RESP_WRITEANON|Y	 |   |Y   |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x8 |
+| RESP_ERROR    |Y 	 |Y  |Y   |EXT |USER |EDAC |PRIV |ERR  |1   |0x0 |0xA |
+| RESP_LINK     |	 |	 |	  |--  |--   |--   |--   |--   |-   |0x1 |0xA |
+| RESP_RESERVED |Y   |Y  |Y   |EXT |USER |EDAC |PRIV |--   |-   |--  |0xC |
+| RESP_RESERVED |Y   |   |Y   |EXT |USER |EDAC |PRIV |--   |-   |--  |0xE |
+
+## Protocol Layer
+
+UMI standardizes the overlay of higher level communication protocols layers on top of a common memory transaction layer. Standardization of protocol selection is 
+needed in cases where multiple types of traffic is transmitted over a single 
+channel. Bit 31 of the UMI transaction command field is used to enable protocol extensions, with byte 0 of the data field acting as a protocol selector. The protocol layer is identical to the transaction layer when cmd[31]=0.
+
+| Mode    | Data (Bytes) | Data (Bytes) | Command (bit 31) |
+|---------|--------------|--------------|:----------------:|
+| NATIVE  | Data(N:1)    | Data(0)      | 0                |
+| EXTENDED| Data(N-1:0)  | Opcode       | 1                |
+
+The following list of protocols are supported. More protocols will be added as
+needed.
+
+| Opcode[7:0] | Mode                              | 
+|:-----------:|-----------------------------------|
+|8'h00        | Invalid                           |
+|8'h01        | Ethernet                          |
+|8'h02        | USB                               |
+|8'h03        | PCIe                              |
+|8'h04        | CXL.IO                            |
+|8'h05        | CXL.cache                         |
+|8'h06        | CXL.memory                        |
+|8'h07        | Interlaken                        |
+|8'h08        | JESD204                           |
+
+
+## Physical Layer
 
 UMI channel signal bundle consists of a packet, a valid signal,
 and a ready signal with the following naming convention:
