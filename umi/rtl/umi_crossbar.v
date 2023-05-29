@@ -21,22 +21,24 @@
  ******************************************************************************/
 module umi_crossbar
   #(parameter TARGET = "DEFAULT", // implementation target
-    parameter UW     = 256,       // UMI width
-    parameter N      = 2          // Total UMI ports
+    parameter UW = 256,           // UMI width
+    parameter CW = 32,
+    parameter AW = 64,
+    parameter N = 2               // Total UMI ports
     )
    (// controls
-    input 	       clk,
-    input 	       nreset,
-    input [1:0]        mode, // arbiter mode (0=fixed)
-    input [N*N-1:0]    mask, // arbiter mode (0=fixed)
+    input                        clk,
+    input                        nreset,
+    input [1:0]                  mode, // arbiter mode (0=fixed)
+    input [N*N-1:0]              mask, // arbiter mode (0=fixed)
     // Incoming UMI
-    input [N*N-1:0]    umi_in_request,
-    input [N*UW-1:0]   umi_in_packet,
-    output reg [N-1:0] umi_in_ready,
+    input [N*N-1:0]              umi_in_request,
+    input [N*(CW+AW+AW+UW)-1:0]  umi_in_packet,
+    output reg [N-1:0]           umi_in_ready,
     // Outgoing UMI
-    output [N-1:0]     umi_out_valid,
-    output [N*UW-1:0]  umi_out_packet,
-    input [N-1:0]      umi_out_ready
+    output [N-1:0]               umi_out_valid,
+    output [N*(CW+AW+AW+UW)-1:0] umi_out_packet,
+    input [N-1:0]                umi_out_ready
     );
 
    wire [N*N-1:0]    grants;
@@ -94,12 +96,12 @@ module umi_crossbar
    for(i=0;i<N;i=i+1)
      begin: imux
 	la_vmux #(.N(N),
-		  .W(UW))
+		  .W(UW+2*AW+CW))
 	la_vmux(// Outputs
-		.out (umi_out_packet[i*UW+:UW]),
+		.out (umi_out_packet[i*(CW+AW+AW+UW)+:(CW+AW+AW+UW)]),
 		// Inputs
 		.sel (umi_out_sel[i*N+:N]),
-		.in  (umi_in_packet[UW*N-1:0]));
+		.in  (umi_in_packet[N*(CW+AW+AW+UW)-1:0]);
 
      end
 
