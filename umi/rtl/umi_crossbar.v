@@ -27,18 +27,24 @@ module umi_crossbar
     parameter N = 2               // Total UMI ports
     )
    (// controls
-    input                        clk,
-    input                        nreset,
-    input [1:0]                  mode, // arbiter mode (0=fixed)
-    input [N*N-1:0]              mask, // arbiter mode (0=fixed)
+    input              clk,
+    input              nreset,
+    input [1:0]        mode, // arbiter mode (0=fixed)
+    input [N*N-1:0]    mask, // arbiter mode (0=fixed)
     // Incoming UMI
-    input [N*N-1:0]              umi_in_request,
-    input [N*(CW+AW+AW+UW)-1:0]  umi_in_packet,
-    output reg [N-1:0]           umi_in_ready,
+    input [N*N-1:0]    umi_in_request,
+    input [N*CW-1:0]   umi_in_cmd,
+    input [N*AW-1:0]   umi_in_dst_addr,
+    input [N*AW-1:0]   umi_in_src_addr,
+    input [N*UW-1:0]   umi_in_payload,
+    output reg [N-1:0] umi_in_ready,
     // Outgoing UMI
-    output [N-1:0]               umi_out_valid,
-    output [N*(CW+AW+AW+UW)-1:0] umi_out_packet,
-    input [N-1:0]                umi_out_ready
+    output [N-1:0]     umi_out_valid,
+    output [N*CW-1:0]  umi_out_cmd,
+    output [N*AW-1:0]  umi_out_dst_addr,
+    output [N*AW-1:0]  umi_out_src_addr,
+    output [N*UW-1:0]  umi_out_payload,
+    input [N-1:0]      umi_out_ready
     );
 
    wire [N*N-1:0]    grants;
@@ -94,15 +100,38 @@ module umi_crossbar
    //##############################
 
    for(i=0;i<N;i=i+1)
-     begin: imux
+     begin:
 	la_vmux #(.N(N),
-		  .W(UW+2*AW+CW))
-	la_vmux(// Outputs
-		.out (umi_out_packet[i*(CW+AW+AW+UW)+:(CW+AW+AW+UW)]),
-		// Inputs
-		.sel (umi_out_sel[i*N+:N]),
-		.in  (umi_in_packet[N*(CW+AW+AW+UW)-1:0]);
+		  .W(UW))
+	la_payload_vmux(// Outputs
+		        .out (umi_out_payload[i*UW+:UW]),
+		        // Inputs
+		        .sel (umi_out_sel[i*N+:N]),
+		        .in  (umi_in_payload[N*UW-1:0]));
 
+	la_vmux #(.N(N),
+		  .W(AW))
+	la_src_vmux(// Outputs
+		    .out (umi_out_src_addr[i*AW+:AW]),
+		    // Inputs
+		    .sel (umi_out_sel[i*N+:N]),
+		    .in  (umi_in_src_addr[N*AW-1:0]));
+
+	la_vmux #(.N(N),
+		  .W(AW))
+	la_dst_vmux(// Outputs
+		    .out (umi_out_dst_addr[i*AW+:AW]),
+		    // Inputs
+		    .sel (umi_out_sel[i*N+:N]),
+		    .in  (umi_in_dst_addr[N*AW-1:0]));
+
+	la_vmux #(.N(N),
+		  .W(CW))
+	la_cmd_vmux(// Outputs
+		    .out (umi_out_cmd[i*CW+:CW]),
+		    // Inputs
+		    .sel (umi_out_sel[i*N+:N]),
+		    .in  (umi_in_cmd[N*CW-1:0]));
      end
 
 endmodule // umi_crossbar

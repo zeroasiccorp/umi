@@ -23,13 +23,13 @@ module umi_endpoint
     input [CW-1:0]    udev_req_cmd,
     input [AW-1:0]    udev_req_dst_addr,
     input [AW-1:0]    udev_req_src_addr,
-    input [UW-1:0]    udev_req_packet,
+    input [UW-1:0]    udev_req_payload,
     output            udev_req_ready,
     output reg        udev_resp_valid,
     output [CW-1:0]   udev_resp_cmd,
     output [AW-1:0]   udev_resp_dst_addr,
     output [AW-1:0]   udev_resp_src_addr,
-    output [UW-1:0]   udev_resp_packet,
+    output [UW-1:0]   udev_resp_payload,
     input             udev_resp_ready,
     // Memory interface
     output [AW-1:0]   loc_addr,    // memory address
@@ -65,7 +65,6 @@ module umi_endpoint
     .dstaddr         (loc_addr[]),
     .data            (loc_wrdata[]),
     .packet_\(.*\)   (udev_req_\1[]),
-    .packet_payload  (udev_req_packet[]),
     .\(.*\)          (loc_\1[]),
     );
     */
@@ -85,7 +84,7 @@ module umi_endpoint
               .packet_cmd       (udev_req_cmd[CW-1:0]),  // Templated
               .packet_src_addr  (udev_req_src_addr[AW-1:0]), // Templated
               .packet_dst_addr  (udev_req_dst_addr[AW-1:0]), // Templated
-              .packet_payload   (udev_req_packet[UW-1:0])); // Templated
+              .packet_payload   (udev_req_payload[UW-1:0])); // Templated
 
    umi_write umi_write(.write (write), .command	(loc_cmd[7:0]));
 
@@ -129,7 +128,6 @@ module umi_endpoint
 
    /* umi_pack AUTO_TEMPLATE(
     .packet_\(.*\)   (udev_resp_\1[]),
-    .packet_payload  (udev_resp_packet[]),
     .command         (UMI_RESP_WRITE), //TODO: this is incorrect!
     .burst           (1'b0),
     .srcaddr         ({(AW){1'b0}}),
@@ -147,7 +145,7 @@ module umi_endpoint
             .packet_cmd         (udev_resp_cmd[CW-1:0]), // Templated
             .packet_dst_addr    (udev_resp_dst_addr[AW-1:0]), // Templated
             .packet_src_addr    (udev_resp_src_addr[AW-1:0]), // Templated
-            .packet_payload     (udev_resp_packet[UW-1:0]), // Templated
+            .packet_payload     (udev_resp_payload[UW-1:0]), // Templated
             // Inputs
             .command            (UMI_RESP_WRITE),        // Templated
             .size               (size_out[3:0]),         // Templated
