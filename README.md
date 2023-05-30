@@ -54,45 +54,48 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 ## 2.1 Transaction Architecture
 
 The UMI transaction layer defines an memory architecture with the following architectural constraints:
+
  * Separate channels for requests and responses
  * Requests are initiated by hosts
  * Responses are returned by devices
  * Per-channel point-to-point transaction ordering
- *     
 
-A summary of all UMI transaction types are shown below.
 
-| CMD          |DATA|SA|DA|31 |30:20|19:18|17:16|15:8|7  |6:4 |3:0|
-|--------------|:--:|--|--|---|:---:|-----|-----|----|---|----|---|
-|INVALID		   |    |  |  |-- | --  |--   |--   |--  |0  |0x0 |0x0|
-|REQ_RD        |	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x1|
-|REQ_WR        |Y	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x3|
-|REQ_WRPOSTED  |Y   |  |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x5|
-|REQ_RDMA	     |	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x7|
-|REQ_ATOMICADD |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x00|1	 |SIZE|0x9|
-|REQ_ATOMICAND |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x01|1	 |SIZE|0x9|
-|REQ_ATOMICOR  |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x02|1	 |SIZE|0x9|
-|REQ_ATOMICXOR |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x03|1	 |SIZE|0x9|
-|REQ_ATOMICMAX |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x04|1	 |SIZE|0x9|
-|REQ_ATOMICMIN |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x05|1	 |SIZE|0x9|
-|REQ_ATOMICMAXU|Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x06|1	 |SIZE|0x9|
-|REQ_ATOMICMINU|Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x07|1	 |SIZE|0x9|
-|REQ_ATOMICSWAP|Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x08|1	 |SIZE|0x9|
-|REQ_MULTICAST |Y	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0xB|
-|REQ_ERROR     |Y	  |Y |Y |EXT| U   |EDAC |PRIV |ERR |U  |0x0 |0xD|
-|REQ_LINK      |	  |	 |	|EXT| --  |--   |--   |--  |-  |0x1 |0xD|
-|REQ_RESERVED  |Y	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |U  |SIZE|0xF|
+A summary of all UMI request types are shown below.
 
-| CMD           |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
-|---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
-| RESP_READ	    |Y	 |Y	 |Y	  |EXT |U |EDAC |PRIV |LEN  |EOT |SIZE|0x2 |
-| RESP_READANON |Y   |   |Y	  |EXT |U |EDAC |PRIV |LEN  |EOT |SIZE|0x4 |
-| RESP_WRITE    |	   |Y	 |Y	  |EXT |U |EDAC |PRIV |LEN  |EOT	|SIZE|0x6 |
-| RESP_WRITEANON|Y	 |   |Y   |EXT |U |EDAC |PRIV |LEN  |EOT |SIZE|0x8 |
-| RESP_ERROR    |Y 	 |Y  |Y   |EXT |U |EDAC |PRIV |ERR  |U|0x0 |0xA |
-| RESP_LINK     |	   |	 |	  |--  |--   |--   |--   |--   |-   |0x1 |0xA |
-| RESP_RESERVED |Y   |Y  |Y   |EXT |U |EDAC |PRIV |--   |-   |--  |0xC |
-| RESP_RESERVED |Y   |   |Y   |EXT |U |EDAC |PRIV |--   |-   |--  |0xE |
+| CMD           |DATA|SA|DA|31 |30:20|19:18|17:16|15:8|7:4     |3:0|
+|---------------|:--:|--|--|---|:---:|-----|-----|----|:------:|---|
+|INVALID		    |    |  |  |-- | --  |--   |--   |--  |0x0     |0x0|
+|REQ_RD         |    |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x1|
+|REQ_WR         |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x3|
+|REQ_WRPOSTED   |Y   |  |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x5|
+|REQ_RDMA	      |    |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x7|
+|REQ_ATOMICADD  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x00|1,SIZE  |0x9|
+|REQ_ATOMICAND  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x01|1,SIZE  |0x9|
+|REQ_ATOMICOR   |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x02|1,SIZE  |0x9|
+|REQ_ATOMICXOR  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x03|1,SIZE  |0x9|
+|REQ_ATOMICMAX  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x04|1,SIZE  |0x9|
+|REQ_ATOMICMIN  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x05|1,SIZE  |0x9|
+|REQ_ATOMICMAXU |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x06|1,SIZE  |0x9|
+|REQ_ATOMICMINU |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x07|1,SIZE  |0x9|
+|REQ_ATOMICSWAP |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x08|1,SIZE  |0x9|
+|REQ_MULTICAST  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0xB|
+|REQ_ERROR      |Y	 |Y |Y |EXT| USER|EDAC |PRIV |ERR |0,0x0   |0xD|
+|REQ_LINK       |    |	|	 |EXT| --  |--   |--   |--  |-,0x1   |0xD|
+|REQ_RESERVED   |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |0,SIZE  |0xF|
+
+A summary of all UMI response types are shown below.
+
+| CMD           |DATA|SA|DA|31 |30:20|19:18|17:16|15:8|7:4     |3:0|
+|---------------|:--:|--|--|---|:---:|-----|-----|----|:------:|---|
+| RESP_READ	    |Y	 |Y	|Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x2|
+| RESP_READANON |Y   |  |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x4|
+| RESP_WRITE    |	   |Y	|Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x6|
+| RESP_WRITEANON|Y	 |  |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x8|
+| RESP_ERROR    |Y 	 |Y |Y |EXT|USER |EDAC |PRIV |ERR |0, 0x0  |0xA|
+| RESP_LINK     |	   |	|	 |-- |--   |--   |--   |--  |0, 0x1  |0xA|
+| RESP_RESERVED |Y   |Y |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0xC|
+| RESP_RESERVED |Y   |  |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0xE|
 
 ## 2.2 Transaction Size (SIZE)
 
