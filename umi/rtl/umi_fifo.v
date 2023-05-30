@@ -24,18 +24,18 @@ module umi_fifo
     input 	    umi_in_nreset,
     input 	    umi_in_valid,//per byte valid signal
     input [CW-1:0]  umi_in_cmd,
-    input [AW-1:0]  umi_in_dst_addr,
-    input [AW-1:0]  umi_in_src_addr,
-    input [UW-1:0]  umi_in_payload,
+    input [AW-1:0]  umi_in_dstaddr,
+    input [AW-1:0]  umi_in_srcaddr,
+    input [UW-1:0]  umi_in_data,
     output 	    umi_in_ready,
     // Output
     input 	    umi_out_clk,
     input 	    umi_out_nreset,
     output 	    umi_out_valid,
     output [CW-1:0] umi_out_cmd,
-    output [AW-1:0] umi_out_dst_addr,
-    output [AW-1:0] umi_out_src_addr,
-    output [UW-1:0] umi_out_payload,
+    output [AW-1:0] umi_out_dstaddr,
+    output [AW-1:0] umi_out_srcaddr,
+    output [UW-1:0] umi_out_data,
     input 	    umi_out_ready,
     // Supplies
     input 	    vdd,
@@ -79,7 +79,7 @@ module umi_fifo
 	  // Inputs
 	  .wr_clk	(umi_in_clk),
 	  .wr_nreset	(umi_in_nreset),
-	  .wr_din	({umi_in_payload[UW-1:0],umi_in_src_addr[AW-1:0],umi_in_dst_addr[AW-1:0],umi_in_cmd[CW-1:0]}),
+	  .wr_din	({umi_in_data[UW-1:0],umi_in_srcaddr[AW-1:0],umi_in_dstaddr[AW-1:0],umi_in_cmd[CW-1:0]}),
 	  .wr_en	(umi_in_valid),
 	  .wr_chaosmode (chaosmode),
 	  .rd_clk	(umi_out_clk),
@@ -94,12 +94,12 @@ module umi_fifo
    // FIFO Bypass
    //#################################
 
-   assign umi_out_cmd[CW-1:0]      = bypass ? umi_in_cmd[CW-1:0]      : fifo_dout[CW-1:0];
-   assign umi_out_dst_addr[AW-1:0] = bypass ? umi_in_dst_addr[AW-1:0] : fifo_dout[CW+:AW];
-   assign umi_out_src_addr[AW-1:0] = bypass ? umi_in_src_addr[AW-1:0] : fifo_dout[CW+AW+:AW];
-   assign umi_out_payload[UW-1:0]  = bypass ? umi_in_payload[UW-1:0]  : fifo_dout[CW+AW+AW+:UW];
-   assign umi_out_valid            = bypass ? umi_in_valid            : ~fifo_empty;
-   assign umi_in_ready             = bypass ? umi_out_ready           : fifo_in_ready;
+   assign umi_out_cmd[CW-1:0]     = bypass ? umi_in_cmd[CW-1:0]     : fifo_dout[CW-1:0];
+   assign umi_out_dstaddr[AW-1:0] = bypass ? umi_in_dstaddr[AW-1:0] : fifo_dout[CW+:AW];
+   assign umi_out_srcaddr[AW-1:0] = bypass ? umi_in_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
+   assign umi_out_data[UW-1:0]    = bypass ? umi_in_data[UW-1:0]    : fifo_dout[CW+AW+AW+:UW];
+   assign umi_out_valid           = bypass ? umi_in_valid           : ~fifo_empty;
+   assign umi_in_ready            = bypass ? umi_out_ready          : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;

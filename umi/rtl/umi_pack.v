@@ -17,15 +17,8 @@ module umi_pack
     input [3:0]      size,// number of bytes to transfer
     input [19:0]     options, // user options
     input 	     burst, // active burst in process
-    // Address/Data
-    input [AW-1:0]   dstaddr, // destination address
-    input [AW-1:0]   srcaddr, // source address (for reads/atomics)
-    input [UW-1:0]   data, // data
     // Output packet
-    output [CW-1:0]  packet_cmd,
-    output [AW-1:0]  packet_dst_addr,
-    output [AW-1:0]  packet_src_addr,
-    output [UW-1:0]  packet_payload
+    output [CW-1:0]  packet_cmd
     );
 
    wire [31:0] 	     cmd_out;
@@ -64,10 +57,7 @@ module umi_pack
 
    generate
       if(CW == 32 & AW==64 & UW==256) begin : p256
-	 assign packet_cmd[31:0] = cmd_out[31:0];
-	 assign packet_dst_addr[63:0] = dstaddr[63:0];
-	 assign packet_src_addr[63:0] = srcaddr[63:0];
-	 assign packet_payload[255:0] = data[255:0];
+	 assign packet_cmd[31:0]     = cmd_out[31:0];
       end
    endgenerate
 

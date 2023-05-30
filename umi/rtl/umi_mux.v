@@ -18,17 +18,17 @@ module umi_mux
    (// Incoming UMI
     input [N-1:0]    umi_in_valid,
     input [N*CW-1:0] umi_in_cmd,
-    input [N*AW-1:0] umi_in_dst_addr,
-    input [N*AW-1:0] umi_in_src_addr,
-    input [N*UW-1:0] umi_in_payload,
+    input [N*AW-1:0] umi_in_dstaddr,
+    input [N*AW-1:0] umi_in_srcaddr,
+    input [N*UW-1:0] umi_in_data,
     output [N-1:0]   umi_in_ready,
     // Outgoing UMI
     output 	     umi_out_valid,
     input 	     umi_out_ready,
     output [CW-1:0]  umi_out_cmd,
-    output [AW-1:0]  umi_out_dst_addr,
-    output [AW-1:0]  umi_out_src_addr,
-    output [UW-1:0]  umi_out_payload
+    output [AW-1:0]  umi_out_dstaddr,
+    output [AW-1:0]  umi_out_srcaddr,
+    output [UW-1:0]  umi_out_data
     );
 
    // valid output
@@ -48,23 +48,23 @@ module umi_mux
    // packet mux
    la_vmux #(.N(N),
 	     .W(AW))
-   la_dst_addr_vmux(.out (umi_out_dst_addr[AW-1:0]),
-	            .sel (umi_in_valid[N-1:0]),
-	            .in  (umi_in_dst_addr[N*AW-1:0]));
+   la_dstaddr_vmux(.out (umi_out_dstaddr[AW-1:0]),
+	           .sel (umi_in_valid[N-1:0]),
+	           .in  (umi_in_dstaddr[N*AW-1:0]));
 
    // packet mux
    la_vmux #(.N(N),
 	     .W(AW))
-   la_src_addr_vmux(.out (umi_out_src_addr[AW-1:0]),
-	            .sel (umi_in_valid[N-1:0]),
-	            .in  (umi_in_src_addr[N*AW-1:0]));
+   la_srcaddr_vmux(.out (umi_out_srcaddr[AW-1:0]),
+	           .sel (umi_in_valid[N-1:0]),
+	           .in  (umi_in_srcaddr[N*AW-1:0]));
 
    // packet mux
    la_vmux #(.N(N),
 	     .W(UW))
-   la_payload_vmux(.out (umi_out_payload[UW-1:0]),
-	           .sel (umi_in_valid[N-1:0]),
-	           .in  (umi_in_payload[N*UW-1:0]));
+   la_data_vmux(.out (umi_out_data[UW-1:0]),
+	        .sel (umi_in_valid[N-1:0]),
+	        .in  (umi_in_data[N*UW-1:0]));
 
    //TODO: add checker for one hot!
 

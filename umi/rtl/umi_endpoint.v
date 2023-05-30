@@ -21,15 +21,15 @@ module umi_endpoint
     // Device port
     input             udev_req_valid,
     input [CW-1:0]    udev_req_cmd,
-    input [AW-1:0]    udev_req_dst_addr,
-    input [AW-1:0]    udev_req_src_addr,
-    input [UW-1:0]    udev_req_payload,
+    input [AW-1:0]    udev_req_dstaddr,
+    input [AW-1:0]    udev_req_srcaddr,
+    input [UW-1:0]    udev_req_data,
     output            udev_req_ready,
     output reg        udev_resp_valid,
     output [CW-1:0]   udev_resp_cmd,
-    output [AW-1:0]   udev_resp_dst_addr,
-    output [AW-1:0]   udev_resp_src_addr,
-    output [UW-1:0]   udev_resp_payload,
+    output [AW-1:0]   udev_resp_dstaddr,
+    output [AW-1:0]   udev_resp_srcaddr,
+    output [UW-1:0]   udev_resp_data,
     input             udev_resp_ready,
     // Memory interface
     output [AW-1:0]   loc_addr,    // memory address
@@ -59,6 +59,9 @@ module umi_endpoint
    //########################
    // UMI UNPACK
    //########################
+   assign loc_addr[AW-1:0]    = udev_req_dstaddr[AW-1:0];
+   assign loc_srcaddr[AW-1:0] = udev_req_srcaddr[AW-1:0];
+   assign loc_wrdata[UW-1:0]  = udev_req_data[UW-1:0];
 
    /* umi_unpack AUTO_TEMPLATE(
     .command         (loc_cmd[]),
@@ -77,14 +80,8 @@ module umi_endpoint
               .command          (loc_cmd[7:0]),          // Templated
               .size             (loc_size[3:0]),         // Templated
               .options          (loc_options[19:0]),     // Templated
-              .dstaddr          (loc_addr[AW-1:0]),      // Templated
-              .srcaddr          (loc_srcaddr[AW-1:0]),   // Templated
-              .data             (loc_wrdata[UW-1:0]),    // Templated
               // Inputs
-              .packet_cmd       (udev_req_cmd[CW-1:0]),  // Templated
-              .packet_src_addr  (udev_req_src_addr[AW-1:0]), // Templated
-              .packet_dst_addr  (udev_req_dst_addr[AW-1:0]), // Templated
-              .packet_payload   (udev_req_payload[UW-1:0])); // Templated
+              .packet_cmd       (udev_req_cmd[CW-1:0])); // Templated
 
    umi_write umi_write(.write (write), .command	(loc_cmd[7:0]));
 
@@ -143,16 +140,10 @@ module umi_endpoint
    umi_pack(/*AUTOINST*/
             // Outputs
             .packet_cmd         (udev_resp_cmd[CW-1:0]), // Templated
-            .packet_dst_addr    (udev_resp_dst_addr[AW-1:0]), // Templated
-            .packet_src_addr    (udev_resp_src_addr[AW-1:0]), // Templated
-            .packet_payload     (udev_resp_payload[UW-1:0]), // Templated
             // Inputs
             .command            (UMI_RESP_WRITE),        // Templated
             .size               (size_out[3:0]),         // Templated
             .options            (options_out[19:0]),     // Templated
-            .burst              (1'b0),                  // Templated
-            .dstaddr            (dstaddr_out[AW-1:0]),   // Templated
-            .srcaddr            ({(AW){1'b0}}),          // Templated
-            .data               (data_mux[UW-1:0]));     // Templated
+            .burst              (1'b0));                 // Templated
 
 endmodule // umi_endpoint
