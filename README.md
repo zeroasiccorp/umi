@@ -44,14 +44,26 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 | LEN    | Number of individual transfers           |
 | EDAC   | Error detect/correction control          |
 | PRIV   | Privilege mode                           |
-| EOT    | End of transfer indicator                |
-| EXT    | Extended header indicator                |
-| U      | User command bits                        |
+| EOF    | End of frame indicator                   |
+| EXT    | Extended command option                  |
+| USER   | User command bits                        |
 | ERR    | Error code                               |
+
+## 1. Protocol Layer
+
+Higher level protocols (such as ethernet) can be layered on top of a 
+UMI transactions by packing headers and payloads appropriately based on the protocol. Data packing is little endian, with the header starting in byte 0 of the transaction data field. Protocol header and payload data is transparent to the UMI 
+transaction layer except at the end point.
+
+| Protocol | Payload(Data) |Header(Data)|Source Addr|Dest Addr| Command |
+|:--------:|:-------------:|:----------:|:---------:|:-------:|:-------:|
+| Ethernet | 64B - 1,518B  |14B         | 8B        | 8B      | 4B      |
+| CXL-68   | 64B           |2B          | 8B        | 8B      | 4B      |
+| CXL-256  | 254B          |2B          | 8B        | 8B      | 4B      |
 
 ## 2. Transaction Layer
 
-## 2.1 Transaction Architecture
+### 2.1 Transaction Architecture
 
 The UMI transaction layer defines an memory architecture with the following architectural constraints:
 
@@ -59,17 +71,19 @@ The UMI transaction layer defines an memory architecture with the following arch
  * Requests are initiated by hosts
  * Responses are returned by devices
  * Per-channel point-to-point transaction ordering
-
+ * Bursts must not cross 4KB address boundaries
+ * Addresses must be aligned to SIZE
+ * Payload data is little-endian aligned
 
 A summary of all UMI request types are shown below.
 
 | CMD           |DATA|SA|DA|31 |30:20|19:18|17:16|15:8|7:4     |3:0|
 |---------------|:--:|--|--|---|:---:|-----|-----|----|:------:|---|
 |INVALID		    |    |  |  |-- | --  |--   |--   |--  |0x0     |0x0|
-|REQ_RD         |    |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x1|
-|REQ_WR         |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x3|
-|REQ_WRPOSTED   |Y   |  |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x5|
-|REQ_RDMA	      |    |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0x7|
+|REQ_RD         |    |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOF,SIZE|0x1|
+|REQ_WR         |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOF,SIZE|0x3|
+|REQ_WRPOSTED   |Y   |  |Y |EXT| USER|EDAC |PRIV |LEN |EOF,SIZE|0x5|
+|REQ_RDMA	      |    |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOF,SIZE|0x7|
 |REQ_ATOMICADD  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x00|1,SIZE  |0x9|
 |REQ_ATOMICAND  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x01|1,SIZE  |0x9|
 |REQ_ATOMICOR   |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x02|1,SIZE  |0x9|
@@ -79,7 +93,7 @@ A summary of all UMI request types are shown below.
 |REQ_ATOMICMAXU |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x06|1,SIZE  |0x9|
 |REQ_ATOMICMINU |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x07|1,SIZE  |0x9|
 |REQ_ATOMICSWAP |Y	 |Y |Y |EXT| USER|EDAC |PRIV |0x08|1,SIZE  |0x9|
-|REQ_MULTICAST  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOT,SIZE|0xB|
+|REQ_MULTICAST  |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |EOF,SIZE|0xB|
 |REQ_ERROR      |Y	 |Y |Y |EXT| USER|EDAC |PRIV |ERR |0,0x0   |0xD|
 |REQ_LINK       |    |	|	 |EXT| --  |--   |--   |--  |-,0x1   |0xD|
 |REQ_RESERVED   |Y	 |Y |Y |EXT| USER|EDAC |PRIV |LEN |0,SIZE  |0xF|
@@ -88,23 +102,29 @@ A summary of all UMI response types are shown below.
 
 | CMD           |DATA|SA|DA|31 |30:20|19:18|17:16|15:8|7:4     |3:0|
 |---------------|:--:|--|--|---|:---:|-----|-----|----|:------:|---|
-| RESP_READ	    |Y	 |Y	|Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x2|
-| RESP_READANON |Y   |  |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x4|
-| RESP_WRITE    |	   |Y	|Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x6|
-| RESP_WRITEANON|Y	 |  |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0x8|
+| RESP_READ	    |Y	 |Y	|Y |EXT|USER |EDAC |PRIV |LEN |EOF,SIZE|0x2|
+| RESP_READANON |Y   |  |Y |EXT|USER |EDAC |PRIV |LEN |EOF,SIZE|0x4|
+| RESP_WRITE    |	   |Y	|Y |EXT|USER |EDAC |PRIV |LEN |EOF,SIZE|0x6|
+| RESP_WRITEANON|Y	 |  |Y |EXT|USER |EDAC |PRIV |LEN |EOF,SIZE|0x8|
 | RESP_ERROR    |Y 	 |Y |Y |EXT|USER |EDAC |PRIV |ERR |0, 0x0  |0xA|
 | RESP_LINK     |	   |	|	 |-- |--   |--   |--   |--  |0, 0x1  |0xA|
-| RESP_RESERVED |Y   |Y |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0xC|
-| RESP_RESERVED |Y   |  |Y |EXT|USER |EDAC |PRIV |LEN |EOT,SIZE|0xE|
+| RESP_RESERVED |Y   |Y |Y |EXT|USER |EDAC |PRIV |LEN |EOF,SIZE|0xC|
+| RESP_RESERVED |Y   |  |Y |EXT|USER |EDAC |PRIV |LEN |EOF,SIZE|0xE|
 
-## 2.2 Transaction Size (SIZE)
+### 2.1 Burst Length (LEN[7:0])
 
-The SIZE field defines the number of bytes in each data transfer within
-a transaction. A transaction size must not exceed the data bus width of 
-the host or device involved in the transaction.
+A transaction starts with a host driving control information and the address of the first byte involved. The LEN field field defines the number of data transfers (beats) to be completed in sequence. Each one of the data transfers is the size defined by the SIZE field. The LEN field is 8 bits wide, supporting 1 to 256 transfers(beats) per transaction.
+
+The address of a transfer number 'i' in a burst of length LEN is defined by:
+
+ADDR_i = START_ADDR + (i-1) * 2^SIZE. 
+
+### 2.2 Transfer Size (SIZE[2:0])
+
+The SIZE field defines the number of bytes in each data transfer (beat) in a transaction. THe transfer size must not exceed the data bus width of the host or device involved in the transaction. 
 
 |SIZE[2:0] |Bytes per transfer|
-|----------|------------------|
+|:--------:|:----------------:|
 | 0b000	   | 1 
 | 0b001    | 2                 
 | 0b010    | 4
@@ -113,44 +133,62 @@ the host or device involved in the transaction.
 | 0b110    | 32
 | 0b111    | 128
 
-## 2.2 Transaction Size (SIZE)
+### 2.3 End of Frame (EOF)
 
+The EOF transaction field indicates that the current transaction is the last in a sequence of related UMI transactions. Single-transaction requests and responses must set the EOF bit to 1. Use of the EOF bit at the end-point
+is optional and implementation specific. The EOF can be used as a hardware interrupt or as a bit in memory to be queried by software or hardware.
 
+### 2.4 Privilege Mode (PRIV[1:0])
 
+The PRIV transaction field indicates the privilege level of the transaction, 
+following the RISC-V architecture convention. The information enables
+control access to memory at an end point based on privilege mode.   
 
+|PRIV[1:0]| Level | Name      |  
+|:-------:|:-----:|-----------|
+| 0b00	  | 0     | User      |
+| 0b01    | 1     | Supervisor|                  
+| 0b10    | 2     | Hypervisor|
+| 0b11    | 3     | Machine   |
 
+### 2.5 Error Detection and Correction (EDAC[1:0])
 
-## Protocol Layer
+The EDAC transaction field controls how data errors should be detected and 
+corrected. Availability of the different EDAC modes and the implementation
+of each mode is implementation specific. 
 
-UMI standardizes the overlay of higher level communication protocols layers on top of a common memory transaction layer. Standardization of protocol selection is 
-needed in cases where multiple types of traffic is transmitted over a single 
-channel. Bit 31 of the UMI transaction command field is used to enable protocol extensions, with byte 0 of the data field acting as a protocol selector. The protocol layer is identical to the transaction layer when cmd[31]=0.
+|EDAC[1:0]| Operation |  
+|:-------:|-----------|
+| 0b00	  | No error detection or correction. Assumes a reliable channel
+| 0b01    | Detect errors and respond with an error code on failure
+| 0b10    | Detect errors and retry transaction on failure  
+| 0b11    | Forward error correction 
 
-| Mode    | Data (Bytes) | Data (Bytes) | Command (bit 31) |
-|---------|--------------|--------------|:----------------:|
-| NATIVE  | Data(N:1)    | Data(0)      | 0                |
-| EXTENDED| Data(N-1:0)  | Opcode       | 1                |
+### 2.6 User Field (USER[10:0])
 
-The following list of protocols are supported. More protocols will be added as
-needed.
+The USER field can be used by an application or protocol to tunnel
+information to the physical layer or as hints and directions to the endpoint.
 
-| Opcode[7:0] | Mode                              | 
-|:-----------:|-----------------------------------|
-|8'h00        | Invalid                           |
-|8'h01        | Ethernet                          |
-|8'h02        | USB                               |
-|8'h03        | PCIe                              |
-|8'h04        | CXL.IO                            |
-|8'h05        | CXL.cache                         |
-|8'h06        | CXL.memory                        |
-|8'h07        | Interlaken                        |
-|8'h08        | JESD204                           |
+This field will likely be reduced as more essential command features are
+developed.
 
+### 2.7 Command Extension (EXT)
 
-## Physical Layer
+The EXT field enables expanding the types of transactions and options
+available by leveraging the lower bits of the data and source address fields.
+The EXT command can be used to support complex non-UMI protocols that may 
+require a large number features (such as cache coherent protocols). Bits
+39:0 of the source address bits can be used for control information when
+EXT = 1. The EXT mode is not available for transactions that do not require
+a source address field or in implementations that require all 64 bits of
+the source field for operation.
 
-UMI channel signal bundle consists of a packet, a valid signal,
-and a ready signal with the following naming convention:
+## 4. Signal Layer
+
+### 4.1 Interface
+
+The native UMI signaling layer consists of a packet, valid signal,
+ready signal with the following naming convention:
 
 ```
 u<host|dev>_<req|resp>_<packet|ready|valid>
@@ -162,7 +200,7 @@ per the diagram below.
 ![UMI](docs/_images/umi_connections.png)
 
 
-Modules can have a UMI host port, device port, or both.
+Components in a system can have a UMI host port, device port, or both.
 
 ```verilog
 
@@ -183,7 +221,7 @@ output[255:0] udev_resp_packet;
 input         udev_resp_ready;
 ```
 
-## Handshake Protocol
+### 3.2 Handshake Protocol
 
 ![UMI](docs/_images/ready_valid.svg)
 
@@ -223,152 +261,3 @@ In this case, multiple transactions occur.
 #### Example Bidirectional Transaction
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
-
-
-## Packet Structure
-
-UMI packets are encoded with the scheme shown below.
-
-
-| [UW-1:32]  | [31:12]   | [11:8] |  [7:0]       |
-|------------|-----------|--------|--------------|
-| MESSAGE    | OPTIONS   | SIZE   | COMMAND      |
-
-## Transaction Types
-
-UMI transactions are split into separate request and
-response channels.
-
-In case of channel multiplexing, responses take priority over requests.
-
-The table below gives a summary of all UMI transaction
-opcodes.
-
-| TRANSACTION    | P7:0 |  DESCRIPTION                               |
-|----------------|------|--------------------------------------------|
-| INVALID        | 00   | Invalid
-| REQ_READ       | 02   | Read request (returns data response)
-| REQ_WRITE      | 04   | Write request (with acknowledge)
-| REQ_POSTED     | 06   | Write request (**without** acknowledge)
-| REQ_MULTICAST  | 08   | Multicast request (**without** acknowledge)
-| REQ_STREAM     | 0A   | Stream request (**without** acknowledge)
-| REQ_ZZZ        | 0C   | Reserved
-| REQ_ATOMICADD  | 0E   | Atomic add operation
-| REQ_ATOMICAND  | 1E   | Atomic and operation
-| REQ_ATOMICOR   | 2E   | Atomic or operation
-| REQ_ATOMICXOR  | 3E   | Atomic xor operation
-| REQ_ATOMICMAX  | 4E   | Atomic max operation
-| REQ_ATOMICMIN  | 5E   | Atomic min operation
-| REQ_ATOMICMAXU | 6E   | Atomic unsigned max operation
-| REQ_ATOMICMINU | 7E   | Atomic unsigned min operation
-| REQ_ATOMICSWAP | 8E   | Atomic swap operation
-| -------------  | ---- | -----------------------
-| RESP_READ      | 01   | Response to read request
-| RESP_WRITE     | 03   | Response (ack) to write request
-| RESP_ATOMIC    | 05   | Response to atomic request
-| RESP_XXX       | 07   | Streaming unordered write
-| RESP_XXX       | 09   | Reserved
-| RESP_XXX       | 0B   | Reserved
-| RESP_XXX       | 0D   | Reserved
-| RESP_XXX       | 0F   | Reserved
-
-## Data Sizes Supported
-
-* The number of bytes in the request/reseponse is 2^SIZE.
-* The range of sizes supported is system dependent.
-* The minimum data transfer size if >=AW.
-
-| SIZE | TRANSER  | NOTE           |
-|------|----------|----------------|
-| 0    | 1B       | Single byte    |
-| 1    | 2B       |                |
-| 2    | 4B       |                |
-| 3    | 8B       |                |
-| 4    | 16B      | 128b per cycle |
-| 5    | 32B      |                |
-| 6    | 64B      | Cache line     |
-| 7    | 128B     |                |
-| 8    | 256B     |                |
-| 9    | 512B     |                |
-| 10   | 1,024B   |                |
-| 11   | 2,048B   |                |
-| 12   | 4,096B   |                |
-| 13   | 8,192B   |                |
-| 14   | 16,384B  | >Jumbo frame   |
-| 15   | 32,657B  |                |
-
-## Message Encoding
-
-### Single Cycle Write
-
-|AW |255:224 |223:192  |191:160 |159:128 |127:96 |95:64  | 63:32 | 31:0  |
-|---|--------|---------|--------|--------|-------|-------|-------|-------|
-|64 |A[63:32]|D[127:96]|D[95:64]|D[63:32]|D[31:0]|       |A[31:0]|C[31:0]|
-|32 |        |D[127:96]|D[95:64]|D[63:32]|D[31:0]|       |A[31:0]|C[31:0]|
-
-### Single Cycle Read Request
-
-|AW |255:224 |223:192  |191:160 |159:128 |127:96 |95:64  | 63:32 | 31:0  |
-|---|--------|---------|--------|--------|-------|-------|-------|-------|
-|64 |A[63:32]|S[63:32] |        |        |       |S[31:0]|A[31:0]|C[31:0]|
-|32 |        |         |        |        |       |S[31:0]|A[31:0]|C[31:0]|
-
-### Single Cycle Atomic
-
-|AW |255:224 |223:192  |191:160 |159:128 |127:96 |95:64  | 63:32 | 31:0  |
-|---|--------|---------|--------|--------|-------|-------|-------|-------|
-|64 |A[63:32]|S[63:32] |D[95:64]|D[63:32]|D[31:0]|S[31:0]|A[31:0]|C[31:0]|
-|32 |        |         |        |        |D[31:0]|S[31:0]|A[31:0]|C[31:0]|
-
-
-### Multi Cycle Write
-
-|255:224   |223:192  |191:160 |159:128 |127:96 |95:64     |63:32     | 31:0    |
-|----------|---------|--------|--------|-------|----------|----------|----------|
-|A[63:32]  |D[127:96]|D[95:64]|D[63:32]|D[31:0]|          |A[31:0]   |C[31:0]   |
-|D[159:128]|D[127:96]|D[95:64]|D[63:32]|D[31:0]|D[255:224]|D[223:192]|D[191:160]|
-
-### 802.3 Ethernet Packet (AW=64)
-
-* 112b ethernet header sent on first cycle
-* Transaction size set to total ethernet frame + control + 2 empty bytes on first cycle
-
-|255:224   |223:192     |191:160 |159:128 |127:96  |95:64     | 63:32    | 31:0     |
-|----------|------------|--------|--------|--------|----------|----------|----------|
-|A[63:32]  |00,H[111:96]|H[95:64]|H[63:32]|H[31:0] |          |A[31:0]   |C[31:0]   |
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-
-### 802.3 Ethernet Packet (AW=64)
-
-* 112b ethernet header sent on first cycle
-* Transaction size set to total ethernet frame + control + 2 empty bytes on first cycle
-
-|255:224   |223:192     |191:160 |159:128 |127:96  |95:64     | 63:32    | 31:0     |
-|----------|------------|--------|--------|--------|----------|----------|----------|
-|A[63:32]  |00,H[111:96]|H[95:64]|H[63:32]|H[31:0] |          |A[31:0]   |C[31:0]   |
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]   |D[95:64]|D[63:32]|D[31:0] |D[255:224]|D[223:192]|D[191:160]|
-
-### CXL.IO Latency Optimized 256B Flit (AW=64)
-
-* 16b cxl header set on first cycle
-* Transaction size set to 256 bytes (plus 14 empty byts on first cycle)
-
-|255:224   |223:192  |191:160 |159:128 |127:96   |95:64         | 63:32    | 31:0     |
-|----------|---------|--------|--------|---------|--------------|----------|----------|
-|A[63:32]  |         |        |        |0,H[15:0]|              |A[31:0]   |C[31:0]   |
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |0,D[239:224]  |D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |CRC,D[239:224]|D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |D[255:224]    |D[223:192]|D[191:160]|
-|D[159:128]|D[127:64]|D[95:64]|D[63:32]|D[31:0]  |CRC,M,TLP     |D[223:192]|D[191:160]|
