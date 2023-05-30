@@ -62,26 +62,26 @@ The UMI transaction layer defines an memory architecture with the following arch
 
 A summary of all UMI transaction types are shown below.
 
-| CMD           |DATA|SA|DA|31 |30:20|19:18|17:16|15:8|7  |6:4 |3:0|
-|---------------|:--:|-:|--|---|:---:|-----|-----|----|---|----|---|
-| INVALID		    |    |  |  |-- | --  |--   |--   |--  |0  |000 |0x0|
-| REQ_RD        |	   |Y	|Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x1|
-| REQ_WR        |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x3|
-| REQ_WRPOSTED  |Y   |  |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x5|
-| REQ_RDMA	    |	   |Y	|Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x7|
-| REQ_ATOMICADD |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x00|1	|SIZE|0x9|
-| REQ_ATOMICAND |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x01|1	|SIZE|0x9|
-| REQ_ATOMICOR  |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x02|1	|SIZE|0x9|
-| REQ_ATOMICXOR |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x03|1	|SIZE|0x9|
-| REQ_ATOMICMAX |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x04|1	|SIZE|0x9|
-| REQ_ATOMICMIN |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x05|1	|SIZE|0x9|
-| REQ_ATOMICMAXU|Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x06|1	|SIZE|0x9|
-| REQ_ATOMICMINU|Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x07|1	|SIZE|0x9|
-| REQ_ATOMICSWAP|Y	 |Y	|Y |EXT| U   |EDAC |PRIV |0x08|1	|SIZE|0x9|
-| REQ_MULTICAST |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0xB|
-| REQ_ERROR     |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |ERR |U  |0x0 |0xD|
-| REQ_LINK      |	   |	|	 |EXT| --  |--   |--   |--  |-  |0x1 |0xD|
-| REQ_RESERVED  |Y	 |Y	|Y |EXT| U   |EDAC |PRIV |LEN |U  |SIZE|0xF|
+| CMD          |DATA|SA|DA|31 |30:20|19:18|17:16|15:8|7  |6:4 |3:0|
+|--------------|:--:|--|--|---|:---:|-----|-----|----|---|----|---|
+|INVALID		   |    |  |  |-- | --  |--   |--   |--  |0  |0x0 |0x0|
+|REQ_RD        |	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x1|
+|REQ_WR        |Y	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x3|
+|REQ_WRPOSTED  |Y   |  |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x5|
+|REQ_RDMA	     |	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0x7|
+|REQ_ATOMICADD |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x00|1	 |SIZE|0x9|
+|REQ_ATOMICAND |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x01|1	 |SIZE|0x9|
+|REQ_ATOMICOR  |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x02|1	 |SIZE|0x9|
+|REQ_ATOMICXOR |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x03|1	 |SIZE|0x9|
+|REQ_ATOMICMAX |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x04|1	 |SIZE|0x9|
+|REQ_ATOMICMIN |Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x05|1	 |SIZE|0x9|
+|REQ_ATOMICMAXU|Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x06|1	 |SIZE|0x9|
+|REQ_ATOMICMINU|Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x07|1	 |SIZE|0x9|
+|REQ_ATOMICSWAP|Y	  |Y |Y |EXT| U   |EDAC |PRIV |0x08|1	 |SIZE|0x9|
+|REQ_MULTICAST |Y	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |EOT|SIZE|0xB|
+|REQ_ERROR     |Y	  |Y |Y |EXT| U   |EDAC |PRIV |ERR |U  |0x0 |0xD|
+|REQ_LINK      |	  |	 |	|EXT| --  |--   |--   |--  |-  |0x1 |0xD|
+|REQ_RESERVED  |Y	  |Y |Y |EXT| U   |EDAC |PRIV |LEN |U  |SIZE|0xF|
 
 | CMD           |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
 |---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
