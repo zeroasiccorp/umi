@@ -73,7 +73,7 @@ UMI transactions by packing headers and payloads appropriately based on the prot
  * Addresses must be aligned to SIZE
  * Payload data is little-endian aligned
 
-### 3.2 Packet Format
+### 3.2 Packet formats
 
 Transactions are atomic packets made up of a fixed width 32b command field, a source address, a destination address, and a data payload of up to
 32,768 bytes.
@@ -85,9 +85,7 @@ Packet format:
 | 64b          |DATA     |SA    |DA   | CMD|
 | 32b          |DATA     |DATA  |SA,DA| CMD|
 
-### 3.3 Command Decode Table
-
-Summary of all UMI request and response transactions:
+Summary all response transactions:
 
 | CMD           |DATA|SA|DA|31 |30:22|21:20|19:18|17:16|15:8|7:4     |3:0|
 |---------------|:--:|--|--|---|:---:|:---:|-----|-----|----|:------:|---|
@@ -121,7 +119,9 @@ Summary of all UMI request and response transactions:
 | RESP_RESERVED |Y   |Y |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0xC|
 | RESP_RESERVED |Y   |  |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0xE|
 
-### 3.4 Transaction Length (LEN[7:0])
+### 3.3 Options Decode
+
+### 3.3.1 Transaction Length (LEN[7:0])
 
 A transaction starts with a host driving control information and the address of the first byte involved. The LEN field field defines the number of data transfers (beats) to be completed in sequence in the transaction. Each one of the data transfers is the size defined by the SIZE field. The LEN field is 8 bits wide, supporting 1 to 256 transfers(beats) per transaction.
 
@@ -129,7 +129,7 @@ The address of a transfer number 'i' in a burst of length LEN is defined by:
 
 ADDR_i = START_ADDR + (i-1) * 2^SIZE.
 
-### 3.5 Transfer Size (SIZE[2:0])
+### 3.3.2 Transfer Size (SIZE[2:0])
 
 The SIZE field defines the number of bytes in each data transfer (beat) in a transaction. THe transfer size must not exceed the data bus width of the host or device involved in the transaction.
 
@@ -143,12 +143,12 @@ The SIZE field defines the number of bytes in each data transfer (beat) in a tra
 | 0b110    | 32
 | 0b111    | 128
 
-### 3.6 End of Frame (EOF)
+### 3.3.3 End of Frame (EOF)
 
 The EOF transaction field indicates that the current transaction is the last in a sequence of related UMI transactions. Single-transaction requests and responses must set the EOF bit to 1. Use of the EOF bit at the end-point
 is optional and implementation specific. The EOF can be used as a hardware interrupt or as a bit in memory to be queried by software or hardware.
 
-### 3.7 Privilege Mode (PRIV[1:0])
+### 3.3.4 Privilege Mode (PRIV[1:0])
 
 The PRIV transaction field indicates the privilege level of the transaction,
 following the RISC-V architecture convention. The information enables
@@ -161,7 +161,7 @@ control access to memory at an end point based on privilege mode.
 | 0b10    | 2     | Hypervisor|
 | 0b11    | 3     | Machine   |
 
-### 3.8 Error Detection and Correction (EDAC[1:0])
+### 3.3.5 Error Detection and Correction (EDAC[1:0])
 
 The EDAC transaction field controls how data errors should be detected and
 corrected. Availability of the different EDAC modes and the implementation
@@ -174,7 +174,7 @@ of each mode is implementation specific.
 | 0b10    | Detect errors and retry transaction on failure
 | 0b11    | Forward error correction
 
-### 3.9 Quality of Service (QOS[1:0])
+### 3.3.6 Quality of Service (QOS[1:0])
 
 The QOS transaction indicates the quality of service required by the transaction, enabling a UMI compatible hardware implementation to prioritize urgent transactions over over non-critical bulk traffic. The highest priority level is reserved for the underlying hardware implementation.
 
@@ -185,7 +185,7 @@ The QOS transaction indicates the quality of service required by the transaction
 | 0b10    | 2           |
 | 0b11    | 3 (lowest)  |
 
-### 3.10 User Field (USER[10:0])
+### 3.3.7 User Field (USER[8:0])
 
 The USER field can be used by an application or protocol to tunnel
 information to the physical layer or as hints and directions to the endpoint.
@@ -193,7 +193,7 @@ information to the physical layer or as hints and directions to the endpoint.
 This field will likely be reduced as more essential command features are
 developed.
 
-### 3.11 Command Extension (EXT)
+### 3.3.8 Command Extension (EXT)
 
 The EXT field enables expanding the types of transactions and options
 available by leveraging the lower bits of the data and source address fields.
@@ -204,9 +204,57 @@ EXT = 1. The EXT mode is not available for transactions that do not require
 a source address field or in implementations that require all 64 bits of
 the source field for operation.
 
+## 3.4 Command Descriptions
+
+### 3.4.1 INVALID
+
+### 3.4.2 REQ_RD
+
+### 3.4.3 REQ_WR
+
+### 3.4.4 REQ_WRPOSTED
+
+### 3.4.5 REQ_RDMA
+
+### 3.4.6 REQ_MULTICAST
+
+### 3.4.7 REQ_ATOMICADD
+
+### 3.4.8 REQ_ATOMICAND
+
+### 3.4.9 REQ_ATOMICOR
+
+### 3.4.10 REQ_ATOMICXOR
+
+### 3.4.10 REQ_ATOMICMAX
+
+### 3.4.12 REQ_ATOMICMIN
+
+### 3.4.13 REQ_ATOMICMAX
+
+### 3.4.14 REQ_ATOMICMAXU
+
+### 3.4.15 REQ_ATOMICSWAP
+
+### 3.4.16 REQ_ERROR
+
+### 3.4.17 REQ_LINK
+
+### 3.4.13 RESP_RD
+
+### 3.4.13 RESP_RDANON
+
+### 3.4.13 RESP_WR
+
+### 3.4.13 RESP_WRANON
+
+### 3.4.13 RESP_ERROR
+
+### 3.4.13 RESP_LINK
+
 ## 4. Signal Layer
 
-### 4.1 Interface
+### 4.1 Theory of Operation
 
 The native UMI signaling layer consists of a packet, valid signal,
 ready signal with the following naming convention:
@@ -220,27 +268,6 @@ per the diagram below.
 
 ![UMI](docs/_images/umi_connections.png)
 
-
-Components in a system can have a UMI host port, device port, or both.
-
-```verilog
-
-// HOST VERILOG
-output        uhost_req_valid;
-output[255:0] uhost_req_packet;
-input         uhost_req_ready;
-input         uhost_resp_valid;
-input[255:0]  uhost_resp_packet;
-output        uhost_resp_ready;
-
-// DEVICE VERILOG
-input         udev_req_valid;
-input[255:0]  udev_req_packet;
-output        udev_req_ready;
-output        udev_resp_valid;
-output[255:0] udev_resp_packet;
-input         udev_resp_ready;
-```
 
 ### 3.2 Handshake Protocol
 
@@ -282,3 +309,27 @@ In this case, multiple transactions occur.
 #### Example Bidirectional Transaction
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
+
+
+### 4.2 Signal Interface
+
+Components in a system can have a UMI host port, device port, or both.
+
+```verilog
+
+// HOST VERILOG
+output        uhost_req_valid;
+output[255:0] uhost_req_packet;
+input         uhost_req_ready;
+input         uhost_resp_valid;
+input[255:0]  uhost_resp_packet;
+output        uhost_resp_ready;
+
+// DEVICE VERILOG
+input         udev_req_valid;
+input[255:0]  udev_req_packet;
+output        udev_req_ready;
+output        udev_resp_valid;
+output[255:0] udev_resp_packet;
+input         udev_resp_ready;
+```
