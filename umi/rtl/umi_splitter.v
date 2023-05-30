@@ -14,27 +14,27 @@ module umi_splitter
   #(// standard parameters
     parameter AW   = 64,
     parameter CW   = 32,
-    parameter UW   = 256)
+    parameter DW   = 256)
    (// UMI Input
     input 	    umi_in_valid,
     input [CW-1:0]  umi_in_cmd,
     input [AW-1:0]  umi_in_dstaddr,
     input [AW-1:0]  umi_in_srcaddr,
-    input [UW-1:0]  umi_in_data,
+    input [DW-1:0]  umi_in_data,
     output 	    umi_in_ready,
     // UMI Output
     output 	    umi_resp_out_valid,
     output [CW-1:0] umi_resp_out_cmd,
     output [AW-1:0] umi_resp_out_dstaddr,
     output [AW-1:0] umi_resp_out_srcaddr,
-    output [UW-1:0] umi_resp_out_data,
+    output [DW-1:0] umi_resp_out_data,
     input 	    umi_resp_out_ready,
     // UMI Output
     output 	    umi_req_out_valid,
     output [CW-1:0] umi_req_out_cmd,
     output [AW-1:0] umi_req_out_dstaddr,
     output [AW-1:0] umi_req_out_srcaddr,
-    output [UW-1:0] umi_req_out_data,
+    output [DW-1:0] umi_req_out_data,
     input 	    umi_req_out_ready
     );
 
@@ -52,7 +52,7 @@ module umi_splitter
    /* umi_unpack AUTO_TEMPLATE(
     .packet_\(.*\) (umi_in_\1[]),
     );*/
-   umi_unpack #(.UW(UW),
+   umi_unpack #(.DW(DW),
 		.AW(AW))
    umi_unpack(/*AUTOINST*/
               // Outputs
@@ -70,12 +70,12 @@ module umi_splitter
    assign umi_resp_out_cmd[CW-1:0]     = umi_in_cmd[CW-1:0];
    assign umi_resp_out_dstaddr[AW-1:0] = umi_in_dstaddr[AW-1:0];
    assign umi_resp_out_srcaddr[AW-1:0] = umi_in_srcaddr[AW-1:0];
-   assign umi_resp_out_data[UW-1:0]    = umi_in_data[UW-1:0];
+   assign umi_resp_out_data[DW-1:0]    = umi_in_data[DW-1:0];
 
    assign umi_req_out_cmd[CW-1:0]     = umi_in_cmd[CW-1:0];
    assign umi_req_out_dstaddr[AW-1:0] = umi_in_dstaddr[AW-1:0];
    assign umi_req_out_srcaddr[AW-1:0] = umi_in_srcaddr[AW-1:0];
-   assign umi_req_out_data[UW-1:0]    = umi_in_data[UW-1:0];
+   assign umi_req_out_data[DW-1:0]    = umi_in_data[DW-1:0];
 
    // Globally blocking ready implementation
    assign umi_in_ready = ~(umi_resp_out_valid & ~umi_resp_out_ready) &

@@ -10,7 +10,7 @@
  *
  ******************************************************************************/
 module umi_mux
-  #(parameter UW = 256, // UMI transaction width
+  #(parameter DW = 256, // UMI transaction width
     parameter CW = 32,
     parameter AW = 64,
     parameter N = 4     // number of inputs
@@ -20,7 +20,7 @@ module umi_mux
     input [N*CW-1:0] umi_in_cmd,
     input [N*AW-1:0] umi_in_dstaddr,
     input [N*AW-1:0] umi_in_srcaddr,
-    input [N*UW-1:0] umi_in_data,
+    input [N*DW-1:0] umi_in_data,
     output [N-1:0]   umi_in_ready,
     // Outgoing UMI
     output 	     umi_out_valid,
@@ -28,7 +28,7 @@ module umi_mux
     output [CW-1:0]  umi_out_cmd,
     output [AW-1:0]  umi_out_dstaddr,
     output [AW-1:0]  umi_out_srcaddr,
-    output [UW-1:0]  umi_out_data
+    output [DW-1:0]  umi_out_data
     );
 
    // valid output
@@ -61,10 +61,10 @@ module umi_mux
 
    // packet mux
    la_vmux #(.N(N),
-	     .W(UW))
-   la_data_vmux(.out (umi_out_data[UW-1:0]),
+	     .W(DW))
+   la_data_vmux(.out (umi_out_data[DW-1:0]),
 	        .sel (umi_in_valid[N-1:0]),
-	        .in  (umi_in_data[N*UW-1:0]));
+	        .in  (umi_in_data[N*DW-1:0]));
 
    //TODO: add checker for one hot!
 

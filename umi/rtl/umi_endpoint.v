@@ -13,34 +13,33 @@ module umi_endpoint
     // standard parameters
     parameter CW   = 32,
     parameter AW   = 64,
-    parameter DW   = 64,        // width of endpoint data
-    parameter UW   = 256)
+    parameter DW   = 256)
    (// ctrl
-    input             nreset,
-    input             clk,
+    input           nreset,
+    input           clk,
     // Device port
-    input             udev_req_valid,
-    input [CW-1:0]    udev_req_cmd,
-    input [AW-1:0]    udev_req_dstaddr,
-    input [AW-1:0]    udev_req_srcaddr,
-    input [UW-1:0]    udev_req_data,
-    output            udev_req_ready,
-    output reg        udev_resp_valid,
-    output [CW-1:0]   udev_resp_cmd,
-    output [AW-1:0]   udev_resp_dstaddr,
-    output [AW-1:0]   udev_resp_srcaddr,
-    output [UW-1:0]   udev_resp_data,
-    input             udev_resp_ready,
+    input           udev_req_valid,
+    input [CW-1:0]  udev_req_cmd,
+    input [AW-1:0]  udev_req_dstaddr,
+    input [AW-1:0]  udev_req_srcaddr,
+    input [DW-1:0]  udev_req_data,
+    output          udev_req_ready,
+    output reg      udev_resp_valid,
+    output [CW-1:0] udev_resp_cmd,
+    output [AW-1:0] udev_resp_dstaddr,
+    output [AW-1:0] udev_resp_srcaddr,
+    output [DW-1:0] udev_resp_data,
+    input           udev_resp_ready,
     // Memory interface
-    output [AW-1:0]   loc_addr,    // memory address
-    output            loc_write,   // write enable
-    output            loc_read,    // read request
-    output [7:0]      loc_cmd,     // pass through command
-    output [3:0]      loc_size,    // pass through command
-    output [19:0]     loc_options, // pass through command
-    output [4*DW-1:0] loc_wrdata,  // data to write
-    input [DW-1:0]    loc_rddata,  // data response
-    input             loc_ready    // device is ready
+    output [AW-1:0] loc_addr,    // memory address
+    output          loc_write,   // write enable
+    output          loc_read,    // read request
+    output [7:0]    loc_cmd,     // pass through command
+    output [3:0]    loc_size,    // pass through command
+    output [19:0]   loc_options, // pass through command
+    output [DW-1:0] loc_wrdata,  // data to write
+    input [DW-1:0]  loc_rddata,  // data response
+    input           loc_ready    // device is ready
     );
 
 `include "umi_messages.vh"
@@ -61,7 +60,7 @@ module umi_endpoint
    //########################
    assign loc_addr[AW-1:0]    = udev_req_dstaddr[AW-1:0];
    assign loc_srcaddr[AW-1:0] = udev_req_srcaddr[AW-1:0];
-   assign loc_wrdata[UW-1:0]  = udev_req_data[UW-1:0];
+   assign loc_wrdata[DW-1:0]  = udev_req_data[DW-1:0];
 
    /* umi_unpack AUTO_TEMPLATE(
     .command         (loc_cmd[]),
@@ -72,7 +71,7 @@ module umi_endpoint
     );
     */
 
-   umi_unpack #(.UW(UW),
+   umi_unpack #(.DW(DW),
                 .CW(CW),
 		.AW(AW))
    umi_unpack(/*AUTOINST*/
@@ -120,8 +119,8 @@ module umi_endpoint
        end
 
    // selectively add pipestage
-   assign data_mux[4*AW-1:0] = (REG) ? data_out[DW-1:0] :
-			               loc_rddata[DW-1:0];
+   assign data_mux[DW-1:0] = (REG) ? data_out[DW-1:0] :
+			     loc_rddata[DW-1:0];
 
    /* umi_pack AUTO_TEMPLATE(
     .packet_\(.*\)   (udev_resp_\1[]),
@@ -134,7 +133,7 @@ module umi_endpoint
     */
 
    // pack up the packet
-   umi_pack #(.UW(UW),
+   umi_pack #(.DW(DW),
               .CW(CW),
 	      .AW(AW))
    umi_pack(/*AUTOINST*/

@@ -16,36 +16,36 @@ module umi_regif
   #(parameter TARGET = "DEFAULT", // compile target
     parameter AW = 64,            // address width
     parameter CW = 32,            // address width
-    parameter DW = AW,            // data width
-    parameter UW = 256,           // packet width
+    parameter DW = 256,           // data width
+    parameter RW = 64,            // register width
     parameter GRPOFFSET = 24,     // group address offset
     parameter GRPAW = 4,          // group address width
     parameter GRPID = 0           // group ID
     )
    (// clk, reset
-    input 	      clk, //clk
-    input 	      nreset, //async active low reset
+    input           clk,        //clk
+    input           nreset,     //async active low reset
     // UMI access
-    input 	      udev_req_valid,
-    input [CW-1:0]    udev_req_cmd,
-    input [AW-1:0]    udev_req_dstaddr,
-    input [AW-1:0]    udev_req_srcaddr,
-    input [UW-1:0]    udev_req_data,
-    output reg 	      udev_req_ready,
-    output reg 	      udev_resp_valid,
-    output [CW-1:0]   udev_resp_cmd,
-    output [AW-1:0]   udev_resp_dstaddr,
-    output [AW-1:0]   udev_resp_srcaddr,
-    output [UW-1:0]   udev_resp_data,
-    input 	      udev_resp_ready,
+    input           udev_req_valid,
+    input [CW-1:0]  udev_req_cmd,
+    input [AW-1:0]  udev_req_dstaddr,
+    input [AW-1:0]  udev_req_srcaddr,
+    input [DW-1:0]  udev_req_data,
+    output reg      udev_req_ready,
+    output reg      udev_resp_valid,
+    output [CW-1:0] udev_resp_cmd,
+    output [AW-1:0] udev_resp_dstaddr,
+    output [AW-1:0] udev_resp_srcaddr,
+    output [DW-1:0] udev_resp_data,
+    input           udev_resp_ready,
     // Read/Write register interface
-    output [AW-1:0]   reg_addr, // memory address
-    output 	      reg_write, // register write
-    output 	      reg_read, // register read
-    output [7:0]      reg_cmd, // command (eg. atomics)
-    output [3:0]      reg_size, // size (byte, etc)
-    output [4*DW-1:0] reg_wrdata, // data to write
-    input [DW-1:0]    reg_rddata // readback data
+    output [AW-1:0] reg_addr,   // memory address
+    output          reg_write,  // register write
+    output          reg_read,   // register read
+    output [7:0]    reg_cmd,    // command (eg. atomics)
+    output [3:0]    reg_size,   // size (byte, etc)
+    output [RW-1:0] reg_wrdata, // data to write
+    input [RW-1:0]  reg_rddata  // readback data
     );
 
 `include "umi_messages.vh"
@@ -57,10 +57,10 @@ module umi_regif
    // UMI INPUT
    //########################
 
-   assign reg_addr[AW-1:0]     = udev_req_dstaddr[CW-1:0];
-   assign reg_wrdata[4*DW-1:0] = udev_resp_data[UW-1:0];
+   assign reg_addr[AW-1:0]   = udev_req_dstaddr[AW-1:0];
+   assign reg_wrdata[RW-1:0] = udev_resp_data[RW-1:0];
 
-   umi_unpack #(.UW(UW),
+   umi_unpack #(.DW(DW),
 		.AW(AW))
    umi_unpack(// Outputs
 	      .command	(reg_cmd[7:0]),
@@ -103,9 +103,9 @@ module umi_regif
 
    assign udev_resp_dstaddr[AW-1:0] = reg_srcaddr[AW-1:0];
    assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
-   assign udev_resp_data[UW-1:0]    = {(4){reg_rddata[DW-1:0]}};
+   assign udev_resp_data[DW-1:0]    = {(4){reg_rddata[RW-1:0]}};
 
-   umi_pack #(.UW(UW),
+   umi_pack #(.DW(DW),
 	      .AW(AW))
    umi_pack(// Outputs
             .packet_cmd      (udev_resp_cmd[CW-1:0]),
