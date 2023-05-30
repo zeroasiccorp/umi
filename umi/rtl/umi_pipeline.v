@@ -16,7 +16,7 @@
 module umi_pipeline
   #(parameter CW  = 32,
     parameter AW  = 64,
-    parameter UW  = 256
+    parameter DW  = 256
     )
    (// clock, reset
     input 		clk,
@@ -26,13 +26,13 @@ module umi_pipeline
     input [CW-1:0] 	umi_in_cmd,
     input [AW-1:0] 	umi_in_dstaddr,
     input [AW-1:0] 	umi_in_srcaddr,
-    input [UW-1:0] 	umi_in_data,
+    input [DW-1:0] 	umi_in_data,
     // Outgoing UMI response
     output reg 		umi_out_valid,
     output reg [CW-1:0] umi_out_cmd,
     output reg [AW-1:0] umi_out_dstaddr,
     output reg [AW-1:0] umi_out_srcaddr,
-    output reg [UW-1:0] umi_out_data,
+    output reg [DW-1:0] umi_out_data,
     input 		umi_out_ready
     );
 
@@ -50,7 +50,7 @@ module umi_pipeline
           umi_out_cmd[CW-1:0]     <= umi_in_cmd[CW-1:0];
           umi_out_dstaddr[AW-1:0] <= umi_in_dstaddr[AW-1:0];
           umi_out_srcaddr[AW-1:0] <= umi_in_srcaddr[AW-1:0];
-          umi_out_data[UW-1:0]    <= umi_in_data[UW-1:0];
+          umi_out_data[DW-1:0]    <= umi_in_data[DW-1:0];
        end
 
 endmodule

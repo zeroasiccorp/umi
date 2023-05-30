@@ -10,7 +10,7 @@
 module umi_pack
   #(parameter AW = 64,
     parameter CW = 32,
-    parameter UW = 256)
+    parameter DW = 256)
    (
     // Command inputs
     input [7:0]      command,
@@ -56,7 +56,7 @@ module umi_pack
 		.command		(command[7:0]));
 
    generate
-      if(CW == 32 & AW==64 & UW==256) begin : p256
+      if(CW == 32 & AW==64 & DW==256) begin : p256
 	 assign packet_cmd[31:0]     = cmd_out[31:0];
       end
    endgenerate
