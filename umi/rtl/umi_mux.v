@@ -10,8 +10,10 @@
  *
  ******************************************************************************/
 module umi_mux
-  #(parameter UW  = 256, // UMI transaction width
-    parameter N   = 4    // number of inputs
+  #(parameter UW = 256, // UMI transaction width
+    parameter CW = 32,
+    parameter AW = 64,
+    parameter N = 4     // number of inputs
     )
    (// Incoming UMI
     input [N-1:0]    umi_in_valid,

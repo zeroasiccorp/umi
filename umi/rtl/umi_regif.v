@@ -68,7 +68,7 @@ module umi_regif
 	      .data	(reg_wrdata[4*AW-1:0]),
 	      // Inputs
 	      .packet_cmd      (udev_req_cmd[CW-1:0]),
-	      .packet_dst_addr (udev_req_dst_addr[AW-:0]),
+	      .packet_dst_addr (udev_req_dst_addr[AW-1:0]),
 	      .packet_src_addr (udev_req_src_addr[AW-1:0]),
 	      .packet_payload  (udev_req_payload[UW-1:0]));
 

@@ -49,8 +49,8 @@ module umi_fifo
    // local wires
    wire 	    umi_out_beat;
    wire 	    fifo_read;
-   wire 	    fifo_write;
-   wire [UW-1:0]    fifo_dout;
+   wire             fifo_write;
+   wire [UW+AW+AW+CW-1:0] fifo_dout;
    wire 	    fifo_in_ready;
 
    //#################################
