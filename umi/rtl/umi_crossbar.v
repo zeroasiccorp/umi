@@ -100,7 +100,7 @@ module umi_crossbar
    //##############################
 
    for(i=0;i<N;i=i+1)
-     begin:
+     begin: ivmux
 	la_vmux #(.N(N),
 		  .W(UW))
 	la_payload_vmux(// Outputs

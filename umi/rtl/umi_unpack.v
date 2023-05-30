@@ -22,7 +22,7 @@
  ******************************************************************************/
 module umi_unpack
   #(parameter AW = 64,
-    parameter CW - 32,
+    parameter CW = 32,
     parameter UW = 256)
    (
     // Input packet
