@@ -50,7 +50,7 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 | ERR    | Error code                               |
 | MSB    | Most significant bit                      |
 
-## 2. Protocol Layer
+## 2. Protocol UMI (PUMI) Layer
 
 Higher level protocols (such as ethernet) can be layered on top of a
 UMI transactions by packing headers and payloads appropriately based on the protocol. Data packing is little endian, with the header starting in byte 0 of the transaction data field. Protocol header and payload data is transparent to the UMI transaction layer.
@@ -61,7 +61,7 @@ UMI transactions by packing headers and payloads appropriately based on the prot
 | CXL-68   | 64B           |2B          | 8B        | 8B      | 4B      |
 | CXL-256  | 254B          |2B          | 8B        | 8B      | 4B      |
 
-## 3. Transaction Layer
+## 3. Transaction UMI (TUMI) Layer
 
 ### 3.1 Theory of Operation
 
@@ -87,37 +87,25 @@ Packet format:
 
 Summary all response transactions:
 
-| CMD           |DATA|SA|DA|31 |30:22|21:20|19:18|17:16|15:8|7:4     |3:0|
-|---------------|:--:|--|--|---|:---:|:---:|-----|-----|----|:------:|---|
-|INVALID        |    |  |  |-- | --  |--   |--   |--   |--  |0x0     |0x0|
-|REQ_RD         |    |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x1|
-|REQ_WR         |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x3|
-|REQ_WRPOSTED   |Y   |  |Y |EXT| USER|QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x5|
-|REQ_RDMA       |    |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x7|
-|REQ_ATOMICADD  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x00|1,SIZE  |0x9|
-|REQ_ATOMICAND  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x01|1,SIZE  |0x9|
-|REQ_ATOMICOR   |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x02|1,SIZE  |0x9|
-|REQ_ATOMICXOR  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x03|1,SIZE  |0x9|
-|REQ_ATOMICMAX  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x04|1,SIZE  |0x9|
-|REQ_ATOMICMIN  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x05|1,SIZE  |0x9|
-|REQ_ATOMICMAXU |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x06|1,SIZE  |0x9|
-|REQ_ATOMICMINU |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x07|1,SIZE  |0x9|
-|REQ_ATOMICSWAP |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |0x08|1,SIZE  |0x9|
-|REQ_MULTICAST  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN |EOF,SIZE|0xB|
-|REQ_ERROR      |Y   |Y |Y |EXT| USER|00   |EDAC |PRIV |ERR |0,0x0   |0xD|
-|REQ_LINK       |    |  |  |EXT| --  |--   |--   |--   |--  |-,0x1   |0xD|
-|REQ_RESERVED   |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN |0,SIZE  |0xF|
+| CMD           |DATA|SA|DA|31 |30:22|21:20|19:18|17:16|15:8 |7:4     |3:0|
+|---------------|:--:|--|--|---|:---:|:---:|-----|-----|-----|:------:|---|
+|INVALID        |    |  |  |-- | --  |--   |--   |--   |--   |0x0     |0x0|
+|REQ_RD         |    |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x1|
+|REQ_WR         |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x3|
+|REQ_WRPOSTED   |Y   |  |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x5|
+|REQ_RDMA       |    |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x7|
+|REQ_ATOMIC     |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |ATYPE|1,SIZE  |0x9|
+|REQ_MULTICAST  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0xB|
+|REQ_ERROR      |Y   |Y |Y |EXT| USER|00   |EDAC |PRIV |ERR  |0,0x0   |0xD|
+|REQ_LINK       |    |  |  |0  | --  |--   |--   |--   |--   |0,0x1   |0xD|
 
-| CMD           |DATA|SA|DA|31 |30:22|21:20|19:18|17:16|15:8|7:4     |3:0|
-|---------------|:--:|--|--|---|:---:|:---:|-----|-----|----|:------:|---|
-| RESP_READ     |Y   |Y |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x2|
-| RESP_READANON |Y   |  |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x4|
-| RESP_WRITE    |    |Y |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x6|
-| RESP_WRITEANON|Y   |  |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x8|
-| RESP_ERROR    |Y   |Y |Y |EXT|USER |QOS  |EDAC |PRIV |ERR |0, 0x0  |0xA|
-| RESP_LINK     |    |  |  |-- |--   |--   |--   |--   |--  |0, 0x1  |0xA|
-| RESP_RESERVED |Y   |Y |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0xC|
-| RESP_RESERVED |Y   |  |Y |EXT|USER |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0xE|
+| CMD         |DATA|SA|DA|31 |30:24|23:22|21:20|19:18|17:16|15:8|7:4     |3:0|
+|-------------|:--:|--|--|---|:---:|:---:|:---:|-----|-----|----|:------:|---|
+| RESP_READ   |Y   |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x2|
+| RESP_RDANON |Y   |Y |  |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x4|
+| RESP_WR     |    |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x6|
+| RESP_WRANON |Y   |Y |  |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x8|
+| RESP_LINK   |    |  |  |-- |--   |     |--   |--   |--   |--  |0, 0x0  |0xA|
 
 ### 3.3 Options Decode
 
@@ -204,55 +192,94 @@ EXT = 1. The EXT mode is not available for transactions that do not require
 a source address field or in implementations that require all 64 bits of
 the source field for operation.
 
+### 3.3.9 Error Code (ERR[1:0])
+
+The ERR field indicates the transaction error type for the REQ_ERROR and RESP_ERRROR transactions.
+
+|ERR[1:0]| Meaning                            |
+|:------:|------------------------------------|
+| 0h00   | OK (no error)                      |
+| 0b01   | EXOK (successful exclusive access) |
+| 0b10   | DEVERR (device error)              |
+| 0b11   | NETERR (network error)             |
+
+### 3.3.10 Error Code (ATYPE[3:0])
+
+The ATYPE field indicates the type of the atomic transaction.
+
+|ATYPE[3:0]| Meaning     |
+|:--------:|-------------|
+| 0h00     | Atomic add  |
+| 0b01     | Atomic and  |
+| 0h02     | Atomic or   |
+| 0b03     | Atomic xor  |
+| 0h04     | Atomic max  |
+| 0b05     | Atomic min  |
+| 0h06     | Atomic maxu |
+| 0b07     | Atomic minu |
+| 0h08     | Atomic swap |
+
 ## 3.4 Command Descriptions
 
 ### 3.4.1 INVALID
 
+INVALID indicates an invalid transaction. A receiver can choose to ignore the transaction or to take corrective action.
+
 ### 3.4.2 REQ_RD
+
+REQ_RD reads SIZE * LEN bytes from destination address(DA). If successful, the device initiates a RESP_RD transaction to return the data to the host source address (SA). If unsuccessful, a RES_ERROR transaction is returned to the host with an error code.  
 
 ### 3.4.3 REQ_WR
 
+REQ_WR writes SIZE * LEN bytes to destination address(DA). If successful, the device then initiates a RESP_WR acknowledgment to the host source address (SA). If unsuccessful, a RES_ERROR transaction is returned to the host with an error code.
+
 ### 3.4.4 REQ_WRPOSTED
+
+REQ_WRPOSTED performs a posted-write of SIZE * LEN bytes to destination address(DA). There is no response transaction sent back to the host from the device.
 
 ### 3.4.5 REQ_RDMA
 
+REQ_RDMA reads SIZE * LEN bytes of data from a primary destination address(DA). If successful, the primary device then initiates a REQ_WRPOSTED transaction to write the SIZE * LEN data to an address (SA) in a secondary device.   
+
 ### 3.4.6 REQ_MULTICAST
 
-### 3.4.7 REQ_ATOMICADD
+RESERVED
 
-### 3.4.8 REQ_ATOMICAND
+### 3.4.7 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
 
-### 3.4.9 REQ_ATOMICOR
-
-### 3.4.10 REQ_ATOMICXOR
-
-### 3.4.10 REQ_ATOMICMAX
-
-### 3.4.12 REQ_ATOMICMIN
-
-### 3.4.13 REQ_ATOMICMAX
-
-### 3.4.14 REQ_ATOMICMAXU
-
-### 3.4.15 REQ_ATOMICSWAP
+REQ_ATOMIC initiates an atomic read-modify-write operation at destination address (DA). The REQ_ATOMIC sequence involves: 1.) the host sending data (D), destination address (DA), and source address (SA) to the device, 2.) the device reading data address DA 3.) applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data, 4.) writing the result back to device address DA 4.) returning the original device data to host address SA.
 
 ### 3.4.16 REQ_ERROR
 
+REQ_ERROR sends an error code (ERR), data (D), and source address (SA) to  device address (DA) to indicate that an error has occurred. A receiver can choose to ignore the transaction or to take corrective action. There is no response transaction sent back to the host from the device.
+
 ### 3.4.17 REQ_LINK
+
+REQ_LINK is a 32 bit control-only request transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. CMD[30-7] are all available as user specified control bits. There is no response transaction sent back to the host from the device.
 
 ### 3.4.13 RESP_RD
 
+RESP_RD returns SIZE * LEN bytes of data to the host source address (SA) as a response to a REQ_RD transaction. The device destination address is sent along with the SA and DATA to filter incoming transactions in case of multiple outstanding read requests.
+
 ### 3.4.13 RESP_RDANON
+
+RESP_RD returns SIZE * LEN bytes of data to the host source address (SA) as a response to a REQ_RD transaction.  
 
 ### 3.4.13 RESP_WR
 
+RESP_WR returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction. The device destination address is sent along with the response transaction to filter incoming transactions in case of multiple outstanding write requests.
+
 ### 3.4.13 RESP_WRANON
 
-### 3.4.13 RESP_ERROR
+RESP_WRANON returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction.
 
 ### 3.4.13 RESP_LINK
 
-## 4. Signal Layer
+RESP_LINK returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction.
+
+REQ_LINK is a 32 bit control-only point-to-point transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. CMD[30-7] are all available as user specified control bits. 
+
+## 4. Signal UMI (SUMI) Layer
 
 ### 4.1 Theory of Operation
 
