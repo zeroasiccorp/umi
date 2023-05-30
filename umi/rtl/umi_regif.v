@@ -28,15 +28,15 @@ module umi_regif
     // UMI access
     input 	      udev_req_valid,
     input [CW-1:0]    udev_req_cmd,
-    input [AW-1:0]    udev_req_dst_addr,
-    input [AW-1:0]    udev_req_src_addr,
-    input [UW-1:0]    udev_req_payload,
+    input [AW-1:0]    udev_req_dstaddr,
+    input [AW-1:0]    udev_req_srcaddr,
+    input [UW-1:0]    udev_req_data,
     output reg 	      udev_req_ready,
     output reg 	      udev_resp_valid,
     output [CW-1:0]   udev_resp_cmd,
-    output [AW-1:0]   udev_resp_dst_addr,
-    output [AW-1:0]   udev_resp_src_addr,
-    output [UW-1:0]   udev_resp_payload,
+    output [AW-1:0]   udev_resp_dstaddr,
+    output [AW-1:0]   udev_resp_srcaddr,
+    output [UW-1:0]   udev_resp_data,
     input 	      udev_resp_ready,
     // Read/Write register interface
     output [AW-1:0]   reg_addr, // memory address
@@ -57,20 +57,17 @@ module umi_regif
    // UMI INPUT
    //########################
 
+   assign reg_addr[AW-1:0]     = udev_req_dstaddr[CW-1:0];
+   assign reg_wrdata[4*DW-1:0] = udev_resp_data[UW-1:0];
+
    umi_unpack #(.UW(UW),
 		.AW(AW))
    umi_unpack(// Outputs
 	      .command	(reg_cmd[7:0]),
 	      .size	(reg_size[3:0]),
 	      .options	(reg_options[19:0]),
-	      .dstaddr	(reg_addr[AW-1:0]),
-	      .srcaddr	(reg_srcaddr[AW-1:0]),
-	      .data	(reg_wrdata[4*AW-1:0]),
 	      // Inputs
-	      .packet_cmd      (udev_req_cmd[CW-1:0]),
-	      .packet_dst_addr (udev_req_dst_addr[AW-1:0]),
-	      .packet_src_addr (udev_req_src_addr[AW-1:0]),
-	      .packet_payload  (udev_req_payload[UW-1:0]));
+	      .packet_cmd      (udev_req_cmd[CW-1:0]));
 
    umi_write umi_write(.write (write), .command	(reg_cmd[7:0]));
 
@@ -104,20 +101,18 @@ module umi_regif
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
 
+   assign udev_resp_dstaddr[AW-1:0] = reg_srcaddr[AW-1:0];
+   assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
+   assign udev_resp_data[UW-1:0]    = {(4){reg_rddata[DW-1:0]}};
+
    umi_pack #(.UW(UW),
 	      .AW(AW))
    umi_pack(// Outputs
             .packet_cmd      (udev_resp_cmd[CW-1:0]),
-            .packet_dst_addr (udev_resp_dst_addr[AW-1:0]),
-            .packet_src_addr (udev_resp_src_addr[AW-1:0]),
-            .packet_payload  (udev_resp_payload[UW-1:0]),
 	    // Inputs
 	    .command    (UMI_RESP_WRITE),//returns write response
 	    .size	(reg_size[3:0]),
 	    .options	(reg_options[19:0]),
-	    .burst	(1'b0),
-	    .dstaddr	(reg_srcaddr[AW-1:0]),
-	    .srcaddr	({(AW){1'b0}}),
-	    .data	({(4){reg_rddata[DW-1:0]}}));
+	    .burst	(1'b0));
 
 endmodule // umi_regif

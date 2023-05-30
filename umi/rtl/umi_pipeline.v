@@ -24,15 +24,15 @@ module umi_pipeline
     // Incoming UMI request
     input 		umi_in_valid,
     input [CW-1:0] 	umi_in_cmd,
-    input [AW-1:0] 	umi_in_dst_addr,
-    input [AW-1:0] 	umi_in_src_addr,
-    input [UW-1:0] 	umi_in_payload,
+    input [AW-1:0] 	umi_in_dstaddr,
+    input [AW-1:0] 	umi_in_srcaddr,
+    input [UW-1:0] 	umi_in_data,
     // Outgoing UMI response
     output reg 		umi_out_valid,
     output reg [CW-1:0] umi_out_cmd,
-    output reg [AW-1:0] umi_out_dst_addr,
-    output reg [AW-1:0] umi_out_src_addr,
-    output reg [UW-1:0] umi_out_payload,
+    output reg [AW-1:0] umi_out_dstaddr,
+    output reg [AW-1:0] umi_out_srcaddr,
+    output reg [UW-1:0] umi_out_data,
     input 		umi_out_ready
     );
 
@@ -47,10 +47,10 @@ module umi_pipeline
    always @ (posedge clk)
      if (umi_out_ready & umi_in_valid)
        begin
-          umi_out_cmd[CW-1:0]      <= umi_in_cmd[CW-1:0];
-          umi_out_dst_addr[AW-1:0] <= umi_in_dst_addr[AW-1:0];
-          umi_out_src_addr[AW-1:0] <= umi_in_src_addr[AW-1:0];
-          umi_out_payload[UW-1:0]  <= umi_in_payload[UW-1:0];
+          umi_out_cmd[CW-1:0]     <= umi_in_cmd[CW-1:0];
+          umi_out_dstaddr[AW-1:0] <= umi_in_dstaddr[AW-1:0];
+          umi_out_srcaddr[AW-1:0] <= umi_in_srcaddr[AW-1:0];
+          umi_out_data[UW-1:0]    <= umi_in_data[UW-1:0];
        end
 
 endmodule
