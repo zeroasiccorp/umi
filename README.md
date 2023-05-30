@@ -2,26 +2,35 @@
 
 # Universal Memory Interface (UMI)
 
-## Overview
+## 1. Introduction
 
-The Universal Memory Interface (UMI) is a stack of standardized abstractions for reading and writing memory, with the core principle being "everything is an address". UMI includes four distinct layers:
+### 1.1 Architecture:
 
-* **Protocol**: Overlay of standard communication protocols (Ethernet, PCIE, CXL).   
-* **Transaction**: Address based read/write transactions.
-* **Link**: Communication integrity (flow control, reliability).
-* **Physical**: Electrical signaling (pins, wires, etc.).
+The Universal Memory Interface (UMI) is a stack of standardized abstractions for reading and writing memory, with the core principle being that "everything is an address". UMI includes four distinct layers:
 
-Key supported features of UMI are:
-  * separation of concerns though unified abstraction stack
+* **Application**: Protocol/application specific packets (Ethernet, PCIe, ...)
+* **Transaction**: Address based read/write transactions
+* **Link**: Communication integrity (flow control, reliability)
+* **Physical**: Electrical signaling (pins, wires, etc.)
+
+![UMI](docs/_images/umi_stack.svg)
+
+
+### 1.2 Key features:
+
+  * tiered abstraction memory model 
+  * separate request and response channels
   * 64b/32b addressing support
   * bursting of up to 256 transfers
-  * data sizes up to 1024 bits
+  * data sizes up to 1024 bits per transfer
   * atomic transactions
   * error detection and correction
-  * user reserved commands
-  * transaction extendability
+  * user reserved opcodes
+  * compatible with existing bus interfaces
+  * extendible
+  * design for high bandwidth and low latency
 
-## Glossary/Abbreviations
+### 1.3 Terminology:
 
 | Word   | Meaning                                  |
 |--------|------------------------------------------|
@@ -40,15 +49,20 @@ Key supported features of UMI are:
 | USER   | User command bits                        |
 | ERR    | Error code                               |
 
-## Transaction Layer
+## 2. Transaction Layer
 
-The UMI transaction layer defines a set of operations for interacting with a broad set of address based memory systems.
+## 2.1 Transaction Architecture
 
-TBD:
-- ordering
-- others...
+The UMI transaction layer defines an memory architecture with the following architectural constraints:
+ * Separate channels for requests and responses
+ * Requests are initiated by hosts
+ * Responses are returned by devices
+ * Per-channel point-to-point transaction ordering
+ *     
 
-| COMMAND       |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
+A summary of all UMI transaction types are shown below.
+
+| CMD           |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
 |---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
 | INVALID		    |    |   |    |--  | --  |--   |--   |--   |0   |000 |0x0 |
 | REQ_RD        |	   |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x1 |
@@ -69,7 +83,7 @@ TBD:
 | REQ_LINK      |	   |	 |	  |EXT |--   |--   |--   |--   |-   |0x1 |0xD |
 | REQ_RESERVED  |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |USER|SIZE|0xF |
 
-| COMMAND       |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
+| CMD           |DATA|SA |DA  |31  |30:20|19:18|17:16|15:8 |7   |6:4 |3:0 |
 |---------------|--- |---|----|----|-----|-----|-----|-----|----|----|----|
 | RESP_READ	    |Y	 |Y	 |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x2 |
 | RESP_READANON |Y   |   |Y	  |EXT |USER |EDAC |PRIV |LEN  |EOT |SIZE|0x4 |
@@ -79,6 +93,29 @@ TBD:
 | RESP_LINK     |	   |	 |	  |--  |--   |--   |--   |--   |-   |0x1 |0xA |
 | RESP_RESERVED |Y   |Y  |Y   |EXT |USER |EDAC |PRIV |--   |-   |--  |0xC |
 | RESP_RESERVED |Y   |   |Y   |EXT |USER |EDAC |PRIV |--   |-   |--  |0xE |
+
+## 2.2 Transaction Size (SIZE)
+
+The SIZE field defines the number of bytes in each data transfer within
+a transaction. A transaction size must not exceed the data bus width of 
+the host or device involved in the transaction.
+
+|SIZE[2:0] |Bytes per transfer|
+|----------|------------------|
+| 0b000	   | 1 
+| 0b001    | 2                 
+| 0b010    | 4
+| 0b100    | 8
+| 0b101    | 16
+| 0b110    | 32
+| 0b111    | 128
+
+## 2.2 Transaction Size (SIZE)
+
+
+
+
+
 
 ## Protocol Layer
 
