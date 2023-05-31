@@ -8,8 +8,8 @@
 
 The Universal Memory Interface (UMI) is a stack of standardized abstractions for reading and writing memory, with the core principle being that "everything is an address". UMI includes four distinct layers:
 
-* **Application**: Protocol/application specific packets (Ethernet, PCIe, ...)
-* **Transaction**: Address based read/write transactions
+* **Protocol**: Protocol/application specific payload (Ethernet, PCIe, ...)
+* **Transaction**: Address based request/response transactions
 * **Link**: Communication integrity (flow control, reliability)
 * **Physical**: Electrical signaling (pins, wires, etc.)
 
@@ -33,8 +33,8 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 
 | Word   | Meaning                                  |
 |--------|------------------------------------------|
-| Host   | Initiates a request                      |
-| Device | Responds to a request                    |
+| Host   | Initiates request                        |
+| Device | Responds to request                      |
 | SA     | Source address                           |
 | DA     | Destination address                      |
 | DATA   | Data packet                              |
@@ -48,64 +48,82 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 | EXT    | Extended command option                  |
 | USER   | User command bits                        |
 | ERR    | Error code                               |
-| MSB    | Most significant bit                      |
+| MSB    | Most significant bit                     |
 
 ## 2. Protocol UMI (PUMI) Layer
 
 Higher level protocols (such as ethernet) can be layered on top of a
-UMI transactions by packing headers and payloads appropriately based on the protocol. Data packing is little endian, with the header starting in byte 0 of the transaction data field. Protocol header and payload data is transparent to the UMI transaction layer.
+UMI transactions by packing protocol headers and payload data in the transaction data field. Payload packing is little endian, with the header starting in byte 0 of the transaction data field. Protocol header and payload data is transparent to the UMI transaction layer.
+
+Protocol overlay examples:
 
 | Protocol | Payload(Data) |Header(Data)|Source Addr|Dest Addr| Command |
 |:--------:|:-------------:|:----------:|:---------:|:-------:|:-------:|
-| Ethernet | 64B - 1,518B  |14B         | 8B        | 8B      | 4B      |
-| CXL-68   | 64B           |2B          | 8B        | 8B      | 4B      |
-| CXL-256  | 254B          |2B          | 8B        | 8B      | 4B      |
+| Ethernet | 64B - 1,518B  |14B         | 4/8B      | 4/8B    | 4B      |
+| CXL-68   | 64B           |2B          | 4/8B      | 4/8B    | 4B      |
+| CXL-256  | 254B          |2B          | 4/8B      | 4/8B    | 4B      |
 
 ## 3. Transaction UMI (TUMI) Layer
 
 ### 3.1 Theory of Operation
 
- * Separate channels for requests and responses
- * Requests are initiated by hosts
- * Responses are returned by devices
- * Per-channel point-to-point transaction ordering
- * Bursts must not cross 4KB address boundaries
- * Addresses must be aligned to SIZE
- * Payload data is little-endian aligned
+The UMI transaction layer is a request/response communication architecture. Hosts send requests and devices return responses. Requests and responses have separate independent transaction channels.
 
-### 3.2 Packet formats
+All transactions include the following fields:
 
-Transactions are atomic packets made up of a fixed width 32b command field, a source address, a destination address, and a data payload of up to
-32,768 bytes.
+* **CMD**: Complete control information specifying the transaction type and options.
+* **DA**: Device address for reading and writing. 
+* **SA**: Source address ("source-id") of the host. Used to return data and acknowledgment from the device to the host.
+* **DATA**: Data to be written by a write request or returned by a read response.
 
-Packet format:
+UMI transactions are defined as packets with the following ordering.
 
 | Architecture |MSB-1:128|127:64|63:32|31:0|
 |--------------|:-------:|:----:|:---:|:--:|
 | 64b          |DATA     |SA    |DA   | CMD|
 | 32b          |DATA     |DATA  |SA,DA| CMD|
 
-Summary all response transactions:
+Read and write transactions are burst based. The number of bytes transferred by a transaction is equal to the size of a data word (SIZE) times the number of transfers in the transaction (LEN). The maximum data payload is 32,768 bytes.  
 
-| CMD           |DATA|SA|DA|31 |30:22|21:20|19:18|17:16|15:8 |7:4     |3:0|
-|---------------|:--:|--|--|---|:---:|:---:|-----|-----|-----|:------:|---|
-|INVALID        |    |  |  |-- | --  |--   |--   |--   |--   |0x0     |0x0|
-|REQ_RD         |    |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x1|
-|REQ_WR         |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x3|
-|REQ_WRPOSTED   |Y   |  |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x5|
-|REQ_RDMA       |    |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x7|
-|REQ_ATOMIC     |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |ATYPE|1,SIZE  |0x9|
-|REQ_MULTICAST  |Y   |Y |Y |EXT| USER|QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0xB|
-|REQ_ERROR      |Y   |Y |Y |EXT| USER|00   |EDAC |PRIV |ERR  |0,0x0   |0xD|
-|REQ_LINK       |    |  |  |0  | --  |--   |--   |--   |--   |0,0x1   |0xD|
+Constraints: 
+ * Hosts cannot initiate responses
+ * Devices cannot initiate requests
+ * Unsolicited responses are not allowed 
+ * Bursts must not cross 4KB address boundaries
+ * Addresses must be aligned to SIZE
+ * Transactions must complete (no partial data deliveries)
 
-| CMD         |DATA|SA|DA|31 |30:24|23:22|21:20|19:18|17:16|15:8|7:4     |3:0|
-|-------------|:--:|--|--|---|:---:|:---:|:---:|-----|-----|----|:------:|---|
-| RESP_READ   |Y   |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x2|
-| RESP_RDANON |Y   |Y |  |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x4|
-| RESP_WR     |    |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x6|
-| RESP_WRANON |Y   |Y |  |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN |EOF,SIZE|0x8|
-| RESP_LINK   |    |  |  |-- |--   |     |--   |--   |--   |--  |0, 0x0  |0xA|
+### 3.2 Transaction Summary
+
+The following table shows the complete set of UMI transactions. 
+
+
+| CMD        |DATA|SA|DA|31 |30:24|23:22|21:20|19:18|17:16|15:8 |7:4     |3:0|
+|------------|:--:|--|--|---|:---:|:---:|:---:|-----|-----|-----|:------:|---|
+|INVALID     |    |Y |Y |-- |--   |--   |--   |--   |--   |--   |0x0     |0x0|
+|REQ_RD      |    |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x1|
+|REQ_WR      |Y   |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x3|
+|REQ_WRPOSTED|Y   |Y*|Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x5|
+|REQ_RDMA    |    |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x7|
+|REQ_ATOMIC  |Y   |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |ATYPE|1,SIZE  |0x9|
+|REQ_ERROR   |Y   |Y |Y |EXT|USER |USER |00   |EDAC |PRIV |ERR  |0,0x0   |0xF|
+|REQ_LINK    |    |  |  |0  | --  |--   |--   |--   |--   |--   |0,0x1   |0xF|
+|RESP_READ   |Y   |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x2|
+|RESP_WR     |    |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x4|
+|RESP_LINK   |    |  |  |-- |--   |--   |--   |--   |--   |--   |0, 0x0  |0xE|
+
+
+The UMI transaction layer includes a number of reserved opcodes,
+
+| CMD[3:0]   | Reserved for    |
+|------------|-----------------|
+| 0x6        | USER RESPONSE   |
+| 0x8        | USER RESPONSE   |
+| 0xA        | FUTURE RESPONSE |
+| 0xC        | FUTURE RESPONSE |  
+| 0xB        | USER REQUEST    |
+| 0xD        | FUTURE REQUEST  |
+
 
 ### 3.3 Options Decode
 
@@ -241,43 +259,31 @@ REQ_WRPOSTED performs a posted-write of SIZE * LEN bytes to destination address(
 
 REQ_RDMA reads SIZE * LEN bytes of data from a primary destination address(DA). If successful, the primary device then initiates a REQ_WRPOSTED transaction to write the SIZE * LEN data to an address (SA) in a secondary device.   
 
-### 3.4.6 REQ_MULTICAST
-
-RESERVED
-
-### 3.4.7 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
+### 3.4.6 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
 
 REQ_ATOMIC initiates an atomic read-modify-write operation at destination address (DA). The REQ_ATOMIC sequence involves: 1.) the host sending data (D), destination address (DA), and source address (SA) to the device, 2.) the device reading data address DA 3.) applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data, 4.) writing the result back to device address DA 4.) returning the original device data to host address SA.
 
-### 3.4.16 REQ_ERROR
+### 3.4.7 REQ_ERROR
 
 REQ_ERROR sends an error code (ERR), data (D), and source address (SA) to  device address (DA) to indicate that an error has occurred. A receiver can choose to ignore the transaction or to take corrective action. There is no response transaction sent back to the host from the device.
 
-### 3.4.17 REQ_LINK
+### 3.4.8 REQ_LINK
 
 REQ_LINK is a 32 bit control-only request transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. CMD[30-7] are all available as user specified control bits. There is no response transaction sent back to the host from the device.
 
-### 3.4.13 RESP_RD
+### 3.4.9 RESP_RD
 
 RESP_RD returns SIZE * LEN bytes of data to the host source address (SA) as a response to a REQ_RD transaction. The device destination address is sent along with the SA and DATA to filter incoming transactions in case of multiple outstanding read requests.
 
-### 3.4.13 RESP_RDANON
-
-RESP_RD returns SIZE * LEN bytes of data to the host source address (SA) as a response to a REQ_RD transaction.  
-
-### 3.4.13 RESP_WR
+### 3.4.10 RESP_WR
 
 RESP_WR returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction. The device destination address is sent along with the response transaction to filter incoming transactions in case of multiple outstanding write requests.
 
-### 3.4.13 RESP_WRANON
-
-RESP_WRANON returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction.
-
-### 3.4.13 RESP_LINK
+### 3.4.11 RESP_LINK
 
 RESP_LINK returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction.
 
-REQ_LINK is a 32 bit control-only point-to-point transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. CMD[30-7] are all available as user specified control bits. 
+REQ_LINK is a 32 bit control-only point-to-point transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. CMD[30-7] are available as user specified control bits. 
 
 ## 4. Signal UMI (SUMI) Layer
 
