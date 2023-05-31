@@ -60,14 +60,21 @@ module umi_regif
    assign reg_addr[AW-1:0]   = udev_req_dstaddr[AW-1:0];
    assign reg_wrdata[RW-1:0] = udev_resp_data[RW-1:0];
 
+   /* umi_unpack AUTO_TEMPLATE(
+    .command    (reg_cmd[]),
+    .\(.*\)     (reg_\1[]),
+    .packet_cmd (udev_req_cmd[]),
+    );*/
    umi_unpack #(.DW(DW),
+                .CW(CW),
 		.AW(AW))
-   umi_unpack(// Outputs
-	      .command	(reg_cmd[7:0]),
-	      .size	(reg_size[3:0]),
-	      .options	(reg_options[19:0]),
-	      // Inputs
-	      .packet_cmd      (udev_req_cmd[CW-1:0]));
+   umi_unpack(/*AUTOINST*/
+              // Outputs
+              .command          (reg_cmd[7:0]),          // Templated
+              .size             (reg_size[3:0]),         // Templated
+              .options          (reg_options[19:0]),     // Templated
+              // Inputs
+              .packet_cmd       (udev_req_cmd[CW-1:0])); // Templated
 
    umi_write umi_write(.write (write), .command	(reg_cmd[7:0]));
 
@@ -106,9 +113,10 @@ module umi_regif
    assign udev_resp_data[DW-1:0]    = {(4){reg_rddata[RW-1:0]}};
 
    umi_pack #(.DW(DW),
+              .CW(CW),
 	      .AW(AW))
    umi_pack(// Outputs
-            .packet_cmd      (udev_resp_cmd[CW-1:0]),
+            .packet_cmd (udev_resp_cmd[CW-1:0]),
 	    // Inputs
 	    .command    (UMI_RESP_WRITE),//returns write response
 	    .size	(reg_size[3:0]),

@@ -53,6 +53,7 @@ module umi_splitter
     .packet_\(.*\) (umi_in_\1[]),
     );*/
    umi_unpack #(.DW(DW),
+		.CW(CW),
 		.AW(AW))
    umi_unpack(/*AUTOINST*/
               // Outputs
