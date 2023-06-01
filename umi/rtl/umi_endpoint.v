@@ -8,12 +8,12 @@
  *
  ******************************************************************************/
 module umi_endpoint
-  #(parameter REG  = 1,         // 1=insert register on read_data
-    parameter TYPE = "LIGHT",   // FULL, LIGHT
+  #(parameter REG  = 1,       // 1=insert register on read_data
+    parameter TYPE = "LIGHT", // FULL, LIGHT
     // standard parameters
-    parameter CW   = 32,
-    parameter AW   = 64,
-    parameter DW   = 256)
+    parameter      CW = 32,
+    parameter      AW = 64,
+    parameter      DW = 256)
    (// ctrl
     input           nreset,
     input           clk,
@@ -46,13 +46,14 @@ module umi_endpoint
 
    // local regs
    reg [3:0] 		size_out;
-   reg [19:0] 		options_out;
-   reg [AW-1:0] 	dstaddr_out;
-   reg [DW-1:0] 	data_out;
+   reg [19:0]           options_out;
+   reg [AW-1:0]         dstaddr_out;
+   reg [AW-1:0]         srcaddr_out;
+   reg [DW-1:0]         data_out;
 
    // local wires
-   wire [AW-1:0] 	loc_srcaddr;
-   wire [4*AW-1:0] 	data_mux;
+   wire [AW-1:0]        loc_srcaddr;
+   wire [4*AW-1:0]      data_mux;
    wire                 write;
 
    //########################
@@ -114,6 +115,7 @@ module umi_endpoint
        begin
 	  data_out[DW-1:0]    <= loc_rddata[DW-1:0];
 	  dstaddr_out[AW-1:0] <= loc_srcaddr[AW-1:0];
+	  srcaddr_out[AW-1:0] <= loc_addr[AW-1:0];
 	  size_out[3:0]       <= loc_size[3:0];
 	  options_out[19:0]   <= loc_options[19:0];
        end
@@ -127,7 +129,6 @@ module umi_endpoint
     .command         (UMI_RESP_WRITE), //TODO: this is incorrect!
     .burst           (1'b0),
     .srcaddr         ({(AW){1'b0}}),
-    .data            (data_mux[]),
     .\(.*\)          (\1_out[]),
     );
     */
@@ -144,5 +145,9 @@ module umi_endpoint
             .size               (size_out[3:0]),         // Templated
             .options            (options_out[19:0]),     // Templated
             .burst              (1'b0));                 // Templated
+
+   assign udev_resp_dstaddr[AW-1:0] = dstaddr_out[AW-1:0];
+   assign udev_resp_srcaddr[AW-1:0] = srcaddr_out[AW-1:0];
+   assign udev_resp_data[DW-1:0]    = data_mux[DW-1:0];
 
 endmodule // umi_endpoint

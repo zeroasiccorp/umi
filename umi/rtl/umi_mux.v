@@ -36,7 +36,7 @@ module umi_mux
 
    // ready pusback
    assign umi_in_ready[N-1:0] = ~umi_in_valid[N-1:0] |
-				(umi_in_valid[N-1:0] & umi_out_ready);
+				(umi_in_valid[N-1:0] & {N{umi_out_ready}});
 
    // packet mux
    la_vmux #(.N(N),
