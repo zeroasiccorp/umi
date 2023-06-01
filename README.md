@@ -16,39 +16,42 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 ![UMI](docs/_images/umi_stack.svg)
 
 
-### 1.2 Features:
+### 1.2 Key Features:
 
   * designed for high bandwidth and low latency
   * separate request and response channels
   * 64b/32b addressing support
   * bursting of up to 256 transfers
   * data sizes up to 1024 bits per transfer
-  * atomic transactions
-  * error detection and correction
-  * user reserved opcodes
-  * compatible with existing bus interfaces
-  * extendible
+  * atomic transaction support
+  * quality of service support
+  * error detection and correction support
+  * reserved opcodes for users and future expansion
 
 ### 1.3 Terminology:
 
-| Word   | Meaning                                  |
-|--------|------------------------------------------|
-| Host   | Initiates request                        |
-| Device | Responds to request                      |
-| SA     | Source address                           |
-| DA     | Destination address                      |
-| DATA   | Data packet                              |
-| CMD    | Transaction command                      |
-| SIZE   | Data size per individual transfer        |
-| LEN    | Number of individual transfers           |
-| EDAC   | Error detect/correction control          |
-| QOS    | Quality of service                       |
-| PRIV   | Privilege mode                           |
-| EOF    | End of frame indicator                   |
-| EXT    | Extended command option                  |
-| USER   | User command bits                        |
-| ERR    | Error code                               |
-| MSB    | Most significant bit                     |
+| Word        | Meaning    |
+|-------------|------------|
+| Transaction | Single memory operation (typically memory reads and writes)
+| Message     | Type of transaction (read request, write response, read response, ...)
+| Host        | Initiates request
+| Device      | Responds to request
+| SA          | Source address
+| DA          | Destination address
+| DATA        | Data packet
+| MSG         | Transaction message type
+| SIZE        | Data size per individual transfer
+| LEN         | Number of individual transfers
+| EDAC        | Error detect/correction control
+| QOS         | Quality of service
+| PRIV        | Privilege mode
+| EOF         | End of frame indicator
+| EXT         | Extended message option
+| USER        | User message bits
+| ERR         | Error code
+| HOSTID      | Host channel ID
+| DEVID       | Device channel ID
+| MSB         | Most significant bit
 
 ## 2. Protocol UMI (PUMI) Layer
 
@@ -57,48 +60,63 @@ UMI transactions by packing protocol headers and payload data in the transaction
 
 Protocol overlay examples:
 
-| Protocol | Payload(Data) |Header(Data)|Source Addr|Dest Addr| Command |
-|:--------:|:-------------:|:----------:|:---------:|:-------:|:-------:|
-| Ethernet | 64B - 1,518B  |14B         | 4/8B      | 4/8B    | 4B      |
-| CXL-68   | 64B           |2B          | 4/8B      | 4/8B    | 4B      |
-| CXL-256  | 254B          |2B          | 4/8B      | 4/8B    | 4B      |
+| Protocol  | Payload(Data) |Header(Data)|Source Addr|Dest Addr| message |
+|:---------:|:-------------:|:----------:|:---------:|:-------:|:-------:|
+| Ethernet  | 64B - 1,518B  |14B         | 4/8B      | 4/8B    | 4B      |
+| CXL-68    | 64B           |2B          | 4/8B      | 4/8B    | 4B      |
+| CXL-256   | 254B          |2B          | 4/8B      | 4/8B    | 4B      |
 
 ## 3. Transaction UMI (TUMI) Layer
 
 ### 3.1 Theory of Operation
 
-The UMI transaction layer is a request/response communication architecture. Hosts send requests and devices return responses. Requests and responses have separate independent transaction channels.
+The UMI transaction layer is a request/response memory access architecture. Hosts send read and write requests and devices return responses. The figure below illustrates the relationship between hosts, devices, and a network.
+
+![UMI](docs/_images/tumi_connections.png)
+
+Host shall:
+
+* Initiate request transations
+* Validate and execute incoming response transactions
+* Identify egress interface through which to send request (in case of multiple)
+
+
+Device shall:
+
+* Validate and execute incoming request transactions
+* Initiate response transactions when required
+* Identify egress interface through which to send response (in case of multiple)
 
 All transactions include the following fields:
 
-* **CMD**: Complete control information specifying the transaction type and options.
-* **DA**: Device address for reading and writing. 
-* **SA**: Source address ("source-id") of the host. Used to return data and acknowledgment from the device to the host.
+* **MSG**: Complete control information specifying the transaction type and options.
+* **DA**: Device address for reading and writing
+* **SA**: Host source address/id
 * **DATA**: Data to be written by a write request or returned by a read response.
 
 UMI transactions are defined as packets with the following ordering.
 
 | Architecture |MSB-1:128|127:64|63:32|31:0|
 |--------------|:-------:|:----:|:---:|:--:|
-| 64b          |DATA     |SA    |DA   | CMD|
-| 32b          |DATA     |DATA  |SA,DA| CMD|
+| 64b          |DATA     |SA    |DA   | MSG|
+| 32b          |DATA     |DATA  |SA,DA| MSG|
 
-Read and write transactions are burst based. The number of bytes transferred by a transaction is equal to the size of a data word (SIZE) times the number of transfers in the transaction (LEN). The maximum data payload is 32,768 bytes.  
+The source address (SA) field is used to pass control and routing information from the UMI transaction layer to the [UMI signal layer](#UMI-Signal-layer). All bits in the SA is effectively RESERVED for signal layer use.
 
-Constraints: 
- * Hosts cannot initiate responses
- * Devices cannot initiate requests
- * Unsolicited responses are not allowed 
- * Bursts must not cross 4KB address boundaries
- * Addresses must be aligned to SIZE
- * Transactions must complete (no partial data deliveries)
+Read and write transactions are burst based. The number of bytes transferred by a transaction is equal to the size of a data word (SIZE) times the number of transfers in the transaction (LEN). T
 
-### 3.2 Transaction Summary
+Constraints:
 
-The following table shows the complete set of UMI transactions. 
+* Bursts must not cross 4KB address boundaries
+* Addresses must be aligned to SIZE
+* The maximum data payload is 32,768 bytes.
+* Transactions must complete (no partial data deliveries)
 
+### 3.2 Transaction Decode
 
-| CMD        |DATA|SA|DA|31 |30:24|23:22|21:20|19:18|17:16|15:8 |7:4     |3:0|
+The following table shows the complete set of UMI transaction types. Descriotions of each message is found in the Message Description Section.  
+
+|Message     |DATA|SA|DA|31 |30:24|23:22|21:20|19:18|17:16|15:8 |7:4     |3:0|
 |------------|:--:|--|--|---|:---:|:---:|:---:|-----|-----|-----|:------:|---|
 |INVALID     |    |Y |Y |-- |--   |--   |--   |--   |--   |--   |0x0     |0x0|
 |REQ_RD      |    |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOF,SIZE|0x1|
@@ -113,17 +131,16 @@ The following table shows the complete set of UMI transactions.
 |RESP_LINK   |    |  |  |-- |--   |--   |--   |--   |--   |--   |0, 0x0  |0xE|
 
 
-The UMI transaction layer includes a number of reserved opcodes,
+The following command opcodes are reserved:
 
-| CMD[3:0]   | Reserved for    |
-|------------|-----------------|
-| 0x6        | USER RESPONSE   |
-| 0x8        | USER RESPONSE   |
-| 0xA        | FUTURE RESPONSE |
-| 0xC        | FUTURE RESPONSE |  
-| 0xB        | USER REQUEST    |
-| 0xD        | FUTURE REQUEST  |
-
+| MSG[3:0] | Reserved for    |
+|----------|-----------------|
+| 0x6      | USER RESPONSE   |
+| 0x8      | USER RESPONSE   |
+| 0xA      | FUTURE RESPONSE |
+| 0xC      | FUTURE RESPONSE |  
+| 0xB      | USER REQUEST    |
+| 0xD      | FUTURE REQUEST  |
 
 ### 3.3 Options Decode
 
@@ -257,7 +274,8 @@ REQ_WRPOSTED performs a posted-write of SIZE * LEN bytes to destination address(
 
 ### 3.4.5 REQ_RDMA
 
-REQ_RDMA reads SIZE * LEN bytes of data from a primary destination address(DA). If successful, the primary device then initiates a REQ_WRPOSTED transaction to write the SIZE * LEN data to an address (SA) in a secondary device.   
+REQ_RDMA reads SIZE * LEN bytes of data from a primary destination address(DA). If successful, the primary device then initiates a REQ_WRPOSTED transaction to write SIZE * LEN data to an address (SA) in a secondary device. The REQ_DMA message do not support the use of HOSTID and DEVID since all SA bits are used for
+memory read/write addressing.
 
 ### 3.4.6 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
 
@@ -269,7 +287,7 @@ REQ_ERROR sends an error code (ERR), data (D), and source address (SA) to  devic
 
 ### 3.4.8 REQ_LINK
 
-REQ_LINK is a 32 bit control-only request transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. CMD[30-7] are all available as user specified control bits. There is no response transaction sent back to the host from the device.
+REQ_LINK is a 32 bit control-only request transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. MSG[30-7] are all available as user specified control bits. There is no response transaction sent back to the host from the device.
 
 ### 3.4.9 RESP_RD
 
@@ -283,14 +301,37 @@ RESP_WR returns an acknowledgment to the host source address (SA) as a response 
 
 RESP_LINK returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction.
 
-REQ_LINK is a 32 bit control-only point-to-point transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. CMD[30-7] are available as user specified control bits. 
+REQ_LINK is a 32 bit control-only point-to-point transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. MSG[30-7] are available as user specified control bits. 
+
+
+### 3.5 Transaction Mapping Examples
+
+The following table illustrates how the UMI transaction layer maps the RISC-V hardware abstraction layer.
+Control bits not available in the RISC-V ISA would be driven by CSRs.
+
+| RISC-V Instruction   | DATA | SA       | DA | MSG         |
+|:--------------------:|------|----------|----|-------------|
+| LD RD, offset(RS1)   | --   | ADDR(CPU)| RS1| REQ_RD      |
+| SD RD, offset(RS1)   | RD   | ADDR(CPU)| RS1| REQ_WR      |
+| AMOADD.D rd,rs2,(rs1)| RD   | ADDR(CPU)| RS1| REQ_ATOMADD |
+
 
 ## 4. Signal UMI (SUMI) Layer
 
 ### 4.1 Theory of Operation
 
-The native UMI signaling layer consists of a packet, valid signal,
+The native UMI signaling layer (SUMI) is a latency insensitive handshake protocol on the trans
+
+ of a the transaction UMI (TUMI fields)
+
+ valid signal,
 ready signal with the following naming convention:
+
+
+
+![UMI](docs/_images/tumi_connections.png)
+
+
 
 ```
 u<host|dev>_<req|resp>_<packet|ready|valid>
@@ -299,7 +340,7 @@ u<host|dev>_<req|resp>_<packet|ready|valid>
 Connections shall only be made between hosts and devices,
 per the diagram below.
 
-![UMI](docs/_images/umi_connections.png)
+
 
 
 ### 3.2 Handshake Protocol
