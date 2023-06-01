@@ -35,7 +35,7 @@ module umi_unpack
 
    // data field unpacker
    generate
-      if(CW==32 & AW==64 & DW==256) begin : p256
+      if(CW==32) begin : p256
 	 assign command[7:0]    = packet_cmd[7:0];
 	 assign size[3:0]       = packet_cmd[11:8];
 	 assign options[19:0]   = packet_cmd[31:12];

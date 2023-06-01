@@ -53,7 +53,7 @@ module umi_endpoint
 
    // local wires
    wire [AW-1:0]        loc_srcaddr;
-   wire [4*AW-1:0]      data_mux;
+   wire [DW-1:0]        data_mux;
    wire                 write;
 
    //########################
