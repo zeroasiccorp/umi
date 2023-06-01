@@ -16,7 +16,7 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 ![UMI](docs/_images/umi_stack.svg)
 
 
-### 1.2 Features:
+### 1.2 Key Features:
 
   * designed for high bandwidth and low latency
   * separate request and response channels
@@ -70,13 +70,28 @@ Protocol overlay examples:
 
 ### 3.1 Theory of Operation
 
-The UMI transaction layer is a request/response memory access architecture. Hosts send read and write requests and devices return responses. Requests and responses are required to have separate and independent transaction channels.
+The UMI transaction layer is a request/response memory access architecture. Hosts send read and write requests and devices return responses. The figure below illustrates the relationship between hosts, devices, and a network.
+
+![UMI](docs/_images/tumi_connections.png)
+
+Host shall:
+
+* Initiate request transations
+* Validate and execute incoming response transactions
+* Identify egress interface through which to send request (in case of multiple)
+
+
+Device shall:
+
+* Validate and execute incoming request transactions
+* Initiate response transactions when required
+* Identify egress interface through which to send response (in case of multiple)
 
 All transactions include the following fields:
 
 * **MSG**: Complete control information specifying the transaction type and options.
 * **DA**: Device address for reading and writing
-* **SA**: Host source address
+* **SA**: Host source address/id
 * **DATA**: Data to be written by a write request or returned by a read response.
 
 UMI transactions are defined as packets with the following ordering.
@@ -86,25 +101,15 @@ UMI transactions are defined as packets with the following ordering.
 | 64b          |DATA     |SA    |DA   | MSG|
 | 32b          |DATA     |DATA  |SA,DA| MSG|
 
-The source address (SA) field is used to pass control and routing information from the UMI transaction layer to the [UMI signal layer](#UMI-Signal-layer). The lower 16 bits of the SA are reserved for UMI signal layer 
-device and host IDs used for transaction routing. The implementation architecture determines the roles of the
-of the remainder of the SA bits.
+The source address (SA) field is used to pass control and routing information from the UMI transaction layer to the [UMI signal layer](#UMI-Signal-layer). All bits in the SA is effectively RESERVED for signal layer use.
 
-
-| SA                  |63:56|55:48|47:40|39:32   |31:24  |23:16  |15:8 |7:0   |
-|---------------------|:---:|:---:|:---:|:------:|:-----:|:-----:|:---:|:----:|
-| 32 bit transaction  | --  | --  | --  | --     | USER  | USER  |DEVID|HOSTID|
-| 64 bit transaction  | USER|USER |USER | USER   | USER  | USER  |DEVID|HOSTID|
-
-Read and write transactions are burst based. The number of bytes transferred by a transaction is equal to the size of a data word (SIZE) times the number of transfers in the transaction (LEN). The maximum data payload is 32,768 bytes.
+Read and write transactions are burst based. The number of bytes transferred by a transaction is equal to the size of a data word (SIZE) times the number of transfers in the transaction (LEN). T
 
 Constraints:
 
-* Only hosts can initiate responses
-* Only devices can initiate requests
-* Unsolicited responses are not allowed
 * Bursts must not cross 4KB address boundaries
 * Addresses must be aligned to SIZE
+* The maximum data payload is 32,768 bytes.
 * Transactions must complete (no partial data deliveries)
 
 ### 3.2 Transaction Decode
@@ -298,12 +303,35 @@ RESP_LINK returns an acknowledgment to the host source address (SA) as a respons
 
 REQ_LINK is a 32 bit control-only point-to-point transaction sent from a host to a device reserved for actions such as credit updates, time stamps, and framing. MSG[30-7] are available as user specified control bits. 
 
+
+### 3.5 Transaction Mapping Examples
+
+The following table illustrates how the UMI transaction layer maps the RISC-V hardware abstraction layer.
+Control bits not available in the RISC-V ISA would be driven by CSRs.
+
+| RISC-V Instruction   | DATA | SA       | DA | MSG         |
+|:--------------------:|------|----------|----|-------------|
+| LD RD, offset(RS1)   | --   | ADDR(CPU)| RS1| REQ_RD      |
+| SD RD, offset(RS1)   | RD   | ADDR(CPU)| RS1| REQ_WR      |
+| AMOADD.D rd,rs2,(rs1)| RD   | ADDR(CPU)| RS1| REQ_ATOMADD |
+
+
 ## 4. Signal UMI (SUMI) Layer
 
 ### 4.1 Theory of Operation
 
-The native UMI signaling layer consists of a packet, valid signal,
+The native UMI signaling layer (SUMI) is a latency insensitive handshake protocol on the trans
+
+ of a the transaction UMI (TUMI fields)
+
+ valid signal,
 ready signal with the following naming convention:
+
+
+
+![UMI](docs/_images/tumi_connections.png)
+
+
 
 ```
 u<host|dev>_<req|resp>_<packet|ready|valid>
@@ -312,7 +340,7 @@ u<host|dev>_<req|resp>_<packet|ready|valid>
 Connections shall only be made between hosts and devices,
 per the diagram below.
 
-![UMI](docs/_images/umi_connections.png)
+
 
 
 ### 3.2 Handshake Protocol
