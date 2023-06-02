@@ -253,7 +253,7 @@ The ATYPE field indicates the type of the atomic transaction.
 | 0x07     | Atomic minu |
 | 0x08     | Atomic swap |
 
-### 3.3.11 End of Burst (EOF)
+### 3.3.11 End of Frame (EOF)
 
 The EOF bit indicate that this is the last UMI transaction in a sequence of related transactions. Single-transaction requests and responses must set the EOF bit to 1. Use of the EOF bit at an endpoint is optional and implementation specific. The EOF can be used as a hardware interrupt or as a bit in memory to be queried by software or hardware.
 
