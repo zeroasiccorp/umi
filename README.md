@@ -129,24 +129,21 @@ The following table shows the complete set of UMI transactions. Descriptions of 
 |REQ_WRPOSTED|Y   |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x5|
 |REQ_RDMA    |    |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x7|
 |REQ_ATOMIC  |Y   |Y |Y |USER |USER |QOS  |EDAC |PRIV |ATYPE|1  |SIZE |0x9|
+|REQ_USER0   |Y   |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0xB|
+|REQ_FUTURE0 |Y   |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0xD|
 |REQ_ERROR   |    |Y |Y |USER |USER |QOS  |EDAC |PRIV |ERR  |1  |0x0  |0xF|
 |REQ_LINK    |    |  |  |USER |USER |USER |USER |USER |USER |1  |0x1  |0xF|
 |RESP_READ   |Y   |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x2|
 |RESP_WR     |    |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x4|
+|RESP_USER0  |    |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x6|
+|RESP_USER1  |    |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x8|
+|RESP_FUTURE0|    |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0xA|
+|RESP_FUTURE1|    |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0xC|
 |RESP_LINK   |    |  |  |USER |USER |USER |USER |USER |USER |1  | 0x0 |0xE|
 
-Unused CMD opcodes are reserved for user defined transaction types and future expansion according to the table below.
+RESP_USER* and REQ_USER* transaction types are reserved for custom implementations and should be considered non-standard.
 
-| CMD[3:0] | Reserved for    |
-|----------|-----------------|
-| 0x6      | USER RESPONSE   |
-| 0x8      | USER RESPONSE   |
-| 0xA      | FUTURE RESPONSE |
-| 0xC      | FUTURE RESPONSE |
-| 0xB      | USER REQUEST    |
-| 0xD      | FUTURE REQUEST  |
-
-Device shall respond to a reserved request with a RESP_WR command with ERR set to 0b10. [OPEN]
+RESP_FUTURE* and REQ_FUTURE* transaction types are reserved for future UMI feature enhancements.
 
 ### 3.3 Command Options
 
