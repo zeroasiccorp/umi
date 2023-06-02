@@ -10,6 +10,7 @@ The Universal Memory Interface (UMI) is a set of standardized abstractions for r
 
 * **Protocol**: Protocol/application specific payload (Ethernet, PCIe, ...)
 * **Transaction**: Address based request/response transactions
+* **Signal**: Latency insensitive intermediate layer (packet, ready, valid)
 * **Link**: Communication integrity (flow control, reliability)
 * **Physical**: Electrical signaling (pins, wires, etc.)
 
@@ -22,7 +23,7 @@ The Universal Memory Interface (UMI) is a set of standardized abstractions for r
   * separate request and response channels
   * 64b/32b addressing support
   * word sizes up to 1024 bits
-  * up to 256 word transfers per transaction 
+  * total data payloads up to 32,768 bytes
   * atomic transaction support
   * quality of service support
   * error detection and correction support
@@ -35,17 +36,19 @@ The Universal Memory Interface (UMI) is a set of standardized abstractions for r
 | Transaction | Memory operation
 | Host        | Initiates request
 | Device      | Responds to request
+| Flit        | An atomic self contained transaction piece   
 | CMD         | Transaction command (opcodes + options)
 | DA          | Transaction device address (target of a request)
 | SA          | Transaction source address (where to send the response)
 | DATA        | Transaction data
 | OPCODE      | Transaction opcode
-| SIZE        | Data size per individual word transfer
-| LEN         | Number of individual word transfers
+| SIZE        | Data size per individual word in a transaction
+| LEN         | Number of individual words in a transaction
 | EDAC        | Error detect/correction control
 | QOS         | Quality of service
 | PRIV        | Privilege mode
 | EOF         | End of frame indicator
+| EOT         | End of transaction indicator
 | USER        | User defined transaction information
 | ERR         | Error code
 | HOSTID      | Host channel ID
@@ -93,7 +96,7 @@ Transactions include the following information fields:
 
 UMI transactions pack these four fields in the order below.
 
-| Architecture |MSB-1:128|127:64|63:32|31:0|
+| Architecture |MSB-1:160|159:96|95:32|31:0|
 |--------------|:-------:|:----:|:---:|:--:|
 | 64b          |DATA     |SA    |DA   | CMD|
 | 32b          |DATA     |DATA  |SA,DA| CMD|
@@ -149,17 +152,17 @@ Device shall respond to a reserved request with a RESP_WR command with ERR set t
 
 ### 3.3.1 Transaction Length (LEN[7:0])
 
-The LEN field defines the number of sequential transfers of 2^SIZE bytes performed by a transaction. The number of transfers is equal to LEN + 1, equating to a range of 1-256 transfers per transaction. The current address of transfer number 'i' in a transaction is defined by:
+The LEN field defines the number of words of size 2^SIZE bytes transferred by a transaction. The number of transfers is equal to LEN + 1, equating to a range of 1-256 transfers per transaction. The current address of transfer number 'i' in a transaction is defined by:
 
 ADDR_i = START_ADDR + (i-1) * 2^SIZE.
 
 ### 3.3.2 Transfer Size (SIZE[2:0])
 
-The SIZE field defines the number of bytes in a data transfer.
+The SIZE field defines the number of bytes in a transaction word.
 Devices are not required to support all SIZE options. Hosts must not send  transactions with a SIZE field unsupported the target device. 
 
-|SIZE[2:0] |Bytes per transfer|
-|:--------:|:----------------:|
+|SIZE[2:0] |Bytes per word|
+|:--------:|:------------:|
 | 0b000    | 1
 | 0b001    | 2
 | 0b010    | 4
@@ -228,7 +231,7 @@ DEVERR trigger examples:
 
 * Insufficient privilege level for access
 * Write attempted to read-only location
-* Unsupported transfer size
+* Unsupported word size
 * Access attempt to disabled function
 
 NETERR trigger examples:
@@ -270,7 +273,7 @@ REQ_WR writes (2^SIZE)*(LEN+1) bytes to destination address(DA). The device then
 
 ### 3.4.4 REQ_WRPOSTED
 
-REQ_WRPOSTED performs a posted-write of (2^SIZE)*(LEN+1) bytes to destination address(DA). The device only initiates a RESP_WR acknowledgment to the host  source address (SA) when an error (ERR) has occurred.
+REQ_WRPOSTED performs a posted-write of (2^SIZE)*(LEN+1) bytes to destination address(DA). There is no response sent by the device back to the host.
 
 ### 3.4.5 REQ_RDMA
 
@@ -324,23 +327,14 @@ The address(RD)refers to the ID or source address associated with the RD registe
 
 ### 4.1 Theory of Operation
 
-The UMI signaling layer (SUMI) defines the mapping of the UMI transaction fields
-to physical signaling. The SUMI layer is a point-to-point latency insensitive synchronous implementation of the UMI transactions with a simple valid/ready [handshake protocol](#32-handshake-protocol).
+The UMI signaling layer (SUMI) defines the mapping of the UMI transactions to a
+physical signaling. The SUMI layer is a point-to-point latency insensitive synchronous implementation of the UMI transactions with a simple valid/ready [handshake protocol](#32-handshake-protocol).
 
 ![UMI](docs/_images/sumi_connections.png)
 
-The SUMI signaling layer supports the following field widths.
+UMI transactions with word sizes larger than the supported SUMI data width are broken up into short self contained transaction flits sent over multiple clock cycles. CMD[31] is used as an end of transaction (EOT) indicator. 
 
-| Field    | Width (bits)       |
-|:--------:|--------------------|
-| CMD      | 32                 |
-| DA       | 32, 64             |
-| SA       | 32, 64             |
-| DATA     | 64,128,256,512,1024| 
-
-UMI transactions larger than the SUMI DATA width are must be split into shorter transactions sent over multiple clock cycles. CMD[31] is used to indicate the end of a TUMI transaction. The signal layer implementation must update the addresses, sizes, and lengths appropriately when splitting large bursts to ensure that all UMI transfers can reach the final destinations independent of each other.
-
-The following example illustrates a a TUMI 128 byte write burst split into two 64 byte SUMI transfers for an implementation DW of 512.
+The following example illustrates a TUMI 128 byte write request split into two separate SUMI flits in a platform supporting a maximum data width of 64 bytes.
 
 TUMI REQ_WR transaction:
 
@@ -353,14 +347,23 @@ SUMI REQ_WR #1:
 * LEN =  0h00
 * SIZE = 0b110
 * DA   = 0x0
-* EOB  = 0
+* EOT  = 0
 
 SUMI REQ_WR #2:
 
 * LEN  =  0h00
 * SIZE = 0b110
 * DA   = 0x40
-* EOB  = 1
+* EOT  = 1
+
+The SUMI signaling layer supports the following field widths.
+
+| Field    | Width (bits)       |
+|:--------:|--------------------|
+| CMD      | 32                 |
+| DA       | 32, 64             |
+| SA       | 32, 64             |
+| DATA     | 64,128,256,512,1024| 
 
 ### 4.2 Handshake Protocol
 
