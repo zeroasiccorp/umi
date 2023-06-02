@@ -117,6 +117,11 @@ Constraints:
 * The maximum data field size is 32,768 bytes (LEN=255, SIZE=7).
 * No partial transactions, data bytes delivered must be (LEN+1)*(2^SIZE).
 
+Ordering Model:
+
+* Requests sent by a host destined for the same device arrive in the same order that they were sent.
+* Responses sent by a device destined for the same host arrive in the same order that they were sent.
+ 
 ### 3.2 Transaction Listing
 
 The following table shows the complete set of UMI transactions. Descriptions of each transaction can be found in the [Transaction Description Section](#34-transaction-descriptions).
