@@ -6,7 +6,7 @@
 
 ### 1.1 Architecture:
 
-The Universal Memory Interface (UMI) is a set of standardized abstractions for reading and writing memory mapped devices. UMI includes four distinct layers:
+The Universal Memory Interface (UMI) is a set of standardized abstractions for reading and writing memory mapped devices. UMI includes five distinct layers:
 
 * **Protocol**: Protocol/application specific payload (Ethernet, PCIe, ...)
 * **Transaction**: Address based request/response transactions
@@ -36,7 +36,7 @@ The Universal Memory Interface (UMI) is a set of standardized abstractions for r
 | Transaction | Memory operation
 | Host        | Initiates request
 | Device      | Responds to request
-| Flit        | An atomic self contained transaction piece   
+| Flit        | An atomic self contained transaction piece
 | CMD         | Transaction command (opcodes + options)
 | DA          | Transaction device address (target of a request)
 | SA          | Transaction source address (where to send the response)
@@ -90,7 +90,7 @@ Devices:
 Transactions include the following information fields:
 
 * **CMD**: Complete control information specifying the transaction type and options.
-* **DA**: Device address   
+* **DA**: Device address
 * **SA**: Host source address/id to return response to
 * **DATA**: Request write data or response read data.
 
@@ -106,7 +106,7 @@ The source address(SA) field is used to pass control and routing information fro
 | SA       |63:40   |39:32 | 31:24  |19:0  |
 |----------|:------:|:----:|:------:|:-----|
 | 64b mode |RESERVED| USER |USER    | USER |
-| 32b mode | --     | --   |RESERVED| USER | 
+| 32b mode | --     | --   |RESERVED| USER |
 
 A UMI transaction describes the transfer of a one or more words (LEN+1) of the same size (2^SIZE bytes). It is legal for a UMI signal layer to split a transaction into multiple shorter transactions as long as all bytes arrive correctly and in order, and the SIZE field is maintained.
 
@@ -119,7 +119,7 @@ Constraints:
 
 ### 3.2 Transaction Listing
 
-The following table shows the complete set of UMI transactions. Descriptions of each transaction can be found in the [Transaction Description Section](#34-transaction-descriptions).  
+The following table shows the complete set of UMI transactions. Descriptions of each transaction can be found in the [Transaction Description Section](#34-transaction-descriptions).
 
 |Transaction |DATA|SA|DA|31:24|23:22|21:20|19:18|17:16|15:8 |7  | 6:4 |3:0|
 |------------|:--:|--|--|:---:|:---:|:---:|-----|-----|-----|---|:---:|---|
@@ -142,11 +142,11 @@ Unused CMD opcodes are reserved for user defined transaction types and future ex
 | 0x6      | USER RESPONSE   |
 | 0x8      | USER RESPONSE   |
 | 0xA      | FUTURE RESPONSE |
-| 0xC      | FUTURE RESPONSE |  
+| 0xC      | FUTURE RESPONSE |
 | 0xB      | USER REQUEST    |
 | 0xD      | FUTURE REQUEST  |
 
-Device shall respond to a reserved request with a RESP_WR command with ERR set to 0b10. [OPEN] 
+Device shall respond to a reserved request with a RESP_WR command with ERR set to 0b10. [OPEN]
 
 ### 3.3 Command Options
 
@@ -159,7 +159,7 @@ ADDR_i = START_ADDR + (i-1) * 2^SIZE.
 ### 3.3.2 Transfer Size (SIZE[2:0])
 
 The SIZE field defines the number of bytes in a transaction word.
-Devices are not required to support all SIZE options. Hosts must not send  transactions with a SIZE field unsupported the target device. 
+Devices are not required to support all SIZE options. Hosts must not send  transactions with a SIZE field unsupported the target device.
 
 |SIZE[2:0] |Bytes per word|
 |:--------:|:------------:|
@@ -174,11 +174,11 @@ Devices are not required to support all SIZE options. Hosts must not send  trans
 
 ### 3.3.3 End of Frame (EOF)
 
-The EOF bit indicates that this transaction is the last transaction in a sequence of related UMI transactions. 
+The EOF bit indicates that this transaction is the last transaction in a sequence of related UMI transactions.
 
 ### 3.3.4 Privilege Mode (PRIV[1:0])
 
-The PRIV field indicates the privilege level of the transaction, following the 
+The PRIV field indicates the privilege level of the transaction, following the
 RISC-V architecture convention. The information enables control access to memory at an end point based on privilege mode.
 
 |PRIV[1:0]| Level | Name      |
@@ -265,7 +265,7 @@ INVALID indicates an invalid transaction. A receiver can choose to ignore the tr
 
 ### 3.4.2 REQ_RD
 
-REQ_RD reads (2^SIZE)*(LEN+1) bytes from device address(DA). The device initiates a RESP_RD transaction to return data to the host source address (SA).  
+REQ_RD reads (2^SIZE)*(LEN+1) bytes from device address(DA). The device initiates a RESP_RD transaction to return data to the host source address (SA).
 
 ### 3.4.3 REQ_WR
 
@@ -281,12 +281,12 @@ REQ_RDMA reads (2^SIZE)*(LEN+1) bytes of data from a primary device destination 
 
 ### 3.4.6 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
 
-REQ_ATOMIC initiates an atomic read-modify-write operation at destination address (DA) of size (2^SIZE). The REQ_ATOMIC sequence involves: 
+REQ_ATOMIC initiates an atomic read-modify-write operation at destination address (DA) of size (2^SIZE). The REQ_ATOMIC sequence involves:
 
-1. Host sending data (DATA), destination address (DA), and source address (SA) to the device, 
-2. Device reading data address DA 
-3. Applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data 
-4. Writing the result back to device address DA 
+1. Host sending data (DATA), destination address (DA), and source address (SA) to the device,
+2. Device reading data address DA
+3. Applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data
+4. Writing the result back to device address DA
 5. Returning the original device data to host address SA
 
 ### 3.4.7 REQ_ERROR
@@ -311,9 +311,9 @@ RESP_LINK is a reserved CMD only transaction for link layer non-memory mapped ac
 
 ### 3.5 Transaction Mapping Examples
 
-The following table illustrates the mapping between UMI transactions map and 
+The following table illustrates the mapping between UMI transactions map and
 a similar abstraction model: load/store instructions in the RISC-V ISA.
-Extra information fields not provided by the RISC-V ISA (such as as QOS, EDAC, PRIV) would need to be hard-coded or driven from CSRs. 
+Extra information fields not provided by the RISC-V ISA (such as as QOS, EDAC, PRIV) would need to be hard-coded or driven from CSRs.
 
 | RISC-V Instruction   | DATA | SA       | DA | CMD         |
 |:--------------------:|------|----------|----|-------------|
@@ -332,7 +332,7 @@ physical signaling. The SUMI layer is a point-to-point latency insensitive synch
 
 ![UMI](docs/_images/sumi_connections.png)
 
-UMI transactions with word sizes larger than the supported SUMI data width are broken up into short self contained transaction flits sent over multiple clock cycles. CMD[31] is used as an end of transaction (EOT) indicator. 
+UMI transactions with word sizes larger than the supported SUMI data width are broken up into short self contained transaction flits sent over multiple clock cycles. CMD[31] is used as an end of transaction (EOT) indicator.
 
 The following example illustrates a TUMI 128 byte write request split into two separate SUMI flits in a platform supporting a maximum data width of 64 bytes.
 
@@ -363,7 +363,7 @@ The SUMI signaling layer supports the following field widths.
 | CMD      | 32                 |
 | DA       | 32, 64             |
 | SA       | 32, 64             |
-| DATA     | 64,128,256,512,1024| 
+| DATA     | 64,128,256,512,1024|
 
 ### 4.2 Handshake Protocol
 
@@ -415,7 +415,7 @@ Components in a UMI system have:
 * None, one, or multiple device UMI ports
 * None, one, or multiple host UMI ports
 * At least one UMI port in total
- 
+
 #### 4.3.1 Host Interface
 
 ```verilog
