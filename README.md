@@ -6,7 +6,7 @@
 
 ### 1.1 Architecture:
 
-The Universal Memory Interface (UMI) is a stack of standardized abstractions for reading and writing memory, with the core principle being that "everything is an address". UMI includes four distinct layers:
+The Universal Memory Interface (UMI) is a set of standardized abstractions for reading and writing memory mapped devices. UMI includes four distinct layers:
 
 * **Protocol**: Protocol/application specific payload (Ethernet, PCIe, ...)
 * **Transaction**: Address based request/response transactions
@@ -21,8 +21,8 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
   * designed for high bandwidth and low latency
   * separate request and response channels
   * 64b/32b addressing support
-  * bursting of up to 256 transfers
-  * data sizes up to 1024 bits per transfer
+  * word sizes up to 1024 bits
+  * up to 256 word transfers per transaction 
   * atomic transaction support
   * quality of service support
   * error detection and correction support
@@ -32,22 +32,21 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 
 | Word        | Meaning    |
 |-------------|------------|
-| Transaction | A memory operation
-| Message     | Transaction type (write request, read response, ...)
+| Transaction | Memory operation
 | Host        | Initiates request
 | Device      | Responds to request
-| DA          | Device address (target of a request)
-| SA          | Source address (where to send the response)
-| DATA        | Data packet
-| MSG         | Transaction message type
-| SIZE        | Data size per individual transfer
-| LEN         | Number of individual transfers
+| CMD         | Transaction command (opcodes + options)
+| DA          | Transaction device address (target of a request)
+| SA          | Transaction source address (where to send the response)
+| DATA        | Transaction data
+| OPCODE      | Transaction opcode
+| SIZE        | Data size per individual word transfer
+| LEN         | Number of individual word transfers
 | EDAC        | Error detect/correction control
 | QOS         | Quality of service
 | PRIV        | Privilege mode
 | EOF         | End of frame indicator
-| EXT         | Extended message option
-| USER        | User message bits
+| USER        | User defined transaction information
 | ERR         | Error code
 | HOSTID      | Host channel ID
 | DEVID       | Device channel ID
@@ -59,7 +58,7 @@ UMI transaction header packing is little endian, with the header starting in byt
 
 Protocol overlay examples:
 
-| Protocol  | Payload(Data) |Header(Data)|Source Addr|Dest Addr| message |
+| Protocol  | Payload(DATA) |Header(DATA)|Source Addr|Dest Addr| Command |
 |:---------:|:-------------:|:----------:|:---------:|:-------:|:-------:|
 | Ethernet  | 64B - 1,518B  |14B         | 4/8B      | 4/8B    | 4B      |
 | CXL-68    | 64B           |2B          | 4/8B      | 4/8B    | 4B      |
@@ -87,17 +86,17 @@ Devices:
 
 Transactions include the following information fields:
 
-* **MSG**: Complete control information specifying the transaction type and options.
-* **DA**: Device addresses to access 
+* **CMD**: Complete control information specifying the transaction type and options.
+* **DA**: Device address   
 * **SA**: Host source address/id to return response to
-* **DATA**: Data to be written by a write request or data returned by a read response.
+* **DATA**: Request write data or response read data.
 
 UMI transactions pack these four fields in the order below.
 
 | Architecture |MSB-1:128|127:64|63:32|31:0|
 |--------------|:-------:|:----:|:---:|:--:|
-| 64b          |DATA     |SA    |DA   | MSG|
-| 32b          |DATA     |DATA  |SA,DA| MSG|
+| 64b          |DATA     |SA    |DA   | CMD|
+| 32b          |DATA     |DATA  |SA,DA| CMD|
 
 The source address(SA) field is used to pass control and routing information from the UMI transaction layer to the [UMI signal layer](#UMI-Signal-layer). The RESERVED bits are dedicated to implementation specific response routing information. The function of each USER bits is defined in the signal layer definitions.
 
@@ -115,11 +114,11 @@ Constraints:
 * The maximum data field size is 32,768 bytes (LEN=255, SIZE=7).
 * No partial transactions, data bytes delivered must be (LEN+1)*(2^SIZE).
 
-### 3.2 Transaction Decode
+### 3.2 Transaction Listing
 
-The following table shows the complete set of UMI transaction types. Descriptions of each message is found in the [Message Description Section](#34-message-descriptions).  
+The following table shows the complete set of UMI transactions. Descriptions of each transaction can be found in the [Transaction Description Section](#34-transaction-descriptions).  
 
-|Message     |DATA|SA|DA|31:24|23:22|21:20|19:18|17:16|15:8 |7  | 6:4 |3:0|
+|Transaction |DATA|SA|DA|31:24|23:22|21:20|19:18|17:16|15:8 |7  | 6:4 |3:0|
 |------------|:--:|--|--|:---:|:---:|:---:|-----|-----|-----|---|:---:|---|
 |INVALID     |    |Y |Y |--   |--   |--   |--   |--   |--   |0  |0x0  |0x0|
 |REQ_RD      |    |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x1|
@@ -133,9 +132,9 @@ The following table shows the complete set of UMI transaction types. Description
 |RESP_WR     |    |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x4|
 |RESP_LINK   |    |  |  |USER |USER |USER |USER |USER |USER |1  | 0x0 |0xE|
 
-Unused MSG opcodes are reserved for user defined messages and future expansion according to the table below.
+Unused CMD opcodes are reserved for user defined transaction types and future expansion according to the table below.
 
-| MSG[3:0] | Reserved for    |
+| CMD[3:0] | Reserved for    |
 |----------|-----------------|
 | 0x6      | USER RESPONSE   |
 | 0x8      | USER RESPONSE   |
@@ -146,7 +145,7 @@ Unused MSG opcodes are reserved for user defined messages and future expansion a
 
 Device shall respond to a reserved request with a RESP_WR command with ERR set to 0b10. [OPEN] 
 
-### 3.3 Options Decode
+### 3.3 Command Options
 
 ### 3.3.1 Transaction Length (LEN[7:0])
 
@@ -220,7 +219,7 @@ The ERR field indicates the error status of a response (RESP_WR, RESP_RD) transa
 
 |ERR[1:0]| Meaning                            |
 |:------:|------------------------------------|
-| 0h00   | OK (no error)                      |
+| 0b00   | OK (no error)                      |
 | 0b01   | EXOK (successful exclusive access) |
 | 0b10   | DEVERR (device error)              |
 | 0b11   | NETERR (network error)             |
@@ -255,7 +254,7 @@ The ATYPE field indicates the type of the atomic transaction.
 
 The EOF bit indicate that this is the last UMI transaction in a sequence of related transactions. Single-transaction requests and responses must set the EOF bit to 1. Use of the EOF bit at an endpoint is optional and implementation specific. The EOF can be used as a hardware interrupt or as a bit in memory to be queried by software or hardware.
 
-## 3.4 Message Descriptions
+## 3.4 Transaction Descriptions
 
 ### 3.4.1 INVALID
 
@@ -293,7 +292,7 @@ REQ_ERROR sends an error code (ERR) to indicate that an error has occurred. The 
 
 ### 3.4.8 REQ_LINK
 
-RESP_LINK is a reserved 32-bit reserved link message for link layer non-memory mapped actions such as credit updates, time stamps, and framing. MSG[31-8] are all available as user specified control bits. The message is local to the signal (physical) layer and does not include routing information and does not elicit a response from the receiver.
+RESP_LINK is a reserved CMD only transaction for link layer non-memory mapped actions such as credit updates, time stamps, and framing. CMD[31-8] are all available as user specified control bits. The transaction is local to the signal (physical) layer and does not include routing information and does not elicit a response from the receiver.
 
 ### 3.4.9 RESP_RD
 
@@ -305,7 +304,7 @@ RESP_WR returns an acknowledgment to the original source address (SA) specified 
 
 ### 3.4.11 RESP_LINK
 
-RESP_LINK is a reserved 32-bit reserved link message for link layer non-memory mapped actions such as credit updates, time stamps, and framing. MSG[31-8] are all available as user specified control bits. The message is local to the signal (physical) layer and does not include routing information.
+RESP_LINK is a reserved CMD only transaction for link layer non-memory mapped actions such as credit updates, time stamps, and framing. CMD[31-8] are all available as user specified control bits. The transaction is local to the signal (physical) layer and does not include routing information.
 
 ### 3.5 Transaction Mapping Examples
 
@@ -313,7 +312,7 @@ The following table illustrates the mapping between UMI transactions map and
 a similar abstraction model: load/store instructions in the RISC-V ISA.
 Extra information fields not provided by the RISC-V ISA (such as as QOS, EDAC, PRIV) would need to be hard-coded or driven from CSRs. 
 
-| RISC-V Instruction   | DATA | SA       | DA | MSG         |
+| RISC-V Instruction   | DATA | SA       | DA | CMD         |
 |:--------------------:|------|----------|----|-------------|
 | LD RD, offset(RS1)   | --   | addr(RD) | RS1| REQ_RD      |
 | SD RD, offset(RS1)   | RD   | addr(RD) | RS1| REQ_WR      |
@@ -334,12 +333,12 @@ The SUMI signaling layer supports the following field widths.
 
 | Field    | Width (bits)       |
 |:--------:|--------------------|
-| MSG      | 32                 |
+| CMD      | 32                 |
 | DA       | 32, 64             |
 | SA       | 32, 64             |
 | DATA     | 64,128,256,512,1024| 
 
-UMI transactions larger than the SUMI DATA width are must be split into shorter transactions sent over multiple clock cycles. MSG[31] is used to indicate the end of a TUMI transaction. The signal layer implementation must update the addresses, sizes, and lengths appropriately when splitting large bursts to ensure that all UMI transfers can reach the final destinations independent of each other.
+UMI transactions larger than the SUMI DATA width are must be split into shorter transactions sent over multiple clock cycles. CMD[31] is used to indicate the end of a TUMI transaction. The signal layer implementation must update the addresses, sizes, and lengths appropriately when splitting large bursts to ensure that all UMI transfers can reach the final destinations independent of each other.
 
 The following example illustrates a a TUMI 128 byte write burst split into two 64 byte SUMI transfers for an implementation DW of 512.
 
@@ -374,7 +373,7 @@ UMI adheres to the following ready/valid handshake protocol:
 3. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
 4. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
 
-In the following examples, the packet is defined as the concatenation of {DATA, SA, DA, MSG} for the sake of brevity.
+In the following examples, the packet is defined as the concatenation of {DATA, SA, DA, CMD} for the sake of brevity.
 
 #### Legal: VALID asserted before READY
 
@@ -406,23 +405,27 @@ In this case, multiple transactions occur.
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
 
-### 4.3 SUMI Signal Interfaces
+### 4.3 SUMI Components Interfaces
 
-Components in a system can have one or multiple UMI host port and/or device ports.  
+Components in a UMI system have:
 
+* None, one, or multiple device UMI ports
+* None, one, or multiple host UMI ports
+* At least one UMI port in total
+ 
 #### 4.3.1 Host Interface
 
 ```verilog
 output          uhost_req_valid;
 input           uhost_req_ready;
-output [31:0]   uhost_req_msg;
+output [CW-1:0] uhost_req_cmd;
 output [AW-1:0] uhost_req_dstaddr;
 output [AW-1:0] uhost_req_srcaddr;
 output [DW-1:0] uhost_req_data;
 
 input           uhost_resp_valid;
 output          uhost_resp_ready;
-input [31:0]    uhost_resp_msg;
+input [CW-1:0]  uhost_resp_cmd;
 input [AW-1:0]  uhost_resp_dstaddr;
 input [AW-1:0]  uhost_resp_srcaddr;
 input [DW-1:0]  uhost_resp_data;
@@ -432,14 +435,14 @@ input [DW-1:0]  uhost_resp_data;
 ```verilog
 input           udev_req_valid;
 output          udev_req_ready;
-input [31:0]    udev_req_msg;
+input [CW-1:0]  udev_req_cmd;
 input [AW-1:0]  udev_req_dstaddr;
 input [AW-1:0]  udev_req_srcaddr;
 input [DW-1:0]  udev_req_data;
 
 output          udev_resp_valid;
 input           udev_resp_ready;
-output [31:0]   udev_resp_msg;
+output [CW-1:0] udev_resp_cmd;
 output [AW-1:0] udev_resp_dstaddr;
 output [AW-1:0] udev_resp_srcaddr;
 output [DW-1:0] udev_resp_data;
