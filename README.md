@@ -279,7 +279,7 @@ REQ_WRPOSTED performs a posted-write of (2^SIZE)*(LEN+1) bytes to destination ad
 
 ### 3.4.5 REQ_RDMA
 
-REQ_RDMA reads (2^SIZE)*(LEN+1) bytes of data from a primary device destination address(DA) along with a source address (SA). The primary device then initiates a REQ_WRPOSTED transaction to write (2^SIZE)*(LEN+1) data bytes to the address (SA) in a secondary device. REQ_RDMA requires the complete SA field so does not support pass through information for the UMI signal layer.
+REQ_RDMA reads (2^SIZE)*(LEN+1) bytes of data from a primary device destination address(DA) along with a source address (SA). The primary device then initiates a REQ_WRPOSTED transaction to write (2^SIZE)*(LEN+1) data bytes to the address (SA) in a secondary device. REQ_RDMA requires the complete SA field for addressing and does not support pass through information for the UMI signal layer.
 
 ### 3.4.6 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
 
@@ -293,7 +293,7 @@ REQ_ATOMIC initiates an atomic read-modify-write operation at destination addres
 
 ### 3.4.7 REQ_ERROR
 
-REQ_ERROR sends an error code (ERR) to indicate that an error has occurred. The  A receiver can choose to ignore the transaction or to take corrective action. There is no response sent back to the host from the device.
+REQ_ERROR sends an error code to a device (ERR) to indicate that an error has occurred. The device can choose to ignore the transaction or to take corrective action. There is no response sent back to the host from the device.
 
 ### 3.4.8 REQ_LINK
 
@@ -329,14 +329,27 @@ The address(RD)refers to the ID or source address associated with the RD registe
 
 ### 4.1 Theory of Operation
 
-The UMI signaling layer (SUMI) defines the mapping of the UMI transactions to a
-physical signaling. The SUMI layer is a point-to-point latency insensitive synchronous implementation of the UMI transactions with a simple valid/ready [handshake protocol](#32-handshake-protocol).
+The UMI signaling layer (SUMI) defines the mapping of UMI transactions to a
+point-to-point, latency insensitive, parallel, synchronous interface with a [valid ready handshake protocol](#32-handshake-protocol).
 
 ![UMI](docs/_images/sumi_connections.png)
 
-UMI transactions with word sizes larger than the supported SUMI data width are broken up into short self contained transaction flits sent over multiple clock cycles. CMD[31] is used as an end of transaction (EOT) indicator.
+The SUMI signaling layer supports the following field widths.
 
-The following example illustrates a TUMI 128 byte write request split into two separate SUMI flits in a platform supporting a maximum data width of 64 bytes.
+| Field    | Width (bits)       |
+|:--------:|--------------------|
+| CMD      | 32                 |
+| DA       | 32, 64             |
+| SA       | 32, 64             |
+| DATA     | 64,128,256,512,1024|
+
+TUMI transactions with word sizes exceeding the SUMI layer data width are split into self contained flits sent over multiple clock cycles. CMD[31] is used as an end of transaction (EOT) indicator.
+
+The folllowing example illustrates a complete request-response transaction between a host and a device. 
+
+![UMIX7](docs/_images/example_rw_xaction.svg)
+
+The following example illustrates a TUMI 128 byte write request split into two separate SUMI request flits in a SUMI implementation with a 64B data width.
 
 TUMI REQ_WR transaction:
 
@@ -358,65 +371,45 @@ SUMI REQ_WR #2:
 * DA   = 0x40
 * EOT  = 1
 
-The SUMI signaling layer supports the following field widths.
-
-| Field    | Width (bits)       |
-|:--------:|--------------------|
-| CMD      | 32                 |
-| DA       | 32, 64             |
-| SA       | 32, 64             |
-| DATA     | 64,128,256,512,1024|
-
 ### 4.2 Handshake Protocol
+
+The SUMI signal layer adheres to the following ready/valid handshake protocol:
 
 ![UMI](docs/_images/ready_valid.svg)
 
-UMI adheres to the following ready/valid handshake protocol:
 1. A transaction occurs on every rising clock edge in which READY and VALID are both asserted.
 2. Once VALID is asserted, it must not be de-asserted until a transaction completes.
 3. READY, on the other hand, may be de-asserted before a transaction completes.
-3. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
-4. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
+4. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
+5. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
 
 In the following examples, the packet is defined as the concatenation of {DATA, SA, DA, CMD} for the sake of brevity.
 
-#### Legal: VALID asserted before READY
+#### LEGAL: VALID asserted before READY
 
 ![UMIX1](docs/_images/ok_valid_ready.svg)
 
-#### Legal: READY asserted before VALID
+#### LEGAL: READY asserted before VALID
 
 ![UMIX2](docs/_images/ok_ready_valid.svg)
 
-#### Legal: READY and VALID asserted simultaneously
+#### LEGAL: READY and VALID asserted simultaneously
 
 ![UMIX3](docs/_images/ok_sametime.svg)
 
-#### Legal: READY toggles with no effect
+#### LEGAL: READY toggles with no effect
 
 ![UMIX4](docs/_images/ok_ready_toggle.svg)
+
+#### LEGAL: VALID asserted for multiple cycles (multiple transactions)
+
+![UMIX6](docs/_images/ok_double_xaction.svg)
 
 #### **ILLEGAL**: VALID de-asserted without waiting for READY
 
 ![UMIX5](docs/_images/bad_valid_toggle.svg)
 
-#### Legal: VALID asserted for multiple cycles
-
-In this case, multiple transactions occur.
-
-![UMIX6](docs/_images/ok_double_xaction.svg)
-
-#### Example Bidirectional Transaction
-
-![UMIX7](docs/_images/example_rw_xaction.svg)
-
 ### 4.3 SUMI Components Interfaces
-
-Components in a UMI system have:
-
-* None, one, or multiple device UMI ports
-* None, one, or multiple host UMI ports
-* At least one UMI port in total
 
 #### 4.3.1 Host Interface
 
