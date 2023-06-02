@@ -36,8 +36,8 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 | Message     | Transaction type (write request, read response, ...)
 | Host        | Initiates request
 | Device      | Responds to request
-| SA          | Source address
-| DA          | Destination address
+| DA          | Device address (target of a request)
+| SA          | Source address (where to send the response)
 | DATA        | Data packet
 | MSG         | Transaction message type
 | SIZE        | Data size per individual transfer
@@ -55,10 +55,7 @@ The Universal Memory Interface (UMI) is a stack of standardized abstractions for
 
 ## 2. Protocol UMI (PUMI) Layer
 
-Higher level protocols (such as ethernet) can be layered on top of a UMI
-transactions by packing protocol headers and payload data in the transaction 
-data field. Payload packing is little endian, with the header starting in byte 
-0 of the transaction data field. Protocol header and payload data is transparent to the UMI transaction layer.
+UMI transaction header packing is little endian, with the header starting in byte 0 of the transaction data field. Protocol layer header and payload are transparent to the UMI transaction layer and are treated as a series of opaque bytes.
 
 Protocol overlay examples:
 
@@ -102,39 +99,39 @@ UMI transactions pack these four fields in the order below.
 | 64b          |DATA     |SA    |DA   | MSG|
 | 32b          |DATA     |DATA  |SA,DA| MSG|
 
-The source address(SA) field is used to pass control and routing information from the UMI transaction layer to the [UMI signal layer](#UMI-Signal-layer). 
+The source address(SA) field is used to pass control and routing information from the UMI transaction layer to the [UMI signal layer](#UMI-Signal-layer). The RESERVED bits are dedicated to implementation specific response routing information. The function of each USER bits is defined in the signal layer definitions.
 
 | SA       |63:40   |39:32 | 31:24  |19:0  |
 |----------|:------:|:----:|:------:|:-----|
 | 64b mode |RESERVED| USER |USER    | USER |
 | 32b mode | --     | --   |RESERVED| USER | 
 
-Read and write transactions are burst based. The number of bytes transferred by a transaction is equal to the size of a data word (SIZE) times the number of transfers in the transaction (LEN). It is legal for an UMI signal layer to split a burst into multiple shorter bursts as long as all bytes arrive correctly and in order.
+A UMI transaction describes the transfer of a one or more words (LEN+1) of the same size (2^SIZE bytes). It is legal for a UMI signal layer to split a transaction into multiple shorter transactions as long as all bytes arrive correctly and in order, and the SIZE field is maintained.
 
 Constraints:
 
-* Bursts must not cross 4KB address boundaries
-* Addresses must be aligned to SIZE
-* The maximum data field size is 32,768 bytes.
-* All transactions must complete (no partial data deliveries)
+* Transactions must not cross 4KB address boundaries
+* Device and source addresses (DA) must be aligned to 2^SIZE bytes.
+* The maximum data field size is 32,768 bytes (LEN=255, SIZE=7).
+* No partial transactions, data bytes delivered must be (LEN+1)*(2^SIZE).
 
 ### 3.2 Transaction Decode
 
 The following table shows the complete set of UMI transaction types. Descriptions of each message is found in the [Message Description Section](#34-message-descriptions).  
 
-|Message     |DATA|SA|DA|31 |30:24|23:22|21:20|19:18|17:16|15:8 |7:4     |3:0|
-|------------|:--:|--|--|---|:---:|:---:|:---:|-----|-----|-----|:------:|---|
-|INVALID     |    |Y |Y |-- |--   |--   |--   |--   |--   |--   |0x0     |0x0|
-|REQ_RD      |    |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOB,SIZE|0x1|
-|REQ_WR      |Y   |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOB,SIZE|0x3|
-|REQ_WRPOSTED|Y   |Y*|Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOB,SIZE|0x5|
-|REQ_RDMA    |    |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |LEN  |EOB,SIZE|0x7|
-|REQ_ATOMIC  |Y   |Y |Y |EXT|USER |USER |QOS  |EDAC |PRIV |ATYPE|1,SIZE  |0x9|
-|REQ_ERROR   |Y   |Y |Y |EXT|USER |USER |00   |EDAC |PRIV |ERR  |0,0x0   |0xF|
-|REQ_LINK    |    |  |  |0  | --  |--   |--   |--   |--   |--   |0,0x1   |0xF|
-|RESP_READ   |Y   |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOB,SIZE|0x2|
-|RESP_WR     |    |Y |Y |EXT|USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOB,SIZE|0x4|
-|RESP_LINK   |    |  |  |-- |--   |--   |--   |--   |--   |--   |0, 0x0  |0xE|
+|Message     |DATA|SA|DA|31:24|23:22|21:20|19:18|17:16|15:8 |7  | 6:4 |3:0|
+|------------|:--:|--|--|:---:|:---:|:---:|-----|-----|-----|---|:---:|---|
+|INVALID     |    |Y |Y |--   |--   |--   |--   |--   |--   |0  |0x0  |0x0|
+|REQ_RD      |    |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x1|
+|REQ_WR      |Y   |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x3|
+|REQ_WRPOSTED|Y   |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x5|
+|REQ_RDMA    |    |Y |Y |USER |USER |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x7|
+|REQ_ATOMIC  |Y   |Y |Y |USER |USER |QOS  |EDAC |PRIV |ATYPE|1  |SIZE |0x9|
+|REQ_ERROR   |    |Y |Y |USER |USER |QOS  |EDAC |PRIV |ERR  |1  |0x0  |0xF|
+|REQ_LINK    |    |  |  |USER |USER |USER |USER |USER |USER |1  |0x1  |0xF|
+|RESP_READ   |Y   |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x2|
+|RESP_WR     |    |Y |Y |USER |ERR  |QOS  |EDAC |PRIV |LEN  |EOF|SIZE |0x4|
+|RESP_LINK   |    |  |  |USER |USER |USER |USER |USER |USER |1  | 0x0 |0xE|
 
 Unused MSG opcodes are reserved for user defined messages and future expansion according to the table below.
 
@@ -147,19 +144,20 @@ Unused MSG opcodes are reserved for user defined messages and future expansion a
 | 0xB      | USER REQUEST    |
 | 0xD      | FUTURE REQUEST  |
 
+Device shall respond to a reserved request with a RESP_WR command with ERR set to 0b10. [OPEN] 
+
 ### 3.3 Options Decode
 
 ### 3.3.1 Transaction Length (LEN[7:0])
 
-The LEN field defines the number of data transfers (beats) to be completed in sequence in the transaction. Each one of the data transfers is the size defined by the SIZE field. The LEN field is 8 bits wide, supporting 1 to 256 transfers (beats) per transaction. 
-
-The address of a transfer number 'i' in a burst of length LEN is defined by:
+The LEN field defines the number of sequential transfers of 2^SIZE bytes performed by a transaction. The number of transfers is equal to LEN + 1, equating to a range of 1-256 transfers per transaction. The current address of transfer number 'i' in a transaction is defined by:
 
 ADDR_i = START_ADDR + (i-1) * 2^SIZE.
 
 ### 3.3.2 Transfer Size (SIZE[2:0])
 
-The SIZE field defines the number of bytes in each data transfer (beat) in a transaction. THe transfer size must not exceed the data bus width of the host or device involved in the transaction.
+The SIZE field defines the number of bytes in a data transfer.
+Devices are not required to support all SIZE options. Hosts must not send  transactions with a SIZE field unsupported the target device. 
 
 |SIZE[2:0] |Bytes per transfer|
 |:--------:|:----------------:|
@@ -172,9 +170,9 @@ The SIZE field defines the number of bytes in each data transfer (beat) in a tra
 | 0b110    | 64
 | 0b111    | 128
 
-### 3.3.3 End of Burst (EOB)
+### 3.3.3 End of Frame (EOF)
 
-The EOB bit is reserved for the UMI signal layer to indicate that the last transfer in a sequence of burst transactions.
+The EOF bit indicates that this transaction is the last transaction in a sequence of related UMI transactions. 
 
 ### 3.3.4 Privilege Mode (PRIV[1:0])
 
@@ -212,19 +210,13 @@ The QOS transaction dictates the quality of service required by the transaction,
 | 0b10    | 2           |
 | 0b11    | 3 (lowest)  |
 
-### 3.3.7 User Field (USER[8:0])
+### 3.3.7 User Field (USER[10:0])
 
 The USER field is reserved for the protocol layer to tunnel information to the signal layer or as hints and control bits for the endpoint.
 
-### 3.3.8 Command Extension (EXT)
+### 3.3.8 Error Code (ERR[1:0])
 
-The EXT field enables expanding the types of transactions and options
-available at the transaction layer by leveraging the lower bits of the data
-field. The EXT command can be used to support complex non-UMI protocols that may require a large number features (such as cache coherent protocols).
-
-### 3.3.9 Error Code (ERR[1:0])
-
-The ERR field indicates the transaction error type for the REQ_ERROR and RESP_ERRROR transactions. 
+The ERR field indicates the error status of a response (RESP_WR, RESP_RD) transaction.
 
 |ERR[1:0]| Meaning                            |
 |:------:|------------------------------------|
@@ -235,30 +227,29 @@ The ERR field indicates the transaction error type for the REQ_ERROR and RESP_ER
 
 DEVERR trigger examples:
 
-* Insufficient privelege level for access
+* Insufficient privilege level for access
 * Write attempted to read-only location
 * Unsupported transfer size
 * Access attempt to disabled function
 
-DECERR trigger examples:
+NETERR trigger examples:
 * Device address unreachable
 
-### 3.3.10 Error Code (ATYPE[7:0])
+### 3.3.10 Atomic Transaction Type (ATYPE[7:0])
 
 The ATYPE field indicates the type of the atomic transaction.
 
 |ATYPE[7:0]| Meaning     |
 |:--------:|-------------|
-| 0h00     | Atomic add  |
-| 0h01     | Atomic and  |
-| 0h02     | Atomic or   |
-| 0h03     | Atomic xor  |
-| 0h04     | Atomic max  |
-| 0h05     | Atomic min  |
-| 0h06     | Atomic maxu |
-| 0h07     | Atomic minu |
-| 0h08     | Atomic swap |
-
+| 0x00     | Atomic add  |
+| 0x01     | Atomic and  |
+| 0x02     | Atomic or   |
+| 0x03     | Atomic xor  |
+| 0x04     | Atomic max  |
+| 0x05     | Atomic min  |
+| 0x06     | Atomic maxu |
+| 0x07     | Atomic minu |
+| 0x08     | Atomic swap |
 
 ### 3.3.11 End of Burst (EOF)
 
@@ -272,43 +263,49 @@ INVALID indicates an invalid transaction. A receiver can choose to ignore the tr
 
 ### 3.4.2 REQ_RD
 
-REQ_RD reads SIZE * LEN bytes from device address(DA). The device initiates a RESP_RD transaction to return data to the host source address (SA).  
+REQ_RD reads (2^SIZE)*(LEN+1) bytes from device address(DA). The device initiates a RESP_RD transaction to return data to the host source address (SA).  
 
 ### 3.4.3 REQ_WR
 
-REQ_WR writes SIZE * LEN bytes to destination address(DA). The device then initiates a RESP_WR acknowledgment to the host source address (SA).
+REQ_WR writes (2^SIZE)*(LEN+1) bytes to destination address(DA). The device then initiates a RESP_WR acknowledgment to the host source address (SA).
 
 ### 3.4.4 REQ_WRPOSTED
 
-REQ_WRPOSTED performs a posted-write of SIZE * LEN bytes to destination address(DA). There is no response sent back to the host from the device.
+REQ_WRPOSTED performs a posted-write of (2^SIZE)*(LEN+1) bytes to destination address(DA). The device only initiates a RESP_WR acknowledgment to the host  source address (SA) when an error (ERR) has occurred.
 
 ### 3.4.5 REQ_RDMA
 
-REQ_RDMA reads SIZE * LEN bytes of data from a primary device destination address(DA) along with a source address (SA). The primary device then initiates a REQ_WRPOSTED transaction to write SIZE * LEN data bytes to the address (SA) in a secondary device. REQ_DMA requires the complete SA field so does not support pass through information for the UMI signal layer.
+REQ_RDMA reads (2^SIZE)*(LEN+1) bytes of data from a primary device destination address(DA) along with a source address (SA). The primary device then initiates a REQ_WRPOSTED transaction to write (2^SIZE)*(LEN+1) data bytes to the address (SA) in a secondary device. REQ_RDMA requires the complete SA field so does not support pass through information for the UMI signal layer.
 
 ### 3.4.6 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
 
-REQ_ATOMIC initiates an atomic read-modify-write operation at destination address (DA). The REQ_ATOMIC sequence involves: 1.) the host sending data (D), destination address (DA), and source address (SA) to the device, 2.) the device reading data address DA 3.) applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data, 4.) writing the result back to device address DA 4.) returning the original device data to host address SA.
+REQ_ATOMIC initiates an atomic read-modify-write operation at destination address (DA) of size (2^SIZE). The REQ_ATOMIC sequence involves: 
+
+1. Host sending data (DATA), destination address (DA), and source address (SA) to the device, 
+2. Device reading data address DA 
+3. Applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data 
+4. Writing the result back to device address DA 
+5. Returning the original device data to host address SA
 
 ### 3.4.7 REQ_ERROR
 
-REQ_ERROR sends an error code (ERR), data (D), and source address (SA) to  device address (DA) to indicate that an error has occurred. A receiver can choose to ignore the transaction or to take corrective action. There is no response transaction sent back to the host from the device.
+REQ_ERROR sends an error code (ERR) to indicate that an error has occurred. The  A receiver can choose to ignore the transaction or to take corrective action. There is no response sent back to the host from the device.
 
 ### 3.4.8 REQ_LINK
 
-REQ_LINK is a 32 bit control-only message reserved for internal link layer actions such as credit updates, time stamps, and framing. MSG[31-7] are all available as user specified control bits. The message does not include routing information and does not elicit a response from the receiver.
+RESP_LINK is a reserved 32-bit reserved link message for link layer non-memory mapped actions such as credit updates, time stamps, and framing. MSG[31-8] are all available as user specified control bits. The message is local to the signal (physical) layer and does not include routing information and does not elicit a response from the receiver.
 
 ### 3.4.9 RESP_RD
 
-RESP_RD returns SIZE * LEN bytes of data to the host source address (SA) as a response to a REQ_RD transaction. The device destination address is sent along with the SA and DATA to filter incoming transactions in case of multiple outstanding read requests.
+RESP_RD returns (2^SIZE)*(LEN+1) bytes of data to the host source address (SA) specified by the REQ_RD transaction. The device destination address is sent along with the SA and DATA to filter incoming transactions in case of multiple outstanding read requests.
 
 ### 3.4.10 RESP_WR
 
-RESP_WR returns an acknowledgment to the host source address (SA) as a response to a REQ_WR transaction. The device destination address is sent along with the response transaction to filter incoming transactions in case of multiple outstanding write requests.
+RESP_WR returns an acknowledgment to the original source address (SA) specified by the the REQ_WR transaction. The transaction does not return any DATA.
 
 ### 3.4.11 RESP_LINK
 
-RESP_LINK is a 32 bit control-only message reserved for internal link layer actions such as credit updates, time stamps, and framing. MSG[31-7] are all available as user specified control bits. The message does not include routing information and does not elicit a response from the receiver.
+RESP_LINK is a reserved 32-bit reserved link message for link layer non-memory mapped actions such as credit updates, time stamps, and framing. MSG[31-8] are all available as user specified control bits. The message is local to the signal (physical) layer and does not include routing information.
 
 ### 3.5 Transaction Mapping Examples
 
@@ -318,9 +315,11 @@ Extra information fields not provided by the RISC-V ISA (such as as QOS, EDAC, P
 
 | RISC-V Instruction   | DATA | SA       | DA | MSG         |
 |:--------------------:|------|----------|----|-------------|
-| LD RD, offset(RS1)   | --   | ADDR(CPU)| RS1| REQ_RD      |
-| SD RD, offset(RS1)   | RD   | ADDR(CPU)| RS1| REQ_WR      |
-| AMOADD.D rd,rs2,(rs1)| RD   | ADDR(CPU)| RS1| REQ_ATOMADD |
+| LD RD, offset(RS1)   | --   | addr(RD) | RS1| REQ_RD      |
+| SD RD, offset(RS1)   | RD   | addr(RD) | RS1| REQ_WR      |
+| AMOADD.D rd,rs2,(rs1)| RD   | addr(RD) | RS1| REQ_ATOMADD |
+
+The address(RD)refers to the ID or source address associated with the RD register in a RISC-V CPU. In a bus based architecture, this would generally be the host-id of the CPU.
 
 ## 4. Signal UMI (SUMI) Layer
 
@@ -340,8 +339,7 @@ The SUMI signaling layer supports the following field widths.
 | SA       | 32, 64             |
 | DATA     | 64,128,256,512,1024| 
 
-UMI with bursts (LEN*SIZE) greater than the DATA width are split into shorter SUMI transfers sent over multiple clock cycles. The EOB bit is used to 
-indicate that this is the last transfer of a UMI transaction burst, to be used by a device to return a response. The signal layer implementation must update the addresses, sizes, and lengths appropriately when splitting large bursts to ensure that all UMI transfers can reach the final destinations independent of each other.
+UMI transactions larger than the SUMI DATA width are must be split into shorter transactions sent over multiple clock cycles. MSG[31] is used to indicate the end of a TUMI transaction. The signal layer implementation must update the addresses, sizes, and lengths appropriately when splitting large bursts to ensure that all UMI transfers can reach the final destinations independent of each other.
 
 The following example illustrates a a TUMI 128 byte write burst split into two 64 byte SUMI transfers for an implementation DW of 512.
 
@@ -410,37 +408,39 @@ In this case, multiple transactions occur.
 
 ### 4.3 SUMI Signal Interfaces
 
-Components in a system can have a UMI host port, device port or both. AW and DW can be any legal value defined by the [SUMI layer](#41-theory-of-operation)  
+Components in a system can have one or multiple UMI host port and/or device ports.  
 
 #### 4.3.1 Host Interface
 
 ```verilog
-output        uhost_req_valid;
-input         uhost_req_ready;
-output [31:0] uhost_req_msg;
-output [AW:0] uhost_req_dstaddr;
-output [AW:0] uhost_req_srcaddr;
-output [DW:0] uhost_req_data;
-input         uhost_resp_valid;
-output        uhost_resp_ready;
-input [31:0]  uhost_resp_msg;
-input [AW:0]  uhost_resp_dstaddr;
-input [AW:0]  uhost_resp_srcaddr;
-input [DW:0]  uhost_resp_data;
+output          uhost_req_valid;
+input           uhost_req_ready;
+output [31:0]   uhost_req_msg;
+output [AW-1:0] uhost_req_dstaddr;
+output [AW-1:0] uhost_req_srcaddr;
+output [DW-1:0] uhost_req_data;
+
+input           uhost_resp_valid;
+output          uhost_resp_ready;
+input [31:0]    uhost_resp_msg;
+input [AW-1:0]  uhost_resp_dstaddr;
+input [AW-1:0]  uhost_resp_srcaddr;
+input [DW-1:0]  uhost_resp_data;
 ```
 #### 4.3.1 Device Interface
 
 ```verilog
-input         udev_req_valid;
-input [31:0]  udev_req_msg;
-input [AW:0]  udev_req_dstaddr;
-input [AW:0]  udev_req_srcaddr;
-input [DW:0]  udev_req_data;
-output        udev_req_ready;
-output [31:0] udev_resp_msg;
-output [AW:0] udev_resp_dstaddr;
-output [AW:0] udev_resp_srcaddr;
-output [DW:0] udev_resp_data;
-output        udev_resp_valid;
-input         udev_resp_ready;
+input           udev_req_valid;
+output          udev_req_ready;
+input [31:0]    udev_req_msg;
+input [AW-1:0]  udev_req_dstaddr;
+input [AW-1:0]  udev_req_srcaddr;
+input [DW-1:0]  udev_req_data;
+
+output          udev_resp_valid;
+input           udev_resp_ready;
+output [31:0]   udev_resp_msg;
+output [AW-1:0] udev_resp_dstaddr;
+output [AW-1:0] udev_resp_srcaddr;
+output [DW-1:0] udev_resp_data;
 ```
