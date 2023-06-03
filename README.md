@@ -121,7 +121,7 @@ Ordering Model:
 
 * Requests sent by a host destined for the same device arrive in the same order that they were sent.
 * Responses sent by a device destined for the same host arrive in the same order that they were sent.
- 
+
 ### 3.2 Transaction Listing
 
 The following table shows the complete set of UMI transactions. Descriptions of each transaction can be found in the [Transaction Description Section](#34-transaction-descriptions).
@@ -444,11 +444,15 @@ output [AW-1:0] udev_resp_srcaddr;
 output [DW-1:0] udev_resp_data;
 ```
 
-## 5. UMI Protocol Bridges
+## 5. UMI Link Layer (LUMI)
 
-### 5.1 TileLink
+(Place Holder)
 
-### 5.1.1 TileLink Overview
+## 6. UMI Protocol Bridges
+
+### 6.1 TileLink
+
+### 6.1.1 TileLink Overview
 
 TileLink is a chip-scale interconnect standard providing multiple masters (host) with coherent memory-mapped access to memory and other slave (device) devices.
 
@@ -456,7 +460,7 @@ TileLink is a chip-scale interconnect standard providing multiple masters (host)
 
 * provides a physically addressed, shared-memory system
 * provides coherent access for an arbitrary mix of caching or non-caching masters
-* has three conformance levels: 
+* has three conformance levels:
   * TL-UL: Uncached simple read/write operations of a single word (TL-UL)
   * TL-UH: Bursting read/write without support for coherent caches
   * TL-C: Complete cache coherency protocol
@@ -481,8 +485,8 @@ The following table shows the mapping between TileLink and UMI transactions.
 
 | TileLink Message| UMI Transaction |CMD[21:28]|CMD[27:24]|
 |-----------------|-----------------|----------|----------|
-| Get             | REQ_RD          | 0b0000   |0b0000    |  
-| AccessAckData   | RESP_WR         | 0b0000   |0b0000    |  
+| Get             | REQ_RD          | 0b0000   |0b0000    |
+| AccessAckData   | RESP_WR         | 0b0000   |0b0000    |
 | PutFullData     | REQ_WR          | 0b0000   |0b000C    |
 | PutPartialData  | REQ_WR          | 0b0000   |0b000C    |
 | AccessAck       | RESP_WR         | 0b0000   |0b0000    |
@@ -515,7 +519,7 @@ The TileLink atomic operations encoded in the param field map to the UMI ATYPE f
 | TileLink param |UMI ATYPE   |
 |----------------|:----------:|
 | MIN (0)        | ATOMICMIN  |
-| MAX (1)        | ATOMICMAX  | 
+| MAX (1)        | ATOMICMAX  |
 | MINU (2)       | ATOMICMINU |
 | MAXU (3)       | ATOMICMAXU |
 | XOR(0)         | ATOMICXOR  |
@@ -523,3 +527,11 @@ The TileLink atomic operations encoded in the param field map to the UMI ATYPE f
 | AND  (2)       | ATOMICAND  |
 | SWAP  (3)      | ATOMICSWAP |
 
+### 6.2 AXI Stream
+
+### 6.1.1 AXI Stream Overview
+
+### 7. References
+
+[1] [AMBA Specifications](https://www.arm.com/architecture/system-architectures/amba/amba-specifications)
+[2] TileLink Specifications,
