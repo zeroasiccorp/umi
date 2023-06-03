@@ -84,13 +84,24 @@ module umi_regif
    assign reg_write =  write & udev_req_valid & group_match;
 
    // single cycle stall on every ready
+   // Amir - BUG - there is no garantee that in the next cycle after the
+   // read req the ready will be high, need to hold the data in that case
+
+//   always @ (posedge clk or negedge nreset)
+//     if(!nreset)
+//       udev_req_ready <= 1'b0;
+//     else if (udev_req_valid & udev_resp_ready)
+//       udev_req_ready <= ~udev_req_ready;
+//     else
+//       udev_req_ready <= 1'b0;
+
    always @ (posedge clk or negedge nreset)
      if(!nreset)
+       udev_req_ready <= 1'b1;
+     else if (udev_req_valid & udev_req_ready)
        udev_req_ready <= 1'b0;
-     else if (udev_req_valid & udev_resp_ready)
-       udev_req_ready <= ~udev_req_ready;
      else
-       udev_req_ready <= 1'b0;
+       udev_req_ready <= 1'b1;
 
    //############################
    //# UMI OUTPUT
@@ -99,7 +110,6 @@ module umi_regif
    //1. Set on incoming valid read
    //2. Keep high as long as incoming read is set
    //3. If no incoming read and output is ready, clear
-
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
