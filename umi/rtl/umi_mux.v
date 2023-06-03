@@ -34,6 +34,7 @@ module umi_mux
    // valid output
    assign umi_out_valid = |umi_in_valid[N-1:0];
 
+   // TODO - check if it does not creates a timing loop.
    // ready pusback
    assign umi_in_ready[N-1:0] = ~umi_in_valid[N-1:0] |
 				(umi_in_valid[N-1:0] & {N{umi_out_ready}});
