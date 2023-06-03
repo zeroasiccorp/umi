@@ -58,7 +58,7 @@ module umi_regif
    //########################
 
    assign reg_addr[AW-1:0]   = udev_req_dstaddr[AW-1:0];
-   assign reg_wrdata[RW-1:0] = udev_resp_data[RW-1:0];
+   assign reg_wrdata[RW-1:0] = udev_req_data[RW-1:0];
 
    /* umi_unpack AUTO_TEMPLATE(
     .command    (reg_cmd[]),
