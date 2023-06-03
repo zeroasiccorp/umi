@@ -325,11 +325,11 @@ Extra information fields not provided by the RISC-V ISA (such as as QOS, EDAC, P
 
 The address(RD)refers to the ID or source address associated with the RD register in a RISC-V CPU. In a bus based architecture, this would generally be the host-id of the CPU.
 
-## 4. Signal UMI (SUMI) Layer
+## 4. Signal UMI Layer (SUMI)
 
 ### 4.1 Theory of Operation
 
-The UMI signaling layer (SUMI) defines the mapping of UMI transactions to a
+The UMI signal layer (SUMI) defines the mapping of UMI transactions to a
 point-to-point, latency insensitive, parallel, synchronous interface with a [valid ready handshake protocol](#32-handshake-protocol).
 
 ![UMI](docs/_images/sumi_connections.png)
@@ -343,9 +343,9 @@ The SUMI signaling layer supports the following field widths.
 | SA       | 32, 64             |
 | DATA     | 64,128,256,512,1024|
 
-TUMI transactions with word sizes exceeding the SUMI layer data width are split into self contained flits sent over multiple clock cycles. CMD[31] is used as an end of transaction (EOT) indicator.
+UMI transactions with word sizes exceeding the SUMI DATA width are split into self contained flits sent over multiple clock cycles. CMD[31] is used as an end of transaction (EOT) indicator.
 
-The folllowing example illustrates a complete request-response transaction between a host and a device. 
+The following example illustrates a complete request-response transaction between a host and a device. Packet is defined as the concatenation of {DATA, SA, DA, CMD} for the sake of brevity.
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
 
@@ -373,7 +373,7 @@ SUMI REQ_WR #2:
 
 ### 4.2 Handshake Protocol
 
-The SUMI signal layer adheres to the following ready/valid handshake protocol:
+SUMI adheres to the following ready/valid handshake protocol:
 
 ![UMI](docs/_images/ready_valid.svg)
 
@@ -382,8 +382,6 @@ The SUMI signal layer adheres to the following ready/valid handshake protocol:
 3. READY, on the other hand, may be de-asserted before a transaction completes.
 4. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
 5. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
-
-In the following examples, the packet is defined as the concatenation of {DATA, SA, DA, CMD} for the sake of brevity.
 
 #### LEGAL: VALID asserted before READY
 
@@ -409,7 +407,7 @@ In the following examples, the packet is defined as the concatenation of {DATA, 
 
 ![UMIX5](docs/_images/bad_valid_toggle.svg)
 
-### 4.3 SUMI Components Interfaces
+### 4.3 Verilog Standard Interfaces
 
 #### 4.3.1 Host Interface
 
@@ -445,3 +443,83 @@ output [AW-1:0] udev_resp_dstaddr;
 output [AW-1:0] udev_resp_srcaddr;
 output [DW-1:0] udev_resp_data;
 ```
+
+## 5. UMI Protocol Bridges
+
+### 5.1 TileLink
+
+### 5.1.1 TileLink Overview
+
+TileLink is a chip-scale interconnect standard providing multiple masters (host) with coherent memory-mapped access to memory and other slave (device) devices.
+
+**TileLink:**
+
+* provides a physically addressed, shared-memory system
+* provides coherent access for an arbitrary mix of caching or non-caching masters
+* has three conformance levels: 
+  * TL-UL: Uncached simple read/write operations of a single word (TL-UL)
+  * TL-UH: Bursting read/write without support for coherent caches
+  * TL-C: Complete cache coherency protocol
+* has five separate channels
+  * Channel A: Request messages sent to an address
+  * Channel B: Request messages sent to a cached block (TL-C only)
+  * Channel C: Response messages from a cached block (TL-C only)
+  * Channel D: Response messages from an address
+  * Channel E: Final handshake for cache block transfer (TL-C only)
+
+### 5.1.1 TileLink <-> UMI Mapping
+
+This section outlines the recommended mapping between UMI transaction and the TileLink messages. Here, we only explore mapping TL/UH TileLink modes with UMI 64bit addressing and UMI bit mask support up to 64bit.
+
+| Symbol | Meaning                   | TileLink Name       |
+|:------:|---------------------------|---------------------|
+| C      | Data is corrupt           | {a,b,c,d,e}_corrupt |
+| BMASK  | Mask (2^SIZE)/8 (strobea) | {a,b,c,d,e}_mask    |
+| SID    | Source ID                 | {a,b,c,d,e}_source  |
+
+The following table shows the mapping between TileLink and UMI transactions.
+
+| TileLink Message| UMI Transaction |CMD[21:28]|CMD[27:24]|
+|-----------------|-----------------|----------|----------|
+| Get             | REQ_RD          | 0b0000   |0b0000    |  
+| AccessAckData   | RESP_WR         | 0b0000   |0b0000    |  
+| PutFullData     | REQ_WR          | 0b0000   |0b000C    |
+| PutPartialData  | REQ_WR          | 0b0000   |0b000C    |
+| AccessAck       | RESP_WR         | 0b0000   |0b0000    |
+| ArithmaticData  | REQ_ATOMIC      | 0b0000   |0b0000    |
+| LogicalData     | REQ_ATOMIC      | 0b0000   |0b000C    |
+| Intent          | REQ_RD          | 0b0100   |0b0000    |
+| HintAck         | RESP_RD         | 0b0101   |0b0000    |
+
+The TileLink has a single long n bit wide '_size' field, enabling 2^n to transfers per message. This is in contrast to UMI which has two fields a SIZE field to indicate word size and a LEN field to indicate the number of words to be transferred. The number of bytes transferred by a UMI transaction is (2^SIZE)*(LEN+1).
+
+The pseudo code below demonstrates one way of translating from the TileLink size and the UMI SIZE/LEN fields.
+
+```c
+if (tilelink_size<8){
+   SIZE = tilelink_size;
+   LEN = 0;
+} else {
+   SIZE = 7;
+   LEN  = 2^(tilelink_size-8+1)-1
+}
+```
+The TileLink master id and masking signals are mapped to the UMI SA field as shown in the table below.
+
+| Field    |63:40   |39:32 | 31:24  |23:16 | 15:8 | 7:0 |
+|----------|:------:|:----:|:------:|:-----|------|-----|
+| SA       |RESERVED|SID   |--      | --   |BMASK |BMASK|
+
+The TileLink atomic operations encoded in the param field map to the UMI ATYPE field as follows.
+
+| TileLink param |UMI ATYPE   |
+|----------------|:----------:|
+| MIN (0)        | ATOMICMIN  |
+| MAX (1)        | ATOMICMAX  | 
+| MINU (2)       | ATOMICMINU |
+| MAXU (3)       | ATOMICMAXU |
+| XOR(0)         | ATOMICXOR  |
+| OR  (1)        | ATOMICOR   |
+| AND  (2)       | ATOMICAND  |
+| SWAP  (3)      | ATOMICSWAP |
+
