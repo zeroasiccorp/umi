@@ -48,7 +48,7 @@ module umi_crossbar
     );
 
    wire [N*N-1:0]    grants;
-   wire [N*N-1:0]    ready;
+//   wire [N*N-1:0]    ready;
    wire [N*N-1:0]    umi_out_sel;
    genvar 	     i;
 
@@ -81,18 +81,24 @@ module umi_crossbar
    // Ready
    //##############################
 
-   assign ready[N*N-1:0] = ~umi_in_request[N*N-1:0] |
-			   ({N{umi_out_ready}} &
-			    umi_in_request[N*N-1:0] &
-			    grants[N*N-1:0]);
+   // Amir - The ready should be taking into account the incoming ready from
+   // the target of the transaction.
+   // Therefore you need to replicate umi_out_ready bits and not as a bus and
+   // it can only be done inside the loop.
+//   assign ready[N*N-1:0] = ~umi_in_request[N*N-1:0] |
+//			   ({N{umi_out_ready}} &
+//			    umi_in_request[N*N-1:0] &
+//			    grants[N*N-1:0]);
 
    integer j,k;
-   always @*
+   always @(*)
      begin
 	umi_in_ready[N-1:0] = {N{1'b1}};
 	for (j=0;j<N;j=j+1)
 	  for (k=0;k<N;k=k+1)
-	    umi_in_ready[j] = umi_in_ready[j] & ready[j+k*N];
+//	    umi_in_ready[j] = umi_in_ready[j] & ready[j+k*N];
+	    umi_in_ready[j] = umi_in_ready[j] & ~(umi_in_request[j+N*k] &
+                                                  (~grants[j+N*k] | ~umi_out_ready[k]));
      end
 
    //##############################
