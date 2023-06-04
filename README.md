@@ -6,7 +6,7 @@
 
 ### 1.1 Architecture
 
-The Universal Memory Interface (UMI) is a transaction based standard for interacting with memory through request-response message exchange patterns. UMI includes five distinct abstraction layers:  
+The Universal Memory Interface (UMI) is a transaction based standard for interacting with memory through request-response message exchange patterns. UMI includes five distinct abstraction layers:
 
 * **Protocol**: Protocol/application specific payload (Ethernet, PCIe, ...)
 * **Transaction**: Address based request-response messaging
@@ -28,17 +28,17 @@ The Universal Memory Interface (UMI) is a transaction based standard for interac
 
 ### 1.3 Key Terms
 
-* **Transaction**: A complete request-response message based memory operation. 
+* **Transaction**: A complete request-response message based memory operation.
 * **Message**: Request or response message, consisting of a command header, address fields, and an optional data payload.
 * **Host**: Initiator of memory requests.
 * **Device**: Responder to memory requests.
-  
+
 ## 2. Protocol UMI (PUMI) Layer
 
 UMI transaction payloads are treated as a series of opaque bytes and can carry arbitrary data, including higher level protocols. The maximum data size available for communication protocol data and headers is 32,768 bytes. The following table illustrates recommended bit packing for a number of common communication standards.
 
 | Protocol  | Payload(UMI DATA) | Header(UMI Data)|UMI Addresses + Command |
-|:---------:|:-----------------:|:---------------:|:----------------------:|   
+|:---------:|:-----------------:|:---------------:|:----------------------:|
 | Ethernet  | 64B - 1,518B      |14B              | 20B                    |
 | CXL-68    | 64B               |2B               | 20B                    |
 | CXL-256   | 254B              |2B               | 20B                    |
@@ -56,7 +56,7 @@ Hosts:
 * Send read, write, and ctrl requests
 * Validate and execute incoming response
 * Identify egress interface through which to send requests (in case of multiple)
-  
+
 Devices:
 
 * Validate and execute incoming requests
@@ -68,8 +68,8 @@ Constraints:
 * The maximum data field size is 32,768 bytes.
 * Transactions must not cross 4KB address boundaries
 * All data bytes must be arrive at final destination.
-* Requests arrive at a device in the same order that they left the host.
-* Responses arrive at the host in the same order that they left the host.
+* Message content arrive at a device in the same order that they left the host.
+* Message content arrive at the host in the same order that they left the device.
 
 ### 3.2 Message Format
 
@@ -131,16 +131,16 @@ The following table documents the UMI messages. CMD[3:0] is the opcode defining 
 
 ### 3.3.1 Source Address (SA[63:0])
 
-The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The following table specifies the prescribed use of all SA bits. 
+The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The following table specifies the prescribed use of all SA bits.
 
 | SA       |63:40   |39:32 | 31:24  | 23:8   | 7:0    |
 |----------|:------:|:----:|:------:|:-------|:-------|
 | 64b mode |RESERVED| USER |USER    |USER    | HOSTID |
 | 32b mode | --     | --   |RESERVED|USER    | HOSTID |
 
-* HOSTID bits are used for routing. 
-* RESERVED bits are dedicated to future enhancements. 
-* USER bits are available for signal layer controls. 
+* HOSTID bits are used for routing.
+* RESERVED bits are dedicated to future enhancements.
+* USER bits are available for signal layer controls.
 
 ### 3.3.2 Transaction Word Size (SIZE[2:0])
 
@@ -180,7 +180,7 @@ The PRIV field indicates the privilege level of the transaction, The information
 
 ### 3.3.6 Quality of Service (QOS[3:0])
 
-The QOS field controls the quality of service required from the interconnect network. The interpretation of the QOS bits is interconnect network specific. 
+The QOS field controls the quality of service required from the interconnect network. The interpretation of the QOS bits is interconnect network specific.
 
 ### 3.3.7 Error Code (ERR[1:0])
 
@@ -221,7 +221,7 @@ The ATYPE field indicates the type of the atomic transaction.
 
 ### 3.3.9 User Field (USER[11:0])
 
-The USER field is available for use as needed by application layers and signal layer implementations. 
+The USER field is available for use as needed by application layers and signal layer implementations.
 
 ## 3.4 Message Descriptions
 
@@ -313,7 +313,7 @@ The following example illustrates a complete request-response transaction betwee
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
 
-UMI messages with DATA exceeding the SUMI DATA width can be split into separate atomic shorter packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field. CMD[31] is used as an end of message (EOM) indicator to indicate the arrival of the last packet in a message. 
+UMI messages with DATA exceeding the SUMI DATA width can be split into separate atomic shorter packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field. CMD[31] is used as an end of message (EOM) indicator to indicate the arrival of the last packet in a message.
 
 The following example illustrates a TUMI 128B write request split into two separate SUMI request packets in a SUMI implementation with a 64B data width.
 
@@ -416,8 +416,8 @@ output [DW-1:0] udev_resp_data;
 
 * Serialization
 * Flow control
-  
-## Appendix A: UMI Transaction Translation 
+
+## Appendix A: UMI Transaction Translation
 
 ### A.1 RISC-V
 
@@ -519,11 +519,11 @@ AXI is a transaction based memory access protocol with five independent channels
 * Write response
 * Read request
 * Read data
- 
+
 Constraints:
 
 * Data width is 8, 16, 32, 64, 128, 256, 512, or 1024 bits wide
-* 
+*
 
 ### A.2.2 AXI <-> UMI Mapping
 
@@ -537,5 +537,3 @@ The following list documents key AXI and UMI terminology differences:
 ### A.3.1 AXI Stream Overview
 
 ### A.3.2 AXI Stream <-> UMI Mapping
-
-
