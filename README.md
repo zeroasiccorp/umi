@@ -454,13 +454,13 @@ TileLink is a chip-scale interconnect standard providing multiple masters (host)
 
 ### A.1.1 TileLink <-> UMI Mapping
 
-This section outlines the recommended mapping between UMI transaction and the TileLink messages. Here, we only explore mapping TL/UH TileLink modes with UMI 64bit addressing and UMI bit mask support up to 64bit.
+This section outlines the recommended mapping between UMI transaction and the TileLink messages. Here, we only explore mapping TL/UH TileLink modes with UMI 64bit addressing and UMI bit mask support up to 128 bits.
 
 | Symbol | Meaning                   | TileLink Name       |
 |:------:|---------------------------|---------------------|
 | C      | Data is corrupt           | {a,b,c,d,e}_corrupt |
 | BMASK  | Mask (2^SIZE)/8 (strobea) | {a,b,c,d,e}_mask    |
-| SID    | Source ID                 | {a,b,c,d,e}_source  |
+| HOSTID | Source ID                 | {a,b,c,d,e}_source  |
 
 The following table shows the mapping between TileLink and UMI transactions.
 
@@ -491,9 +491,9 @@ if (tilelink_size<8){
 ```
 The TileLink master id and masking signals are mapped to the UMI SA field as shown in the table below.
 
-| Field    |63:40   |39:32 | 31:24  |23:16 | 15:8 | 7:0 |
-|----------|:------:|:----:|:------:|:-----|------|-----|
-| SA       |RESERVED|SID   |--      | --   |BMASK |BMASK|
+| Field    |63:40   |39:32 | 31:24  |23:16 | 15:8 | 7:0  |
+|----------|:------:|:----:|:------:|:-----|------|------|
+| SA       |RESERVED|--    |--      | BMASK|BMASK |HOSTID|
 
 The TileLink atomic operations encoded in the param field map to the UMI ATYPE field as follows.
 
