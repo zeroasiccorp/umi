@@ -10,7 +10,9 @@
 module umi_fifo
   #(parameter TARGET  = "DEFAULT", // implementation target
     parameter DEPTH   = 4,         // FIFO depth
-    parameter UW      = 256        // UMI width
+    parameter AW      = 64,        // UMI width
+    parameter CW      = 32,        // UMI width
+    parameter DW      = 256        // UMI width
     )
    (// control/status signals
     input 	    bypass, // bypass FIFO
@@ -21,13 +23,19 @@ module umi_fifo
     input 	    umi_in_clk,
     input 	    umi_in_nreset,
     input 	    umi_in_valid,//per byte valid signal
-    input [UW-1:0]  umi_in_packet,
+    input [CW-1:0]  umi_in_cmd,
+    input [AW-1:0]  umi_in_dstaddr,
+    input [AW-1:0]  umi_in_srcaddr,
+    input [DW-1:0]  umi_in_data,
     output 	    umi_in_ready,
     // Output
     input 	    umi_out_clk,
     input 	    umi_out_nreset,
     output 	    umi_out_valid,
-    output [UW-1:0] umi_out_packet,
+    output [CW-1:0] umi_out_cmd,
+    output [AW-1:0] umi_out_dstaddr,
+    output [AW-1:0] umi_out_srcaddr,
+    output [DW-1:0] umi_out_data,
     input 	    umi_out_ready,
     // Supplies
     input 	    vdd,
@@ -36,13 +44,13 @@ module umi_fifo
 
    // local state
    reg 		    fifo_out_valid;
-   reg [UW-1:0]     fifo_out_data;
+   reg [DW-1:0]     fifo_out_data;
 
    // local wires
    wire 	    umi_out_beat;
    wire 	    fifo_read;
-   wire 	    fifo_write;
-   wire [UW-1:0]    fifo_dout;
+   wire             fifo_write;
+   wire [DW+AW+AW+CW-1:0] fifo_dout;
    wire 	    fifo_in_ready;
 
    //#################################
@@ -62,16 +70,16 @@ module umi_fifo
    // Standard Dual Clock FIFO
    //#################################
 
-   la_asyncfifo  #(.DW(UW),
+   la_asyncfifo  #(.DW(CW+AW+AW+DW),
 		   .DEPTH(DEPTH))
    fifo  (// Outputs
 	  .wr_full	(fifo_full),
-	  .rd_dout	(fifo_dout[UW-1:0]),
+	  .rd_dout	(fifo_dout[DW+AW+AW+CW-1:0]),
 	  .rd_empty	(fifo_empty),
 	  // Inputs
 	  .wr_clk	(umi_in_clk),
 	  .wr_nreset	(umi_in_nreset),
-	  .wr_din	(umi_in_packet[UW-1:0]),
+	  .wr_din	({umi_in_data[DW-1:0],umi_in_srcaddr[AW-1:0],umi_in_dstaddr[AW-1:0],umi_in_cmd[CW-1:0]}),
 	  .wr_en	(umi_in_valid),
 	  .wr_chaosmode (chaosmode),
 	  .rd_clk	(umi_out_clk),
@@ -86,9 +94,12 @@ module umi_fifo
    // FIFO Bypass
    //#################################
 
-   assign umi_out_packet[UW-1:0] = bypass ? umi_in_packet[UW-1:0] : fifo_dout[UW-1:0];
-   assign umi_out_valid          = bypass ? umi_in_valid          : ~fifo_empty;
-   assign umi_in_ready           = bypass ? umi_out_ready         : fifo_in_ready;
+   assign umi_out_cmd[CW-1:0]     = bypass ? umi_in_cmd[CW-1:0]     : fifo_dout[CW-1:0];
+   assign umi_out_dstaddr[AW-1:0] = bypass ? umi_in_dstaddr[AW-1:0] : fifo_dout[CW+:AW];
+   assign umi_out_srcaddr[AW-1:0] = bypass ? umi_in_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
+   assign umi_out_data[DW-1:0]    = bypass ? umi_in_data[DW-1:0]    : fifo_dout[CW+AW+AW+:DW];
+   assign umi_out_valid           = bypass ? umi_in_valid           : ~fifo_empty;
+   assign umi_in_ready            = bypass ? umi_out_ready          : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;
