@@ -32,7 +32,7 @@ The Universal Memory Interface (UMI) is a transaction based standard for interac
 * **Message**: Request or response message, consisting of a command header, address fields, and an optional data payload.
 * **Host**: Initiator of memory requests.
 * **Device**: Responder to memory requests.
-
+----
 ## 2. Protocol UMI (PUMI) Layer
 
 UMI transaction payloads are treated as a series of opaque bytes and can carry arbitrary data, including higher level protocols. The maximum data size available for communication protocol data and headers is 32,768 bytes. The following table illustrates recommended bit packing for a number of common communication standards.
@@ -42,7 +42,7 @@ UMI transaction payloads are treated as a series of opaque bytes and can carry a
 | Ethernet  | 64B - 1,518B      |14B              | 20B                    |
 | CXL-68    | 64B               |2B               | 20B                    |
 | CXL-256   | 254B              |2B               | 20B                    |
-
+----
 ## 3. Transaction UMI (TUMI) Layer
 
 ### 3.1 Theory of Operation
@@ -85,7 +85,7 @@ Constraints:
 | SIZE        | Word size
 | LEN         | Word transfers per message
 | QOS         | Quality of service required
-| PRIV        | Privilege mode
+| PROT        | Protection mode
 | EOF         | End of frame indicator
 | USER        | User defined message information
 | ERR         | Error code
@@ -110,21 +110,21 @@ The following table documents the UMI messages. CMD[3:0] is the opcode defining 
 |Message     |DATA|SA|DA|31:24|23:22|21:18|17:16|15:8 |7  | 6:4 |3:0|
 |------------|:--:|--|--|:---:|:---:|:---:|-----|-----|---|:---:|---|
 |INVALID     |    |Y |Y |--   |--   |--   |--   |--   |0  |0x0  |0x0|
-|REQ_RD      |    |Y |Y |USER |USER |QOS  |PRIV |LEN  |EOF|SIZE |0x1|
-|REQ_WR      |Y   |Y |Y |USER |USER |QOS  |PRIV |LEN  |EOF|SIZE |0x3|
-|REQ_WRPOSTED|Y   |Y |Y |USER |USER |QOS  |PRIV |LEN  |EOF|SIZE |0x5|
-|REQ_RDMA    |    |Y |Y |USER |USER |QOS  |PRIV |LEN  |EOF|SIZE |0x7|
-|REQ_ATOMIC  |Y   |Y |Y |USER |USER |QOS  |PRIV |ATYPE|1  |SIZE |0x9|
-|REQ_USER0   |Y   |Y |Y |USER |USER |QOS  |PRIV |LEN  |EOF|SIZE |0xB|
-|REQ_FUTURE0 |Y   |Y |Y |USER |USER |QOS  |PRIV |LEN  |EOF|SIZE |0xD|
-|REQ_ERROR   |    |Y |Y |USER |USER |QOS  |PRIV |ERR  |1  |0x0  |0xF|
+|REQ_RD      |    |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x1|
+|REQ_WR      |Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x3|
+|REQ_WRPOSTED|Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x5|
+|REQ_RDMA    |    |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x7|
+|REQ_ATOMIC  |Y   |Y |Y |USER |USER |QOS  |PROT |ATYPE|1  |SIZE |0x9|
+|REQ_USER0   |Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0xB|
+|REQ_FUTURE0 |Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0xD|
+|REQ_ERROR   |    |Y |Y |USER |USER |QOS  |PROT |ERR  |1  |0x0  |0xF|
 |REQ_LINK    |    |  |  |USER |USER |USER |USER |USER |1  |0x1  |0xF|
-|RESP_READ   |Y   |Y |Y |USER |ERR  |QOS  |PRIV |LEN  |EOF|SIZE |0x2|
-|RESP_WR     |    |Y |Y |USER |ERR  |QOS  |PRIV |LEN  |EOF|SIZE |0x4|
-|RESP_USER0  |    |Y |Y |USER |ERR  |QOS  |PRIV |LEN  |EOF|SIZE |0x6|
-|RESP_USER1  |    |Y |Y |USER |ERR  |QOS  |PRIV |LEN  |EOF|SIZE |0x8|
-|RESP_FUTURE0|    |Y |Y |USER |ERR  |QOS  |PRIV |LEN  |EOF|SIZE |0xA|
-|RESP_FUTURE1|    |Y |Y |USER |ERR  |QOS  |PRIV |LEN  |EOF|SIZE |0xC|
+|RESP_READ   |Y   |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x2|
+|RESP_WR     |    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x4|
+|RESP_USER0  |    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x6|
+|RESP_USER1  |    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x8|
+|RESP_FUTURE0|    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0xA|
+|RESP_FUTURE1|    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0xC|
 |RESP_LINK   |    |  |  |USER |USER |USER |USER |USER |1  | 0x0 |0xE|
 
 ### 3.3 Message Fields
@@ -167,16 +167,16 @@ ADDR_i = START_ADDR + (i-1) * 2^SIZE.
 
 The EOF bit indicates that this transaction is the last one in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific.
 
-### 3.3.5 Privilege Mode (PRIV[1:0])
+### 3.3.5 Protection Mode (PROT[1:0])
 
-The PRIV field indicates the privilege level of the transaction, The information enables control access to memory at an end point based on privilege mode.
+The PROT field indicates the protected access level of the transaction, enabling controlled access to memory.
 
-|PRIV[1:0]| Level | Name      |
-|:-------:|:-----:|-----------|
-| 0b00    | 0     | User      |
-| 0b01    | 1     | Supervisor|
-| 0b10    | 2     | Hypervisor|
-| 0b11    | 3     | Machine   |
+|PROT[Bit] | Value | Function            |
+|:--------:|:-----:|---------------------|
+| [0]      | 0     | Unprivileged access |
+|          | 1     | Privileged access   |
+| [1]      | 0     | Secure access       |
+|          | 1     | Non-secure access   |
 
 ### 3.3.6 Quality of Service (QOS[3:0])
 
@@ -291,6 +291,7 @@ RESP_USER message types are reserved for non-standardized custom UMI messages.
 
 RESP_FUTURE message types are reserved for future UMI feature enhancements.
 
+----
 ## 4. Signal UMI Layer (SUMI)
 
 ### 4.1 Theory of Operation
@@ -300,7 +301,7 @@ point-to-point, latency insensitive, parallel, synchronous interface with a [val
 
 ![UMI](docs/_images/sumi_connections.png)
 
-The SUMI signaling layer supports the following field widths.
+The SUMI signaling layer defines a subset of TUMI information the be transmitted as a bundled packet over a single clock cycle. The follow table documents the legal set of SUMI packet parameters .
 
 | Field    | Width (bits)       |
 |:--------:|--------------------|
@@ -321,21 +322,21 @@ TUMI REQ_WR transaction:
 
 * LEN =  0h01
 * SIZE = 0b110
-* DA   = 0x0
+* CMD[31]   = 0
 
 SUMI REQ_WR #1:
 
 * LEN =  0h00
 * SIZE = 0b110
 * DA   = 0x0
-* EOT  = 0
+* CMD[31]  = 0
 
 SUMI REQ_WR #2:
 
 * LEN  =  0h00
 * SIZE = 0b110
 * DA   = 0x40
-* EOT  = 1
+* CMD[31]  = 1
 
 ### 4.2 Handshake Protocol
 
@@ -409,19 +410,19 @@ output [AW-1:0] udev_resp_dstaddr;
 output [AW-1:0] udev_resp_srcaddr;
 output [DW-1:0] udev_resp_data;
 ```
-
+----
 ## 5. UMI Link Layer (LUMI)
 
 (Place Holder)
 
 * Serialization
 * Flow control
-
+----
 ## Appendix A: UMI Transaction Translation
 
 ### A.1 RISC-V
 
-The following table illustrates the mapping between UMI transactions and RISC-V load store instructions. Extra information fields not provided by the RISC-V ISA (such as as QOS, EDAC, PRIV) would need to be hard-coded or driven from CSRs.
+The following table illustrates the mapping between UMI transactions and RISC-V load store instructions. Extra information fields not provided by the RISC-V ISA (such as as QOS and PRIV) would need to be hard-coded or driven from CSRs.
 
 | RISC-V Instruction   | DATA | SA       | DA | CMD         |
 |:--------------------:|------|----------|----|-------------|
@@ -508,9 +509,9 @@ The TileLink atomic operations encoded in the param field map to the UMI ATYPE f
 | AND  (2)       | ATOMICAND  |
 | SWAP  (3)      | ATOMICSWAP |
 
-### A.2 AXI
+### A.2 AXI4
 
-### A.2.1 AXI Overview
+### A.2.1 AXI4 Overview
 
 AXI is a transaction based memory access protocol with five independent channels:
 
@@ -520,20 +521,58 @@ AXI is a transaction based memory access protocol with five independent channels
 * Read request
 * Read data
 
-Constraints:
-
-* Data width is 8, 16, 32, 64, 128, 256, 512, or 1024 bits wide
-*
-
-### A.2.2 AXI <-> UMI Mapping
-
-The following list documents key AXI and UMI terminology differences:
+Terminology:
 
 * Hosts are called 'Managers' in AXI
 * Devices are called 'Subordinates' in AXI
+
+Constraints:
+
+* Data width is 8, 16, 32, 64, 128, 256, 512, or 1024 bits wide
+
+
+### A.2.2 AXI4 <-> UMI Mapping
+
+Table showing mapping between the five AXI channels to UMI messages.
+
+| AXI Channel     | UMI Message |
+|-----------------|-------------|
+| Write request   | REQ_WR      | 
+| Write data      | REQ_WR      | 
+| Write response  | RESP_WR     |
+| Read request    | REQ_RD      |
+| Read data       | RESP_RD     |
+
+The AXI LEN, SIZE, ADDR, DATA, and QOS fields map directly to equivalent UMI fields. The table showing mapping between extra AXI signals and UMI fields.
+
+| AXI         | UMI Field     | Function
+|-------------|---------------|----------------------------------------
+| ID          | SA            | Manager/subordinate IDs
+| BURST[1:0]  | USER(CMD)     | Fixed, Increment, Wrap bursting
+| LOCK        | USER (CMD)    | Normal or Exclusive access
+| CACHE[3:0]  | USER (CMD)    | Memory types
+| PROT[2:0]   | PRIV[2:0](CMD)| Access permissions
+| STRB[DW/8-1]| SA            | Byte access controls
+| LAST        | EOB (CMD)     | Indicates end of burst
+| RESP[1:0]   | ERR (CMD)     | Read/write response status
+
+
+| Field    |63:40   |39:32 | 31:24  |23:16 | 15:8 | 7:0  |
+|----------|:------:|:----:|:------:|:-----|------|------|
+| SA       |RESERVED|--    |--      | BMASK|BMASK |HOSTID|
+
+
+
 
 ### A.3 AXI Stream
 
 ### A.3.1 AXI Stream Overview
 
 ### A.3.2 AXI Stream <-> UMI Mapping
+
+----
+## References
+
+[1] [AMBA AXI Protocol Specification (2023/Mar/01 J)](https://www.arm.com/architecture/system-architectures/amba/amba-specifications)
+
+[2] [TileLink Specification (version 1.7)](https://static.dev.sifive.com/docs/tilelink/tilelink-spec-1.7-draft.pdf)
