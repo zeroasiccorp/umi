@@ -19,7 +19,6 @@ The Universal Memory Interface (UMI) is a transaction based standard for interac
 ### 1.2 Key Features
 
   * independent request and response channels
-  * 64b and 32b address modes
   * word sizes up to 1024 bits
   * up to 256 word transfers per transaction
   * atomic transaction support
@@ -32,6 +31,7 @@ The Universal Memory Interface (UMI) is a transaction based standard for interac
 * **Message**: Request or response message, consisting of a command header, address fields, and an optional data payload.
 * **Host**: Initiator of memory requests.
 * **Device**: Responder to memory requests.
+
 ----
 ## 2. Protocol UMI (PUMI) Layer
 
@@ -53,13 +53,13 @@ UMI transactions are request-response message exchanges between Hosts and addres
 
 Hosts:
 
-* Send read, write, and ctrl requests
+* Send read, write memory access request messages
 * Validate and execute incoming response
 * Identify egress interface through which to send requests (in case of multiple)
 
 Devices:
 
-* Validate and execute incoming requests
+* Validate and execute incoming memory request messages
 * Initiate response messages when required
 * Identify egress interface through which to send responses (in case of multiple)
 
@@ -86,14 +86,17 @@ Constraints:
 | LEN         | Word transfers per message
 | QOS         | Quality of service required
 | PROT        | Protection mode
+| EX          | Exclusive access indicator
 | EOF         | End of frame indicator
-| USER        | User defined message information
+| EOM         | End of message indicator
+| U           | User defined message bit
+| R           | Reserved message bit
 | ERR         | Error code
 | HOSTID      | Host ID
 | DEVID       | Device ID
 | MSB         | Most significant bit
 
-#### 3.2.2 Message Byte Ordering
+#### 3.2.2 Message Byte Order
 
 Request and response messages consist of CMD, DA, SA, and DATA fields.
 The byte ordering of a message is shown in the table below.
@@ -105,27 +108,27 @@ The byte ordering of a message is shown in the table below.
 
 #### 3.2.3 Message Types
 
-The following table documents the UMI messages. CMD[3:0] is the opcode defining the type of message being sent. CMD[31:4] are used for message specific options. Complete functional descriptions of each message can be found in the [Message Description Section](#34-transaction-descriptions).
+The following table documents the UMI messages. CMD[4:0] is the opcode defining the type of message being sent. CMD[31:5] are used for message specific options. Complete functional descriptions of each message can be found in the [Message Description Section](#34-transaction-descriptions).
 
-|Message     |DATA|SA|DA|31:24|23:22|21:18|17:16|15:8 |7  | 6:4 |3:0|
-|------------|:--:|--|--|:---:|:---:|:---:|-----|-----|---|:---:|---|
-|INVALID     |    |Y |Y |--   |--   |--   |--   |--   |0  |0x0  |0x0|
-|REQ_RD      |    |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x1|
-|REQ_WR      |Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x3|
-|REQ_WRPOSTED|Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x5|
-|REQ_RDMA    |    |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0x7|
-|REQ_ATOMIC  |Y   |Y |Y |USER |USER |QOS  |PROT |ATYPE|1  |SIZE |0x9|
-|REQ_USER0   |Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0xB|
-|REQ_FUTURE0 |Y   |Y |Y |USER |USER |QOS  |PROT |LEN  |EOF|SIZE |0xD|
-|REQ_ERROR   |    |Y |Y |USER |USER |QOS  |PROT |ERR  |1  |0x0  |0xF|
-|REQ_LINK    |    |  |  |USER |USER |USER |USER |USER |1  |0x1  |0xF|
-|RESP_READ   |Y   |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x2|
-|RESP_WR     |    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x4|
-|RESP_USER0  |    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x6|
-|RESP_USER1  |    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0x8|
-|RESP_FUTURE0|    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0xA|
-|RESP_FUTURE1|    |Y |Y |USER |ERR  |QOS  |PROT |LEN  |EOF|SIZE |0xC|
-|RESP_LINK   |    |  |  |USER |USER |USER |USER |USER |1  | 0x0 |0xE|
+|Message     |DATA|SA|DA|31:25|24|23:22  |21:18|17:16|15:8 |7:5 |4|3:0|
+|------------|:--:|--|--|:---:|--|:-----:|:---:|-----|-----|----|-|---|
+|INVALID     |    |Y |Y |--   |- |--     |--   |--   |--   |0x0 |0|0x0|
+|REQ_RD      |    |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x1|
+|REQ_WR      |Y   |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x3|
+|REQ_WRPOSTED|Y   |Y |Y |U    |0 |EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x5|
+|REQ_RDMA    |    |Y |Y |U    |0 |EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x7|
+|REQ_ATOMIC  |Y   |Y |Y |U    |0 |EOF,EOM|QOS  |PROT |ATYPE|SIZE|R|0x9|
+|REQ_USER0   |Y   |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0xB|
+|REQ_FUTURE0 |Y   |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0xD|
+|REQ_ERROR   |    |Y |Y |U    |0 |ERR    |QOS  |PROT |U    |0x0 |R|0xF|
+|REQ_LINK    |    |  |  |U    |0 |U      |U    |U    |U    |0x1 |R|0xF|
+|RESP_READ   |Y   |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x2|
+|RESP_WR     |    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x4|
+|RESP_USER0  |    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x6|
+|RESP_USER1  |    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x8|
+|RESP_FUTURE0|    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0xA|
+|RESP_FUTURE1|    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0xC|
+|RESP_LINK   |    |  |  |U    |0 |U      |U    |U    |U    |0x0 |R|0xE|
 
 ### 3.3 Message Fields
 
@@ -133,14 +136,14 @@ The following table documents the UMI messages. CMD[3:0] is the opcode defining 
 
 The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The following table specifies the prescribed use of all SA bits.
 
-| SA       |63:40   |39:32 | 31:24  | 23:8   | 7:0    |
-|----------|:------:|:----:|:------:|:-------|:-------|
-| 64b mode |RESERVED| USER |USER    |USER    | HOSTID |
-| 32b mode | --     | --   |RESERVED|USER    | HOSTID |
+| SA       |63:40|39:32|31:24|23:8|7:0   |
+|----------|:---:|:---:|:---:|:--:|:-----|
+| 64b mode | R   | U   | U   |U   |HOSTID|
+| 32b mode | --  | --  | R   |U   |HOSTID|
 
 * HOSTID bits are used for routing.
-* RESERVED bits are dedicated to future enhancements.
-* USER bits are available for signal layer controls.
+* R bits are dedicated to future enhancements.
+* U bits are available for signal layer controls.
 
 ### 3.3.2 Transaction Word Size (SIZE[2:0])
 
@@ -163,26 +166,23 @@ The LEN field defines the number of words of size 2^SIZE bytes transferred by a 
 
 ADDR_i = START_ADDR + (i-1) * 2^SIZE.
 
-### 3.3.4 End of Frame (EOF)
+### 3.3.4 Protection Mode (PROT[1:0])
 
-The EOF bit indicates that this transaction is the last one in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific.
+The PROT field indicates the protected access level of the transaction, enabling controlled access to memory. The interpretation of the PROT bits is interconnect network specific.
 
-### 3.3.5 Protection Mode (PROT[1:0])
-
-The PROT field indicates the protected access level of the transaction, enabling controlled access to memory.
-
-|PROT[Bit] | Value | Function            |
-|:--------:|:-----:|---------------------|
-| [0]      | 0     | Unprivileged access |
-|          | 1     | Privileged access   |
-| [1]      | 0     | Secure access       |
-|          | 1     | Non-secure access   |
-
-### 3.3.6 Quality of Service (QOS[3:0])
+### 3.3.5 Quality of Service (QOS[3:0])
 
 The QOS field controls the quality of service required from the interconnect network. The interpretation of the QOS bits is interconnect network specific.
 
-### 3.3.7 Error Code (ERR[1:0])
+### 3.3.6 End of Message (EOM)
+
+The EOM bit is reserved for signal layer user to indicate transfer of the last word in a message.
+
+### 3.3.7 End of Frame (EOF)
+
+The EOF bit indicates that this transaction is the last one in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific.
+
+### 3.3.8 Error Code (ERR[1:0])
 
 The ERR field indicates the error status of a response (RESP_WR, RESP_RD) transaction.
 
@@ -203,7 +203,7 @@ DEVERR trigger examples:
 NETERR trigger examples:
 * Device address unreachable
 
-### 3.3.8 Atomic Transaction Type (ATYPE[7:0])
+### 3.3.9 Atomic Transaction Type (ATYPE[7:0])
 
 The ATYPE field indicates the type of the atomic transaction.
 
@@ -219,9 +219,13 @@ The ATYPE field indicates the type of the atomic transaction.
 | 0x07     | Atomic minu |
 | 0x08     | Atomic swap |
 
-### 3.3.9 User Field (USER[11:0])
+### 3.3.10 User Field (U)
 
-The USER field is available for use as needed by application layers and signal layer implementations.
+Message bit designated with a U are available for use by application and signal layer implementations. Any undefined user bits shall be set to zero.  
+
+### 3.3.11 Reserved Field (R)
+
+Message bit designated with an R are  reserved for future UMI enhancements and shall be set to zero.
 
 ## 3.4 Message Descriptions
 
@@ -543,7 +547,7 @@ Table showing mapping between the five AXI channels to UMI messages.
 | Read request    | REQ_RD      |
 | Read data       | RESP_RD     |
 
-The AXI LEN, SIZE, ADDR, DATA, and QOS fields map directly to equivalent UMI fields. The table showing mapping between extra AXI signals and UMI fields.
+The AXI LEN, SIZE, ADDR, DATA, QOS, LOCK fields map directly to equivalent UMI fields. The table showing mapping between extra AXI signals and UMI fields.
 
 | AXI         | UMI Field     | Function
 |-------------|---------------|----------------------------------------
@@ -551,7 +555,8 @@ The AXI LEN, SIZE, ADDR, DATA, and QOS fields map directly to equivalent UMI fie
 | BURST[1:0]  | USER(CMD)     | Fixed, Increment, Wrap bursting
 | LOCK        | USER (CMD)    | Normal or Exclusive access
 | CACHE[3:0]  | USER (CMD)    | Memory types
-| PROT[2:0]   | PRIV[2:0](CMD)| Access permissions
+| PROT[1:0]   | PROT[1:0](CMD)| Access permissions
+| PROT[2]     | USER(CMD)     | Access permissions
 | STRB[DW/8-1]| SA            | Byte access controls
 | LAST        | EOB (CMD)     | Indicates end of burst
 | RESP[1:0]   | ERR (CMD)     | Read/write response status
