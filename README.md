@@ -168,7 +168,14 @@ ADDR_i = START_ADDR + (i-1) * 2^SIZE.
 
 ### 3.3.4 Protection Mode (PROT[1:0])
 
-The PROT field indicates the protected access level of the transaction, enabling controlled access to memory. The interpretation of the PROT bits is interconnect network specific.
+The PROT field indicates the protected access level of the transaction, enabling controlled access to memory.
+
+|PROT[Bit] | Value | Function            |
+|:--------:|:-----:|---------------------|
+| [0]      | 0     | Unprivileged access |
+|          | 1     | Privileged access   |
+| [1]      | 0     | Secure access       |
+|          | 1     | Non-secure access   |
 
 ### 3.3.5 Quality of Service (QOS[3:0])
 
@@ -318,7 +325,7 @@ The following example illustrates a complete request-response transaction betwee
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
 
-UMI messages with DATA exceeding the SUMI DATA width can be split into separate atomic shorter packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field. CMD[31] is used as an end of message (EOM) indicator to indicate the arrival of the last packet in a message.
+UMI messages with DATA exceeding the SUMI DATA width can be split into separate atomic shorter packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field. The end of message (EOM) bit indicates the arrival of the last packet in a message.
 
 The following example illustrates a TUMI 128B write request split into two separate SUMI request packets in a SUMI implementation with a 64B data width.
 
@@ -326,21 +333,21 @@ TUMI REQ_WR transaction:
 
 * LEN =  0h01
 * SIZE = 0b110
-* CMD[31]   = 0
+* EOM   = 0
 
 SUMI REQ_WR #1:
 
 * LEN =  0h00
 * SIZE = 0b110
-* DA   = 0x0
-* CMD[31]  = 0
-
+* DA = 0x0
+* EOM  = 0
+  
 SUMI REQ_WR #2:
 
 * LEN  =  0h00
 * SIZE = 0b110
-* DA   = 0x40
-* CMD[31]  = 1
+* DA = 0x40
+* EOM  = 1
 
 ### 4.2 Handshake Protocol
 
@@ -547,27 +554,22 @@ Table showing mapping between the five AXI channels to UMI messages.
 | Read request    | REQ_RD      |
 | Read data       | RESP_RD     |
 
-The AXI LEN, SIZE, ADDR, DATA, QOS, LOCK fields map directly to equivalent UMI fields. The table showing mapping between extra AXI signals and UMI fields.
+The AXI LEN, SIZE, ADDR, DATA, QOS, PROT fields map directly to equivalent UMI CMD fields.
 
-| AXI         | UMI Field     | Function
-|-------------|---------------|----------------------------------------
-| ID          | SA            | Manager/subordinate IDs
-| BURST[1:0]  | USER(CMD)     | Fixed, Increment, Wrap bursting
-| LOCK        | USER (CMD)    | Normal or Exclusive access
-| CACHE[3:0]  | USER (CMD)    | Memory types
-| PROT[1:0]   | PROT[1:0](CMD)| Access permissions
-| PROT[2]     | USER(CMD)     | Access permissions
-| STRB[DW/8-1]| SA            | Byte access controls
-| LAST        | EOB (CMD)     | Indicates end of burst
-| RESP[1:0]   | ERR (CMD)     | Read/write response status
+The AXI ID,REGION,and STRB signals map the source address, all other control signals map to the CMD field per the table below.
+
+NOTES: 
+* PROT[2] is always set to 0.
+
+| Field    |31:27     |26:25     |
+|----------|:--------:|:--------:|
+| CMD      |CACHE[3:0]|BURST[1:0]|
 
 
-| Field    |63:40   |39:32 | 31:24  |23:16 | 15:8 | 7:0  |
-|----------|:------:|:----:|:------:|:-----|------|------|
-| SA       |RESERVED|--    |--      | BMASK|BMASK |HOSTID|
-
-
-
+| Field    |63:40|39:32|31:24|23:16 |15:12  | 11:8 | 7:0  |
+|----------|:---:|:---:|:---:|:-----|-------|------|------|
+| SA-64    |R    |R    |STRB |STRB  |AXIUSER|REGION|HOSTID|
+| SA-32    |--   |--   |R    |STRB  |AXIUSER|REGION|HOSTID|
 
 ### A.3 AXI Stream
 
