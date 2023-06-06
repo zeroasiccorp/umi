@@ -7,58 +7,104 @@
  *
  *
  ******************************************************************************/
-module umi_pack
-  #(parameter AW = 64,
-    parameter CW = 32,
-    parameter DW = 256)
+module umi_pack #(parameter CW = 32)
    (
     // Command inputs
-    input [7:0]      command,
-    input [3:0]      size,// number of bytes to transfer
-    input [19:0]     options, // user options
-    input 	     burst, // active burst in process
+    input [4:0]     cmd_opcode,
+    input [2:0]     cmd_size,
+    input [7:0]     cmd_len,
+    input [7:0]     cmd_atype,
+    input [1:0]     cmd_prot,
+    input [3:0]     cmd_qos,
+    input           cmd_eom,
+    input           cmd_eof,
+    input [22:0]    cmd_user,
+    input [7:0]     cmd_err,
+    input           cmd_ex
     // Output packet
-    output [CW-1:0]  packet_cmd
+    output [CW-1:0] packet_cmd
     );
 
-   wire [31:0] 	     cmd_out;
+   wire [31:0] cmd_out;
+   wire [31:0] cmd_in;
+   wire        cmd_error;
+   wire        cmd_response;
+   wire        cmd_link;
+   wire        cmd_link_resp;
+
+   // Take only the required fields for the decode
+   assign cmd_in[31:0] = {24'h00_0000,cmd_size[2:0],cmd_opcode[4:0]};
 
    // command packer
-   assign cmd_out[7:0]   = command[7:0];
-   assign cmd_out[11:8]  = size[3:0];
-   assign cmd_out[31:12] = options[19:0];
+   assign cmd_out[4:0]   = cmd_opcode[4:0];
+   assign cmd_out[7:5]   = cmd_link   ? 3'h1 :
+                           cmd_error  ? 3'h0 : cmd_size[2:0];
+   assign cmd_out[15:8]  = cmd_atomic     ? cmd_atype[7:0] :
+                           (cmd_error |
+                            cmd_link  |
+                            cmd_link_resp) ? cmd_user[7:0]  :
+                                             cmd_len[7:0];
+   assign cmd_out[17:16] = (cmd_link | cmd_link_resp) ? cmd_user[9:8]   : cmd_prot[1:0];
+   assign cmd_out[21:18] = (cmd_link | cmd_link_resp) ? cmd_user[13:10] : cmd_qos[3:0]
+   assign cmd_out[23:22] = (cmd_link | cmd_link_resp) ? cmd_user[15:14] :
+                           (cmd_error | cmd_response) ? cmd_err[1:0]    :
+                                                        {cmd_eof,cmd_eom};
+   assign cmd_out[24]    = cmd_ex;
+   assign cmd_out[31:25] = cmd_error                  ? cmd_user[14:8]  :
+                           (cmd_link | cmd_link_resp) ? cmd_user[22:16] :
+                                                        cmd_user[6:0];
+
+   /*umi_decode AUTO_TEMPLATE(
+    .cmd_error      (cmd_error[]),
+    .cmd_response   (cmd_response[]),
+    .cmd_link\(.*\) (cmd_link\1[]),
+    .command        (cmd_in[]),
+    .cmd_.*         (),
+    );*/
 
    // Command decode
-   umi_decode
-     umi_decode(// Outputs
-		.cmd_write		(),
-		.cmd_request		(read),
-		.cmd_response		(),
-		.cmd_invalid		(),
-		.cmd_read       	(),
-		.cmd_write_posted	(),
-		.cmd_write_signal	(),
-		.cmd_write_ack		(),
-		.cmd_write_stream	(),
-		.cmd_write_response	(),
-		.cmd_write_multicast	(),
-		.cmd_atomic		(),
-		.cmd_atomic_swap	(),
-		.cmd_atomic_add		(),
-		.cmd_atomic_and		(),
-		.cmd_atomic_or		(),
-		.cmd_atomic_xor		(),
-		.cmd_atomic_min		(),
-		.cmd_atomic_max		(),
-		.cmd_atomic_minu	(),
-		.cmd_atomic_maxu	(),
-		// Inputs
-		.command		(command[7:0]));
+   umi_decode #(.CW(CW))
+   umi_decode(/*AUTOINST*/
+              // Outputs
+              .cmd_invalid      (),                      // Templated
+              .cmd_request      (),                      // Templated
+              .cmd_response     (cmd_response),          // Templated
+              .cmd_link         (cmd_link),              // Templated
+              .cmd_read         (),                      // Templated
+              .cmd_write        (),                      // Templated
+              .cmd_write_posted (),                      // Templated
+              .cmd_rdma         (),                      // Templated
+              .cmd_atomic       (),                      // Templated
+              .cmd_user0        (),                      // Templated
+              .cmd_future0      (),                      // Templated
+              .cmd_error        (cmd_error),             // Templated
+              .cmd_read_resp    (),                      // Templated
+              .cmd_write_resp   (),                      // Templated
+              .cmd_user0_resp   (),                      // Templated
+              .cmd_user1_resp   (),                      // Templated
+              .cmd_future0_resp (),                      // Templated
+              .cmd_future1_resp (),                      // Templated
+              .cmd_link_resp    (cmd_link_resp),         // Templated
+              .cmd_atomic_add   (),                      // Templated
+              .cmd_atomic_and   (),                      // Templated
+              .cmd_atomic_or    (),                      // Templated
+              .cmd_atomic_xor   (),                      // Templated
+              .cmd_atomic_max   (),                      // Templated
+              .cmd_atomic_min   (),                      // Templated
+              .cmd_atomic_maxu  (),                      // Templated
+              .cmd_atomic_minu  (),                      // Templated
+              .cmd_atomic_swap  (),                      // Templated
+              // Inputs
+              .command          (cmd_in[CW-1:0]));       // Templated
 
    generate
-      if(CW == 32) begin : p256
-	 assign packet_cmd[31:0]     = cmd_out[31:0];
+      if(CW == 32) begin : encode32
+	 assign packet_cmd[31:0] = cmd_out[31:0];
       end
    endgenerate
 
 endmodule
+
+// Local Variables:
+// verilog-library-directories:(".")
+// End:
