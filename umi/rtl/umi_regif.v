@@ -204,18 +204,6 @@ module umi_regif
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
 
-   // Amir - response fields cannot assume that the request will be help
-   // Therefore they need to be sampled when the request is acknowledged
-//   assign udev_resp_dstaddr[AW-1:0] = udev_req_srcaddr[AW-1:0];
-   always @ (posedge clk or negedge nreset)
-     if(!nreset)
-       udev_resp_dstaddr[AW-1:0] <= {AW{1'b0}};
-     else if (reg_resp & udev_req_ready)
-       udev_resp_dstaddr[AW-1:0] <= udev_req_srcaddr[AW-1:0];
-
-   assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
-   assign udev_resp_data[DW-1:0]    = {(4){reg_rddata[RW-1:0]}};
-
    // Amir - for now all resp bits except for the opcode will return from the request
    assign cmd_opcode[4:0] = reg_read ? UMI_RESP_READ : UMI_RESP_WRITE;
 
@@ -241,10 +229,22 @@ module umi_regif
             .cmd_ex             (reg_ex),                // Templated
             .cmd_hostid         (reg_hostid[4:0]));      // Templated
 
+   // Amir - response fields cannot assume that the request will be help
+   // Therefore they need to be sampled when the request is acknowledged
+//   assign udev_resp_dstaddr[AW-1:0] = udev_req_srcaddr[AW-1:0];
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       udev_resp_cmd[CW-1:0] <= {CW{1'b0}};
-     else if ((reg_read | reg_write) & udev_req_ready)
-       udev_resp_cmd[CW-1:0] <= packet_cmd[CW-1:0];
+       begin
+          udev_resp_dstaddr[AW-1:0] <= {AW{1'b0}};
+          udev_resp_cmd[CW-1:0] <= {CW{1'b0}};
+       end
+     else if (reg_resp & udev_req_ready)
+       begin
+          udev_resp_dstaddr[AW-1:0] <= udev_req_srcaddr[AW-1:0];
+          udev_resp_cmd[CW-1:0] <= packet_cmd[CW-1:0];
+       end
+
+   assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
+   assign udev_resp_data[DW-1:0]    = {(4){reg_rddata[RW-1:0]}};
 
 endmodule // umi_regif
