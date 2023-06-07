@@ -197,7 +197,7 @@ module umi_endpoint
    // Amir - outputs should be sampled when the read command is accepted
    // Read data only arrives one cycle after the read is accepted
 
-   assign cmd_opcode[4:0] = reg_read ? UMI_RESP_READ : UMI_RESP_WRITE;
+   assign cmd_opcode[4:0] = cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE;
 
    /* umi_pack AUTO_TEMPLATE(
     .cmd_\(.*\) (loc_\1[]),
