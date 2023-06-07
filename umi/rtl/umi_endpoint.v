@@ -83,13 +83,13 @@ module umi_endpoint
    wire [1:0]           loc_prot;
    wire [3:0]           loc_qos;
    wire [22:0]          loc_user;
+   wire [CW-1:0]        packet_cmd;
    // End of automatics
 
    // local regs
-   reg [3:0] 		size_out;
-   reg [19:0]           options_out;
    reg [AW-1:0]         dstaddr_out;
    reg [AW-1:0]         srcaddr_out;
+   reg [CW-1:0]         command_out;
    reg [DW-1:0]         data_out;
 
    // local wires
@@ -97,6 +97,7 @@ module umi_endpoint
    wire                 loc_read;
    wire                 loc_write;
    wire                 loc_resp;
+   wire [4:0]           cmd_opcode;
 
    //########################
    // UMI UNPACK
@@ -180,7 +181,7 @@ module umi_endpoint
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if (loc_read | write)
+     else if (loc_resp)
        udev_resp_valid <= loc_ready;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
@@ -193,27 +194,14 @@ module umi_endpoint
    //#############################
    //# Pipeline Packet
    //##############################
+   // Amir - outputs should be sampled when the read command is accepted
+   // Read data only arrives one cycle after the read is accepted
 
-   always @ (posedge clk)
-     if(loc_read)
-       begin
-	  data_out[DW-1:0]    <= loc_rddata[DW-1:0];
-	  dstaddr_out[AW-1:0] <= udev_req_srcaddr[AW-1:0];
-	  srcaddr_out[AW-1:0] <= loc_addr[AW-1:0];
-	  size_out[3:0]       <= loc_size[3:0];
-	  options_out[19:0]   <= loc_options[19:0];
-       end
-
-   // selectively add pipestage
-   assign data_mux[DW-1:0] = (REG) ? data_out[DW-1:0] :
-			     loc_rddata[DW-1:0];
+   assign cmd_opcode[4:0] = reg_read ? UMI_RESP_READ : UMI_RESP_WRITE;
 
    /* umi_pack AUTO_TEMPLATE(
-    .packet_\(.*\)   (udev_resp_\1[]),
-    .command         (UMI_RESP_WRITE), //TODO: this is incorrect!
-    .burst           (1'b0),
-    .srcaddr         ({(AW){1'b0}}),
-    .\(.*\)          (\1_out[]),
+    .cmd_\(.*\) (loc_\1[]),
+    .cmd_opcode (cmd_opcode[]),
     );
     */
 
@@ -221,21 +209,49 @@ module umi_endpoint
    umi_pack #(.CW(CW))
    umi_pack(/*AUTOINST*/
             // Outputs
-            .packet_cmd         (udev_resp_cmd[CW-1:0]), // Templated
+            .packet_cmd         (packet_cmd[CW-1:0]),
             // Inputs
-            .cmd_opcode         (cmd_opcode_out[4:0]),   // Templated
-            .cmd_size           (cmd_size_out[2:0]),     // Templated
-            .cmd_len            (cmd_len_out[7:0]),      // Templated
-            .cmd_atype          (cmd_atype_out[7:0]),    // Templated
-            .cmd_prot           (cmd_prot_out[1:0]),     // Templated
-            .cmd_qos            (cmd_qos_out[3:0]),      // Templated
-            .cmd_eom            (cmd_eom_out),           // Templated
-            .cmd_eof            (cmd_eof_out),           // Templated
-            .cmd_user           (cmd_user_out[18:0]),    // Templated
-            .cmd_err            (cmd_err_out[1:0]),      // Templated
-            .cmd_ex             (cmd_ex_out),            // Templated
-            .cmd_hostid         (cmd_hostid_out[4:0]));  // Templated
+            .cmd_opcode         (cmd_opcode[4:0]),       // Templated
+            .cmd_size           (loc_size[2:0]),         // Templated
+            .cmd_len            (loc_len[7:0]),          // Templated
+            .cmd_atype          (loc_atype[7:0]),        // Templated
+            .cmd_prot           (loc_prot[1:0]),         // Templated
+            .cmd_qos            (loc_qos[3:0]),          // Templated
+            .cmd_eom            (loc_eom),               // Templated
+            .cmd_eof            (loc_eof),               // Templated
+            .cmd_user           (loc_user[18:0]),        // Templated
+            .cmd_err            (loc_err[1:0]),          // Templated
+            .cmd_ex             (loc_ex),                // Templated
+            .cmd_hostid         (loc_hostid[4:0]));      // Templated
 
+   always @ (posedge clk or negedge nreset)
+     if (!nreset)
+       begin
+	  dstaddr_out[AW-1:0] <= {AW{1'b0}};
+	  srcaddr_out[AW-1:0] <= {AW{1'b0}};
+	  command_out[CW-1:0] <= {CW{1'b0}};
+       end
+     else if(loc_resp & loc_ready)
+       begin
+	  dstaddr_out[AW-1:0] <= udev_req_srcaddr[AW-1:0];
+	  srcaddr_out[AW-1:0] <= loc_addr[AW-1:0];
+	  command_out[CW-1:0] <= packet_cmd[CW-1:0];
+       end
+
+   // selectively add pipestage
+   // In order to delay the data there is also a need to delay the valid
+   // adding the same logic for the loc_valid
+   always @(posedge clk or negedge nreset)
+     if (!nreset)
+       data_out[DW-1:0] <= {DW{1'b0}};
+     else
+       data_out[DW-1:0] <= loc_rddata[DW-1:0];
+
+   assign data_mux[DW-1:0] = (REG) ? data_out[DW-1:0] :
+			             loc_rddata[DW-1:0];
+
+   // Final outputs
+   assign udev_resp_cmd[CW-1:0]     = command_out[AW-1:0];
    assign udev_resp_dstaddr[AW-1:0] = dstaddr_out[AW-1:0];
    assign udev_resp_srcaddr[AW-1:0] = srcaddr_out[AW-1:0];
    assign udev_resp_data[DW-1:0]    = data_mux[DW-1:0];
