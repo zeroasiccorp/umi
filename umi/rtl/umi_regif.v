@@ -23,35 +23,51 @@ module umi_regif
     parameter GRPID = 0           // group ID
     )
    (// clk, reset
-    input           clk,        //clk
-    input           nreset,     //async active low reset
+    input               clk,        //clk
+    input               nreset,     //async active low reset
     // UMI access
-    input           udev_req_valid,
-    input [CW-1:0]  udev_req_cmd,
-    input [AW-1:0]  udev_req_dstaddr,
-    input [AW-1:0]  udev_req_srcaddr,
-    input [DW-1:0]  udev_req_data,
-    output reg      udev_req_ready,
-    output reg      udev_resp_valid,
-    output [CW-1:0] udev_resp_cmd,
-    output [AW-1:0] udev_resp_dstaddr,
-    output [AW-1:0] udev_resp_srcaddr,
-    output [DW-1:0] udev_resp_data,
-    input           udev_resp_ready,
+    input               udev_req_valid,
+    input [CW-1:0]      udev_req_cmd,
+    input [AW-1:0]      udev_req_dstaddr,
+    input [AW-1:0]      udev_req_srcaddr,
+    input [DW-1:0]      udev_req_data,
+    output reg          udev_req_ready,
+    output reg          udev_resp_valid,
+    output reg [CW-1:0] udev_resp_cmd,
+    output reg [AW-1:0] udev_resp_dstaddr,
+    output [AW-1:0]     udev_resp_srcaddr,
+    output [DW-1:0]     udev_resp_data,
+    input               udev_resp_ready,
     // Read/Write register interface
-    output [AW-1:0] reg_addr,   // memory address
-    output          reg_write,  // register write
-    output          reg_read,   // register read
-    output [7:0]    reg_cmd,    // command (eg. atomics)
-    output [3:0]    reg_size,   // size (byte, etc)
-    output [RW-1:0] reg_wrdata, // data to write
-    input [RW-1:0]  reg_rddata  // readback data
+    output [AW-1:0]     reg_addr,   // memory address
+    output              reg_write,  // register write
+    output              reg_read,   // register read
+    output [7:0]        reg_opcode, // command (eg. atomics)
+    output [2:0]        reg_size,   // size (byte, etc)
+    output [7:0]        reg_len,    // size (byte, etc)
+    output [RW-1:0]     reg_wrdata, // data to write
+    input [RW-1:0]      reg_rddata  // readback data
     );
 
 `include "umi_messages.vh"
 
-   wire [AW-1:0]      reg_srcaddr;
-   wire [19:0] 	      reg_options;
+   /*AUTOWIRE*/
+   // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   wire [CW-1:0]        packet_cmd;
+   wire [7:0]           reg_atype;
+   wire                 reg_eof;
+   wire                 reg_eom;
+   wire [1:0]           reg_err;
+   wire                 reg_ex;
+   wire [4:0]           reg_hostid;
+   wire [1:0]           reg_prot;
+   wire [3:0]           reg_qos;
+   wire [22:0]          reg_user;
+   // End of automatics
+
+   wire [4:0]           cmd_opcode;
+   wire                 write;
+   wire                 write_posted;
 
    //########################
    // UMI INPUT
@@ -61,27 +77,36 @@ module umi_regif
    assign reg_wrdata[RW-1:0] = udev_req_data[RW-1:0];
 
    /* umi_unpack AUTO_TEMPLATE(
-    .command    (reg_cmd[]),
-    .\(.*\)     (reg_\1[]),
+    .cmd_\(.*\)     (reg_\1[]),
     .packet_cmd (udev_req_cmd[]),
     );*/
-   umi_unpack #(.DW(DW),
-                .CW(CW),
-		.AW(AW))
+   umi_unpack #(.CW(CW))
    umi_unpack(/*AUTOINST*/
               // Outputs
-              .command          (reg_cmd[7:0]),          // Templated
-              .size             (reg_size[3:0]),         // Templated
-              .options          (reg_options[19:0]),     // Templated
+              .cmd_opcode       (reg_opcode[4:0]),       // Templated
+              .cmd_size         (reg_size[2:0]),         // Templated
+              .cmd_len          (reg_len[7:0]),          // Templated
+              .cmd_atype        (reg_atype[7:0]),        // Templated
+              .cmd_qos          (reg_qos[3:0]),          // Templated
+              .cmd_prot         (reg_prot[1:0]),         // Templated
+              .cmd_eom          (reg_eom),               // Templated
+              .cmd_eof          (reg_eof),               // Templated
+              .cmd_ex           (reg_ex),                // Templated
+              .cmd_user         (reg_user[22:0]),        // Templated
+              .cmd_err          (reg_err[1:0]),          // Templated
+              .cmd_hostid       (reg_hostid[4:0]),       // Templated
               // Inputs
               .packet_cmd       (udev_req_cmd[CW-1:0])); // Templated
 
-   umi_write umi_write(.write (write), .command	(reg_cmd[7:0]));
+   umi_write #(.CW(CW)) umi_write(.write        (write),
+                                  .write_posted (write_posted),
+                                  .command      (udev_req_cmd[7:0]));
 
-   assign group_match = (reg_addr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
+   assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
 
-   assign reg_read  = ~write & udev_req_valid & group_match;
-   assign reg_write =  write & udev_req_valid & group_match;
+   // TODO - implement atomic
+   assign reg_read  = ~(write | write_posted) & udev_req_valid & group_match;
+   assign reg_write =  (write | write_posted) & udev_req_valid & group_match;
 
    // single cycle stall on every ready
    // Amir - BUG - there is no garantee that in the next cycle after the
@@ -113,24 +138,52 @@ module umi_regif
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if (reg_read)
+     else if ((reg_read | reg_write) & udev_req_ready)
        udev_resp_valid <= 1'b1;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
 
-   assign udev_resp_dstaddr[AW-1:0] = reg_srcaddr[AW-1:0];
+   // Amir - response fields cannot assume that the request will be help
+   // Therefore they need to be sampled when the request is acknowledged
+//   assign udev_resp_dstaddr[AW-1:0] = udev_req_srcaddr[AW-1:0];
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
+       udev_resp_dstaddr[AW-1:0] <= {AW{1'b0}};
+     else if ((reg_read | reg_write) & udev_req_ready)
+       udev_resp_dstaddr[AW-1:0] <= udev_req_srcaddr[AW-1:0];
+
    assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
    assign udev_resp_data[DW-1:0]    = {(4){reg_rddata[RW-1:0]}};
 
-   umi_pack #(.DW(DW),
-              .CW(CW),
-	      .AW(AW))
-   umi_pack(// Outputs
-            .packet_cmd (udev_resp_cmd[CW-1:0]),
-	    // Inputs
-	    .command    (UMI_RESP_WRITE),//returns write response
-	    .size	(reg_size[3:0]),
-	    .options	(reg_options[19:0]),
-	    .burst	(1'b0));
+   // Amir - for now all resp bits except for the opcode will return from the request
+   assign cmd_opcode[4:0] = reg_read ? UMI_RESP_READ : UMI_RESP_WRITE;
+
+   /*umi_pack AUTO_TEMPLATE(
+    .cmd_\(.*\) (reg_\1[]),
+    .cmd_opcode (cmd_opcode[]),
+    );*/
+   umi_pack #(.CW(CW))
+   umi_pack(/*AUTOINST*/
+            // Outputs
+            .packet_cmd         (packet_cmd[CW-1:0]),
+            // Inputs
+            .cmd_opcode         (cmd_opcode[4:0]),       // Templated
+            .cmd_size           (reg_size[2:0]),         // Templated
+            .cmd_len            (reg_len[7:0]),          // Templated
+            .cmd_atype          (reg_atype[7:0]),        // Templated
+            .cmd_prot           (reg_prot[1:0]),         // Templated
+            .cmd_qos            (reg_qos[3:0]),          // Templated
+            .cmd_eom            (reg_eom),               // Templated
+            .cmd_eof            (reg_eof),               // Templated
+            .cmd_user           (reg_user[18:0]),        // Templated
+            .cmd_err            (reg_err[1:0]),          // Templated
+            .cmd_ex             (reg_ex),                // Templated
+            .cmd_hostid         (reg_hostid[4:0]));      // Templated
+
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
+       udev_resp_cmd[CW-1:0] <= {CW{1'b0}};
+     else if ((reg_read | reg_write) & udev_req_ready)
+       udev_resp_cmd[CW-1:0] <= packet_cmd[CW-1:0];
 
 endmodule // umi_regif

@@ -30,6 +30,7 @@ module umi_unpack
     output [4:0]   cmd_opcode,
     output [2:0]   cmd_size,
     output [7:0]   cmd_len,
+    output [7:0]   cmd_atype,
     output [3:0]   cmd_qos,
     output [1:0]   cmd_prot,
     output         cmd_eom,
@@ -97,13 +98,14 @@ module umi_unpack
          // Command fiels - TODO: should we qualify these with the command type?
          assign cmd_opcode[4:0] = packet_cmd[4:0];
          assign cmd_size[2:0]   = packet_cmd[7:5];  // Ignore for error and link
-         assign cmd_len         = packet_cmd[15:8]; // Ignore for Atomic, error and link
+         assign cmd_len[7:0]    = packet_cmd[15:8]; // Ignore for Atomic, error and link
+         assign cmd_atype[7:0]  = packet_cmd[15:8];
          assign cmd_qos[3:0]    = packet_cmd[19:16];// Ignore for link
          assign cmd_prot[1:0]   = packet_cmd[21:20];// Ignore for link
          assign cmd_eom         = packet_cmd[22];
          assign cmd_eof         = packet_cmd[23];   // Ignore for error and responses
          assign cmd_ex          = packet_cmd[24];   // Ignore for error and responses
-         assign cmd_hostid      = packet_cmd[31:27];
+         assign cmd_hostid[4:0] = packet_cmd[31:27];
 
          assign cmd_user[18:0]  = cmd_link      ? packet_cmd[26:8]                           :
                                   cmd_link_resp ? {2'h0,packet_cmd[24:8]}                    :
