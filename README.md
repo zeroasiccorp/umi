@@ -6,11 +6,11 @@
 
 ### 1.1 Architecture
 
-The Universal Memory Interface (UMI) is a transaction based standard for interacting with memory through request-response message exchange patterns. UMI includes five distinct abstraction layers:
+The Universal Memory Interface (UMI) is a transaction based standard for accessing memory through request-response message exchange patterns. UMI includes five distinct abstraction layers:
 
-* **Protocol**: Protocol/application specific payload (Ethernet, PCIe, ...)
+* **Protocol**: Protocol/application specific payload (Ethernet, PCIe)
 * **Transaction**: Address based request-response messaging
-* **Signal**: Latency insensitive signaling layer (packet, ready, valid)
+* **Signal**: Latency insensitive signaling (packet, ready, valid)
 * **Link**: Communication integrity (flow control, reliability)
 * **Physical**: Electrical signaling (electrons, wires, etc.)
 
@@ -23,11 +23,12 @@ The Universal Memory Interface (UMI) is a transaction based standard for interac
   * up to 256 word transfers per transaction
   * atomic transaction support
   * quality of service support
+  * protection and security support
   * reserved opcodes for users and future expansion
 
 ### 1.3 Key Terms
 
-* **Transaction**: A complete request-response message based memory operation.
+* **Transaction**: Complete request-response memory operation.
 * **Message**: Request or response message, consisting of a command header, address fields, and an optional data payload.
 * **Host**: Initiator of memory requests.
 * **Device**: Responder to memory requests.
@@ -42,19 +43,29 @@ UMI transaction payloads are treated as a series of opaque bytes and can carry a
 | Ethernet  | 64B - 1,518B      |14B              | 20B                    |
 | CXL-68    | 64B               |2B               | 20B                    |
 | CXL-256   | 254B              |2B               | 20B                    |
+
 ----
 ## 3. Transaction UMI (TUMI) Layer
 
 ### 3.1 Theory of Operation
 
-UMI transactions are request-response message exchanges between Hosts and addressable Devices. Hosts send memory access requests to devices and get responses back. The figure below illustrates the relationship between hosts, devices, and the interconnect network.
+UMI transactions are request-response message exchanges between Hosts and addressable Devices. Hosts send memory access requests to devices and get responses back.  The figure below illustrates the relationship between hosts, devices, and the interconnect network.
 
 ![UMI](docs/_images/tumi_connections.png)
+
+Basic UMI read/write transaction involves the transfer of LEN+1 words of data of width 2^SIZE bytes between a device and a host. 
+
+Summary:
+* UMI transaction type, word size (SIZE), transfer count (LEN), and other options are encoded in a 32bit transaction command header (CMD). 
+* Device memory access is communicated through a destination address (DA) field.
+* The hst source address is communicated through the source address (SA) field.
+* The destination address indicates the memory address of the first byte in the transaction.
+* Memory is accessed in increasing address order starting with DA and ending with DA + (LEN+1)\*(2^SIZE)-1.
 
 Hosts:
 
 * Send read, write memory access request messages
-* Validate and execute incoming response
+* Validate and execute incoming responses
 * Identify egress interface through which to send requests (in case of multiple)
 
 Devices:
@@ -64,7 +75,7 @@ Devices:
 * Identify egress interface through which to send responses (in case of multiple)
 
 Constraints:
-* Device and source addresses must be aligned to 2^SIZE bytes.
+* Device and source addresses must be aligned the native word size.
 * The maximum data field size is 32,768 bytes.
 * Transactions must not cross 4KB address boundaries
 * All data bytes must be arrive at final destination.
@@ -98,8 +109,7 @@ Constraints:
 
 #### 3.2.2 Message Byte Order
 
-Request and response messages consist of CMD, DA, SA, and DATA fields.
-The byte ordering of a message is shown in the table below.
+Request and response messages are packed together in the following order:
 
 |                  |MSB-1:160|159:96|95:32|31:0|
 |------------------|:-------:|:----:|:---:|:--:|
@@ -108,42 +118,38 @@ The byte ordering of a message is shown in the table below.
 
 #### 3.2.3 Message Types
 
-The following table documents the UMI messages. CMD[4:0] is the opcode defining the type of message being sent. CMD[31:5] are used for message specific options. Complete functional descriptions of each message can be found in the [Message Description Section](#34-transaction-descriptions).
+The table below documents all UMI message types. CMD[4:0] is the UMI opcode defining the type of message being sent. CMD[31:5] are used for message specific options. Complete functional descriptions of each message can be found in the [Message Description Section](#34-transaction-descriptions).
 
-|Message     |DATA|SA|DA|31:25|24|23:22  |21:18|17:16|15:8 |7:5 |4|3:0|
-|------------|:--:|--|--|:---:|--|:-----:|:---:|-----|-----|----|-|---|
-|INVALID     |    |Y |Y |--   |- |--     |--   |--   |--   |0x0 |0|0x0|
-|REQ_RD      |    |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x1|
-|REQ_WR      |Y   |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x3|
-|REQ_WRPOSTED|Y   |Y |Y |U    |0 |EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x5|
-|REQ_RDMA    |    |Y |Y |U    |0 |EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0x7|
-|REQ_ATOMIC  |Y   |Y |Y |U    |0 |EOF,EOM|QOS  |PROT |ATYPE|SIZE|R|0x9|
-|REQ_USER0   |Y   |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0xB|
-|REQ_FUTURE0 |Y   |Y |Y |U    |EX|EOF,EOM|QOS  |PROT |LEN  |SIZE|R|0xD|
-|REQ_ERROR   |    |Y |Y |U    |0 |ERR    |QOS  |PROT |U    |0x0 |R|0xF|
-|REQ_LINK    |    |  |  |U    |0 |U      |U    |U    |U    |0x1 |R|0xF|
-|RESP_READ   |Y   |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x2|
-|RESP_WR     |    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x4|
-|RESP_USER0  |    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x6|
-|RESP_USER1  |    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0x8|
-|RESP_FUTURE0|    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0xA|
-|RESP_FUTURE1|    |Y |Y |U    |EX|ERR    |QOS  |PROT |LEN  |SIZE|R|0xC|
-|RESP_LINK   |    |  |  |U    |0 |U      |U    |U    |U    |0x0 |R|0xE|
+|Message     |DATA|SA|DA|31:27 |26:25|24:22     |21:20|19:16|15:8 |7:5 |4:0  |
+|------------|:--:|--|--|:----:|:---:|:--------:|:---:|-----|-----|----|-----|
+|INVALID     |    |Y |Y |--    |--   |--        |--   |--   |--   |0x0 |0,0x0|
+|REQ_RD      |    |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x1|
+|REQ_WR      |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x3|
+|REQ_WRPOSTED|Y   |Y |Y |HOSTID|U    |0 ,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x5|
+|REQ_RDMA    |    |Y |Y |HOSTID|U    |0 ,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x7|
+|REQ_ATOMIC  |Y   |Y |Y |HOSTID|U    |0 ,EOF,EOM|PROT |QOS  |ATYPE|SIZE|R,0x9|
+|REQ_USER0   |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xB|
+|REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
+|REQ_ERROR   |    |Y |Y |HOSTID|ERR  |U         |PROT |QOS  |U    |0x0 |R,0xF|
+|REQ_LINK    |    |  |  |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
+|RESP_READ   |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
+|RESP_WR     |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
+|RESP_USER0  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
+|RESP_USER1  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
+|RESP_FUTURE0|    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
+|RESP_FUTURE1|    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
+|RESP_LINK   |    |  |  |HOSTID|ERR  |U         |U    |U    |U    |0x0 |R,0xE|
 
 ### 3.3 Message Fields
 
 ### 3.3.1 Source Address (SA[63:0])
 
-The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The following table specifies the prescribed use of all SA bits.
+The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The table below shows the 
 
-| SA       |63:40|39:32|31:24|23:8|7:0   |
-|----------|:---:|:---:|:---:|:--:|:-----|
-| 64b mode | R   | U   | U   |U   |HOSTID|
-| 32b mode | --  | --  | R   |U   |HOSTID|
-
-* HOSTID bits are used for routing.
-* R bits are dedicated to future enhancements.
-* U bits are available for signal layer controls.
+| SA       |63:56 |55:48|47:40|39:32|31:24 |23:16|15:8|7:0  |
+|----------|:----:|:---:|:---:|:---:|:----:|:---:|:---|:---:|
+| 64b mode |R     | R   | R   | U   | U    | U   |U   |U    |
+| 32b mode | --   | --  | --  | --  | R    | R   |U   |U    |
 
 ### 3.3.2 Transaction Word Size (SIZE[2:0])
 
@@ -183,11 +189,11 @@ The QOS field controls the quality of service required from the interconnect net
 
 ### 3.3.6 End of Message (EOM)
 
-The EOM bit is reserved for signal layer user to indicate transfer of the last word in a message.
+The EOM bit is reserved for UMI signal layer and is used to track the transfer of the last word in a message.
 
 ### 3.3.7 End of Frame (EOF)
 
-The EOF bit indicates that this transaction is the last one in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific.
+The EOF bit can be used to indicate the last message in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific. 
 
 ### 3.3.8 Error Code (ERR[1:0])
 
@@ -312,7 +318,7 @@ point-to-point, latency insensitive, parallel, synchronous interface with a [val
 
 ![UMI](docs/_images/sumi_connections.png)
 
-The SUMI signaling layer defines a subset of TUMI information the be transmitted as a bundled packet over a single clock cycle. The follow table documents the legal set of SUMI packet parameters .
+The SUMI signaling layer defines a subset of TUMI information to be transmitted as an  atomic packet. The follow table documents the legal set of SUMI packet parameters .
 
 | Field    | Width (bits)       |
 |:--------:|--------------------|
@@ -325,7 +331,7 @@ The following example illustrates a complete request-response transaction betwee
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
 
-UMI messages with DATA exceeding the SUMI DATA width can be split into separate atomic shorter packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field. The end of message (EOM) bit indicates the arrival of the last packet in a message.
+UMI messages can be split into separate shorter atomic SUMI packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field. The end of message (EOM) bit indicates the arrival of the last packet in a message.
 
 The following example illustrates a TUMI 128B write request split into two separate SUMI request packets in a SUMI implementation with a 64B data width.
 
@@ -360,6 +366,8 @@ SUMI adheres to the following ready/valid handshake protocol:
 3. READY, on the other hand, may be de-asserted before a transaction completes.
 4. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
 5. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
+
+The following examples help illustrate the handhsake protocol.
 
 #### LEGAL: VALID asserted before READY
 
@@ -433,7 +441,7 @@ output [DW-1:0] udev_resp_data;
 
 ### A.1 RISC-V
 
-The following table illustrates the mapping between UMI transactions and RISC-V load store instructions. Extra information fields not provided by the RISC-V ISA (such as as QOS and PRIV) would need to be hard-coded or driven from CSRs.
+UMI transactions map naturally to RISC-V load store instructions. Extra information fields not provided by the RISC-V ISA (such as as QOS and PRIV) would need to be hard-coded or driven from CSRs.
 
 | RISC-V Instruction   | DATA | SA       | DA | CMD         |
 |:--------------------:|------|----------|----|-------------|
@@ -449,7 +457,7 @@ The address(RD)refers to the ID or source address associated with the RD registe
 
 TileLink is a chip-scale interconnect standard providing multiple masters (host) with coherent memory-mapped access to memory and other slave (device) devices.
 
-**TileLink:**
+Summary:
 
 * provides a physically addressed, shared-memory system
 * provides coherent access for an arbitrary mix of caching or non-caching masters
@@ -471,24 +479,24 @@ This section outlines the recommended mapping between UMI transaction and the Ti
 | Symbol | Meaning                   | TileLink Name       |
 |:------:|---------------------------|---------------------|
 | C      | Data is corrupt           | {a,b,c,d,e}_corrupt |
-| BMASK  | Mask (2^SIZE)/8 (strobea) | {a,b,c,d,e}_mask    |
+| BMASK  | Mask (2^SIZE)/8 (strobe)  | {a,b,c,d,e}_mask    |
 | HOSTID | Source ID                 | {a,b,c,d,e}_source  |
 
-The following table shows the mapping between TileLink and UMI transactions.
+The following table shows the mapping between TileLink and UMI transactions, with TL-UL and TL-UH TileLink support. TL-C conformance is left for future development. 
 
-| TileLink Message| UMI Transaction |CMD[21:28]|CMD[27:24]|
+| TileLink Message| UMI Transaction |CMD[21:28]|CMD[27:25]|
 |-----------------|-----------------|----------|----------|
-| Get             | REQ_RD          | 0b0000   |0b0000    |
-| AccessAckData   | RESP_WR         | 0b0000   |0b0000    |
-| PutFullData     | REQ_WR          | 0b0000   |0b000C    |
-| PutPartialData  | REQ_WR          | 0b0000   |0b000C    |
-| AccessAck       | RESP_WR         | 0b0000   |0b0000    |
-| ArithmaticData  | REQ_ATOMIC      | 0b0000   |0b0000    |
-| LogicalData     | REQ_ATOMIC      | 0b0000   |0b000C    |
-| Intent          | REQ_RD          | 0b0100   |0b0000    |
-| HintAck         | RESP_RD         | 0b0101   |0b0000    |
+| Get             | REQ_RD          | 0b0000   |0b000     |
+| AccessAckData   | RESP_WR         | 0b0000   |0b000     |
+| PutFullData     | REQ_WR          | 0b0000   |0bC00     |
+| PutPartialData  | REQ_WR          | 0b0000   |0bC00     |
+| AccessAck       | RESP_WR         | 0b0000   |0b000     |
+| ArithmaticData  | REQ_ATOMIC      | 0b0000   |0b000     |
+| LogicalData     | REQ_ATOMIC      | 0b0000   |0bC00     |
+| Intent          | REQ_RD          | 0b0100   |0b000     |
+| HintAck         | RESP_RD         | 0b0101   |0b000     |
 
-The TileLink has a single long n bit wide '_size' field, enabling 2^n to transfers per message. This is in contrast to UMI which has two fields a SIZE field to indicate word size and a LEN field to indicate the number of words to be transferred. The number of bytes transferred by a UMI transaction is (2^SIZE)*(LEN+1).
+The TileLink has a single long N bit wide 'size' field, enabling 2^N to transfers per message. This is in contrast to UMI which has two fields: a SIZE field to indicate word size and a LEN field to indicate the number of words to be transferred. The number of bytes transferred by a UMI transaction is (2^SIZE)*(LEN+1).
 
 The pseudo code below demonstrates one way of translating from the TileLink size and the UMI SIZE/LEN fields.
 
@@ -503,9 +511,9 @@ if (tilelink_size<8){
 ```
 The TileLink master id and masking signals are mapped to the UMI SA field as shown in the table below.
 
-| Field    |63:40   |39:32 | 31:24  |23:16 | 15:8 | 7:0  |
-|----------|:------:|:----:|:------:|:-----|------|------|
-| SA       |RESERVED|--    |--      | BMASK|BMASK |HOSTID|
+| SA       |63:56 |55:48|47:40|39:32|31:24 |23:16|15:8 |7:0  |
+|----------|:----:|:---:|:---:|:---:|:----:|:---:|:----|:---:|
+| 64b mode |R     | R   | R   | U   | U    | U   |BMASK|BMASK|
 
 The TileLink atomic operations encoded in the param field map to the UMI ATYPE field as follows.
 
@@ -532,16 +540,6 @@ AXI is a transaction based memory access protocol with five independent channels
 * Read request
 * Read data
 
-Terminology:
-
-* Hosts are called 'Managers' in AXI
-* Devices are called 'Subordinates' in AXI
-
-Constraints:
-
-* Data width is 8, 16, 32, 64, 128, 256, 512, or 1024 bits wide
-
-
 ### A.2.2 AXI4 <-> UMI Mapping
 
 Table showing mapping between the five AXI channels to UMI messages.
@@ -554,29 +552,51 @@ Table showing mapping between the five AXI channels to UMI messages.
 | Read request    | REQ_RD      |
 | Read data       | RESP_RD     |
 
-The AXI LEN, SIZE, ADDR, DATA, QOS, PROT fields map directly to equivalent UMI CMD fields.
+The AXI LEN, SIZE, ADDR, DATA, QOS, PROT[1:0], HOSTID, LOCK fields map directly to equivalent UMI CMD fields. See the tables below for mapping of other AXI signals to the SA fields:
 
-The AXI ID,REGION,and STRB signals map the source address, all other control signals map to the CMD field per the table below.
+ SA        |63:56 |55:48|47:40|39:32      |31:24 |23:16      |15:8|7:0 |
+|----------|:----:|:---:|:---:|:---------:|:----:|:---------:|:--:|:--:|
+| 64b mode |R     | R   | R   |HOSTID[7:4]|REGION|CACHE,BURST|STRB|STRB|
+| 32b mode |--    | --  | --  | --        |R     |CACHE,BURST|STRB|STRB|
 
-NOTES: 
-* PROT[2] is always set to 0.
-
-| Field    |31:27     |26:25     |
-|----------|:--------:|:--------:|
-| CMD      |CACHE[3:0]|BURST[1:0]|
-
-
-| Field    |63:40|39:32|31:24|23:16 |15:12  | 11:8 | 7:0  |
-|----------|:---:|:---:|:---:|:-----|-------|------|------|
-| SA-64    |R    |R    |STRB |STRB  |AXIUSER|REGION|HOSTID|
-| SA-32    |--   |--   |R    |STRB  |AXIUSER|REGION|HOSTID|
+Restrictions:
+ * PROT[2] is not supported.(set to 0)
+ * Data width limited to 128 bits
+ * HOSTID limited to 4 bits
+ * REGION only supported in 64bit mode
 
 ### A.3 AXI Stream
 
 ### A.3.1 AXI Stream Overview
 
+AXI-Stream is a point-to-point protocol, connecting a single Transmitter and a single Receiver.
+
 ### A.3.2 AXI Stream <-> UMI Mapping
 
+The mapping between AXI stream and UMI is shown int he following tables.
+
+| AXI             | SUMI signal|
+|-----------------|------------|
+| tvalid          | valid      | 
+| tready          | ready      | 
+| tdata           | DATA       |
+| tlast           | EOF        |
+| tid             | HOSTID     |
+| tuser           | SA         |
+| tkeep           | SA         |     
+| tstrb           | SA         |
+| twakeup         | SA
+
+ SA        |63:56 |55:48   |47:40|39:32|31:24 |23:16 |15:8 |7:0  |
+|----------|:----:|:------:|:---:|:---:|:----:|:----:|:---:|:---:|
+| 64b mode |U     |TWAKEUP |TUSER|TDEST|TKEEP |TKEEP |TSTRB|TSTRB|
+| 32b mode |--    | --     | --  | --  |TKEEP |TKEEP |TSTRB|TSTRB|
+
+Restrictions:
+ * Data width limited to 128 bits
+ * TID limited to 4 bits
+ * TDEST, TUSER, TWAKEUP only available in 64bit address mode.
+  
 ----
 ## References
 
