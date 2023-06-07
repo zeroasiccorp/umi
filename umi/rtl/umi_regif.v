@@ -53,6 +53,34 @@ module umi_regif
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   wire                 cmd_atomic;
+   wire                 cmd_atomic_add;
+   wire                 cmd_atomic_and;
+   wire                 cmd_atomic_max;
+   wire                 cmd_atomic_maxu;
+   wire                 cmd_atomic_min;
+   wire                 cmd_atomic_minu;
+   wire                 cmd_atomic_or;
+   wire                 cmd_atomic_swap;
+   wire                 cmd_atomic_xor;
+   wire                 cmd_error;
+   wire                 cmd_future0;
+   wire                 cmd_future0_resp;
+   wire                 cmd_future1_resp;
+   wire                 cmd_invalid;
+   wire                 cmd_link;
+   wire                 cmd_link_resp;
+   wire                 cmd_rdma;
+   wire                 cmd_read;
+   wire                 cmd_read_resp;
+   wire                 cmd_request;
+   wire                 cmd_response;
+   wire                 cmd_user0;
+   wire                 cmd_user0_resp;
+   wire                 cmd_user1_resp;
+   wire                 cmd_write;
+   wire                 cmd_write_posted;
+   wire                 cmd_write_resp;
    wire [CW-1:0]        packet_cmd;
    wire [7:0]           reg_atype;
    wire                 reg_eof;
@@ -66,8 +94,7 @@ module umi_regif
    // End of automatics
 
    wire [4:0]           cmd_opcode;
-   wire                 write;
-   wire                 write_posted;
+   wire                 cmd_resp;
 
    //########################
    // UMI INPUT
@@ -98,15 +125,49 @@ module umi_regif
               // Inputs
               .packet_cmd       (udev_req_cmd[CW-1:0])); // Templated
 
-   umi_write #(.CW(CW)) umi_write(.write        (write),
-                                  .write_posted (write_posted),
-                                  .command      (udev_req_cmd[7:0]));
+   /* umi_decode AUTO_TEMPLATE(
+    .command (udev_req_cmd[]),
+    );*/
+   umi_decode #(.CW(CW))
+   umi_decode(/*AUTOINST*/
+              // Outputs
+              .cmd_invalid      (cmd_invalid),
+              .cmd_request      (cmd_request),
+              .cmd_response     (cmd_response),
+              .cmd_read         (cmd_read),
+              .cmd_write        (cmd_write),
+              .cmd_write_posted (cmd_write_posted),
+              .cmd_rdma         (cmd_rdma),
+              .cmd_atomic       (cmd_atomic),
+              .cmd_user0        (cmd_user0),
+              .cmd_future0      (cmd_future0),
+              .cmd_error        (cmd_error),
+              .cmd_link         (cmd_link),
+              .cmd_read_resp    (cmd_read_resp),
+              .cmd_write_resp   (cmd_write_resp),
+              .cmd_user0_resp   (cmd_user0_resp),
+              .cmd_user1_resp   (cmd_user1_resp),
+              .cmd_future0_resp (cmd_future0_resp),
+              .cmd_future1_resp (cmd_future1_resp),
+              .cmd_link_resp    (cmd_link_resp),
+              .cmd_atomic_add   (cmd_atomic_add),
+              .cmd_atomic_and   (cmd_atomic_and),
+              .cmd_atomic_or    (cmd_atomic_or),
+              .cmd_atomic_xor   (cmd_atomic_xor),
+              .cmd_atomic_max   (cmd_atomic_max),
+              .cmd_atomic_min   (cmd_atomic_min),
+              .cmd_atomic_maxu  (cmd_atomic_maxu),
+              .cmd_atomic_minu  (cmd_atomic_minu),
+              .cmd_atomic_swap  (cmd_atomic_swap),
+              // Inputs
+              .command          (udev_req_cmd[CW-1:0])); // Templated
 
    assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
 
    // TODO - implement atomic
-   assign reg_read  = ~(write | write_posted) & udev_req_valid & group_match;
-   assign reg_write =  (write | write_posted) & udev_req_valid & group_match;
+   assign reg_read  = cmd_read & udev_req_valid & udev_req_ready & group_match;
+   assign reg_write = (cmd_write | cmd_write_posted) & udev_req_valid & udev_req_ready & group_match;
+   assign reg_resp  = (cmd_read | cmd_write) & udev_req_valid & udev_req_ready & group_match;
 
    // single cycle stall on every ready
    // Amir - BUG - there is no garantee that in the next cycle after the
@@ -138,7 +199,7 @@ module umi_regif
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if ((reg_read | reg_write) & udev_req_ready)
+     else if (reg_resp & udev_req_ready)
        udev_resp_valid <= 1'b1;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
@@ -149,7 +210,7 @@ module umi_regif
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_dstaddr[AW-1:0] <= {AW{1'b0}};
-     else if ((reg_read | reg_write) & udev_req_ready)
+     else if (reg_resp & udev_req_ready)
        udev_resp_dstaddr[AW-1:0] <= udev_req_srcaddr[AW-1:0];
 
    assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
