@@ -56,14 +56,12 @@ module umi_decode #(parameter CW = 32)
    assign cmd_invalid          = (command[7:0]==UMI_INVALID);
 
    // request/response/link
-   assign cmd_request          = ~command[0] & ~cmd_invalid;
-   assign cmd_response         =  command[0] & ~cmd_invalid;
+   assign cmd_request          =  command[0] & ~cmd_invalid;
+   assign cmd_response         = ~command[0] & ~cmd_invalid;
 
    // requests
    assign cmd_read             = (command[3:0]==UMI_REQ_READ[3:0]);
-   assign cmd_write            = (command[3:0]==UMI_REQ_WRITE[3:0]) |
-                                 (command[3:0]==UMI_REQ_POSTED[3:0]);
-
+   assign cmd_write            = (command[3:0]==UMI_REQ_WRITE[3:0]);
    assign cmd_write_posted     = (command[3:0]==UMI_REQ_POSTED[3:0]);
    assign cmd_rdma             = (command[3:0]==UMI_REQ_RDMA[3:0]);
    assign cmd_atomic           = (command[3:0]==UMI_REQ_ATOMIC[3:0]);
