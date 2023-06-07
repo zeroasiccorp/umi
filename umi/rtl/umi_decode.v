@@ -16,7 +16,6 @@ module umi_decode #(parameter CW = 32)
     // request/response/link
     output         cmd_request,
     output         cmd_response,
-    output         cmd_link,
 
     // requests
     output         cmd_read,
@@ -82,14 +81,14 @@ module umi_decode #(parameter CW = 32)
    assign cmd_link_resp    = (command[3:0]==UMI_RESP_LINK[7:0]);
 
    // read modify writes
-   assign cmd_atomic_add  = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICADD);
-   assign cmd_atomic_and  = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICAND);
-   assign cmd_atomic_or   = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICOR);
-   assign cmd_atomic_xor  = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICXOR);
-   assign cmd_atomic_max  = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICMAX);
-   assign cmd_atomic_min  = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICMIN);
-   assign cmd_atomic_maxu = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICMAXU);
-   assign cmd_atomic_minu = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICMINU);
-   assign cmd_atomic_swap = cmd_atomic & (packet_cmd[15:8]==UMI_REQ_ATOMICSWAP);
+   assign cmd_atomic_add  = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICADD);
+   assign cmd_atomic_and  = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICAND);
+   assign cmd_atomic_or   = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICOR);
+   assign cmd_atomic_xor  = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICXOR);
+   assign cmd_atomic_max  = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICMAX);
+   assign cmd_atomic_min  = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICMIN);
+   assign cmd_atomic_maxu = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICMAXU);
+   assign cmd_atomic_minu = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICMINU);
+   assign cmd_atomic_swap = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICSWAP);
 
 endmodule // umi_decode
