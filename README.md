@@ -499,17 +499,17 @@ This section outlines the recommended mapping between UMI transaction and the Ti
 
 The following table shows the mapping between TileLink and UMI transactions, with TL-UL and TL-UH TileLink support. TL-C conformance is left for future development. 
 
-| TileLink Message| UMI Transaction |CMD[21:28]|CMD[27:25]|
-|-----------------|-----------------|----------|----------|
-| Get             | REQ_RD          | 0b0000   |0b000     |
-| AccessAckData   | RESP_WR         | 0b0000   |0b000     |
-| PutFullData     | REQ_WR          | 0b0000   |0bC00     |
-| PutPartialData  | REQ_WR          | 0b0000   |0bC00     |
-| AccessAck       | RESP_WR         | 0b0000   |0b000     |
-| ArithmaticData  | REQ_ATOMIC      | 0b0000   |0b000     |
-| LogicalData     | REQ_ATOMIC      | 0b0000   |0bC00     |
-| Intent          | REQ_RD          | 0b0100   |0b000     |
-| HintAck         | RESP_RD         | 0b0101   |0b000     |
+| TileLink Message| UMI Transaction |CMD[26:25]|
+|-----------------|-----------------|----------|
+| Get             | REQ_RD          | 0b00     |
+| AccessAckData   | RESP_WR         | --       |
+| PutFullData     | REQ_WR          | 0bC0     |
+| PutPartialData  | REQ_WR          | 0bC0     |
+| AccessAck       | RESP_WR         | --       |
+| ArithmaticData  | REQ_ATOMIC      | 0b00     |
+| LogicalData     | REQ_ATOMIC      | 0bC0     |
+| Intent          | REQ_USER0       | 0b00     |
+| HintAck         | RESP_USER0      | --       |
 
 The TileLink has a single long N bit wide 'size' field, enabling 2^N to transfers per message. This is in contrast to UMI which has two fields: a SIZE field to indicate word size and a LEN field to indicate the number of words to be transferred. The number of bytes transferred by a UMI transaction is (2^SIZE)*(LEN+1).
 
