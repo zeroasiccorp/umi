@@ -37,13 +37,14 @@ module umi_unpack
     output         cmd_ex,
     output [22:0]  cmd_user,
     output [1:0]   cmd_err,
-    output [4:0]   cmd_hostid,
+    output [4:0]   cmd_hostid
     );
 
 `include "umi_messages.vh"
 
    // data field unpacker
    wire cmd_request;
+   wire cmd_response;
    wire cmd_error;
    wire cmd_link;
    wire cmd_link_resp;
@@ -51,6 +52,7 @@ module umi_unpack
    /*umi_decode AUTO_TEMPLATE(
     .cmd_error      (cmd_error[]),
     .cmd_request    (cmd_request[]),
+    .cmd_response   (cmd_response[]),
     .cmd_link\(.*\) (cmd_link\1[]),
     .command        (packet_cmd[]),
     .cmd_.*         (),
@@ -61,7 +63,7 @@ module umi_unpack
               // Outputs
               .cmd_invalid      (),                      // Templated
               .cmd_request      (cmd_request),           // Templated
-              .cmd_response     (),                      // Templated
+              .cmd_response     (cmd_response),          // Templated
               .cmd_read         (),                      // Templated
               .cmd_write        (),                      // Templated
               .cmd_write_posted (),                      // Templated
