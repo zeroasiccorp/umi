@@ -27,26 +27,30 @@ module umi_unpack
     input [CW-1:0] packet_cmd,
 
     // output fields
+    output [4:0]   cmd_opcode,
     output [2:0]   cmd_size,
     output [7:0]   cmd_len,
-    output [1:0]   cmd_prot,
     output [3:0]   cmd_qos,
+    output [1:0]   cmd_prot,
     output         cmd_eom,
     output         cmd_eof,
+    output         cmd_ex,
     output [22:0]  cmd_user,
-    output [7:0]   cmd_err,
-    output         cmd_ex
+    output [1:0]   cmd_err,
+    output [4:0]   cmd_hostid,
     );
 
 `include "umi_messages.vh"
 
    // data field unpacker
+   wire cmd_request;
    wire cmd_error;
    wire cmd_link;
    wire cmd_link_resp;
 
    /*umi_decode AUTO_TEMPLATE(
     .cmd_error      (cmd_error[]),
+    .cmd_request    (cmd_request[]),
     .cmd_link\(.*\) (cmd_link\1[]),
     .command        (packet_cmd[]),
     .cmd_.*         (),
@@ -56,9 +60,8 @@ module umi_unpack
    umi_decode(/*AUTOINST*/
               // Outputs
               .cmd_invalid      (),                      // Templated
-              .cmd_request      (),                      // Templated
+              .cmd_request      (cmd_request),           // Templated
               .cmd_response     (),                      // Templated
-              .cmd_link         (cmd_link),              // Templated
               .cmd_read         (),                      // Templated
               .cmd_write        (),                      // Templated
               .cmd_write_posted (),                      // Templated
@@ -67,6 +70,7 @@ module umi_unpack
               .cmd_user0        (),                      // Templated
               .cmd_future0      (),                      // Templated
               .cmd_error        (cmd_error),             // Templated
+              .cmd_link         (cmd_link),              // Templated
               .cmd_read_resp    (),                      // Templated
               .cmd_write_resp   (),                      // Templated
               .cmd_user0_resp   (),                      // Templated
@@ -89,17 +93,24 @@ module umi_unpack
    generate
       if(CW==32) begin : decode32
          // Command fiels - TODO: should we qualify these with the command type?
-         assign cmd_size[2:0]  = packet_cmd[7:5];  // Ignore for error and link
-         assign cmd_len        = packet_cmd[15:8]; // Ignore for Atomic, error and link
-         assign cmd_prot[1:0]  = packet_cmd[17:16];// Ignore for link
-         assign cmd_qos[3:0]   = packet_cmd[21:18];// Ignore for link
-         assign cmd_eom        = packet_cmd[22];
-         assign cmd_eof        = packet_cmd[23];   // Ignore for error and responses
-         assign cmd_ex         = packet_cmd[24];   // Ignore for error and responses
-         assign cmd_user[22:0] = (cmd_link | cmd_link_resp) ? {packet_cmd[31:25],packet_cmd[23:8]} :
-                                 cmd_error                  ? {8'h00,packet_cmd[31:25],packet_cmd[15:8]} :
-                                                              {16'h0000,packet_cmd[31:25]};
-         assign cmd_err[7:0]   = packet_cmd[23:22];// Only for error and responses
+         assign cmd_opcode[4:0] = packet_cmd[4:0];
+         assign cmd_size[2:0]   = packet_cmd[7:5];  // Ignore for error and link
+         assign cmd_len         = packet_cmd[15:8]; // Ignore for Atomic, error and link
+         assign cmd_qos[3:0]    = packet_cmd[19:16];// Ignore for link
+         assign cmd_prot[1:0]   = packet_cmd[21:20];// Ignore for link
+         assign cmd_eom         = packet_cmd[22];
+         assign cmd_eof         = packet_cmd[23];   // Ignore for error and responses
+         assign cmd_ex          = packet_cmd[24];   // Ignore for error and responses
+         assign cmd_hostid      = packet_cmd[31:27];
+
+         assign cmd_user[18:0]  = cmd_link      ? packet_cmd[26:8]                           :
+                                  cmd_link_resp ? {2'h0,packet_cmd[24:8]}                    :
+                                  cmd_error     ? {8'h00,packet_cmd[24:22],packet_cmd[15:8]} :
+                                  cmd_request   ? {17'h0_0000,packet_cmd[26:25]}             :
+                                                  19'h0_0000                                 ;
+
+         assign cmd_err[1:0]    = (cmd_response | cmd_error) ? packet_cmd[26:25] :
+                                                               2'h0;
       end
    endgenerate
 
