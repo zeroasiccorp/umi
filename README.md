@@ -195,7 +195,17 @@ The EOM bit is reserved for UMI signal layer and is used to track the transfer o
 
 The EOF bit can be used to indicate the last message in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific. 
 
-### 3.3.8 Error Code (ERR[1:0])
+### 3.3.8 Exclusive Access (EX)
+
+The EX field is used to indicate exclusive access to an address. The function is used to enable atomic load-store exchanges. The sequence of operation:
+
+1. Host sends a REQ_RD to address A (with EX=1) with HOSTID B
+2. Host sends a REQ_WR to address A (with EX=1) With HOSTID B
+3. Device:
+   1. If address B has NOT been modified by another host since last exclusive read, device writes to address A and returns a ERR = 0b01 in RESP_WR to host.
+   2. If address B has been modified by another host since last exclusive read, device returns a ERR = 0b00 in RESP_WR to host.
+
+### 3.3.9 Error Code (ERR[1:0])
 
 The ERR field indicates the error status of a response (RESP_WR, RESP_RD) transaction.
 
@@ -214,6 +224,7 @@ DEVERR trigger examples:
 * Access attempt to disabled function
 
 NETERR trigger examples:
+
 * Device address unreachable
 
 ### 3.3.9 Atomic Transaction Type (ATYPE[7:0])
@@ -232,11 +243,15 @@ The ATYPE field indicates the type of the atomic transaction.
 | 0x07     | Atomic minu |
 | 0x08     | Atomic swap |
 
-### 3.3.10 User Field (U)
+### 3.3.10 Host ID (HOSTID[3:0])
+
+The HOSTID field indicates the ID of the host making a transaction request. All transactions with the same ID value must remain in order.
+
+### 3.3.11 User Field (U)
 
 Message bit designated with a U are available for use by application and signal layer implementations. Any undefined user bits shall be set to zero.  
 
-### 3.3.11 Reserved Field (R)
+### 3.3.12 Reserved Field (R)
 
 Message bit designated with an R are  reserved for future UMI enhancements and shall be set to zero.
 
@@ -455,7 +470,7 @@ The address(RD)refers to the ID or source address associated with the RD registe
 
 ### A.2.1 TileLink Overview
 
-TileLink is a chip-scale interconnect standard providing multiple masters (host) with coherent memory-mapped access to memory and other slave (device) devices.
+TileLink [[REF 1](#references)] is a chip-scale interconnect standard providing multiple masters (host) with coherent memory-mapped access to memory and other slave (device) devices.
 
 Summary:
 
@@ -554,10 +569,10 @@ Table showing mapping between the five AXI channels to UMI messages.
 
 The AXI LEN, SIZE, ADDR, DATA, QOS, PROT[1:0], HOSTID, LOCK fields map directly to equivalent UMI CMD fields. See the tables below for mapping of other AXI signals to the SA fields:
 
- SA        |63:56 |55:48|47:40|39:32      |31:24 |23:16      |15:8|7:0 |
-|----------|:----:|:---:|:---:|:---------:|:----:|:---------:|:--:|:--:|
-| 64b mode |R     | R   | R   |HOSTID[7:4]|REGION|CACHE,BURST|STRB|STRB|
-| 32b mode |--    | --  | --  | --        |R     |CACHE,BURST|STRB|STRB|
+ SA        |63:56 |55:48|47:40|39:32 |31:24   |23:16        |15:8|7:0 |
+|----------|:----:|:---:|:---:|:----:|:------:|:-----------:|:--:|:--:|
+| 64b mode |R     | R   | R   |U     |U,REGION|U,CACHE,BURST|STRB|STRB|
+| 32b mode |--    | --  | --  | --   |R       |U,CACHE,BURST|STRB|STRB|
 
 Restrictions:
  * PROT[2] is not supported.(set to 0)
@@ -587,10 +602,10 @@ The mapping between AXI stream and UMI is shown int he following tables.
 | tstrb           | SA         |
 | twakeup         | SA
 
- SA        |63:56 |55:48   |47:40|39:32|31:24 |23:16 |15:8 |7:0  |
-|----------|:----:|:------:|:---:|:---:|:----:|:----:|:---:|:---:|
-| 64b mode |U     |TWAKEUP |TUSER|TDEST|TKEEP |TKEEP |TSTRB|TSTRB|
-| 32b mode |--    | --     | --  | --  |TKEEP |TKEEP |TSTRB|TSTRB|
+ SA        |63:56 |55:48    |47:40|39:32|31:24 |23:16 |15:8 |7:0  |
+|----------|:----:|:-------:|:---:|:---:|:----:|:----:|:---:|:---:|
+| 64b mode |U     |U,TWAKEUP|TUSER|TDEST|TKEEP |TKEEP |TSTRB|TSTRB|
+| 32b mode |--    | --      | --  | --  |TKEEP |TKEEP |TSTRB|TSTRB|
 
 Restrictions:
  * Data width limited to 128 bits
@@ -600,6 +615,14 @@ Restrictions:
 ----
 ## References
 
-[1] [AMBA AXI Protocol Specification (2023/Mar/01 J)](https://www.arm.com/architecture/system-architectures/amba/amba-specifications)
+[1] [TileLink Specification (version 1.7)](https://static.dev.sifive.com/docs/tilelink/tilelink-spec-1.7-draft.pdf)
 
-[2] [TileLink Specification (version 1.7)](https://static.dev.sifive.com/docs/tilelink/tilelink-spec-1.7-draft.pdf)
+[2] [AMBA4 AXI Protocol Specification (22 February 2013, Version E)](https://developer.arm.com/documentation/ihi0022/e)
+
+[3] [AMBA4 AXI Stream Protocol Specification (09 April 2021, Version A)](https://developer.arm.com/documentation/ihi0051/a)
+
+[4] [AMBA4 APB Protocol Specification (13 April 2010, Version C)](https://developer.arm.com/documentation/ihi0024/c)
+
+
+
+
