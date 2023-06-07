@@ -34,15 +34,56 @@ module umi_endpoint
     output [AW-1:0] loc_addr,    // memory address
     output          loc_write,   // write enable
     output          loc_read,    // read request
-    output [7:0]    loc_cmd,     // pass through command
-    output [3:0]    loc_size,    // pass through command
-    output [19:0]   loc_options, // pass through command
+    output [7:0]    loc_opcode,  // opcode
+    output [2:0]    loc_size,    // size
+    output [7:0]    loc_len,     // len
     output [DW-1:0] loc_wrdata,  // data to write
     input [DW-1:0]  loc_rddata,  // data response
     input           loc_ready    // device is ready
     );
 
 `include "umi_messages.vh"
+
+   /*AUTOWIRE*/
+   // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   wire                 cmd_atomic;
+   wire                 cmd_atomic_add;
+   wire                 cmd_atomic_and;
+   wire                 cmd_atomic_max;
+   wire                 cmd_atomic_maxu;
+   wire                 cmd_atomic_min;
+   wire                 cmd_atomic_minu;
+   wire                 cmd_atomic_or;
+   wire                 cmd_atomic_swap;
+   wire                 cmd_atomic_xor;
+   wire                 cmd_error;
+   wire                 cmd_future0;
+   wire                 cmd_future0_resp;
+   wire                 cmd_future1_resp;
+   wire                 cmd_invalid;
+   wire                 cmd_link;
+   wire                 cmd_link_resp;
+   wire                 cmd_rdma;
+   wire                 cmd_read;
+   wire                 cmd_read_resp;
+   wire                 cmd_request;
+   wire                 cmd_response;
+   wire                 cmd_user0;
+   wire                 cmd_user0_resp;
+   wire                 cmd_user1_resp;
+   wire                 cmd_write;
+   wire                 cmd_write_posted;
+   wire                 cmd_write_resp;
+   wire [7:0]           loc_atype;
+   wire                 loc_eof;
+   wire                 loc_eom;
+   wire [1:0]           loc_err;
+   wire                 loc_ex;
+   wire [4:0]           loc_hostid;
+   wire [1:0]           loc_prot;
+   wire [3:0]           loc_qos;
+   wire [22:0]          loc_user;
+   // End of automatics
 
    // local regs
    reg [3:0] 		size_out;
@@ -52,41 +93,82 @@ module umi_endpoint
    reg [DW-1:0]         data_out;
 
    // local wires
-   wire [AW-1:0]        loc_srcaddr;
    wire [DW-1:0]        data_mux;
-   wire                 write;
+   wire                 loc_read;
+   wire                 loc_write;
+   wire                 loc_resp;
 
    //########################
    // UMI UNPACK
    //########################
    assign loc_addr[AW-1:0]    = udev_req_dstaddr[AW-1:0];
-   assign loc_srcaddr[AW-1:0] = udev_req_srcaddr[AW-1:0];
    assign loc_wrdata[DW-1:0]  = udev_req_data[DW-1:0];
 
    /* umi_unpack AUTO_TEMPLATE(
-    .command         (loc_cmd[]),
-    .dstaddr         (loc_addr[]),
-    .data            (loc_wrdata[]),
     .packet_\(.*\)   (udev_req_\1[]),
-    .\(.*\)          (loc_\1[]),
+    .cmd_\(.*\)      (loc_\1[]),
     );
     */
 
-   umi_unpack #(.DW(DW),
-                .CW(CW),
-		.AW(AW))
+   umi_unpack #(.CW(CW))
    umi_unpack(/*AUTOINST*/
               // Outputs
-              .command          (loc_cmd[7:0]),          // Templated
-              .size             (loc_size[3:0]),         // Templated
-              .options          (loc_options[19:0]),     // Templated
+              .cmd_opcode       (loc_opcode[4:0]),       // Templated
+              .cmd_size         (loc_size[2:0]),         // Templated
+              .cmd_len          (loc_len[7:0]),          // Templated
+              .cmd_atype        (loc_atype[7:0]),        // Templated
+              .cmd_qos          (loc_qos[3:0]),          // Templated
+              .cmd_prot         (loc_prot[1:0]),         // Templated
+              .cmd_eom          (loc_eom),               // Templated
+              .cmd_eof          (loc_eof),               // Templated
+              .cmd_ex           (loc_ex),                // Templated
+              .cmd_user         (loc_user[22:0]),        // Templated
+              .cmd_err          (loc_err[1:0]),          // Templated
+              .cmd_hostid       (loc_hostid[4:0]),       // Templated
               // Inputs
               .packet_cmd       (udev_req_cmd[CW-1:0])); // Templated
 
-   umi_write umi_write(.write (write), .command	(loc_cmd[7:0]));
+   /* umi_decode AUTO_TEMPLATE(
+    .command (udev_req_cmd[]),
+    );*/
+   umi_decode #(.CW(CW))
+   umi_decode(/*AUTOINST*/
+              // Outputs
+              .cmd_invalid      (cmd_invalid),
+              .cmd_request      (cmd_request),
+              .cmd_response     (cmd_response),
+              .cmd_read         (cmd_read),
+              .cmd_write        (cmd_write),
+              .cmd_write_posted (cmd_write_posted),
+              .cmd_rdma         (cmd_rdma),
+              .cmd_atomic       (cmd_atomic),
+              .cmd_user0        (cmd_user0),
+              .cmd_future0      (cmd_future0),
+              .cmd_error        (cmd_error),
+              .cmd_link         (cmd_link),
+              .cmd_read_resp    (cmd_read_resp),
+              .cmd_write_resp   (cmd_write_resp),
+              .cmd_user0_resp   (cmd_user0_resp),
+              .cmd_user1_resp   (cmd_user1_resp),
+              .cmd_future0_resp (cmd_future0_resp),
+              .cmd_future1_resp (cmd_future1_resp),
+              .cmd_link_resp    (cmd_link_resp),
+              .cmd_atomic_add   (cmd_atomic_add),
+              .cmd_atomic_and   (cmd_atomic_and),
+              .cmd_atomic_or    (cmd_atomic_or),
+              .cmd_atomic_xor   (cmd_atomic_xor),
+              .cmd_atomic_max   (cmd_atomic_max),
+              .cmd_atomic_min   (cmd_atomic_min),
+              .cmd_atomic_maxu  (cmd_atomic_maxu),
+              .cmd_atomic_minu  (cmd_atomic_minu),
+              .cmd_atomic_swap  (cmd_atomic_swap),
+              // Inputs
+              .command          (udev_req_cmd[CW-1:0])); // Templated
 
-   assign loc_read  = ~write & udev_req_valid;
-   assign loc_write =  write & udev_req_valid;
+   // TODO - implement atomic
+   assign loc_read  = cmd_read & udev_req_valid & loc_ready;
+   assign loc_write = (cmd_write | cmd_write_posted) & udev_req_valid & loc_ready;
+   assign loc_resp  = (cmd_read | cmd_write) & udev_req_valid & loc_ready;
 
    //############################
    //# Outgoing Transaction
@@ -98,13 +180,15 @@ module umi_endpoint
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if (loc_read)
+     else if (loc_read | write)
        udev_resp_valid <= loc_ready;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
 
    // Propagating wait signal
-   assign udev_req_ready = loc_ready & udev_resp_ready;
+   // Amir - bug fix - request ready should not be gated by response ready
+//   assign udev_req_ready = loc_ready & udev_resp_ready;
+   assign udev_req_ready = loc_ready;
 
    //#############################
    //# Pipeline Packet
@@ -114,7 +198,7 @@ module umi_endpoint
      if(loc_read)
        begin
 	  data_out[DW-1:0]    <= loc_rddata[DW-1:0];
-	  dstaddr_out[AW-1:0] <= loc_srcaddr[AW-1:0];
+	  dstaddr_out[AW-1:0] <= udev_req_srcaddr[AW-1:0];
 	  srcaddr_out[AW-1:0] <= loc_addr[AW-1:0];
 	  size_out[3:0]       <= loc_size[3:0];
 	  options_out[19:0]   <= loc_options[19:0];
@@ -134,17 +218,23 @@ module umi_endpoint
     */
 
    // pack up the packet
-   umi_pack #(.DW(DW),
-              .CW(CW),
-	      .AW(AW))
+   umi_pack #(.CW(CW))
    umi_pack(/*AUTOINST*/
             // Outputs
             .packet_cmd         (udev_resp_cmd[CW-1:0]), // Templated
             // Inputs
-            .command            (UMI_RESP_WRITE),        // Templated
-            .size               (size_out[3:0]),         // Templated
-            .options            (options_out[19:0]),     // Templated
-            .burst              (1'b0));                 // Templated
+            .cmd_opcode         (cmd_opcode_out[4:0]),   // Templated
+            .cmd_size           (cmd_size_out[2:0]),     // Templated
+            .cmd_len            (cmd_len_out[7:0]),      // Templated
+            .cmd_atype          (cmd_atype_out[7:0]),    // Templated
+            .cmd_prot           (cmd_prot_out[1:0]),     // Templated
+            .cmd_qos            (cmd_qos_out[3:0]),      // Templated
+            .cmd_eom            (cmd_eom_out),           // Templated
+            .cmd_eof            (cmd_eof_out),           // Templated
+            .cmd_user           (cmd_user_out[18:0]),    // Templated
+            .cmd_err            (cmd_err_out[1:0]),      // Templated
+            .cmd_ex             (cmd_ex_out),            // Templated
+            .cmd_hostid         (cmd_hostid_out[4:0]));  // Templated
 
    assign udev_resp_dstaddr[AW-1:0] = dstaddr_out[AW-1:0];
    assign udev_resp_srcaddr[AW-1:0] = srcaddr_out[AW-1:0];
