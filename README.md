@@ -149,7 +149,7 @@ The source address (SA) field is used for routing information and [UMI signal la
 | SA       |63:56 |55:48|47:40|39:32|31:24 |23:16|15:8|7:0  |
 |----------|:----:|:---:|:---:|:---:|:----:|:---:|:---|:---:|
 | 64b mode |R     | R   | R   | U   | U    | U   |U   |U    |
-| 32b mode | --   | --  | --  | --  | R    | R   |U   |U    |
+| 32b mode | --   | --  | --  | --  | R    | U   |U   |U    |
 
 ### 3.3.2 Transaction Word Size (SIZE[2:0])
 
