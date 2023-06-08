@@ -77,7 +77,6 @@ Devices:
 Constraints:
 * Device and source addresses must be aligned the native word size.
 * The maximum data field size is 32,768 bytes.
-* Transactions must not cross 4KB address boundaries
 * All data bytes must be arrive at final destination.
 * Message content arrive at a device in the same order that they left the host.
 * Message content arrive at the host in the same order that they left the device.
@@ -122,7 +121,7 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 
 |Message     |DATA|SA|DA|31:27 |26:25|24:22     |21:20|19:16|15:8 |7:5 |4:0  |
 |------------|:--:|--|--|:----:|:---:|:--------:|:---:|-----|-----|----|-----|
-|INVALID     |    |Y |Y |--    |--   |--        |--   |--   |--   |0x0 |0,0x0|
+|INVALID     |    |  |  |--    |--   |--        |--   |--   |--   |0x0 |0,0x0|
 |REQ_RD      |    |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x1|
 |REQ_WR      |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x3|
 |REQ_WRPOSTED|Y   |Y |Y |HOSTID|U    |0 ,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x5|
@@ -130,21 +129,22 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |REQ_ATOMIC  |Y   |Y |Y |HOSTID|U    |0 ,EOF,EOM|PROT |QOS  |ATYPE|SIZE|R,0x9|
 |REQ_USER0   |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xB|
 |REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
-|REQ_ERROR   |    |Y |Y |HOSTID|ERR  |U         |PROT |QOS  |U    |0x0 |R,0xF|
+|REQ_ERROR   |    |  |Y |HOSTID|ERR  |U         |PROT |QOS  |U    |0x0 |R,0xF|
 |REQ_LINK    |    |  |  |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
-|RESP_READ   |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
-|RESP_WR     |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
-|RESP_USER0  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
-|RESP_USER1  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
-|RESP_FUTURE0|    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
-|RESP_FUTURE1|    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
+|RESP_READ   |Y   |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
+|RESP_WR     |    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
+|RESP_USER0  |    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
+|RESP_USER1  |    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
+|RESP_FUTURE0|    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
+|RESP_FUTURE1|    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
 |RESP_LINK   |    |  |  |HOSTID|ERR  |U         |U    |U    |U    |0x0 |R,0xE|
 
 ### 3.3 Message Fields
 
-### 3.3.1 Source Address (SA[63:0])
 
-The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The table below shows the 
+### 3.3.1 Source Address and Destination Address (SA[63:0], DA[63:0])
+
+The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The destination address (DA) field is used for request routing and as the address for accessing the device. The table below shows the bit mapping for SA and DA.
 
 | SA       |63:56 |55:48|47:40|39:32|31:24 |23:16|15:8|7:0  |
 |----------|:----:|:---:|:---:|:---:|:----:|:---:|:---|:---:|
@@ -202,8 +202,8 @@ The EX field is used to indicate exclusive access to an address. The function is
 1. Host sends a REQ_RD to address A (with EX=1) with HOSTID B
 2. Host sends a REQ_WR to address A (with EX=1) With HOSTID B
 3. Device:
-   1. If address B has NOT been modified by another host since last exclusive read, device writes to address A and returns a ERR = 0b01 in RESP_WR to host.
-   2. If address B has been modified by another host since last exclusive read, device returns a ERR = 0b00 in RESP_WR to host.
+   1. If address A has NOT been modified by another host since last exclusive read, device writes to address A and returns a ERR = 0b01 in RESP_WR to host.
+   2. If address A has been modified by another host since last exclusive read, device returns a ERR = 0b00 in RESP_WR to host and does not write to address A.
 
 ### 3.3.9 Error Code (ERR[1:0])
 
@@ -243,7 +243,7 @@ The ATYPE field indicates the type of the atomic transaction.
 | 0x07     | Atomic minu |
 | 0x08     | Atomic swap |
 
-### 3.3.10 Host ID (HOSTID[3:0])
+### 3.3.10 Host ID (HOSTID[4:0])
 
 The HOSTID field indicates the ID of the host making a transaction request. All transactions with the same ID value must remain in order.
 
@@ -271,7 +271,7 @@ REQ_WR writes (2^SIZE)*(LEN+1) bytes to destination address(DA). The device then
 
 ### 3.4.4 REQ_WRPOSTED
 
-REQ_WRPOSTED performs a unidirectional posted-write of (2^SIZE)*(LEN+1) bytes to destination address(DA). There is no response message sent by the device back to the host.
+REQ_WRPOSTED performs a unidirectional posted-write of (2^SIZE)*(LEN+1) bytes to destination address(DA). If the destination address and messsage are valid, the REQ_WRPOSTED message is guaranteed to complete, otherwise it may fail silently. There is no response message sent by the device back to the host.
 
 ### 3.4.5 REQ_RDMA
 
@@ -555,9 +555,22 @@ AXI is a transaction based memory access protocol with five independent channels
 * Read request
 * Read data
 
+Constraints:
+
+* AXI transactions must not cross 4,096 Byte address boundaries
+* The maximum transaction size is 4,096 Bytes
+
 ### A.2.2 AXI4 <-> UMI Mapping
 
-Table showing mapping between the five AXI channels to UMI messages.
+The table below maps AXI terminology to UMI terminology.
+
+| AXI             | UMI         |
+|-----------------|-------------|
+| Manager         | Host        | 
+| Subordinate     | Device      | 
+| Transaction     | Transaction |
+
+The table below shows the mapping between the five AXI channels and UMI messages.
 
 | AXI Channel     | UMI Message |
 |-----------------|-------------|
