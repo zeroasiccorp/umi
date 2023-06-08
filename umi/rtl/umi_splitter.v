@@ -40,32 +40,58 @@ module umi_splitter
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [7:0]           command;
-   wire [19:0]          options;
-   wire [3:0]           size;
+   wire                 cmd_request;
+   wire                 cmd_response;
    // End of automatics
 
    //########################
    // UNPACK INPUT
    //########################
 
-   /* umi_unpack AUTO_TEMPLATE(
-    .packet_\(.*\) (umi_in_\1[]),
+   wire [4:0]           cmd_opcode;
+   /* umi_decode AUTO_TEMPLATE(
+    .cmd_request  (cmd_request[]),
+    .cmd_response (cmd_response[]),
+    .command      (umi_in_cmd[]),
+    ..*           (),
     );*/
-   umi_unpack #(.DW(DW),
-		.CW(CW),
-		.AW(AW))
-   umi_unpack(/*AUTOINST*/
+   umi_decode #(.CW(CW))
+   umi_decode(/*AUTOINST*/
               // Outputs
-              .command          (command[7:0]),
-              .size             (size[3:0]),
-              .options          (options[19:0]),
+              .cmd_invalid      (),                      // Templated
+              .cmd_request      (cmd_request),           // Templated
+              .cmd_response     (cmd_response),          // Templated
+              .cmd_read         (),                      // Templated
+              .cmd_write        (),                      // Templated
+              .cmd_write_posted (),                      // Templated
+              .cmd_rdma         (),                      // Templated
+              .cmd_atomic       (),                      // Templated
+              .cmd_user0        (),                      // Templated
+              .cmd_future0      (),                      // Templated
+              .cmd_error        (),                      // Templated
+              .cmd_link         (),                      // Templated
+              .cmd_read_resp    (),                      // Templated
+              .cmd_write_resp   (),                      // Templated
+              .cmd_user0_resp   (),                      // Templated
+              .cmd_user1_resp   (),                      // Templated
+              .cmd_future0_resp (),                      // Templated
+              .cmd_future1_resp (),                      // Templated
+              .cmd_link_resp    (),                      // Templated
+              .cmd_atomic_add   (),                      // Templated
+              .cmd_atomic_and   (),                      // Templated
+              .cmd_atomic_or    (),                      // Templated
+              .cmd_atomic_xor   (),                      // Templated
+              .cmd_atomic_max   (),                      // Templated
+              .cmd_atomic_min   (),                      // Templated
+              .cmd_atomic_maxu  (),                      // Templated
+              .cmd_atomic_minu  (),                      // Templated
+              .cmd_atomic_swap  (),                      // Templated
               // Inputs
-              .packet_cmd       (umi_in_cmd[CW-1:0]));   // Templated
+              .command          (umi_in_cmd[CW-1:0]));   // Templated
 
    // Detect Packet type (request or response)
-   assign umi_resp_out_valid = umi_in_valid & command[0];
-   assign umi_req_out_valid  = umi_in_valid & ~command[0];
+   assign umi_resp_out_valid = umi_in_valid & cmd_response;
+   assign umi_req_out_valid  = umi_in_valid & cmd_request;
 
    // Broadcasting packet
    assign umi_resp_out_cmd[CW-1:0]     = umi_in_cmd[CW-1:0];
