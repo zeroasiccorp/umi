@@ -129,7 +129,7 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |REQ_ATOMIC  |Y   |Y |Y |HOSTID|U    |0 ,EOF,EOM|PROT |QOS  |ATYPE|SIZE|R,0x9|
 |REQ_USER0   |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xB|
 |REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
-|REQ_ERROR   |    |  |Y |HOSTID|ERR  |U         |PROT |QOS  |U    |0x0 |R,0xF|
+|REQ_ERROR   |    |  |Y |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xF|
 |REQ_LINK    |    |  |  |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
 |RESP_READ   |Y   |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
 |RESP_WR     |    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
@@ -137,7 +137,7 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |RESP_USER1  |    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
 |RESP_FUTURE0|    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
 |RESP_FUTURE1|    |Y |  |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
-|RESP_LINK   |    |  |  |HOSTID|ERR  |U         |U    |U    |U    |0x0 |R,0xE|
+|RESP_LINK   |    |  |  |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xE|
 
 ### 3.3 Message Fields
 
