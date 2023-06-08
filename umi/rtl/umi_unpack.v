@@ -21,40 +21,97 @@
  *
  ******************************************************************************/
 module umi_unpack
-  #(parameter AW = 64,
-    parameter UW = 256)
+  #(parameter CW = 32)
    (
     // Input packet
-    input [UW-1:0]    packet,
-    // Control
-    output [7:0]      command, // raw opcode
-    output [3:0]      size, // transaction size
-    output [19:0]     options, // raw command
-    //Address/Data
-    output [AW-1:0]   dstaddr, // read/write target address
-    output [AW-1:0]   srcaddr, // read return address
-    output [4*AW-1:0] data // write data
+    input [CW-1:0] packet_cmd,
+
+    // output fields
+    output [4:0]   cmd_opcode,
+    output [2:0]   cmd_size,
+    output [7:0]   cmd_len,
+    output [7:0]   cmd_atype,
+    output [3:0]   cmd_qos,
+    output [1:0]   cmd_prot,
+    output         cmd_eom,
+    output         cmd_eof,
+    output         cmd_ex,
+    output [22:0]  cmd_user,
+    output [1:0]   cmd_err,
+    output [4:0]   cmd_hostid
     );
 
+`include "umi_messages.vh"
+
    // data field unpacker
-   generate
-      if(AW==64 & UW==256) begin : p256
-	 assign command[7:0]    = packet[7:0];
-	 assign size[3:0]       = packet[11:8];
-	 assign options[19:0]   = packet[31:12];
-	 assign dstaddr[31:0]   = packet[63:32];
-	 assign dstaddr[63:32]  = packet[255:224];
-	 assign srcaddr[31:0]   = packet[95:64];
-	 assign srcaddr[63:32]  = packet[223:192];
-	 assign data[31:0]      = packet[127:96];
-	 assign data[63:32]     = packet[159:128];
-	 assign data[95:64]     = packet[191:160];
-	 assign data[127:96]    = packet[223:192];
-	 assign data[159:128]   = packet[255:224];
-	 assign data[191:160]   = packet[31:0];
-	 assign data[223:192]   = packet[63:32];
-	 assign data[255:224]   = packet[95:64];
-      end
-   endgenerate
+   wire cmd_request;
+   wire cmd_response;
+   wire cmd_error;
+   wire cmd_link;
+   wire cmd_link_resp;
+
+   /*umi_decode AUTO_TEMPLATE(
+    .cmd_error      (cmd_error[]),
+    .cmd_request    (cmd_request[]),
+    .cmd_response   (cmd_response[]),
+    .cmd_link\(.*\) (cmd_link\1[]),
+    .command        (packet_cmd[]),
+    .cmd_.*         (),
+    );*/
+
+   umi_decode #(.CW(CW))
+   umi_decode(/*AUTOINST*/
+              // Outputs
+              .cmd_invalid      (),                      // Templated
+              .cmd_request      (cmd_request),           // Templated
+              .cmd_response     (cmd_response),          // Templated
+              .cmd_read         (),                      // Templated
+              .cmd_write        (),                      // Templated
+              .cmd_write_posted (),                      // Templated
+              .cmd_rdma         (),                      // Templated
+              .cmd_atomic       (),                      // Templated
+              .cmd_user0        (),                      // Templated
+              .cmd_future0      (),                      // Templated
+              .cmd_error        (cmd_error),             // Templated
+              .cmd_link         (cmd_link),              // Templated
+              .cmd_read_resp    (),                      // Templated
+              .cmd_write_resp   (),                      // Templated
+              .cmd_user0_resp   (),                      // Templated
+              .cmd_user1_resp   (),                      // Templated
+              .cmd_future0_resp (),                      // Templated
+              .cmd_future1_resp (),                      // Templated
+              .cmd_link_resp    (cmd_link_resp),         // Templated
+              .cmd_atomic_add   (),                      // Templated
+              .cmd_atomic_and   (),                      // Templated
+              .cmd_atomic_or    (),                      // Templated
+              .cmd_atomic_xor   (),                      // Templated
+              .cmd_atomic_max   (),                      // Templated
+              .cmd_atomic_min   (),                      // Templated
+              .cmd_atomic_maxu  (),                      // Templated
+              .cmd_atomic_minu  (),                      // Templated
+              .cmd_atomic_swap  (),                      // Templated
+              // Inputs
+              .command          (packet_cmd[CW-1:0]));   // Templated
+
+   // Command fiels - TODO: should we qualify these with the command type?
+   assign cmd_opcode[4:0] = packet_cmd[4:0];
+   assign cmd_size[2:0]   = packet_cmd[7:5];  // Ignore for error and link
+   assign cmd_len[7:0]    = packet_cmd[15:8]; // Ignore for Atomic, error and link
+   assign cmd_atype[7:0]  = packet_cmd[15:8];
+   assign cmd_qos[3:0]    = packet_cmd[19:16];// Ignore for link
+   assign cmd_prot[1:0]   = packet_cmd[21:20];// Ignore for link
+   assign cmd_eom         = packet_cmd[22];
+   assign cmd_eof         = packet_cmd[23];   // Ignore for error and responses
+   assign cmd_ex          = packet_cmd[24];   // Ignore for error and responses
+   assign cmd_hostid[4:0] = packet_cmd[31:27];
+
+   assign cmd_user[18:0]  = cmd_link      ? packet_cmd[26:8]                           :
+                            cmd_link_resp ? {2'h0,packet_cmd[24:8]}                    :
+                            cmd_error     ? {8'h00,packet_cmd[24:22],packet_cmd[15:8]} :
+                            cmd_request   ? {17'h0_0000,packet_cmd[26:25]}             :
+                                            19'h0_0000                                 ;
+
+   assign cmd_err[1:0]    = (cmd_response | cmd_error) ? packet_cmd[26:25] :
+                                                         2'h0;
 
 endmodule // umi_unpack
