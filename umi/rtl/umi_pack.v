@@ -18,10 +18,11 @@ module umi_pack #(parameter CW = 32)
     input [3:0]     cmd_qos,
     input           cmd_eom,
     input           cmd_eof,
-    input [18:0]    cmd_user,
+    input [1:0]     cmd_user,
     input [1:0]     cmd_err,
     input           cmd_ex,
     input [4:0]     cmd_hostid,
+    input [18:0]    cmd_user_extended,
     // Output packet
     output [CW-1:0] packet_cmd
     );
@@ -33,6 +34,9 @@ module umi_pack #(parameter CW = 32)
    wire        cmd_link;
    wire        cmd_link_resp;
    wire        cmd_atomic;
+   wire        extended_user_sel;
+
+   assign extended_user_sel = cmd_link | cmd_link_resp | cmd_err;
 
    // Take only the required fields for the decode
    assign cmd_in[31:0] = {24'h00_0000,cmd_size[2:0],cmd_opcode[4:0]};
@@ -45,24 +49,14 @@ module umi_pack #(parameter CW = 32)
                            cmd_error     ? 3'h0 :
                                            cmd_size[2:0];
 
-   assign cmd_out[15:8]  = cmd_atomic      ? cmd_atype[7:0] :
-                           (cmd_error |
-                            cmd_link  |
-                            cmd_link_resp) ? cmd_user[7:0]  :
-                                             cmd_len[7:0];
+   assign cmd_out[15:8]  = cmd_atomic        ? cmd_atype[7:0] :
+                           extended_user_sel ? cmd_user_extended[7:0]  :
+                                               cmd_len[7:0];
 
-   assign cmd_out[19:16] = (cmd_link | cmd_link_resp) ? cmd_user[11:8]  : cmd_qos[3:0];
-
-   assign cmd_out[21:20] = (cmd_link | cmd_link_resp) ? cmd_user[13:12] : cmd_prot[1:0];
-
-   assign cmd_out[24:22] = (cmd_link | cmd_link_resp) ? cmd_user[16:14] :
-                           cmd_error                  ? cmd_user[10:8]  :
-                                                        {cmd_ex,cmd_eof,cmd_eom};
-
-   assign cmd_out[26:25] = cmd_link                   ? cmd_user[18:17] :
-                           (cmd_response | cmd_error) ? cmd_err[1:0]    :
-                                                        cmd_user[1:0]   ;
-
+   assign cmd_out[19:16] = extended_user_sel ? cmd_user_extended[11:8]  : cmd_qos[3:0];
+   assign cmd_out[21:20] = extended_user_sel ? cmd_user_extended[13:12] : cmd_prot[1:0];
+   assign cmd_out[24:22] = extended_user_sel ? cmd_user_extended[16:14] : {cmd_ex,cmd_eof,cmd_eom};
+   assign cmd_out[26:25] = extended_user_sel ? cmd_user_extended[18:17] : cmd_user[1:0]   ;
    assign cmd_out[31:27] = cmd_hostid[4:0];
 
    /*umi_decode AUTO_TEMPLATE(

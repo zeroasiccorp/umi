@@ -36,7 +36,8 @@ module umi_unpack
     output         cmd_eom,
     output         cmd_eof,
     output         cmd_ex,
-    output [22:0]  cmd_user,
+    output [1:0]   cmd_user,
+    output [18:0]  cmd_user_extended,
     output [1:0]   cmd_err,
     output [4:0]   cmd_hostid
     );
@@ -104,14 +105,9 @@ module umi_unpack
    assign cmd_eof         = packet_cmd[23];   // Ignore for error and responses
    assign cmd_ex          = packet_cmd[24];   // Ignore for error and responses
    assign cmd_hostid[4:0] = packet_cmd[31:27];
+   assign cmd_user[1:0]   = packet_cmd[26:25];
+   assign cmd_err[1:0]    = cmd_response ? packet_cmd[26:25] : 2'h0;
 
-   assign cmd_user[18:0]  = cmd_link      ? packet_cmd[26:8]                           :
-                            cmd_link_resp ? {2'h0,packet_cmd[24:8]}                    :
-                            cmd_error     ? {8'h00,packet_cmd[24:22],packet_cmd[15:8]} :
-                            cmd_request   ? {17'h0_0000,packet_cmd[26:25]}             :
-                                            19'h0_0000                                 ;
-
-   assign cmd_err[1:0]    = (cmd_response | cmd_error) ? packet_cmd[26:25] :
-                                                         2'h0;
+   assign cmd_user_extended[18:0] = packet_cmd[26:8];
 
 endmodule // umi_unpack
