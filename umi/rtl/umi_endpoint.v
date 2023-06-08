@@ -94,8 +94,6 @@ module umi_endpoint
 
    // local wires
    wire [DW-1:0]        data_mux;
-   wire                 loc_read;
-   wire                 loc_write;
    wire                 loc_resp;
    wire [4:0]           cmd_opcode;
 
@@ -251,7 +249,7 @@ module umi_endpoint
 			             loc_rddata[DW-1:0];
 
    // Final outputs
-   assign udev_resp_cmd[CW-1:0]     = command_out[AW-1:0];
+   assign udev_resp_cmd[CW-1:0]     = command_out[CW-1:0];
    assign udev_resp_dstaddr[AW-1:0] = dstaddr_out[AW-1:0];
    assign udev_resp_srcaddr[AW-1:0] = srcaddr_out[AW-1:0];
    assign udev_resp_data[DW-1:0]    = data_mux[DW-1:0];
