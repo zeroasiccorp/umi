@@ -5,7 +5,10 @@
  *
  * Documentation:
  *
- * The input request vector is a concatenated onenot vectors of inputs
+ * The crossbar is pipelined and non-blocking, allowing for any-to-any
+ * simulataneous input to output connections.
+ *
+ * The input request vector is a concatenated vectors of inputs
  * requesting outputs ports per the order below.
  *
  * [0]     = input 0   requesting output 0
@@ -17,6 +20,9 @@
  * [N+2]   = input 2   requesting output 1
  * [2*N-1] = input N-1 requesting output 1
  * ...
+ *
+ * Input to output paths are enabled through the [NxN] wide 'mask' input,
+ * which follows ordering of the input valid convention shown above.
  *
  ******************************************************************************/
 module umi_crossbar
