@@ -109,11 +109,7 @@ module umi_pack #(parameter CW = 32)
               // Inputs
               .command          (cmd_in[CW-1:0]));       // Templated
 
-   generate
-      if(CW == 32) begin : encode32
-	 assign packet_cmd[31:0] = cmd_out[31:0];
-      end
-   endgenerate
+   assign packet_cmd[31:0] = cmd_out[31:0];
 
 endmodule
 
