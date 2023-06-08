@@ -71,7 +71,7 @@ module umi_decode #(parameter CW = 32)
    assign cmd_link             = (command[7:0]==UMI_REQ_LINK[7:0]);
    // Response (device -> host)
    assign cmd_read_resp    = (command[3:0]==UMI_RESP_READ[3:0]);
-   assign cmd_write_reponse    = (command[3:0]==UMI_RESP_WRITE[3:0]);
+   assign cmd_write_resp   = (command[3:0]==UMI_RESP_WRITE[3:0]);
    assign cmd_user0_resp   = (command[3:0]==UMI_RESP_USER0[3:0]);
    assign cmd_user1_resp   = (command[3:0]==UMI_RESP_USER1[3:0]);
    assign cmd_future0_resp = (command[3:0]==UMI_RESP_FUTURE0[3:0]);
