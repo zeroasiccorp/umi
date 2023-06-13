@@ -129,8 +129,8 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |REQ_ATOMIC  |Y   |Y |Y |HOSTID|U    |0 ,EOF,EOM|PROT |QOS  |ATYPE|SIZE|R,0x9|
 |REQ_USER0   |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xB|
 |REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
-|REQ_ERROR   |Y   |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xF|
-|REQ_LINK    |Y   |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
+|REQ_ERROR   |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xF|
+|REQ_LINK    |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
 |RESP_READ   |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
 |RESP_WR     |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
 |RESP_USER0  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
