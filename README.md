@@ -88,8 +88,8 @@ Constraints:
 | Term        | Meaning    |
 |-------------|------------|
 | CMD         | Command (type + options)
-| DA          | Device address (target of a request)
-| SA          | Source address (where to send the response)
+| DA          | Destination address of message
+| SA          | Source address (where to return a response)
 | DATA        | Data payload
 | OPCODE      | Command opcode
 | SIZE        | Word size
@@ -131,7 +131,7 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
 |REQ_ERROR   |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xF|
 |REQ_LINK    |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
-|RESP_READ   |Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
+|RESP_RD     |Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
 |RESP_WR     |    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
 |RESP_USER0  |    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
 |RESP_USER1  |Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
@@ -143,7 +143,15 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 
 ### 3.3.1 Source Address and Destination Address (SA[63:0], DA[63:0])
 
-The source address (SA) field is used for routing information and [UMI signal layer](#UMI-Signal-layer) controls. The destination address (DA) field is used for request routing and as the address for accessing the device. The table below shows the bit mapping for SA and DA.
+Request messages issued by the host contain a:
+
+ 1. Destination address (DA) specifying the device address to access.
+ 2. Source address (SA) specifying the "return to sender address". The SA field can be a full address (32/64 bits) or a partial routing address and a set of optional [UMI signal layer](#UMI-Signal-layer) controls. The exat SA field structure is dictated by the interconnect system.
+
+
+The destination address in the device response message is an unmodified copy of the request SA field.
+
+The table below shows the bit mapping for SA field.
 
 | SA       |63:56 |55:48|47:40|39:32|31:24 |23:16|15:8|7:0  |
 |----------|:----:|:---:|:---:|:---:|:----:|:---:|:---|:---:|
