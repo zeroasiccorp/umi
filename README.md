@@ -131,25 +131,19 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
 |REQ_ERROR   |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xF|
 |REQ_LINK    |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
-|RESP_RD     |Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
-|RESP_WR     |    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
-|RESP_USER0  |    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
-|RESP_USER1  |Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
-|RESP_FUTURE0|    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
-|RESP_FUTURE1|Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
+|RESP_RD     |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
+|RESP_WR     |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
+|RESP_USER0  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
+|RESP_USER1  |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
+|RESP_FUTURE0|    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
+|RESP_FUTURE1|Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
 |RESP_LINK   |    |  |  |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xE|
 
 ### 3.3 Message Fields
 
 ### 3.3.1 Source Address and Destination Address (SA[63:0], DA[63:0])
 
-Request messages issued by the host contain a:
-
- 1. Destination address (DA) specifying the device address to access.
- 2. Source address (SA) specifying the "return to sender address". The SA field can be a full address (32/64 bits) or a partial routing address and a set of optional [UMI signal layer](#UMI-Signal-layer) controls. The exat SA field structure is dictated by the interconnect system.
-
-
-The destination address in the device response message is an unmodified copy of the request SA field.
+The destination address (DA) specifies the target address of a request or response message. For requests, the DA field is the full device address to access. For responses, the DA field returned is a copy of the requester SA field. The SA field can be a full address (32/64 bits) or a partial routing address and a set of optional [UMI signal layer](#UMI-Signal-layer) controls needed to drive the interconnect network.
 
 The table below shows the bit mapping for SA field.
 
@@ -353,29 +347,41 @@ The following example illustrates a complete request-response transaction betwee
 
 ![UMIX7](docs/_images/example_rw_xaction.svg)
 
-UMI messages can be split into separate shorter atomic SUMI packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field. The end of message (EOM) bit indicates the arrival of the last packet in a message.
+UMI messages can be split into multiple atomic SUMI packets as long as message ordering and byte ordering is preserved. A SUMI packet is a complete routable mini-message comprised of a CMD, DA, SA, and DATA field, with DA and SA fields updated to reflect the correct byte addresses of the DATA payload. The end of message (EOM) bit indicates the arrival of the last packet in a message.
 
-The following example illustrates a TUMI 128B write request split into two separate SUMI request packets in a SUMI implementation with a 64B data width.
+The following examples illlustrate splitting of UMI read and write messages into shorter SUMI packets.
 
-TUMI REQ_WR transaction:
 
-* LEN =  0h01
-* SIZE = 0b110
-* EOM   = 0
+TUMI read example:
 
-SUMI REQ_WR #1:
+* TUMI_REQ_RD  (SIZE=0, LEN=71, DA=200, SA=100)
+* TUMI_RESP_RD (SIZE=0, LEN=71, DA=100, SA=100, DATA=...)
 
-* LEN =  0h00
-* SIZE = 0b110
-* DA = 0x0
-* EOM  = 0
-  
-SUMI REQ_WR #2:
+Potential SUMI packet sequence:
 
-* LEN  =  0h00
-* SIZE = 0b110
-* DA = 0x40
-* EOM  = 1
+* SUMI_REQ_RD  (SIZE=0, LEN=71, DA=200, SA=100, EOM=1)
+* SUMI_RESP_RD (SIZE=0, LEN=12, DA=100, SA=100, DATA=..., EOM=0)
+* SUMI_RESP_RD (SIZE=0, LEN=23, DA=112, SA=100, DATA=..., EOM=0)
+* SUMI_RESP_RD (SIZE=0, LEN=34, DA=135, SA=100, DATA=..., EOM=1)
+
+TUMI write example:
+
+* TUMI_REQ_WR  (SIZE=0, LEN=71, DA=200, SA=The table below documents all UMI message types. CMD[4:0] is the UMI opcode defining the type of message being sent. CMD[31:5] are used for message100, DATA...)
+* TUMI_RESP_WR (SIZE=0, LEN=71, DA=100, SA=100)
+
+Potential SUMI packet sequence:
+
+* SUMI_REQ_WR  (SIZE=0, LEN=12, DA=200, SA=100, DATA=..., EOM=0)
+* SUMI_REQ_WR  (SIZE=0, LEN=23, DA=212, SA=100, DATA=..., EOM=0)
+* SUMI_REQ_WR  (SIZE=0, LEN=34, DA=235, SA=100, DATA=..., EOM=1)
+* SUMI_RESP_WR (SIZE=0, LEN=12, DA=100, SA=100, EOM=0)
+* SUMI_RESP_WR (SIZE=0, LEN=23, DA=112, SA=100, EOM=0)
+* SUMI_RESP_WR (SIZE=0, LEN=34, DA=135, SA=100, EOM=1)
+
+In these examples, there were no user specified SA control bits to conflict with the SUMI DA response addresses calculation. If request SA bits are occupied by USER bits, then the response DA address would get scrambled and it would be up to the host to keep track of the incoming response data bytes by other means.
+
+Devices can decide to return write response messages upon all write requests or only upon the write requests with EOM set to 1 (last request). The EOM bit in the outgoing response must be an exact copy of incoming request EOM bit in call cases.
+
 
 ### 4.2 Handshake Protocol
 
