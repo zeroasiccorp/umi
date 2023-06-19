@@ -76,7 +76,7 @@ module umi_decode #(parameter CW = 32)
    assign cmd_user1_resp   = (command[3:0]==UMI_RESP_USER1[3:0]);
    assign cmd_future0_resp = (command[3:0]==UMI_RESP_FUTURE0[3:0]);
    assign cmd_future1_resp = (command[3:0]==UMI_RESP_FUTURE1[3:0]);
-   assign cmd_link_resp    = (command[3:0]==UMI_RESP_LINK[7:0]);
+   assign cmd_link_resp    = (command[7:0]==UMI_RESP_LINK[7:0]);
 
    // read modify writes
    assign cmd_atomic_add  = cmd_atomic & (command[15:8]==UMI_REQ_ATOMICADD);
