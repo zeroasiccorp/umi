@@ -36,7 +36,7 @@ module umi_pack #(parameter CW = 32)
    wire        cmd_atomic;
    wire        extended_user_sel;
 
-   assign extended_user_sel = cmd_link | cmd_link_resp | cmd_err;
+   assign extended_user_sel = cmd_link | cmd_link_resp | cmd_error;
 
    // Take only the required fields for the decode
    assign cmd_in[31:0] = {24'h00_0000,cmd_size[2:0],cmd_opcode[4:0]};
