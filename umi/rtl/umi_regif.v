@@ -42,7 +42,7 @@ module umi_regif
     output [AW-1:0]     reg_addr,   // memory address
     output              reg_write,  // register write
     output              reg_read,   // register read
-    output [7:0]        reg_opcode, // command (eg. atomics)
+    output [4:0]        reg_opcode, // command (eg. atomics)
     output [2:0]        reg_size,   // size (byte, etc)
     output [7:0]        reg_len,    // size (byte, etc)
     output [RW-1:0]     reg_wrdata, // data to write
