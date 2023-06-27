@@ -96,6 +96,8 @@ module umi_regif
 
    wire [4:0]           cmd_opcode;
    wire                 cmd_resp;
+   wire                 group_match;
+   wire                 reg_resp;
 
    //########################
    // UMI INPUT
