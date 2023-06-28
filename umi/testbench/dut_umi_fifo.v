@@ -17,7 +17,9 @@ module dut_umi_fifo
     parameter NCTRL    = 1,         // number of ctrl pins
     parameter NSTATUS  = 1,         // number of status pins
     // for development
-    parameter UW       = 256,       // umi width
+    parameter CW       = 32,       // umi width
+    parameter AW       = 64,       // umi width
+    parameter DW       = 512,       // umi width
     parameter DEPTH    = 4          // fifo depth
     )
    (// generic control interface
@@ -32,12 +34,18 @@ module dut_umi_fifo
     input [NUMI-1:0] 	 umi_in_clk,
     input [NUMI-1:0] 	 umi_in_nreset,
     input [NUMI-1:0] 	 umi_in_valid,
-    input [NUMI*UW-1:0]  umi_in_packet,
+    input [NUMI*CW-1:0]  umi_in_cmd,
+    input [NUMI*AW-1:0]  umi_in_dstaddr,
+    input [NUMI*AW-1:0]  umi_in_srcaddr,
+    input [NUMI*DW-1:0]  umi_in_data,
     output [NUMI-1:0] 	 umi_in_ready,
     input [NUMI-1:0] 	 umi_out_clk,
     input [NUMI-1:0] 	 umi_out_nreset,
     output [NUMI-1:0] 	 umi_out_valid,
-    output [NUMI*UW-1:0] umi_out_packet,
+    output [NUMI*CW-1:0] umi_out_cmd,
+    output [NUMI*AW-1:0] umi_out_dstaddr,
+    output [NUMI*AW-1:0] umi_out_srcaddr,
+    output [NUMI*DW-1:0] umi_out_data,
     input [NUMI-1:0] 	 umi_out_ready
     );
 
@@ -53,27 +61,39 @@ module dut_umi_fifo
    //# HOST
    //#################################
 
-   umi_fifo  #(.UW(UW),
+   /* umi_fifo AUTO_TEMPLATE(
+    .chaosmode (1'b0),
+    );*/
+   umi_fifo  #(.CW(CW),
+	       .AW(AW),
+	       .DW(DW),
 	       .DEPTH(DEPTH),
 	       .TARGET(TARGET))
    umi_fifo (.bypass			(1'b0),
 	     .vdd			(1'b1),
 	     .vss			(1'b0),
 	     /*AUTOINST*/
-	     // Outputs
-	     .fifo_full			(fifo_full),
-	     .fifo_empty		(fifo_empty),
-	     .umi_in_ready		(umi_in_ready),
-	     .umi_out_valid		(umi_out_valid),
-	     .umi_out_packet		(umi_out_packet[UW-1:0]),
-	     // Inputs
-	     .umi_in_clk		(umi_in_clk),
-	     .umi_in_nreset		(umi_in_nreset),
-	     .umi_in_valid		(umi_in_valid),
-	     .umi_in_packet		(umi_in_packet[UW-1:0]),
-	     .umi_out_clk		(umi_out_clk),
-	     .umi_out_nreset		(umi_out_nreset),
-	     .umi_out_ready		(umi_out_ready));
+             // Outputs
+             .fifo_full         (fifo_full),
+             .fifo_empty        (fifo_empty),
+             .umi_in_ready      (umi_in_ready),
+             .umi_out_valid     (umi_out_valid),
+             .umi_out_cmd       (umi_out_cmd[CW-1:0]),
+             .umi_out_dstaddr   (umi_out_dstaddr[AW-1:0]),
+             .umi_out_srcaddr   (umi_out_srcaddr[AW-1:0]),
+             .umi_out_data      (umi_out_data[DW-1:0]),
+             // Inputs
+             .chaosmode         (1'b0),                  // Templated
+             .umi_in_clk        (umi_in_clk),
+             .umi_in_nreset     (umi_in_nreset),
+             .umi_in_valid      (umi_in_valid),
+             .umi_in_cmd        (umi_in_cmd[CW-1:0]),
+             .umi_in_dstaddr    (umi_in_dstaddr[AW-1:0]),
+             .umi_in_srcaddr    (umi_in_srcaddr[AW-1:0]),
+             .umi_in_data       (umi_in_data[DW-1:0]),
+             .umi_out_clk       (umi_out_clk),
+             .umi_out_nreset    (umi_out_nreset),
+             .umi_out_ready     (umi_out_ready));
 
 endmodule // testbench
 // Local Variables:
