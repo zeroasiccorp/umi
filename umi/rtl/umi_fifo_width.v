@@ -10,12 +10,12 @@
  ******************************************************************************/
 module umi_fifo_width
   #(parameter TARGET = "DEFAULT", // implementation target
-    parameter DEPTH  = 4,         // FIFO depth
-    parameter CW     = 32,        // UMI width
-    parameter IAW    = AW,        // input UMI AW
-    parameter OAW    = AW,        // output UMI AW
-    parameter IDW    = DW,        // input UMI DW
-    parameter ODW    = DW         // input UMI DW
+    parameter DEPTH = 4,          // FIFO depth
+    parameter CW = 32,            // UMI width
+    parameter IAW = 64,           // input UMI AW
+    parameter OAW = 64,           // output UMI AW
+    parameter IDW = 512,          // input UMI DW
+    parameter ODW = 512           // input UMI DW
     )
    (// control/status signals
     input            bypass,       // bypass FIFO
@@ -47,20 +47,16 @@ module umi_fifo_width
 
    // Local FIFO
    wire [ODW+OAW+OAW+CW-1:0] fifo_dout;
-   wire [IDW+IAW+IAW+CW-1:0] fifo_din;
-   reg [CW-1:0]              packet_latch_valid;
+   wire [ODW+OAW+OAW+CW-1:0] fifo_din;
+   reg                       packet_latch_valid;
    reg [CW-1:0]              packet_cmd_latch;
    reg [IAW-1:0]             packet_dstaddr_latch;
-   reg [IAW-1:0]             packet_dsraddr_latch;
+   reg [IAW-1:0]             packet_srcaddr_latch;
    reg [IDW-1:0]             packet_data_latch;
    wire [CW-1:0]             packet_cmd;
    wire [IAW-1:0]            packet_dstaddr;
    wire [IAW-1:0]            packet_srcaddr;
    wire [IDW-1:0]            packet_data;
-
-   // local state
-   reg                       fifo_out_valid;
-   reg [DW-1:0]              fifo_out_data;
 
    // local wires
    wire                      umi_out_beat;
@@ -118,15 +114,15 @@ module umi_fifo_width
    // Valid will be set when the current command (from latch or new) is bigger than the output bus
    assign cmd_len_plus_one[8:0] = cmd_len[7:0] + 8'h01;
 
-   always @(posedge umi_in_clk negedge nreset)
-     if (~nresert)
+   always @(posedge umi_in_clk or negedge umi_in_nreset)
+     if (~umi_in_nreset)
        packet_latch_valid <= 1'b0;
      else
        packet_latch_valid <= fifo_write & (cmd_len_plus_one[8:0] > (ODW >> cmd_size >> 3));
 
    // Packet latch
-   always @(posedge umi_in_clk negedge nreset)
-     if (~nresert)
+   always @(posedge umi_in_clk or negedge umi_in_nreset)
+     if (~umi_in_nreset)
        begin
           packet_dstaddr_latch <= {IAW{1'b0}};
           packet_srcaddr_latch <= {IAW{1'b0}};
@@ -167,16 +163,16 @@ module umi_fifo_width
               .cmd_hostid       (cmd_hostid[4:0]),
               .cmd_user_extended(cmd_user_extended[18:0]));
 
-   always @(posedge umi_in_clk negedge nreset)
-     if (~nresert)
+   always @(posedge umi_in_clk or negedge umi_in_nreset)
+     if (~umi_in_nreset)
        packet_cmd_latch <= {CW{1'b0}};
      else if (fifo_write)
        packet_cmd_latch <= pack_cmd;
 
    assign packet_data = packet_latch_valid ? packet_data_latch : umi_in_data;
 
-   always @(posedge umi_in_clk negedge nreset)
-     if (~nresert)
+   always @(posedge umi_in_clk or negedge umi_in_nreset)
+     if (~umi_in_nreset)
        packet_data_latch <= {IDW{1'b0}};
      else if (fifo_write)
        packet_data_latch <= packet_data >> ODW;
@@ -194,10 +190,10 @@ module umi_fifo_width
    // FIFO pushback
    assign fifo_in_ready = ~fifo_full & ~packet_latch_valid;
 
-   assign fifo_din = {packet_data[ODW-1:0],
-                      packet_srcaddr[OAW-1:0].
-                      packet_dstaddr[OAW-1:0],
-                      pack_cmd[CW-1:0]};
+   assign fifo_din[OAW+OAW+CW+:ODW] = packet_data[ODW-1:0];
+   assign fifo_din[OAW+CW+:OAW]     = packet_srcaddr[OAW-1:0];
+   assign fifo_din[CW+:OAW]         = packet_dstaddr[OAW-1:0];
+   assign fifo_din[0+:CW]           = pack_cmd[CW-1:0];
 
    //#################################
    // Standard Dual Clock FIFO
@@ -207,7 +203,7 @@ module umi_fifo_width
 		   .DEPTH(DEPTH))
    fifo  (// Outputs
 	  .wr_full	(fifo_full),
-	  .rd_dout	(fifo_dout[ODW+OAW+OAW+OCW-1:0]),
+	  .rd_dout	(fifo_dout[ODW+OAW+OAW+CW-1:0]),
 	  .rd_empty	(fifo_empty),
 	  // Inputs
 	  .wr_clk	(umi_in_clk),
@@ -227,12 +223,12 @@ module umi_fifo_width
    // FIFO Bypass
    //#################################
 
-   assign umi_out_cmd[CW-1:0]     = bypass ? umi_in_cmd[CW-1:0]     : fifo_dout[CW-1:0];
-   assign umi_out_dstaddr[AW-1:0] = bypass ? umi_in_dstaddr[AW-1:0] : fifo_dout[CW+:AW];
-   assign umi_out_srcaddr[AW-1:0] = bypass ? umi_in_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
-   assign umi_out_data[DW-1:0]    = bypass ? umi_in_data[DW-1:0]    : fifo_dout[CW+AW+AW+:DW];
-   assign umi_out_valid           = bypass ? umi_in_valid           : ~fifo_empty;
-   assign umi_in_ready            = bypass ? umi_out_ready          : fifo_in_ready;
+   assign umi_out_cmd[CW-1:0]      = bypass ? umi_in_cmd[CW-1:0]      : fifo_dout[CW-1:0];
+   assign umi_out_dstaddr[OAW-1:0] = bypass ? umi_in_dstaddr[OAW-1:0] : fifo_dout[CW+:OAW];
+   assign umi_out_srcaddr[OAW-1:0] = bypass ? umi_in_srcaddr[OAW-1:0] : fifo_dout[CW+OAW+:OAW];
+   assign umi_out_data[ODW-1:0]    = bypass ? umi_in_data[ODW-1:0]    : fifo_dout[CW+OAW+OAW+:ODW];
+   assign umi_out_valid            = bypass ? umi_in_valid            : ~fifo_empty;
+   assign umi_in_ready             = bypass ? umi_out_ready           : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;
