@@ -10,6 +10,7 @@
  ******************************************************************************/
 module umi_fifo_flex
   #(parameter TARGET = "DEFAULT", // implementation target
+    parameter BYPASS = 0,
     parameter DEPTH = 4,          // FIFO depth
     parameter CW = 32,            // UMI width
     parameter AW = 64,            // input UMI AW
@@ -235,37 +236,46 @@ module umi_fifo_flex
    //#################################
    // Standard Dual Clock FIFO
    //#################################
-
-   la_asyncfifo  #(.DW(CW+AW+AW+ODW),
-		   .DEPTH(DEPTH))
-   fifo  (// Outputs
-	  .wr_full	(fifo_full),
-	  .rd_dout	(fifo_dout[ODW+AW+AW+CW-1:0]),
-	  .rd_empty	(fifo_empty),
-	  // Inputs
-	  .wr_clk	(umi_in_clk),
-	  .wr_nreset	(umi_in_nreset),
-	  .wr_din	(fifo_din[ODW+AW+AW+CW-1:0]),
-	  .wr_en	(umi_in_valid | packet_latch_valid),
-	  .wr_chaosmode (chaosmode),
-	  .rd_clk	(umi_out_clk),
-	  .rd_nreset	(umi_out_nreset),
-	  .rd_en	(fifo_read),
-	  .vss		(vss),
-	  .vdd		(vdd),
-	  .ctrl		(1'b0),
-	  .test		(1'b0));
+   generate if (BYPASS)
+     begin
+        assign fifo_full  = ~umi_out_ready;
+        assign fifo_dout  = {ODW+AW+AW+CW{1'b0}};
+        assign fifo_empty = 1'b1;
+     end
+   else
+     begin
+        la_asyncfifo  #(.DW(CW+AW+AW+ODW),
+		        .DEPTH(DEPTH))
+        fifo  (// Outputs
+	       .wr_full	     (fifo_full),
+	       .rd_dout	     (fifo_dout[ODW+AW+AW+CW-1:0]),
+	       .rd_empty     (fifo_empty),
+	       // Inputs
+	       .wr_clk	     (umi_in_clk),
+	       .wr_nreset    (umi_in_nreset),
+	       .wr_din	     (fifo_din[ODW+AW+AW+CW-1:0]),
+	       .wr_en	     (umi_in_valid | packet_latch_valid),
+	       .wr_chaosmode (chaosmode),
+	       .rd_clk       (umi_out_clk),
+	       .rd_nreset    (umi_out_nreset),
+	       .rd_en	     (fifo_read),
+	       .vss	     (vss),
+	       .vdd	     (vdd),
+	       .ctrl	     (1'b0),
+	       .test	     (1'b0));
+     end
+   endgenerate
 
    //#################################
    // FIFO Bypass
    //#################################
 
-   assign umi_out_cmd[CW-1:0]     = bypass ? umi_in_cmd[CW-1:0]     : fifo_dout[CW-1:0];
-   assign umi_out_dstaddr[AW-1:0] = bypass ? umi_in_dstaddr[AW-1:0] : fifo_dout[CW+:AW];
-   assign umi_out_srcaddr[AW-1:0] = bypass ? umi_in_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
-   assign umi_out_data[ODW-1:0]   = bypass ? umi_in_data[ODW-1:0]   : fifo_dout[CW+AW+AW+:ODW];
-   assign umi_out_valid           = bypass ? umi_in_valid           : ~fifo_empty;
-   assign umi_in_ready            = bypass ? umi_out_ready          : fifo_in_ready;
+   assign umi_out_cmd[CW-1:0]     = bypass ? fifo_cmd[CW-1:0]                    : fifo_dout[CW-1:0];
+   assign umi_out_dstaddr[AW-1:0] = bypass ? fifo_dstaddr[AW-1:0]                : fifo_dout[CW+:AW];
+   assign umi_out_srcaddr[AW-1:0] = bypass ? fifo_srcaddr[AW-1:0]                : fifo_dout[CW+AW+:AW];
+   assign umi_out_data[ODW-1:0]   = bypass ? packet_data[ODW-1:0]                : fifo_dout[CW+AW+AW+:ODW];
+   assign umi_out_valid           = bypass ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
+   assign umi_in_ready            = bypass ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;

@@ -29,6 +29,7 @@ module tb_umi_fifo
    localparam IDW       = 512;         // UMI width
    localparam ODW       = 128;          // UMI width
    localparam DW        = IDW;
+   localparam BYPASS    = 0;
 
    //#####################
    //# SIMCTRL
@@ -79,12 +80,17 @@ module tb_umi_fifo
      else
        umi_dut2check_ready <= ~umi_dut2check_ready;
 
-   // clock divider
-   always @ (posedge clk or negedge nreset)
-     if (~nreset)
-       slowclk <= 1'b0;
-     else
-       slowclk <= ~slowclk;
+   generate if (BYPASS)
+     always @*
+       slowclk = clk;
+   else
+     // clock divider
+     always @ (posedge clk or negedge nreset)
+       if (~nreset)
+         slowclk <= 1'b0;
+       else
+         slowclk <= ~slowclk;
+   endgenerate
 
    la_rsync la_rsync (// Outputs
 		      .nrst_out		(slownreset),
@@ -119,6 +125,7 @@ module tb_umi_fifo
     .clk                (clk),
     .ctrl               (1'b0),
     .status             (),
+    .bypass             (BYPASS),
     .umi_out_clk	(slowclk),
     .umi_out_nreset     (slownreset),
     .umi_out_ready	(1'b1),
@@ -134,7 +141,8 @@ module tb_umi_fifo
 		       .IDW(IDW),
 		       .AW(AW),
 		       .ODW(ODW),
-		       .DEPTH(FIFODEPTH))
+		       .DEPTH(FIFODEPTH),
+                       .BYPASS(BYPASS))
    dut_umi_fifo_flex (.umi_out_ready		(umi_dut2check_ready),
 		       /*AUTOINST*/
                       // Outputs
@@ -152,6 +160,7 @@ module tb_umi_fifo
                       .clk              (clk),                   // Templated
                       .go               (go),
                       .ctrl             (1'b0),                  // Templated
+                      .bypass           (BYPASS),                // Templated
                       .umi_in_clk       (clk),                   // Templated
                       .umi_in_nreset    (nreset),                // Templated
                       .umi_in_valid     (umi_stim2dut_valid),    // Templated
