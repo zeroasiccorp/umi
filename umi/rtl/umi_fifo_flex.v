@@ -270,12 +270,12 @@ module umi_fifo_flex
    // FIFO Bypass
    //#################################
 
-   assign umi_out_cmd[CW-1:0]     = bypass ? fifo_cmd[CW-1:0]                    : fifo_dout[CW-1:0];
-   assign umi_out_dstaddr[AW-1:0] = bypass ? fifo_dstaddr[AW-1:0]                : fifo_dout[CW+:AW];
-   assign umi_out_srcaddr[AW-1:0] = bypass ? fifo_srcaddr[AW-1:0]                : fifo_dout[CW+AW+:AW];
-   assign umi_out_data[ODW-1:0]   = bypass ? packet_data[ODW-1:0]                : fifo_dout[CW+AW+AW+:ODW];
-   assign umi_out_valid           = bypass ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
-   assign umi_in_ready            = bypass ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
+   assign umi_out_cmd[CW-1:0]     = (bypass | BYPASS) ? fifo_cmd[CW-1:0]                    : fifo_dout[CW-1:0];
+   assign umi_out_dstaddr[AW-1:0] = (bypass | BYPASS) ? fifo_dstaddr[AW-1:0]                : fifo_dout[CW+:AW];
+   assign umi_out_srcaddr[AW-1:0] = (bypass | BYPASS) ? fifo_srcaddr[AW-1:0]                : fifo_dout[CW+AW+:AW];
+   assign umi_out_data[ODW-1:0]   = (bypass | BYPASS) ? packet_data[ODW-1:0]                : fifo_dout[CW+AW+AW+:ODW];
+   assign umi_out_valid           = (bypass | BYPASS) ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
+   assign umi_in_ready            = (bypass | BYPASS) ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;
