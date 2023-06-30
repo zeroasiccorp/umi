@@ -54,8 +54,10 @@ module umi_fifo_width
    reg [IAW-1:0]             packet_srcaddr_latch;
    reg [IDW-1:0]             packet_data_latch;
    wire [CW-1:0]             packet_cmd;
-   wire [IAW-1:0]            packet_dstaddr;
-   wire [IAW-1:0]            packet_srcaddr;
+   wire [IAW-1:0]            latch_dstaddr;
+   wire [IAW-1:0]            fifo_dstaddr;
+   wire [IAW-1:0]            latch_srcaddr;
+   wire [IAW-1:0]            fifo_srcaddr;
    wire [IDW-1:0]            packet_data;
 
    // local wires
@@ -131,12 +133,15 @@ module umi_fifo_width
        end
      else if (~packet_latch_valid & fifo_write)
        begin
-          packet_dstaddr_latch <= umi_in_dstaddr;
-          packet_srcaddr_latch <= umi_in_srcaddr;
+          packet_dstaddr_latch <= latch_dstaddr;
+          packet_srcaddr_latch <= latch_srcaddr;
        end
 
-   assign packet_dstaddr = packet_latch_valid ? packet_dstaddr_latch : umi_in_dstaddr;
-   assign packet_srcaddr = packet_latch_valid ? packet_srcaddr_latch : umi_in_srcaddr;
+   assign fifo_dstaddr = packet_latch_valid ? packet_dstaddr_latch : umi_in_dstaddr;
+   assign fifo_srcaddr = packet_latch_valid ? packet_srcaddr_latch : umi_in_srcaddr;
+
+   assign latch_dstaddr = fifo_dstaddr + (ODW >> cmd_size >> 3);
+   assign latch_srcaddr = fifo_srcaddr + (ODW >> cmd_size >> 3);
 
    // cmd manipulation - at each cycle need to remove the bytes sent out
    assign latch_len[7:0] = (cmd_len_plus_one[8:0] >= (ODW >> cmd_size >> 3)) ?
@@ -224,8 +229,8 @@ module umi_fifo_width
    assign fifo_in_ready = ~fifo_full & ~packet_latch_valid;
 
    assign fifo_din[OAW+OAW+CW+:ODW] = packet_data[ODW-1:0];
-   assign fifo_din[OAW+CW+:OAW]     = packet_srcaddr[OAW-1:0];
-   assign fifo_din[CW+:OAW]         = packet_dstaddr[OAW-1:0];
+   assign fifo_din[OAW+CW+:OAW]     = fifo_srcaddr[OAW-1:0];
+   assign fifo_din[CW+:OAW]         = fifo_dstaddr[OAW-1:0];
    assign fifo_din[0+:CW]           = fifo_cmd[CW-1:0];
 
    //#################################
