@@ -63,7 +63,8 @@ module umi_fifo_width
    wire                      fifo_read;
    wire                      fifo_write;
    wire                      fifo_in_ready;
-   wire [7:0]                pack_len;
+   wire [7:0]                fifo_len;
+   wire [7:0]                latch_len;
    reg                       last_sent;
    wire [8:0]                cmd_len_plus_one;
 
@@ -82,7 +83,8 @@ module umi_fifo_width
    wire [2:0]           cmd_size;
    wire [1:0]           cmd_user;
    wire [18:0]          cmd_user_extended;
-   wire [CW-1:0]        pack_cmd;
+   wire [CW-1:0]        fifo_cmd;
+   wire [CW-1:0]        latch_cmd;
    // End of automatics
 
    //#################################
@@ -137,37 +139,39 @@ module umi_fifo_width
    assign packet_srcaddr = packet_latch_valid ? packet_srcaddr_latch : umi_in_srcaddr;
 
    // cmd manipulation - at each cycle need to remove the bytes sent out
-   assign pack_len[7:0] = cmd_len[7:0] - (ODW >> cmd_size >> 3);
+   assign latch_len[7:0] = (cmd_len_plus_one[8:0] >= (ODW >> cmd_size >> 3)) ?
+                           (cmd_len_plus_one[8:0] - (ODW >> cmd_size >> 3) - 1'b1) :
+                           cmd_len[7:0];
 
    /* umi_pack AUTO_TEMPLATE(
-    .packet_cmd (pack_cmd[]),
-    .cmd_len    (pack_len),
+    .packet_cmd (latch_cmd[]),
+    .cmd_len    (latch_len),
     );*/
 
    umi_pack #(.CW(CW))
-   umi_pack_i(/*AUTOINST*/
-              // Outputs
-              .packet_cmd       (pack_cmd[CW-1:0]),      // Templated
-              // Inputs
-              .cmd_opcode       (cmd_opcode[4:0]),
-              .cmd_size         (cmd_size[2:0]),
-              .cmd_len          (pack_len),              // Templated
-              .cmd_atype        (cmd_atype[7:0]),
-              .cmd_prot         (cmd_prot[1:0]),
-              .cmd_qos          (cmd_qos[3:0]),
-              .cmd_eom          (cmd_eom),
-              .cmd_eof          (cmd_eof),
-              .cmd_user         (cmd_user[1:0]),
-              .cmd_err          (cmd_err[1:0]),
-              .cmd_ex           (cmd_ex),
-              .cmd_hostid       (cmd_hostid[4:0]),
-              .cmd_user_extended(cmd_user_extended[18:0]));
+   umi_pack_latch(/*AUTOINST*/
+                  // Outputs
+                  .packet_cmd           (latch_cmd[CW-1:0]),     // Templated
+                  // Inputs
+                  .cmd_opcode           (cmd_opcode[4:0]),
+                  .cmd_size             (cmd_size[2:0]),
+                  .cmd_len              (latch_len),             // Templated
+                  .cmd_atype            (cmd_atype[7:0]),
+                  .cmd_prot             (cmd_prot[1:0]),
+                  .cmd_qos              (cmd_qos[3:0]),
+                  .cmd_eom              (cmd_eom),
+                  .cmd_eof              (cmd_eof),
+                  .cmd_user             (cmd_user[1:0]),
+                  .cmd_err              (cmd_err[1:0]),
+                  .cmd_ex               (cmd_ex),
+                  .cmd_hostid           (cmd_hostid[4:0]),
+                  .cmd_user_extended    (cmd_user_extended[18:0]));
 
    always @(posedge umi_in_clk or negedge umi_in_nreset)
      if (~umi_in_nreset)
        packet_cmd_latch <= {CW{1'b0}};
      else if (fifo_write)
-       packet_cmd_latch <= pack_cmd;
+       packet_cmd_latch <= latch_cmd;
 
    assign packet_data = packet_latch_valid ? packet_data_latch : umi_in_data;
 
@@ -181,6 +185,35 @@ module umi_fifo_width
    // UMI Control Logic
    //#################################
 
+   // cmd manipulation - at each cycle need to remove the bytes sent out
+   assign fifo_len[7:0] = (cmd_len_plus_one[8:0] >= (ODW >> cmd_size >> 3)) ?
+                          ((ODW >> cmd_size >> 3) - 1'b1) :
+                          cmd_len[7:0];
+
+   /* umi_pack AUTO_TEMPLATE(
+    .packet_cmd (fifo_cmd[]),
+    .cmd_len    (fifo_len),
+    );*/
+
+   umi_pack #(.CW(CW))
+   umi_pack_fifo(/*AUTOINST*/
+                 // Outputs
+                 .packet_cmd            (fifo_cmd[CW-1:0]),      // Templated
+                 // Inputs
+                 .cmd_opcode            (cmd_opcode[4:0]),
+                 .cmd_size              (cmd_size[2:0]),
+                 .cmd_len               (fifo_len),              // Templated
+                 .cmd_atype             (cmd_atype[7:0]),
+                 .cmd_prot              (cmd_prot[1:0]),
+                 .cmd_qos               (cmd_qos[3:0]),
+                 .cmd_eom               (cmd_eom),
+                 .cmd_eof               (cmd_eof),
+                 .cmd_user              (cmd_user[1:0]),
+                 .cmd_err               (cmd_err[1:0]),
+                 .cmd_ex                (cmd_ex),
+                 .cmd_hostid            (cmd_hostid[4:0]),
+                 .cmd_user_extended     (cmd_user_extended[18:0]));
+
    // Read FIFO when ready (blocked inside fifo when empty)
    assign fifo_read = ~fifo_empty & umi_out_ready;
 
@@ -193,7 +226,7 @@ module umi_fifo_width
    assign fifo_din[OAW+OAW+CW+:ODW] = packet_data[ODW-1:0];
    assign fifo_din[OAW+CW+:OAW]     = packet_srcaddr[OAW-1:0];
    assign fifo_din[CW+:OAW]         = packet_dstaddr[OAW-1:0];
-   assign fifo_din[0+:CW]           = pack_cmd[CW-1:0];
+   assign fifo_din[0+:CW]           = fifo_cmd[CW-1:0];
 
    //#################################
    // Standard Dual Clock FIFO
