@@ -131,7 +131,7 @@ module umi_fifo_width
           packet_dstaddr_latch <= {IAW{1'b0}};
           packet_srcaddr_latch <= {IAW{1'b0}};
        end
-     else if (~packet_latch_valid & fifo_write)
+     else if (fifo_write)
        begin
           packet_dstaddr_latch <= latch_dstaddr;
           packet_srcaddr_latch <= latch_srcaddr;

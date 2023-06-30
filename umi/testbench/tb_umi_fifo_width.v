@@ -28,7 +28,7 @@ module tb_umi_fifo
    localparam IAW        = 64;          // UMI width
    localparam IDW        = 512;         // UMI width
    localparam OAW        = 64;          // UMI width
-   localparam ODW        = 512;          // UMI width
+   localparam ODW        = 128;          // UMI width
    localparam AW = IAW;
    localparam DW = IDW;
 
