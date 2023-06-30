@@ -121,8 +121,8 @@ module umi_fifo_width
    always @(posedge umi_in_clk or negedge umi_in_nreset)
      if (~umi_in_nreset)
        packet_latch_valid <= 1'b0;
-     else
-       packet_latch_valid <= fifo_write & (cmd_len_plus_one[8:0] > (ODW >> cmd_size >> 3));
+     else if (fifo_write)
+       packet_latch_valid <= cmd_len_plus_one[8:0] > (ODW >> cmd_size >> 3);
 
    // Packet latch
    always @(posedge umi_in_clk or negedge umi_in_nreset)
