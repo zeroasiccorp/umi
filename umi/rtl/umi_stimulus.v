@@ -60,6 +60,9 @@ module umi_stimulus
    wire [MAW-1:0]            rd_addr_nxt;
    wire [TCW-2:0]             rd_delay_nxt;
 
+   wire 		      beat;
+   wire 		      pause;
+   
    //#################################
    // Memory write port state machine
    //#################################
@@ -119,8 +122,10 @@ module umi_stimulus
 
    // Read address updates on every beat
 
+   /* verilator lint_off WIDTH */
    assign rd_addr_nxt = rd_addr[MAW-1:0] + beat;
-
+   /* verilator lint_on WIDTH */
+   
    always @ (posedge dut_clk or negedge nreset)
      if(!nreset)
        rd_addr[MAW-1:0] <= 'b0;
