@@ -61,10 +61,10 @@ module umi_arbiter
    // Or together all grants
    always @*
      begin : imux
-	integer	   i;
+	integer	   k;
 	grants[N-1:0] = 'b0;
-	for(i=0;i<N;i=i+1)
-	  grants[N-1:0] = grants[N-1:0] | spec_grants[i][N-1:0];
+	for(k=0;k<N;k=k+1)
+	  grants[N-1:0] = grants[N-1:0] | spec_grants[k][N-1:0];
      end
 
    // Detect collision on pushback
