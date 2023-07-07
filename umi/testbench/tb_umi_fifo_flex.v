@@ -125,7 +125,7 @@ module tb_umi_fifo
     .clk                (clk),
     .ctrl               (1'b0),
     .status             (),
-    .bypass             (BYPASS),
+    .bypass             (|BYPASS),
     .umi_out_clk	(slowclk),
     .umi_out_nreset     (slownreset),
     .umi_out_ready	(1'b1),
@@ -160,7 +160,7 @@ module tb_umi_fifo
                       .clk              (clk),                   // Templated
                       .go               (go),
                       .ctrl             (1'b0),                  // Templated
-                      .bypass           (BYPASS),                // Templated
+                      .bypass           (|BYPASS),               // Templated
                       .umi_in_clk       (clk),                   // Templated
                       .umi_in_nreset    (nreset),                // Templated
                       .umi_in_valid     (umi_stim2dut_valid),    // Templated
