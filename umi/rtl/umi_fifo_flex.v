@@ -69,6 +69,7 @@ module umi_fifo_flex
    wire [7:0]                latch_len;
    reg                       last_sent;
    wire [8:0]                cmd_len_plus_one;
+   reg [1:0]                 fifo_ready;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -140,8 +141,8 @@ module umi_fifo_flex
    assign fifo_dstaddr = packet_latch_valid ? packet_dstaddr_latch : umi_in_dstaddr;
    assign fifo_srcaddr = packet_latch_valid ? packet_srcaddr_latch : umi_in_srcaddr;
 
-   assign latch_dstaddr = fifo_dstaddr + (ODW >> cmd_size >> 3);
-   assign latch_srcaddr = fifo_srcaddr + (ODW >> cmd_size >> 3);
+   assign latch_dstaddr = fifo_dstaddr + (ODW >> 3);
+   assign latch_srcaddr = fifo_srcaddr + (ODW >> 3);
 
    // cmd manipulation - at each cycle need to remove the bytes sent out
    assign latch_len[7:0] = (cmd_len_plus_one[8:0] >= (ODW >> cmd_size >> 3)) ?
@@ -223,7 +224,7 @@ module umi_fifo_flex
    assign fifo_read = ~fifo_empty & umi_out_ready;
 
    // Write fifo when high (blocked inside fifo when full)
-   assign fifo_write = ~fifo_full & (umi_in_valid | packet_latch_valid);
+   assign fifo_write = ~fifo_full & fifo_ready[1] & (umi_in_valid | packet_latch_valid);
 
    // FIFO pushback
    assign fifo_in_ready = ~fifo_full & ~packet_latch_valid;
@@ -254,7 +255,7 @@ module umi_fifo_flex
 	       .wr_clk	     (umi_in_clk),
 	       .wr_nreset    (umi_in_nreset),
 	       .wr_din	     (fifo_din[ODW+AW+AW+CW-1:0]),
-	       .wr_en	     (umi_in_valid | packet_latch_valid),
+	       .wr_en	     (fifo_ready[1] & (umi_in_valid | packet_latch_valid)),
 	       .wr_chaosmode (chaosmode),
 	       .rd_clk       (umi_out_clk),
 	       .rd_nreset    (umi_out_nreset),
@@ -266,6 +267,12 @@ module umi_fifo_flex
      end
    endgenerate
 
+   always @(posedge umi_in_clk or negedge umi_in_nreset)
+     if (~umi_in_nreset)
+       fifo_ready[1:0] <= 2'b00;
+     else
+       fifo_ready[1:0] <= {fifo_ready[0],1'b1};
+
    //#################################
    // FIFO Bypass
    //#################################
@@ -275,7 +282,8 @@ module umi_fifo_flex
    assign umi_out_srcaddr[AW-1:0] = (bypass | BYPASS) ? fifo_srcaddr[AW-1:0]                : fifo_dout[CW+AW+:AW];
    assign umi_out_data[ODW-1:0]   = (bypass | BYPASS) ? packet_data[ODW-1:0]                : fifo_dout[CW+AW+AW+:ODW];
    assign umi_out_valid           = (bypass | BYPASS) ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
-   assign umi_in_ready            = (bypass | BYPASS) ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
+   assign umi_in_ready            = ~fifo_ready[1] ? 1'b0 :
+                                    (bypass | BYPASS) ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;
