@@ -281,7 +281,8 @@ module umi_fifo_flex
    assign umi_out_dstaddr[AW-1:0] = (bypass | BYPASS) ? fifo_dstaddr[AW-1:0]                : fifo_dout[CW+:AW];
    assign umi_out_srcaddr[AW-1:0] = (bypass | BYPASS) ? fifo_srcaddr[AW-1:0]                : fifo_dout[CW+AW+:AW];
    assign umi_out_data[ODW-1:0]   = (bypass | BYPASS) ? packet_data[ODW-1:0]                : fifo_dout[CW+AW+AW+:ODW];
-   assign umi_out_valid           = (bypass | BYPASS) ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
+   assign umi_out_valid           = ~fifo_ready[1] ? 1'b0 :
+                                    (bypass | BYPASS) ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
    assign umi_in_ready            = ~fifo_ready[1] ? 1'b0 :
                                     (bypass | BYPASS) ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
 
