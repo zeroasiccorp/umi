@@ -78,6 +78,7 @@ module umi_fifo_flex
    reg                       last_sent;
    wire [8:0]                cmd_len_plus_one;
    reg [1:0]                 fifo_ready;
+   wire                      cmd_eom_split;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -204,9 +205,12 @@ module umi_fifo_flex
                           ((ODW >> cmd_size >> 3) - 1'b1) :
                           cmd_len[7:0];
 
+   assign cmd_eom_split = cmd_eom && (cmd_len_plus_one <= (ODW >> cmd_size >> 3));
+
    /* umi_pack AUTO_TEMPLATE(
     .packet_cmd (fifo_cmd[]),
     .cmd_len    (fifo_len),
+    .cmd_eom    (cmd_eom_split),
     );*/
 
    umi_pack #(.CW(CW))
@@ -220,7 +224,7 @@ module umi_fifo_flex
                  .cmd_atype             (cmd_atype[7:0]),
                  .cmd_prot              (cmd_prot[1:0]),
                  .cmd_qos               (cmd_qos[3:0]),
-                 .cmd_eom               (cmd_eom),
+                 .cmd_eom               (cmd_eom_split),         // Templated
                  .cmd_eof               (cmd_eof),
                  .cmd_user              (cmd_user[1:0]),
                  .cmd_err               (cmd_err[1:0]),
