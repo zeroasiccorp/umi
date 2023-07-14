@@ -91,7 +91,7 @@ module umi_regif
    wire [1:0]           reg_prot;
    wire [3:0]           reg_qos;
    wire [1:0]           reg_user;
-   wire [18:0]          reg_user_extended;
+   wire [23:0]          reg_user_extended;
    // End of automatics
 
    wire [4:0]           cmd_opcode;
@@ -123,7 +123,7 @@ module umi_regif
               .cmd_eof          (reg_eof),               // Templated
               .cmd_ex           (reg_ex),                // Templated
               .cmd_user         (reg_user[1:0]),         // Templated
-              .cmd_user_extended(reg_user_extended[18:0]), // Templated
+              .cmd_user_extended(reg_user_extended[23:0]), // Templated
               .cmd_err          (reg_err[1:0]),          // Templated
               .cmd_hostid       (reg_hostid[4:0]),       // Templated
               // Inputs
@@ -232,7 +232,7 @@ module umi_regif
             .cmd_err            (reg_err[1:0]),          // Templated
             .cmd_ex             (reg_ex),                // Templated
             .cmd_hostid         (reg_hostid[4:0]),       // Templated
-            .cmd_user_extended  (reg_user_extended[18:0])); // Templated
+            .cmd_user_extended  (reg_user_extended[23:0])); // Templated
 
    // Amir - response fields cannot assume that the request will be help
    // Therefore they need to be sampled when the request is acknowledged
