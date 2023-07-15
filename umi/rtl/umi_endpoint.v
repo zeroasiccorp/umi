@@ -83,7 +83,7 @@ module umi_endpoint
    wire [1:0]           loc_prot;
    wire [3:0]           loc_qos;
    wire [1:0]           loc_user;
-   wire [18:0]          loc_user_extended;
+   wire [23:0]          loc_user_extended;
    wire [CW-1:0]        packet_cmd;
    // End of automatics
 
@@ -123,7 +123,7 @@ module umi_endpoint
               .cmd_eof          (loc_eof),               // Templated
               .cmd_ex           (loc_ex),                // Templated
               .cmd_user         (loc_user[1:0]),         // Templated
-              .cmd_user_extended(loc_user_extended[18:0]), // Templated
+              .cmd_user_extended(loc_user_extended[23:0]), // Templated
               .cmd_err          (loc_err[1:0]),          // Templated
               .cmd_hostid       (loc_hostid[4:0]),       // Templated
               // Inputs
@@ -223,7 +223,7 @@ module umi_endpoint
             .cmd_err            (loc_err[1:0]),          // Templated
             .cmd_ex             (loc_ex),                // Templated
             .cmd_hostid         (loc_hostid[4:0]),       // Templated
-            .cmd_user_extended  (loc_user_extended[18:0])); // Templated
+            .cmd_user_extended  (loc_user_extended[23:0])); // Templated
 
    always @ (posedge clk or negedge nreset)
      if (!nreset)

@@ -22,7 +22,7 @@ module umi_pack #(parameter CW = 32)
     input [1:0]     cmd_err,
     input           cmd_ex,
     input [4:0]     cmd_hostid,
-    input [18:0]    cmd_user_extended,
+    input [23:0]    cmd_user_extended,
     // Output packet
     output [CW-1:0] packet_cmd
     );
@@ -57,7 +57,7 @@ module umi_pack #(parameter CW = 32)
    assign cmd_out[21:20] = extended_user_sel ? cmd_user_extended[13:12] : cmd_prot[1:0];
    assign cmd_out[24:22] = extended_user_sel ? cmd_user_extended[16:14] : {cmd_ex,cmd_eof,cmd_eom};
    assign cmd_out[26:25] = extended_user_sel ? cmd_user_extended[18:17] : cmd_user[1:0]   ;
-   assign cmd_out[31:27] = cmd_hostid[4:0];
+   assign cmd_out[31:27] = extended_user_sel ? cmd_user_extended[23:19] : cmd_hostid[4:0];
 
    /*umi_decode AUTO_TEMPLATE(
     .cmd_atomic     (cmd_atomic[]),
