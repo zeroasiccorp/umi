@@ -1,124 +1,173 @@
 
 module testbench();
 
+`include "umi_messages.vh"
+
    localparam N          = 1;
-   localparam UW         = 256;
-   localparam DW         = 64;
+   localparam CW         = 32;
    localparam AW         = 64;
+   localparam DW         = 512;
+   localparam RW         = 64;
    localparam PERIOD_CLK = 10;
    localparam RAMDEPTH   = 1024;
 
    reg [N-1:0] 	 udev_req_valid;
-   reg [N-1:0] 	 udev_req_write;
-   reg [AW-1:0]  udev_req_addr;
+   reg [CW-1:0]  udev_req_cmd;
+   reg [AW-1:0]  udev_req_dstaddr;
    reg [N-1:0] 	 udev_resp_ready;
    reg 		 nreset;
    reg 		 clk;
-   wire [UW-1:0] udev_req_packet;
+
+   reg [RW-1:0]  ram [1023:0];
+   reg [RW-1:0]  reg_rddata;
+   reg [$clog2(RAMDEPTH)-1:0] ram_addr;
+   reg [AW-1:0]               addr_latch;
+   reg                        reg_read_d1;
+   reg                        error;
+
+   /*AUTOWIRE*/
+   // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   wire [AW-1:0]        reg_addr;
+   wire [7:0]           reg_len;
+   wire [4:0]           reg_opcode;
+   wire                 reg_read;
+   wire [2:0]           reg_size;
+   wire [RW-1:0]        reg_wrdata;
+   wire                 reg_write;
+   wire                 udev_req_ready;
+   wire [CW-1:0]        udev_resp_cmd;
+   wire [DW-1:0]        udev_resp_data;
+   wire [AW-1:0]        udev_resp_srcaddr;
+   wire                 udev_resp_valid;
+   // End of automatics
 
    // Run Sim
    initial
      begin
         $dumpfile("waveform.vcd");
         $dumpvars();
-	#500
-          $finish;
      end
+
+   always @(posedge clk)
+     if (nreset)
+       begin
+//          if (udev_req_valid)
+//            $display("addr: %h", udev_req_dstaddr);
+          if (!udev_req_valid & (&ram_addr))
+            begin
+               #100;
+               if (error)
+                 $display("Test faild :-(");
+               else
+                 $display("Test passed :-)");
+               $finish;
+            end
+       end
 
   // Reset/init
    initial
      begin
 	#(1)
-	nreset   = 1'b0;
+        addr_latch = 'b0;
+        error    = 1'b0;
+        nreset   = 1'b0;
 	clk      = 1'b0;
 	#(PERIOD_CLK * 10)
 	nreset        = 1'b1;
-
      end // initial begin
 
    // clocks
    always
      #(PERIOD_CLK/2) clk = ~clk;
 
-
-   // write followed by read for alll addresses
+   // write followed by read for all addresses
    // ignore LSB of address
    always @ (posedge clk or negedge nreset)
      if(~nreset)
        begin
-	  udev_req_valid  <= 1'b1;
-	  udev_req_addr   <= 'b0;
-	  udev_req_write  <= 1'b1;
-	  udev_resp_ready <= 1'b1;
+          ram_addr         <= 0;
+          udev_req_valid   <= 1'b0;
+	  udev_req_dstaddr <= 'b0;
+	  udev_req_cmd     <= 'b0;
+	  udev_resp_ready  <= 1'b1;
        end
      else if(udev_req_ready)
-       begin
-	  udev_req_write  <= ~udev_req_write;
-	  udev_req_addr   <= udev_req_addr + 1'b1;
-       end
-
-   /*AUTOWIRE*/
-   // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire			udev_req_ready;
-   wire [UW-1:0]	udev_resp_packet;
-   wire			udev_resp_valid;
-   wire [AW-1:0]	ureg_addr;
-   wire [7:0]		ureg_cmd;
-   wire			ureg_read;
-   wire [3:0]		ureg_size;
-   wire [4*DW-1:0]	ureg_wrdata;
-   wire			ureg_write;
-   // End of automatics
+       if ((&ram_addr) & (udev_req_cmd[4:0] == UMI_REQ_READ)) // end of stimuli
+         begin
+            udev_req_valid <= 1'b0;
+         end
+       else
+         begin
+            udev_req_valid   <= (&ram_addr) ? 1'b0 : 1'b1;
+            udev_req_cmd     <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? UMI_REQ_READ : UMI_REQ_WRITE;
+	    ram_addr         <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? ram_addr : ram_addr + 1'b1;
+            udev_req_dstaddr <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? udev_req_dstaddr : $random%16777215;//reg addr has 24 bits
+         end
 
    //###########################################
    // DUT
    //###########################################
+   /*umi_regif AUTO_TEMPLATE(
+    .udev_req_srcaddr  ({@"vl-width"{1'b0}}),
+    .udev_req_data     ({DW/AW{udev_req_dstaddr[AW-1:0]}}),
+    .udev_resp_dstaddr (),
+    );*/
 
-   umi_pack #(.UW(UW))
-   umi_pack(// Outputs
-	    .packet	(udev_req_packet[UW-1:0]),
-	    // Inputs
-	    .write	(udev_req_write),
-	    .command	(8'b0),
-	    .size	(4'b0),
-	    .options	(20'b0),
-	    .burst	(1'b0),
-	    .dstaddr	(udev_req_addr[AW-1:0]),
-	    .srcaddr	({(AW){1'b0}}),
-	    .data	({(4){udev_req_addr[AW-1:0]}}));
-
-   umi_regif #(.UW(UW))
+   umi_regif #(.CW(CW),
+               .AW(AW),
+               .DW(DW),
+               .RW(RW))
    umi_regif (/*AUTOINST*/
-	      // Outputs
-	      .udev_req_ready		(udev_req_ready),
-	      .udev_resp_valid		(udev_resp_valid),
-	      .udev_resp_packet		(udev_resp_packet[UW-1:0]),
-	      .ureg_addr		(ureg_addr[AW-1:0]),
-	      .ureg_write		(ureg_write),
-	      .ureg_read		(ureg_read),
-	      .ureg_cmd			(ureg_cmd[7:0]),
-	      .ureg_size		(ureg_size[3:0]),
-	      .ureg_wrdata		(ureg_wrdata[4*DW-1:0]),
-	      // Inputs
-	      .clk			(clk),
-	      .nreset			(nreset),
-	      .udev_req_valid		(udev_req_valid),
-	      .udev_req_packet		(udev_req_packet[UW-1:0]),
-	      .udev_resp_ready		(udev_resp_ready),
-	      .ureg_rddata		(ureg_rddata[DW-1:0]));
+              // Outputs
+              .udev_req_ready   (udev_req_ready),
+              .udev_resp_valid  (udev_resp_valid),
+              .udev_resp_cmd    (udev_resp_cmd[CW-1:0]),
+              .udev_resp_dstaddr(),                      // Templated
+              .udev_resp_srcaddr(udev_resp_srcaddr[AW-1:0]),
+              .udev_resp_data   (udev_resp_data[DW-1:0]),
+              .reg_addr         (reg_addr[AW-1:0]),
+              .reg_write        (reg_write),
+              .reg_read         (reg_read),
+              .reg_opcode       (reg_opcode[4:0]),
+              .reg_size         (reg_size[2:0]),
+              .reg_len          (reg_len[7:0]),
+              .reg_wrdata       (reg_wrdata[RW-1:0]),
+              // Inputs
+              .clk              (clk),
+              .nreset           (nreset),
+              .udev_req_valid   (udev_req_valid),
+              .udev_req_cmd     (udev_req_cmd[CW-1:0]),
+              .udev_req_dstaddr (udev_req_dstaddr[AW-1:0]),
+              .udev_req_srcaddr ({AW{1'b0}}),            // Templated
+              .udev_req_data    ({DW/AW{udev_req_dstaddr[AW-1:0]}}), // Templated
+              .udev_resp_ready  (udev_resp_ready),
+              .reg_rddata       (reg_rddata[RW-1:0]));
 
-
-   reg [DW-1:0] 	ram [1023:0];
-   reg [DW-1:0] 	ureg_rddata;
 
    // Dummy RAM
    always @(posedge clk)
-     if (ureg_write)
-       ram[ureg_addr[$clog2(RAMDEPTH)-1:1]] <= ureg_wrdata[DW-1:0];
+     if (reg_write)
+       ram[ram_addr[$clog2(RAMDEPTH)-1:1]] <= reg_wrdata[RW-1:0];
 
-   always @ (posedge clk)
-     if(ureg_read)
-       ureg_rddata[DW-1:0] <= ram[ureg_addr[$clog2(RAMDEPTH)-1:1]];
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       reg_rddata[RW-1:0] <= '0;
+     else
+       if(reg_read)
+         reg_rddata[RW-1:0] <= ram[ram_addr[$clog2(RAMDEPTH)-1:1]];
+
+   // Ram checking
+   always @(posedge clk)
+     begin
+        if (udev_req_valid & udev_req_ready & (udev_req_cmd[4:0] == UMI_REQ_WRITE))
+          addr_latch <= udev_req_dstaddr;
+
+        if (udev_resp_valid & udev_resp_ready & (udev_resp_cmd[4:0] == UMI_RESP_READ) & (udev_resp_data[AW-1:0] != addr_latch))
+          begin
+             $display("Error reading address %h", addr_latch);
+             error <= 1'b1;
+          end
+     end
 
 endmodule
 // Local Variables:

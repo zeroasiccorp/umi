@@ -96,6 +96,8 @@ module umi_regif
 
    wire [4:0]           cmd_opcode;
    wire                 cmd_resp;
+   wire                 group_match;
+   wire                 reg_resp;
 
    //########################
    // UMI INPUT
@@ -248,6 +250,6 @@ module umi_regif
        end
 
    assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
-   assign udev_resp_data[DW-1:0]    = {(4){reg_rddata[RW-1:0]}};
+   assign udev_resp_data[DW-1:0]    = {(DW/RW){reg_rddata[RW-1:0]}};
 
 endmodule // umi_regif

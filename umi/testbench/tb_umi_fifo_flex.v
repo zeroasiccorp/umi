@@ -13,10 +13,7 @@ module tb_umi_fifo
   #(parameter TARGET     = "DEFAULT",   // pass through variable for hard macro
     parameter TIMEOUT    = 5000,        // timeout value (cycles)
     parameter PERIOD_CLK = 10,          // clock period
-    parameter FIFODEPTH  = 4,           // fifo depth
-    parameter CW         = 32,          // UMI width
-    parameter AW         = 64,          // UMI width
-    parameter DW         = 512          // UMI width
+    parameter FIFODEPTH  = 4            // fifo depth
     )
    ();
 
@@ -27,6 +24,12 @@ module tb_umi_fifo
    localparam STIMDEPTH = 1024;
    localparam NUMI      = 1;
    localparam TCW       = 8;
+   localparam CW        = 32;          // UMI width
+   localparam AW        = 64;          // UMI width
+   localparam IDW       = 512;         // UMI width
+   localparam ODW       = 128;          // UMI width
+   localparam DW        = IDW;
+   localparam BYPASS    = 0;
 
    //#####################
    //# SIMCTRL
@@ -77,12 +80,17 @@ module tb_umi_fifo
      else
        umi_dut2check_ready <= ~umi_dut2check_ready;
 
-   // clock divider
-   always @ (posedge clk or negedge nreset)
-     if (~nreset)
-       slowclk <= 1'b0;
-     else
-       slowclk <= ~slowclk;
+   generate if (BYPASS)
+     always @*
+       slowclk = clk;
+   else
+     // clock divider
+     always @ (posedge clk or negedge nreset)
+       if (~nreset)
+         slowclk <= 1'b0;
+       else
+         slowclk <= ~slowclk;
+   endgenerate
 
    la_rsync la_rsync (// Outputs
 		      .nrst_out		(slownreset),
@@ -96,7 +104,7 @@ module tb_umi_fifo
    wire                 done;
    wire                 error;
    wire [NUMI*CW-1:0]   umi_dut2check_cmd;
-   wire [NUMI*DW-1:0]   umi_dut2check_data;
+   wire [NUMI*ODW-1:0]  umi_dut2check_data;
    wire [NUMI*AW-1:0]   umi_dut2check_dstaddr;
    wire [NUMI*AW-1:0]   umi_dut2check_srcaddr;
    wire [NUMI-1:0]      umi_dut2check_valid;
@@ -113,10 +121,11 @@ module tb_umi_fifo
    //# DUT
    //#################################################
 
-   /*dut_umi_fifo AUTO_TEMPLATE (
+   /*dut_umi_fifo_flex AUTO_TEMPLATE (
     .clk                (clk),
     .ctrl               (1'b0),
     .status             (),
+    .bypass             (|BYPASS),
     .umi_out_clk	(slowclk),
     .umi_out_nreset     (slownreset),
     .umi_out_ready	(1'b1),
@@ -128,36 +137,39 @@ module tb_umi_fifo
     );
     */
 
-   dut_umi_fifo #(.CW(CW),
-		  .AW(AW),
-		  .DW(DW),
-		  .DEPTH(FIFODEPTH))
-   dut_umi_fifo (.umi_out_ready		(umi_dut2check_ready),
-		 /*AUTOINST*/
-                 // Outputs
-                 .error                 (error),
-                 .done                  (done),
-                 .status                (),                      // Templated
-                 .umi_in_ready          (umi_stim2dut_ready[NUMI-1:0]), // Templated
-                 .umi_out_valid         (umi_dut2check_valid[NUMI-1:0]), // Templated
-                 .umi_out_cmd           (umi_dut2check_cmd[NUMI*CW-1:0]), // Templated
-                 .umi_out_dstaddr       (umi_dut2check_dstaddr[NUMI*AW-1:0]), // Templated
-                 .umi_out_srcaddr       (umi_dut2check_srcaddr[NUMI*AW-1:0]), // Templated
-                 .umi_out_data          (umi_dut2check_data[NUMI*DW-1:0]), // Templated
-                 // Inputs
-                 .nreset                (nreset),
-                 .clk                   (clk),                   // Templated
-                 .go                    (go),
-                 .ctrl                  (1'b0),                  // Templated
-                 .umi_in_clk            (clk),                   // Templated
-                 .umi_in_nreset         (nreset),                // Templated
-                 .umi_in_valid          (umi_stim2dut_valid),    // Templated
-                 .umi_in_cmd            (umi_stim2dut_cmd[NUMI*CW-1:0]), // Templated
-                 .umi_in_dstaddr        (umi_stim2dut_dstaddr[NUMI*AW-1:0]), // Templated
-                 .umi_in_srcaddr        (umi_stim2dut_srcaddr[NUMI*AW-1:0]), // Templated
-                 .umi_in_data           (umi_stim2dut_data[NUMI*DW-1:0]), // Templated
-                 .umi_out_clk           (slowclk),               // Templated
-                 .umi_out_nreset        (slownreset));           // Templated
+   dut_umi_fifo_flex #(.CW(CW),
+		       .IDW(IDW),
+		       .AW(AW),
+		       .ODW(ODW),
+		       .DEPTH(FIFODEPTH),
+                       .BYPASS(BYPASS))
+   dut_umi_fifo_flex (.umi_out_ready		(umi_dut2check_ready),
+		       /*AUTOINST*/
+                      // Outputs
+                      .error            (error),
+                      .done             (done),
+                      .status           (),                      // Templated
+                      .umi_in_ready     (umi_stim2dut_ready[NUMI-1:0]), // Templated
+                      .umi_out_valid    (umi_dut2check_valid[NUMI-1:0]), // Templated
+                      .umi_out_cmd      (umi_dut2check_cmd[NUMI*CW-1:0]), // Templated
+                      .umi_out_dstaddr  (umi_dut2check_dstaddr[NUMI*AW-1:0]), // Templated
+                      .umi_out_srcaddr  (umi_dut2check_srcaddr[NUMI*AW-1:0]), // Templated
+                      .umi_out_data     (umi_dut2check_data[NUMI*ODW-1:0]), // Templated
+                      // Inputs
+                      .nreset           (nreset),
+                      .clk              (clk),                   // Templated
+                      .go               (go),
+                      .ctrl             (1'b0),                  // Templated
+                      .bypass           (|BYPASS),               // Templated
+                      .umi_in_clk       (clk),                   // Templated
+                      .umi_in_nreset    (nreset),                // Templated
+                      .umi_in_valid     (umi_stim2dut_valid),    // Templated
+                      .umi_in_cmd       (umi_stim2dut_cmd[NUMI*CW-1:0]), // Templated
+                      .umi_in_dstaddr   (umi_stim2dut_dstaddr[NUMI*AW-1:0]), // Templated
+                      .umi_in_srcaddr   (umi_stim2dut_srcaddr[NUMI*AW-1:0]), // Templated
+                      .umi_in_data      (umi_stim2dut_data[NUMI*IDW-1:0]), // Templated
+                      .umi_out_clk      (slowclk),               // Templated
+                      .umi_out_nreset   (slownreset));           // Templated
 
    //##################################################
    //# UMI STIMULUS DRIVER (CLK)
@@ -166,9 +178,9 @@ module tb_umi_fifo
    /*umi_stimulus AUTO_TEMPLATE (
     // Outputs
     .stim_\(.*\)	(umi_stim2dut_\1[]),
-    .dut_ready          (umi_stim2dut_ready),
+    .dut_ready          (umi_stim2dut_ready[]),
     .ext_valid		(1'b0),
-    .ext_packet		({(DW+AW+AW+CW+TCW){1'b0}}),
+    .ext_packet		({(IDW+AW+AW+CW+TCW){1'b0}}),
     .\(.*\)_clk         (clk),
     );
     */
@@ -177,7 +189,7 @@ module tb_umi_fifo
 		  .TARGET(TARGET),
 		  .CW(CW),
 		  .AW(AW),
-		  .DW(DW),
+		  .DW(IDW),
 		  .TCW(TCW))
    umi_stimulus (/*AUTOINST*/
                  // Outputs
@@ -193,7 +205,7 @@ module tb_umi_fifo
                  .go                    (go),
                  .ext_clk               (clk),                   // Templated
                  .ext_valid             (1'b0),                  // Templated
-                 .ext_packet            ({(DW+AW+AW+CW+TCW){1'b0}}), // Templated
+                 .ext_packet            ({(IDW+AW+AW+CW+TCW){1'b0}}), // Templated
                  .dut_clk               (clk),                   // Templated
                  .dut_ready             (umi_stim2dut_ready));   // Templated
 
