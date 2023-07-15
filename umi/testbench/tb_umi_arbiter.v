@@ -4,7 +4,7 @@ module testbench();
    localparam N=4;
    localparam PERIOD_CLK = 10;
 
-   reg [N-1:0] umi_in_valid;
+   reg [N-1:0] requests;
    reg 	       nreset;
    reg 	       clk;
 
@@ -25,9 +25,9 @@ module testbench();
 
    always @ (posedge clk or negedge nreset)
      if(~nreset)
-       umi_in_valid <='b0;
+       requests <= 'b0;
      else
-       umi_in_valid <=umi_in_valid+1'b1;
+       requests <= requests+1'b1;
 
      initial
        begin
@@ -39,21 +39,19 @@ module testbench();
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [N-1:0]		umi_in_ready;		// From umi_arbiter of umi_arbiter.v
-   wire [N-1:0]		umi_out_valid;		// From umi_arbiter of umi_arbiter.v
+   wire [N-1:0]         grants;
    // End of automatics
 
    umi_arbiter #(.N(N))
    umi_arbiter  (.mode			(2'b00),
 		 .mask			({(N){1'b0}}),
 		 /*AUTOINST*/
-		 // Outputs
-		 .umi_in_ready		(umi_in_ready[N-1:0]),
-		 .umi_out_valid		(umi_out_valid[N-1:0]),
-		 // Inputs
-		 .clk			(clk),
-		 .nreset		(nreset),
-		 .umi_in_valid		(umi_in_valid[N-1:0]));
+                 // Outputs
+                 .grants                (grants[N-1:0]),
+                 // Inputs
+                 .clk                   (clk),
+                 .nreset                (nreset),
+                 .requests              (requests[N-1:0]));
 
 
 endmodule
