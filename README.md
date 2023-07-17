@@ -29,7 +29,7 @@ The Universal Memory Interface (UMI) is a transaction based standard for accessi
 ### 1.3 Key Terms
 
 * **Transaction**: Complete request-response memory operation.
-* **Message**: Request or response message, consisting of a command header, address fields, and an optional data payload.
+* **Message**: Unidirectional request or response, consisting of a command header, address fields, and an optional data payload.
 * **Host**: Initiator of memory requests.
 * **Device**: Responder to memory requests.
 
@@ -49,37 +49,36 @@ UMI transaction payloads are treated as a series of opaque bytes and can carry a
 
 ### 3.1 Theory of Operation
 
-UMI transactions are request-response message exchanges between Hosts and addressable Devices. Hosts send memory access requests to devices and get responses back.  The figure below illustrates the relationship between hosts, devices, and the interconnect network.
+UMI transactions are request-response memory exchanges between Hosts and Devices. Hosts send memory access requests to devices and get responses back.  The figure below illustrates the relationship between hosts, devices, and the interconnect network.
 
 ![UMI](docs/_images/tumi_connections.png)
 
 Basic UMI read/write transaction involves the transfer of LEN+1 words of data of width 2^SIZE bytes between a device and a host. 
 
-Summary:
+**Summary:**
 * UMI transaction type, word size (SIZE), transfer count (LEN), and other options are encoded in a 32bit transaction command header (CMD). 
 * Device memory access is communicated through a destination address (DA) field.
-* The hst source address is communicated through the source address (SA) field.
+* The host source address is communicated through the source address (SA) field.
 * The destination address indicates the memory address of the first byte in the transaction.
 * Memory is accessed in increasing address order starting with DA and ending with DA + (LEN+1)\*(2^SIZE)-1.
+* The maximum data field size is 32,768 bytes.
 
-Hosts:
+**Hosts:**
 
 * Send read, write memory access request messages
 * Validate and execute incoming responses
 * Identify egress interface through which to send requests (in case of multiple)
 
-Devices:
+**Devices:**
 
 * Validate and execute incoming memory request messages
 * Initiate response messages when required
 * Identify egress interface through which to send responses (in case of multiple)
 
-Constraints:
-* Device and source addresses must be aligned the native word size.
-* The maximum data field size is 32,768 bytes.
-* All data bytes must be arrive at final destination.
-* Message content arrive at a device in the same order that they left the host.
-* Message content arrive at the host in the same order that they left the device.
+**Constraints:**
+* Device and source addresses must be aligned to the native word size.
+* Requests with the same HOSTID arrive at the target device in the same order that they left the host.
+* Responses with the same HOSTID return to the host in the same order that they left the device.
 
 ### 3.2 Message Format
 
@@ -130,14 +129,14 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |REQ_USER0   |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xB|
 |REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
 |REQ_ERROR   |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xF|
-|REQ_LINK    |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x1 |R,0xF|
+|REQ_LINK    |    |  |  |U     |U    |U         |U    |U    |U    |0x1 |R,0xF|
 |RESP_RD     |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
 |RESP_WR     |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
 |RESP_USER0  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
 |RESP_USER1  |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
 |RESP_FUTURE0|    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
 |RESP_FUTURE1|Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
-|RESP_LINK   |    |  |  |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xE|
+|RESP_LINK   |    |  |  |U     |U    |U         |U    |U    |U    |0x0 |R,0xE|
 
 ### 3.3 Message Fields
 
@@ -286,7 +285,7 @@ REQ_ATOMIC initiates an atomic read-modify-write memory operation of size (2^SIZ
 2. Device reading data address DA
 3. Applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data
 4. Writing the result back to device address DA
-5. Returning the original device data to host address SA
+5. Returning the original device data to host address SA with a RESP_RD message.
 
 ### 3.4.7 REQ_ERROR
 
