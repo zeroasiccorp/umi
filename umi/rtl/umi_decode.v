@@ -67,7 +67,7 @@ module umi_decode #(parameter CW = 32)
    assign cmd_atomic           = (command[3:0]==UMI_REQ_ATOMIC[3:0]);
    assign cmd_user0            = (command[3:0]==UMI_REQ_USER0[3:0]);
    assign cmd_future0          = (command[3:0]==UMI_REQ_FUTURE0[3:0]);
-   assign cmd_error            = (command[7:0]==UMI_REQ_LINK[7:0]);
+   assign cmd_error            = (command[7:0]==UMI_REQ_ERROR[7:0]);
    assign cmd_link             = (command[7:0]==UMI_REQ_LINK[7:0]);
    // Response (device -> host)
    assign cmd_read_resp    = (command[3:0]==UMI_RESP_READ[3:0]);
