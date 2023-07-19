@@ -392,8 +392,8 @@ Definitions:
 4. The notation FIELD_in means the value of FIELD in the SUMI packet being split.
 
 Rules:
-1. Splitting is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR.
-2. Copy SA, HOSTID, PROT, QOS, SIZE, OPCODE into each split output.
+1. Splitting is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR, when EX=0.
+2. Copy SA, HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields into each split output.
 3. LEN_out\[i\] may be different for each split output as long as sum(LEN_out[0:N-1])+N == LEN_in+1.
 4. DA_out\[i\] := DA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  DA_out\[0\] := DA_in.
 5. EOM_out\[i\] := EOM_in & (i == (N-1)).
@@ -409,8 +409,8 @@ Definitions:
 4. The notation FIELD_out means the value of FIELD in the output of a SUMI packet merge.
 
 Rules:
-1. Merging is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR.
-2. SA, HOSTID, PROT, QOS, SIZE, ERR, and OPCODE must match in all merge inputs.  These values are copied into the merge output.
+1. Merging is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR, when EX=0.
+2. SA, HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields must match in all merge inputs.  These values are copied into the merge output.
 3. EOM_in\[i\] must be 0 for 0<=i<=(N-2), that is, it must be zero for all but the last merge input.  EOM_in\[N-1\] may be either 0 or 1.
 4. DA_in\[i\] must be equal to DA_in\[i-1\] + (2^SIZE)*(LEN_in\[i-1\]+1), 1<=i<=(N-1).
 5. DA_out := DA_in\[0\].
