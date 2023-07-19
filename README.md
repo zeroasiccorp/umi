@@ -381,6 +381,41 @@ In these examples, there were no user specified SA control bits to conflict with
 
 Devices can decide to return write response messages upon all write requests or only upon the write requests with EOM set to 1 (last request). The EOM bit in the outgoing response must be an exact copy of incoming request EOM bit in call cases.
 
+### 4.1.1 Splitting Rules
+
+Generalizing from the example above, this section describes the formal rules for splitting a SUMI packet.
+
+Definitions:
+1. The number of split outputs is denoted *N*.
+2. A field of the *i*th split output is referred to as FIELD\[i\], with 0<=i<=N-1.
+3. The notation FIELD\[p:q\] means the values FIELD\[p\] through (inclusive) FIELD\[q\].
+4. The notation FIELD_in means the value of FIELD in the SUMI packet being split.
+
+Rules:
+1. Splitting is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR.
+2. Copy SA, HOSTID, PROT, QOS, SIZE, OPCODE into each split output.
+3. LEN\[i\] may be different for each split output as long as sum(LEN[0:N-1])+N == LEN_in+1.
+4. DA\[i\] := DA\[i-1\] + (2^SIZE)*(LEN\[i-1\]+1), 1<=i<=(N-1).  DA\[0\] := DA_in.
+5. EOM\[i\] := EOM_in & (i == (N-1)).
+
+### 4.1.2 Merging Rules
+
+Merging, the inverse of splitting, is also permitted for related SUMI packets.  This may be done to improve packet transmission performance by reducing network bandwidth required.  This may also improve host or device performance: for example, a device may be able to deal with related requests more efficiently if they have been merged together into a single SUMI packet.  Similarly, a host may be able to process merged responses more effectively.  This section describes the formal rules for merging SUMI packets.
+
+Definitions:
+1. The number of merge inputs is denoted *N*.
+2. A field of the *i*th merge input is referred to as FIELD\[i\], with 0<=i<=N-1.
+3. The notation FIELD\[p:q\] means the values FIELD\[p\] through (inclusive) FIELD\[q\]
+4. The notation FIELD_out means the value of FIELD in the output of a SUMI packet merge.
+
+Rules:
+1. Merging is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR.
+2. SA, HOSTID, PROT, QOS, SIZE, ERR, and OPCODE must match in all merge inputs.  These values are copied into the merge output.
+3. EOM\[i\] must be 0 for 0<=i<=(N-2), that is, it must be zero for all but the last merge input.  EOM\[N-1\] may be either 0 or 1.
+4. DA\[i\] must be equal to DA\[i-1\] + (2^SIZE)*(LEN\[i-1\]+1), 1<=i<=(N-1).
+5. DA_out := DA\[0\].
+6. LEN_out := sum(LEN\[0:N-1\])+N-1.
+7. EOM_out := EOM\[N-1\].
 
 ### 4.2 Handshake Protocol
 
