@@ -94,7 +94,7 @@ module umi_fifo_flex
    wire [3:0]           cmd_qos;
    wire [2:0]           cmd_size;
    wire [1:0]           cmd_user;
-   wire [18:0]          cmd_user_extended;
+   wire [23:0]          cmd_user_extended;
    wire [CW-1:0]        fifo_cmd;
    wire [CW-1:0]        latch_cmd;
    // End of automatics
@@ -119,7 +119,7 @@ module umi_fifo_flex
                 .cmd_eof        (cmd_eof),
                 .cmd_ex         (cmd_ex),
                 .cmd_user       (cmd_user[1:0]),
-                .cmd_user_extended(cmd_user_extended[18:0]),
+                .cmd_user_extended(cmd_user_extended[23:0]),
                 .cmd_err        (cmd_err[1:0]),
                 .cmd_hostid     (cmd_hostid[4:0]),
                 // Inputs
@@ -180,7 +180,7 @@ module umi_fifo_flex
                   .cmd_err              (cmd_err[1:0]),
                   .cmd_ex               (cmd_ex),
                   .cmd_hostid           (cmd_hostid[4:0]),
-                  .cmd_user_extended    (cmd_user_extended[18:0]));
+                  .cmd_user_extended    (cmd_user_extended[23:0]));
 
    always @(posedge umi_in_clk or negedge umi_in_nreset)
      if (~umi_in_nreset)
@@ -230,7 +230,7 @@ module umi_fifo_flex
                  .cmd_err               (cmd_err[1:0]),
                  .cmd_ex                (cmd_ex),
                  .cmd_hostid            (cmd_hostid[4:0]),
-                 .cmd_user_extended     (cmd_user_extended[18:0]));
+                 .cmd_user_extended     (cmd_user_extended[23:0]));
 
    // Read FIFO when ready (blocked inside fifo when empty)
    assign fifo_read = ~fifo_empty & umi_out_ready;
