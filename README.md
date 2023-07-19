@@ -350,36 +350,37 @@ UMI messages can be split into multiple atomic SUMI packets as long as message o
 
 The following examples illlustrate splitting of UMI read and write messages into shorter SUMI packets.
 
-
 TUMI read example:
 
 * TUMI_REQ_RD  (SIZE=0, LEN=71, DA=200, SA=100)
-* TUMI_RESP_RD (SIZE=0, LEN=71, DA=100, SA=100, DATA=...)
+* TUMI_RESP_RD (SIZE=0, LEN=71, DA=100, SA=200, DATA=...)
 
 Potential SUMI packet sequence:
 
 * SUMI_REQ_RD  (SIZE=0, LEN=71, DA=200, SA=100, EOM=1)
-* SUMI_RESP_RD (SIZE=0, LEN=12, DA=100, SA=100, DATA=..., EOM=0)
-* SUMI_RESP_RD (SIZE=0, LEN=23, DA=112, SA=100, DATA=..., EOM=0)
-* SUMI_RESP_RD (SIZE=0, LEN=34, DA=135, SA=100, DATA=..., EOM=1)
+* SUMI_RESP_RD (SIZE=0, LEN=12, DA=100, SA=200, DATA=..., EOM=0)
+* SUMI_RESP_RD (SIZE=0, LEN=23, DA=113, SA=213, DATA=..., EOM=0)
+* SUMI_RESP_RD (SIZE=0, LEN=34, DA=137, SA=237, DATA=..., EOM=1)
 
 TUMI write example:
 
-* TUMI_REQ_WR  (SIZE=0, LEN=71, DA=200, SA=The table below documents all UMI message types. CMD[4:0] is the UMI opcode defining the type of message being sent. CMD[31:5] are used for message100, DATA...)
-* TUMI_RESP_WR (SIZE=0, LEN=71, DA=100, SA=100)
+* TUMI_REQ_WR  (SIZE=0, LEN=71, DA=200, SA=100, DATA...)
+* TUMI_RESP_WR (SIZE=0, LEN=71, DA=100, SA=200)
 
 Potential SUMI packet sequence:
 
 * SUMI_REQ_WR  (SIZE=0, LEN=12, DA=200, SA=100, DATA=..., EOM=0)
-* SUMI_REQ_WR  (SIZE=0, LEN=23, DA=212, SA=100, DATA=..., EOM=0)
-* SUMI_REQ_WR  (SIZE=0, LEN=34, DA=235, SA=100, DATA=..., EOM=1)
-* SUMI_RESP_WR (SIZE=0, LEN=12, DA=100, SA=100, EOM=0)
-* SUMI_RESP_WR (SIZE=0, LEN=23, DA=112, SA=100, EOM=0)
-* SUMI_RESP_WR (SIZE=0, LEN=34, DA=135, SA=100, EOM=1)
+* SUMI_REQ_WR  (SIZE=0, LEN=23, DA=213, SA=113, DATA=..., EOM=0)
+* SUMI_REQ_WR  (SIZE=0, LEN=34, DA=237, SA=137, DATA=..., EOM=1)
+* SUMI_RESP_WR (SIZE=0, LEN=12, DA=100, SA=200, EOM=0)
+* SUMI_RESP_WR (SIZE=0, LEN=23, DA=113, SA=213, EOM=0)
+* SUMI_RESP_WR (SIZE=0, LEN=34, DA=137, SA=237, EOM=1)
 
-In these examples, there were no user specified SA control bits to conflict with the SUMI DA response addresses calculation. If request SA bits are occupied by USER bits, then the response DA address would get scrambled and it would be up to the host to keep track of the incoming response data bytes by other means.
+Note that SA and DA increment in the sequence of transactions resulting from a split transaction.  Please be aware of this when storing user information in SA or DA, since this incrementing behavior could modify that information.  Formally, bit *n* in an address is safe from modification if the original outbound transaction satisfies:
 
-Devices can decide to return write response messages upon all write requests or only upon the write requests with EOM set to 1 (last request). The EOM bit in the outgoing response must be an exact copy of incoming request EOM bit in call cases.
+A\[n-1:0\] + (2^SIZE)*(LEN+1) < 2^n
+
+If A\[n-1:0\]=0, this reduces to the requirement that the number of bytes in the transaction is less than 2^n.  As a simple example, consider A\[1:0\]=0b00, SIZE=0.  Bit A\[2\] is safe from modification if LEN=0, 1, or 2 but not if LEN=3.  If A\[1:0\] is instead 0b10, bit A\[2\] is only safe when LEN=0.
 
 ### 4.1.1 Splitting Rules
 
@@ -393,10 +394,11 @@ Definitions:
 
 Rules:
 1. Splitting is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR, when EX=0.
-2. Copy SA, HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields into each split output.
+2. Copy HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields into each split output.
 3. LEN_out\[i\] may be different for each split output as long as sum(LEN_out[0:N-1])+N == LEN_in+1.
 4. DA_out\[i\] := DA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  DA_out\[0\] := DA_in.
-5. EOM_out\[i\] := EOM_in & (i == (N-1)).
+5. SA_out\[i\] := SA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  SA_out\[0\] := SA_in.
+6. EOM_out\[i\] := EOM_in & (i == (N-1)).
 
 ### 4.1.2 Merging Rules
 
@@ -410,12 +412,14 @@ Definitions:
 
 Rules:
 1. Merging is allowed only for REQ_RD, REQ_WR, REQ_WRPOSTED, REQ_RDMA, RESP_RD, RESP_WR, when EX=0.
-2. SA, HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields must match in all merge inputs.  These values are copied into the merge output.
+2. HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields must match in all merge inputs.  These values are copied into the merge output.
 3. EOM_in\[i\] must be 0 for 0<=i<=(N-2), that is, it must be zero for all but the last merge input.  EOM_in\[N-1\] may be either 0 or 1.
 4. DA_in\[i\] must be equal to DA_in\[i-1\] + (2^SIZE)*(LEN_in\[i-1\]+1), 1<=i<=(N-1).
 5. DA_out := DA_in\[0\].
-6. LEN_out := sum(LEN_in\[0:N-1\])+N-1.
-7. EOM_out := EOM_in\[N-1\].
+6. SA_in\[i\] must be equal to SA_in\[i-1\] + (2^SIZE)*(LEN_in\[i-1\]+1), 1<=i<=(N-1).
+7. SA_out := SA_in\[0\].
+8. LEN_out := sum(LEN_in\[0:N-1\])+N-1.
+9. EOM_out := EOM_in\[N-1\].
 
 ### 4.2 Handshake Protocol
 
