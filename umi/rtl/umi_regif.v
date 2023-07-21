@@ -35,7 +35,7 @@ module umi_regif
     output reg          udev_resp_valid,
     output reg [CW-1:0] udev_resp_cmd,
     output reg [AW-1:0] udev_resp_dstaddr,
-    output [AW-1:0]     udev_resp_srcaddr,
+    output reg [AW-1:0] udev_resp_srcaddr,
     output [DW-1:0]     udev_resp_data,
     input               udev_resp_ready,
     // Read/Write register interface
@@ -241,15 +241,17 @@ module umi_regif
      if(!nreset)
        begin
           udev_resp_dstaddr[AW-1:0] <= {AW{1'b0}};
-          udev_resp_cmd[CW-1:0] <= {CW{1'b0}};
+          udev_resp_cmd[CW-1:0]     <= {CW{1'b0}};
+          udev_resp_srcaddr[AW-1:0] <= {AW{1'b0}};
        end
      else if (reg_resp & udev_req_ready)
        begin
           udev_resp_dstaddr[AW-1:0] <= udev_req_srcaddr[AW-1:0];
-          udev_resp_cmd[CW-1:0] <= packet_cmd[CW-1:0];
+          udev_resp_cmd[CW-1:0]     <= packet_cmd[CW-1:0];
+          udev_resp_srcaddr[AW-1:0] <= udev_req_dstaddr[AW-1:0];
        end
 
-   assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
+//   assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
    assign udev_resp_data[DW-1:0]    = {(DW/RW){reg_rddata[RW-1:0]}};
 
 endmodule // umi_regif
