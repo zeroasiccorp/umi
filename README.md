@@ -324,7 +324,9 @@ REQ_FUTURE message types are reserved for future UMI feature enhancements.
 
 RESP_RD returns (2^SIZE)*(LEN+1) bytes of data to the host source address (SA) specified by the REQ_RD message.
 
-If RESP_RD cannot be transmitted past a certain point in the network due to a narrowing in the data bus width, the RESP_RD should be sent back to the SA of the request with ERR=NETERR and no data (DATA=0 at the SUMI level, empty array at the TUMI level); all other fields (SIZE, LEN, etc.) should match those in the request.  The same behavior applies when RESP_RD is unroutable.
+If RESP_RD cannot be transmitted past a certain point in the network due to a narrowing in the data bus width, then the transaction should be modified so that ERR=NETERR, and the DATA field should be dropped (DATA=0 at the SUMI level, empty array at the TUMI level).  All other fields (SIZE, LEN, etc.) should be unmodified.
+
+RESP_RD may be dropped silently in the network if it is determined to be unroutable.
 
 ### 3.4.12 RESP_WR
 
