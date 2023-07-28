@@ -226,6 +226,7 @@ DEVERR trigger examples:
 NETERR trigger examples:
 
 * Device address unreachable
+* Packet cannot be routed due to data bus width narrowing
 
 ### 3.3.9 Atomic Transaction Type (ATYPE[7:0])
 
@@ -265,17 +266,29 @@ INVALID indicates an invalid message. A receiver can choose to ignore the messag
 
 REQ_RD reads (2^SIZE)*(LEN+1) bytes from device address(DA). The device initiates a RESP_RD message to return data to the host source address (SA).
 
+If at some point in the network REQ_RD is determined to be unroutable (for example, at a network boundary), RESP_RD should be sent back to the SA of the request with ERR=NETERR with no data (DATA=0 at the SUMI level, empty array at the TUMI level).  All other fields in RESP_RD (SIZE, LEN, etc.) should match those in the request.
+
+If REQ_RD cannot be executed by a device for any reason (including an unsupported SIZE), RESP_RD should be sent back to the SA of the request with ERR=DEVERR and no data; all other fields (SIZE, LEN, etc.) should match those in the request.
+
 ### 3.4.3 REQ_WR
 
 REQ_WR writes (2^SIZE)*(LEN+1) bytes to destination address(DA). The device then initiates a RESP_WR acknowledgment message to the host source address (SA).
 
+If REQ_WR cannot be transmitted past a certain point in the network due to a narrowing in the data bus width, RESP_WR should be sent back to the SA of the request with ERR=NETERR; all other fields (SIZE, LEN, etc.) should match those in the request.  The same behavior applies when REQ_WR is unroutable.
+
+If REQ_WR cannot be executed by a device for any reason (including an unsupported SIZE), RESP_WR should be sent back to the SA of the request with ERR=DEVERR; all other fields (SIZE, LEN, etc.) should match those in the request.
+
 ### 3.4.4 REQ_WRPOSTED
 
-REQ_WRPOSTED performs a unidirectional posted-write of (2^SIZE)*(LEN+1) bytes to destination address(DA). If the destination address and messsage are valid, the REQ_WRPOSTED message is guaranteed to complete, otherwise it may fail silently. There is no response message sent by the device back to the host.
+REQ_WRPOSTED performs a unidirectional posted-write of (2^SIZE)*(LEN+1) bytes to destination address (DA).  There is no response message sent by the device back to the host.
+
+If the destination address is reachable and SIZE is supported at the destination and the entire path leading to it, the REQ_WRPOSTED message is guaranteed to complete, otherwise it may fail silently.  This means that REQ_WRPOSTED may be dropped silently if it cannot pass through part of the network due to data bus narrowing, if the transaction is determined to be unroutable at some point along its path (e.g., at a network boundary), or if the request is unsupported by a device.
 
 ### 3.4.5 REQ_RDMA
 
-REQ_RDMA reads (2^SIZE)\*(LEN+1) bytes of data from a primary device destination address (DA) along with a source address (SA). The primary device then initiates a REQ_WRPOSTED message to write (2^SIZE)*(LEN+1) data bytes to the address (SA) in a secondary device. REQ_RDMA requires the complete SA field for addressing and does not support pass through information for the UMI signal layer.
+REQ_RDMA reads (2^SIZE)\*(LEN+1) bytes of data from a primary device destination address (DA) along with a source address (SA). The primary device then initiates a REQ_WRPOSTED message to write (2^SIZE)\*(LEN+1) data bytes to the address (SA) in a secondary device. REQ_RDMA requires the complete SA field for addressing and does not support pass through information for the UMI signal layer.
+
+REQ_RDMA may be dropped silently if it is determined to be unroutable, or if the request is unsupported by the primary device.
 
 ### 3.4.6 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
 
@@ -286,6 +299,10 @@ REQ_ATOMIC initiates an atomic read-modify-write memory operation of size (2^SIZ
 3. Applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data
 4. Writing the result back to device address DA
 5. Returning the original device data to host address SA with a RESP_RD message.
+
+If REQ_ATOMIC cannot be transmitted past a certain point in the network due to a narrowing in the data bus width, RESP_RD should be sent back to the SA of the request with ERR=NETERR and no data; all other fields (SIZE, LEN, etc.) should match those in the request.  The same behavior applies when REQ_ATOMIC is unroutable.
+
+If REQ_ATOMIC cannot be executed by a device for any reason (including an unsupported SIZE), RESP_RD should be sent back to the SA of the request with ERR=DEVERR and no data; all other fields (SIZE, LEN, etc.) should match those in the request.
 
 ### 3.4.7 REQ_ERROR
 
@@ -307,9 +324,15 @@ REQ_FUTURE message types are reserved for future UMI feature enhancements.
 
 RESP_RD returns (2^SIZE)*(LEN+1) bytes of data to the host source address (SA) specified by the REQ_RD message.
 
+If RESP_RD cannot be transmitted past a certain point in the network due to a narrowing in the data bus width, then the transaction should be modified so that ERR=NETERR, and the DATA field should be dropped (DATA=0 at the SUMI level, empty array at the TUMI level).  All other fields (SIZE, LEN, etc.) should be unmodified.
+
+RESP_RD may be dropped silently in the network if it is determined to be unroutable.
+
 ### 3.4.12 RESP_WR
 
 RESP_WR returns an acknowledgment to the original source address (SA) specified by the the REQ_WR transaction. The message does not include any DATA.
+
+RESP_WR may be dropped silently in the network if it is determined to be unroutable.
 
 ### 3.4.13 RESP_LINK
 
