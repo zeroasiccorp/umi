@@ -56,6 +56,7 @@ module umi_unpack
     .cmd_error      (cmd_error[]),
     .cmd_request    (cmd_request[]),
     .cmd_response   (cmd_response[]),
+    .cmd_atomic     (cmd_atomic[]),
     .cmd_link\(.*\) (cmd_link\1[]),
     .command        (packet_cmd[]),
     .cmd_.*         (),
