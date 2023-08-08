@@ -47,6 +47,7 @@ module umi_unpack
    // data field unpacker
    wire cmd_request;
    wire cmd_response;
+   wire cmd_atomic;
    wire cmd_error;
    wire cmd_link;
    wire cmd_link_resp;
@@ -70,7 +71,7 @@ module umi_unpack
               .cmd_write        (),                      // Templated
               .cmd_write_posted (),                      // Templated
               .cmd_rdma         (),                      // Templated
-              .cmd_atomic       (),                      // Templated
+              .cmd_atomic       (cmd_atomic),            // Templated
               .cmd_user0        (),                      // Templated
               .cmd_future0      (),                      // Templated
               .cmd_error        (cmd_error),             // Templated
@@ -97,7 +98,7 @@ module umi_unpack
    // Command fiels - TODO: should we qualify these with the command type?
    assign cmd_opcode[4:0] = packet_cmd[4:0];
    assign cmd_size[2:0]   = packet_cmd[7:5];  // Ignore for error and link
-   assign cmd_len[7:0]    = packet_cmd[15:8]; // Ignore for Atomic, error and link
+   assign cmd_len[7:0]    = cmd_atomic ? 8'd0 : packet_cmd[15:8]; // Ignore for error and link
    assign cmd_atype[7:0]  = packet_cmd[15:8];
    assign cmd_qos[3:0]    = packet_cmd[19:16];// Ignore for link
    assign cmd_prot[1:0]   = packet_cmd[21:20];// Ignore for link
