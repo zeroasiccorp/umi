@@ -9,27 +9,21 @@
 module clink_txphy
   #(parameter TARGET = "DEFAULT", // implementation target
     // for development only (fixed )
-    parameter IOW = 64,           // clink rx/tx width
+    parameter IOW = 64,           // Lumi rx/tx width (SDR only, DDR is handled in the phy)
     parameter DW = 128,           // umi data width
     parameter CW = 32,            // umi data width
     parameter AW = 64             // address width
     )
    (// ctrl signls
-    input             ioclk,           // clock for driving output data
-    input             ionreset,        // ioclk synced async active low reset
-    input             devicemode,      // 1=host, 0=device
-    input [1:0]       chipdir,         // chiplet direction
-    input             csr_en,          // 1=enable outputs
-    input             csr_crdt_en,     // 1=enable sending updates
-    input [1:0]       csr_chipletmode, // 00=110um,01=45um,10=10um,11=1um
-    input             csr_ddrmode,     // 1 = ddr, 0 = sdr
-    input [7:0]       csr_iowidth,     // bus width
-    input [3:0]       csr_eccmode,     // eccmode
-    input [1:0]       csr_arbmode,     // phy arbiter mode
-    input             csr_bpio,        // bypass txio logic
-    input             vss,             // common ground
-    input             vdd,             // core supply
-    input             vddio,           // io voltage
+    input             clk,         // clock for driving output data
+    input             nreset,      // clk synced async active low reset
+    input             csr_en,      // 1=enable outputs
+    input             csr_crdt_en, // 1=enable sending updates
+    input             csr_ddrmode, // 1 = ddr, 0 = sdr
+    input [7:0]       csr_iowidth, // bus width
+    input             vss,         // common ground
+    input             vdd,         // core supply
+    input             vddio,       // io voltage
     // Request (read/write)
     input             umi_req_in_valid,
     input [CW-1:0]    umi_req_in_cmd,
@@ -44,10 +38,10 @@ module clink_txphy
     input [AW-1:0]    umi_resp_in_srcaddr,
     input [DW-1:0]    umi_resp_in_data,
     output            umi_resp_in_ready,
-    // pad signals
-    output [IOW-1:0]  io_txdata,       // link data to pads
-    output [3:0]      io_txctrl,       // link ctrl (valid) to pads
-    input [3:0]       io_txstatus,     // flow control from pads
+    // phy interface
+    output [IOW-1:0]  phy_txdata,  // Tx data to the phy
+    output            phy_txvld,   // valid signal to the phy
+    input             phy_txrdy,   // ready signal from phy
     // Credit interface
     output reg [31:0] csr_crdt_status,
     input [15:0]      csr_crdt_intrvl,
@@ -60,6 +54,8 @@ module clink_txphy
    // local state
    reg [(DW+AW+AW+CW)-1:0]   shiftreg;
    reg [(DW+AW+AW+CW)-1:0]   shiftreg_odd;
+   wire [DW+AW+AW+CW-1:0]    shiftreg_in;
+   wire [DW+AW+AW+CW-1:0]    shiftreg_in_new;
    reg [(DW+AW+AW+CW)/8-1:0] valid;
    reg [(DW+AW+AW+CW)/8-1:0] valid_start_value_req;
    reg [(DW+AW+AW+CW)/8-1:0] valid_start_value_resp;
@@ -77,10 +73,6 @@ module clink_txphy
    wire                      umi_req_in_gated;
    wire                      umi_resp_in_gated;
 
-   wire [DW+AW+AW+CW-1:0]    shiftreg_in;
-   wire [DW+AW+AW+CW-1:0]    shiftreg_in_new;
-
-   wire [7:0]                fixedwidth;
    wire [10:0]               iowidth;
 
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
@@ -88,18 +80,12 @@ module clink_txphy
    //   wire [$clog2(DW/8)-1:0] byterate;
    wire [(DW+AW+AW+CW)/8-1:0]     bytemask;
    wire [IOW-1:0]                 bitmask;
-   wire [(DW+AW+AW+CW)-1:0]       txdata_odd;
-   wire [IOW-1:0]                 txdata_ddr;
-   wire [IOW-1:0]                 txdata;
-   wire [IOW-1:0]                 txdata_masked;
    wire [(DW+AW+AW+CW)/8-1:0]     valid_next;
 
-   wire                           txfec;
-   wire                           txaux;
    wire [1:0]                     rxready;
    wire                           umi_req_ready;
    wire                           umi_resp_ready;
-   wire                           txphy_ready;
+   wire                           lumi_txrdy;
 
    wire                           sample_packet;
 
@@ -128,15 +114,6 @@ module clink_txphy
    wire [7:0]           cmd_resp_len;
    wire [2:0]           cmd_resp_size;
    wire                 req_cmd_atomic;
-   wire                 req_cmd_atomic_add;
-   wire                 req_cmd_atomic_and;
-   wire                 req_cmd_atomic_max;
-   wire                 req_cmd_atomic_maxu;
-   wire                 req_cmd_atomic_min;
-   wire                 req_cmd_atomic_minu;
-   wire                 req_cmd_atomic_or;
-   wire                 req_cmd_atomic_swap;
-   wire                 req_cmd_atomic_xor;
    wire                 req_cmd_error;
    wire                 req_cmd_future0;
    wire                 req_cmd_future0_resp;
@@ -156,15 +133,6 @@ module clink_txphy
    wire                 req_cmd_write_posted;
    wire                 req_cmd_write_resp;
    wire                 resp_cmd_atomic;
-   wire                 resp_cmd_atomic_add;
-   wire                 resp_cmd_atomic_and;
-   wire                 resp_cmd_atomic_max;
-   wire                 resp_cmd_atomic_maxu;
-   wire                 resp_cmd_atomic_min;
-   wire                 resp_cmd_atomic_minu;
-   wire                 resp_cmd_atomic_or;
-   wire                 resp_cmd_atomic_swap;
-   wire                 resp_cmd_atomic_xor;
    wire                 resp_cmd_error;
    wire                 resp_cmd_future0;
    wire                 resp_cmd_future0_resp;
@@ -190,14 +158,14 @@ module clink_txphy
    //########################################
    // credit counters store the number of transmitted bytes in units of CLINK width
 
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        begin
           tx_crdt_req[15:0]  <= 'h0;
           tx_crdt_resp[15:0] <= 'h0;
        end
      else
-       if (io_txctrl[0])
+       if (phy_txvld)
          begin
             tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
             tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
@@ -205,13 +173,13 @@ module clink_txphy
 
    // Credit status - count cycles of no-credit
 
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        csr_crdt_status[31:0] <= 'h0;
      else
        begin
-          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & ~rxready[0])};
-          csr_crdt_status[31:16] <= csr_crdt_status[31:16] + {15'h0000,(umi_resp_in_valid  & ~rxready[1])};
+          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & phy_txrdy & ~rxready[0])};
+          csr_crdt_status[31:16] <= csr_crdt_status[31:16] + {15'h0000,(umi_resp_in_valid  & phy_txrdy & ~rxready[1])};
        end
 
    //########################################
@@ -219,8 +187,8 @@ module clink_txphy
    //########################################
    // credit counters are stored in the rxphy block and sent periodically
 
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        crdt_updt_cntr <= 'h0;
      else
        if (csr_crdt_en)
@@ -231,8 +199,8 @@ module clink_txphy
    // Credit update send:
    // - set when counter reaches 0
    // - clear when both updates are sent
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        crdt_updt_send <= 2'b00;
      else
        if (crdt_updt_cntr == csr_crdt_intrvl)
@@ -249,7 +217,7 @@ module clink_txphy
    // Mux together response and request over one data channel
    // the mux assumes one hot select (valid so need to prioritize the resp)
    /*umi_mux AUTO_TEMPLATE(
-    .umi_out_ready     (txphy_ready & ~(|crdt_updt_send)),
+    .umi_out_ready     (lumi_txrdy & ~(|crdt_updt_send)),
     .umi_out_valid     (),
     .umi_in_ready      ({umi_req_ready,umi_resp_ready}),
     .umi_in_valid      ({umi_req_in_gated & ~umi_resp_in_gated ,umi_resp_in_gated}),
@@ -276,7 +244,7 @@ module clink_txphy
            .umi_in_dstaddr      ({umi_req_in_dstaddr,umi_resp_in_dstaddr}), // Templated
            .umi_in_srcaddr      ({umi_req_in_srcaddr,umi_resp_in_srcaddr}), // Templated
            .umi_in_data         ({umi_req_in_data,umi_resp_in_data}), // Templated
-           .umi_out_ready       (txphy_ready & ~(|crdt_updt_send))); // Templated
+           .umi_out_ready       (lumi_txrdy & ~(|crdt_updt_send))); // Templated
 
    // Muxing the umi_mux output with sending credit updates
    // Change the order to send resp credits first so in case both are pending
@@ -288,28 +256,19 @@ module clink_txphy
                           umi_out_cmd;
 
    // response takes precedence over request
-   // Ready to the UMI input is set upon packet acception for tranmission (txphy_ready)
+   // Ready to the UMI input is set upon packet acception for tranmission (lumi_txrdy)
    // credit update is highest priority so it blocks both ready signals
-   assign umi_req_in_gated  = umi_req_in_valid  & rxready[0] & ~(|crdt_updt_send);
-   assign umi_resp_in_gated = umi_resp_in_valid & rxready[1] & ~(|crdt_updt_send);
+   // Add phy_txrdy to allow for backpressure (local) from the phy
+   assign umi_req_in_gated  = umi_req_in_valid  & phy_txrdy & rxready[0] & ~(|crdt_updt_send);
+   assign umi_resp_in_gated = umi_resp_in_valid & phy_txrdy & rxready[1] & ~(|crdt_updt_send);
 
-   assign txphy_ready       = ((~|valid[(DW+AW+AW+CW)/8-1:0]) | (~|valid_next[(DW+AW+AW+CW)/8-1:0]));
+   assign lumi_txrdy        = ((~|valid[(DW+AW+AW+CW)/8-1:0]) | (~|valid_next[(DW+AW+AW+CW)/8-1:0]));
    assign umi_req_in_ready  = umi_req_ready  & umi_req_in_gated & ~umi_resp_in_gated;
    assign umi_resp_in_ready = umi_resp_ready & umi_resp_in_gated;
 
    //########################################
-   //# IO Signal assignment
-   //########################################
-
-   //TODO:
-   assign txfec = 1'b0;
-   assign txaux = 1'b0;
-
-   //########################################
    // Credit based FC:
    //########################################
-
-   // assign rxready[1:0]   = io_txstatus[1:0];
 
    // Ready to transmit is provided when the number of available credits is sufficient for the packet size
 
@@ -367,29 +326,13 @@ module clink_txphy
    assign rxready[0] = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0])  >= ({4'h0,req_packet_bytes[11:0]}  >> (byterate[7:0] >> 1));
    assign rxready[1] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]) >= ({4'h0,resp_packet_bytes[11:0]} >> (byterate[7:0] >> 1));
 
-   assign io_txctrl[0] = |valid[(DW+AW+AW+CW)/8-1:0];
-   assign io_txctrl[1] = ioclk; // TODO: add ioclk at some point
-   assign io_txctrl[2] = txfec; //forward error correction
-   assign io_txctrl[3] = txaux; //redundant data bit
+   assign phy_txvld = |valid[(DW+AW+AW+CW)/8-1:0];
 
    //########################################
    //# CTRL MODES
    //########################################
-
-   // Chiplet standardized widths
-   // Amir - fix 8B and 32B mode to the right values
-   // TODO - 2D mode should be 1B and not 2B
-   assign fixedwidth[7:0] = (csr_chipletmode[1:0] == 2'h0) ? 'h2  : //2B - 2D mode
-			    (csr_chipletmode[1:0] == 2'h1) ? 'h8  : //8B - 3D mode
-			    (csr_chipletmode[1:0] == 2'h2) ? 'h20 : //32B - efabric
-		                                             'h8;   //8B
-
-   // Selecting between hardcoded iowidth and csr iowidth
-   assign iowidth[7:0] = |csr_iowidth[7:0] ? csr_iowidth[7:0] :
-			 fixedwidth[7:0];
-
    // shift left size is the width of the operand so need to reserve space for shifts
-   assign iowidth[10:8] = 3'b000;
+   assign iowidth[10:8] = {3'b000,csr_iowidth[7:0]};
 
    // Bytes transferred per cycle
    // TODO - this will need to change based on DW
@@ -405,8 +348,8 @@ module clink_txphy
 
    // sample input controls to avoid timing issues
 
-   always @ (posedge ioclk or negedge ionreset)
-     if(~ionreset)
+   always @ (posedge clk or negedge nreset)
+     if(~nreset)
        valid[(DW+AW+AW+CW)/8-1:0] <= 'b0;
      else if (sample_packet)
        valid[(DW+AW+AW+CW)/8-1:0] <= valid_start_value[(DW+AW+AW+CW)/8-1:0];
@@ -419,9 +362,9 @@ module clink_txphy
    //# DATA SHIFT REGISTER
    //########################################
 
-   assign sample_packet = txphy_ready & csr_en & ((|crdt_updt_send) |
-                                                  umi_resp_in_gated |
-			                          umi_req_in_gated  );
+   assign sample_packet = lumi_txrdy & csr_en & phy_txrdy & ((|crdt_updt_send) |
+                                                             umi_resp_in_gated |
+			                                     umi_req_in_gated  );
 
    //########################################
    // UMI bandwidth optimization - send only what is needed
@@ -431,8 +374,9 @@ module clink_txphy
    // Need to do separately for request and response since the decode affects the credit calc
 
    /*umi_decode AUTO_TEMPLATE(
-    .command    (umi_@"(substring vl-cell-name 11)"_in_cmd[]),
-    .cmd_\(.*\) (@"(substring vl-cell-name 11)"_cmd_\1[]),
+    .command       (umi_@"(substring vl-cell-name 11)"_in_cmd[]),
+    .cmd_atomic_.* (),
+    .cmd_\(.*\)    (@"(substring vl-cell-name 11)"_cmd_\1[]),
     );*/
 
    umi_decode #(.CW(CW))
@@ -458,15 +402,15 @@ module clink_txphy
                    .cmd_future0_resp    (req_cmd_future0_resp),  // Templated
                    .cmd_future1_resp    (req_cmd_future1_resp),  // Templated
                    .cmd_link_resp       (req_cmd_link_resp),     // Templated
-                   .cmd_atomic_add      (req_cmd_atomic_add),    // Templated
-                   .cmd_atomic_and      (req_cmd_atomic_and),    // Templated
-                   .cmd_atomic_or       (req_cmd_atomic_or),     // Templated
-                   .cmd_atomic_xor      (req_cmd_atomic_xor),    // Templated
-                   .cmd_atomic_max      (req_cmd_atomic_max),    // Templated
-                   .cmd_atomic_min      (req_cmd_atomic_min),    // Templated
-                   .cmd_atomic_maxu     (req_cmd_atomic_maxu),   // Templated
-                   .cmd_atomic_minu     (req_cmd_atomic_minu),   // Templated
-                   .cmd_atomic_swap     (req_cmd_atomic_swap),   // Templated
+                   .cmd_atomic_add      (),                      // Templated
+                   .cmd_atomic_and      (),                      // Templated
+                   .cmd_atomic_or       (),                      // Templated
+                   .cmd_atomic_xor      (),                      // Templated
+                   .cmd_atomic_max      (),                      // Templated
+                   .cmd_atomic_min      (),                      // Templated
+                   .cmd_atomic_maxu     (),                      // Templated
+                   .cmd_atomic_minu     (),                      // Templated
+                   .cmd_atomic_swap     (),                      // Templated
                    // Inputs
                    .command             (umi_req_in_cmd[CW-1:0])); // Templated
 
@@ -492,15 +436,15 @@ module clink_txphy
                     .cmd_future0_resp   (resp_cmd_future0_resp), // Templated
                     .cmd_future1_resp   (resp_cmd_future1_resp), // Templated
                     .cmd_link_resp      (resp_cmd_link_resp),    // Templated
-                    .cmd_atomic_add     (resp_cmd_atomic_add),   // Templated
-                    .cmd_atomic_and     (resp_cmd_atomic_and),   // Templated
-                    .cmd_atomic_or      (resp_cmd_atomic_or),    // Templated
-                    .cmd_atomic_xor     (resp_cmd_atomic_xor),   // Templated
-                    .cmd_atomic_max     (resp_cmd_atomic_max),   // Templated
-                    .cmd_atomic_min     (resp_cmd_atomic_min),   // Templated
-                    .cmd_atomic_maxu    (resp_cmd_atomic_maxu),  // Templated
-                    .cmd_atomic_minu    (resp_cmd_atomic_minu),  // Templated
-                    .cmd_atomic_swap    (resp_cmd_atomic_swap),  // Templated
+                    .cmd_atomic_add     (),                      // Templated
+                    .cmd_atomic_and     (),                      // Templated
+                    .cmd_atomic_or      (),                      // Templated
+                    .cmd_atomic_xor     (),                      // Templated
+                    .cmd_atomic_max     (),                      // Templated
+                    .cmd_atomic_min     (),                      // Templated
+                    .cmd_atomic_maxu    (),                      // Templated
+                    .cmd_atomic_minu    (),                      // Templated
+                    .cmd_atomic_swap    (),                      // Templated
                     // Inputs
                     .command            (umi_resp_in_cmd[CW-1:0])); // Templated
 
@@ -566,16 +510,16 @@ module clink_txphy
          end
      endcase
 
-   assign valid_start_value = txphy_ready & csr_en & (|crdt_updt_send) ?
-                              {{CW/8{1'b1}},{(DW+AW+AW)/8{1'b0}}}      :
-                              txphy_ready & umi_resp_in_gated          ?
-                              valid_start_value_resp                   :
+   assign valid_start_value = lumi_txrdy & csr_en & (|crdt_updt_send) ?
+                              {{CW/8{1'b1}},{(DW+AW+AW)/8{1'b0}}}     :
+                              lumi_txrdy & umi_resp_in_gated          ?
+                              valid_start_value_resp                  :
                               valid_start_value_req;
 
    // TX is done as lsb first
    // adding indication to the packet type in the shift register for crdt management
-   always @ (posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
        begin
           shiftreg[(DW+AW+AW+CW)-1:0] <= 'b0;
           shift_reg_type[2:0] <= 3'b000;
@@ -594,48 +538,12 @@ module clink_txphy
 				           (byterate[$clog2(DW+AW+AW+CW)-1:0] <<3);
 
    //########################################
-   //# DDR DATA
+   //# Output data - no need for masking or by anymore
    //########################################
 
-   // data to launch on negedge of ioclk
-   // NOTE: limited byterates supported for DDR
-   assign txdata_odd[IOW-1:0] = //(byterate=='h2) ? shiftreg[8+:8]}:
-			        (byterate=='h4)  ? {{(IOW-16){1'b0}},shiftreg[16+:16]}:
-//			        (byterate=='h8)  ? shiftreg[32+:32]:
-//			        (byterate=='h10) ? {{(IOW-64){1'b0}},shiftreg[64+:64]}:
-                     	                           shiftreg[IOW+:IOW]; //syntax for lint
-   /*
-    always @ (negedge ioclk)
-    shiftreg_odd[(DW+AW+AW+CW)-1:0] <= txdata_odd[(DW+AW+AW+CW)-1:0];
-
-    assign txdata_ddr[IOW-1:0] = ioclk ? shiftreg[(DW+AW+AW+CW)-IOW-1:0] :
-    shiftreg_odd[(DW+AW+AW+CW)-IOW-1:0];
-    */
-
-   //########################################
-   //# Output data selector
-   //########################################
-
-   // Selecting between SDR and DDR modeds
-   //
-   //
-
-   //assign txdata[IOW-1:0] = csr_ddrmode ? txdata_ddr[IOW-1:0] :
-   //		                          shiftreg[IOW-1:0];
-
-   assign txdata[IOW-1:0] = shiftreg[IOW-1:0];
-
-   // Keeeping data clean
-   assign txdata_masked[IOW-1:0] = txdata[IOW-1:0] &
-				   bitmask[IOW-1:0];
-
-   // Bypass mode
-   assign io_txdata[IOW-1:0] = csr_bpio  ?
-                               umi_out_data[IOW-1:0] :
-                               txdata_masked[IOW-1:0];
-
+   assign phy_txdata[IOW-1:0] = shiftreg[IOW-1:0];
 
 endmodule // clink_txphy
 // Local Variables:
-// verilog-library-directories:("." "../../submodules/umi/umi/rtl/")
+// verilog-library-directories:("." "../../umi/rtl/" "../../submodules/umi/umi/rtl/")
 // End:
