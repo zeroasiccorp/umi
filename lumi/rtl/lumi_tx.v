@@ -1,232 +1,549 @@
 /******************************************************************************
- * Function:  CLINK Transmitter
- * Author:    Andreas Olofsson
- * Copyright: 2020 Zero ASIC Corporation
- * License:
+ * Function: CLINK Transmitter IO
+ * Author:   Andreas Olofsson
+ * License:  (c) 2020 Zero ASIC Corporation
  *
- * Documentation:
- *
- *
+ * Version history:
+ * Version 1 - change from packet UMI to exploded
  *****************************************************************************/
-module clink_tx
-  #(
-    parameter TARGET = "DEFAULT", // implementation target
-    parameter FIFODEPTH = 4,      // fifo depth
-    parameter IOW = 64,           // clink rx/tx width
-    parameter CW = 32,
-    parameter AW = 64,
-    parameter DW = 256            // umi data width
+module lumi_txphy
+  #(parameter TARGET = "DEFAULT", // implementation target
+    // for development only (fixed )
+    parameter IOW = 64,           // Lumi rx/tx width (SDR only, DDR is handled in the phy)
+    parameter DW = 128,           // umi data width
+    parameter CW = 32,            // umi data width
+    parameter AW = 64             // address width
     )
-   (// basics
-    input            clk,               // core clock
-    input            ioclk,             // io clock
-    input            nreset,            // async active low reset
-    input            ionreset,          // tx async active low reset
-    input            vss,               // common clground
-    input            vdd,               // core supply
-    input            vddio,             // io voltage
-    input [1:0]      chipdir,           // rotation (00=0,01=90,10=180,11=270)
-    input            devicemode,        // 1=device, 0=host
-    // csr settings
-    input            csr_en,            // link enable
-    input            csr_crdt_en,
-    input            csr_ddrmode,       // 1 = ddr, 0 = sdr
-    input [1:0]      csr_chipletmode,   // 00=110um,01=45um,10=10um,11=1um
-    input [7:0]      csr_iowidth,       // pad bus width
-    input [3:0]      csr_protocol,      // protocol selector
-    input [3:0]      csr_eccmode,       // ecc mode
-    input [1:0]      csr_arbmode,       // phy arbiter mode
-    input            csr_chaos,         // enable random fifo pushback
-    input            csr_bpfifo,        // bypass tx fifo
-    input            csr_bpprotocol,    // bypass tx proto
-    input            csr_bpio,          // bypass tx IO
-    // status signals
-    output           csr_respfull,
-    output           csr_respempty,
-    output           csr_reqfull,
-    output           csr_reqempty,
-    // pad/bump signals
-    output [IOW-1:0] io_txdata,         // link data to pads
-    output [3:0]     io_txctrl,         // link ctrl (valid) to pads
-    input [3:0]      io_txstatus,       // flow control from pads
-    // core signals
-    input            umi_resp_in_valid, //write
-    input [CW-1:0]   umi_resp_in_cmd,
-    input [AW-1:0]   umi_resp_in_dstaddr,
-    input [AW-1:0]   umi_resp_in_srcaddr,
-    input [DW-1:0]   umi_resp_in_data,
-    output           umi_resp_in_ready,
-    input            umi_req_in_valid,  //read
-    input [CW-1:0]   umi_req_in_cmd,
-    input [AW-1:0]   umi_req_in_dstaddr,
-    input [AW-1:0]   umi_req_in_srcaddr,
-    input [DW-1:0]   umi_req_in_data,
-    output           umi_req_in_ready,
+   (// ctrl signls
+    input             clk,         // clock for driving output data
+    input             nreset,      // clk synced async active low reset
+    input             csr_en,      // 1=enable outputs
+    input             csr_crdt_en, // 1=enable sending updates
+    input             csr_ddrmode, // 1 = ddr, 0 = sdr
+    input [7:0]       csr_iowidth, // bus width
+    input             vss,         // common ground
+    input             vdd,         // core supply
+    input             vddio,       // io voltage
+    // Request (read/write)
+    input             umi_req_in_valid,
+    input [CW-1:0]    umi_req_in_cmd,
+    input [AW-1:0]    umi_req_in_dstaddr,
+    input [AW-1:0]    umi_req_in_srcaddr,
+    input [DW-1:0]    umi_req_in_data,
+    output            umi_req_in_ready,
+    // Response (write)
+    input             umi_resp_in_valid,
+    input [CW-1:0]    umi_resp_in_cmd,
+    input [AW-1:0]    umi_resp_in_dstaddr,
+    input [AW-1:0]    umi_resp_in_srcaddr,
+    input [DW-1:0]    umi_resp_in_data,
+    output            umi_resp_in_ready,
+    // phy interface
+    output [IOW-1:0]  phy_txdata,  // Tx data to the phy
+    output            phy_txvld,   // valid signal to the phy
+    input             phy_txrdy,   // ready signal from phy
     // Credit interface
-    output [31:0]    csr_crdt_status,
-    input [15:0]     csr_crdt_intrvl,
-    input [15:0]     loc_crdt_req,
-    input [15:0]     loc_crdt_resp,
-    input [15:0]     rmt_crdt_req,
-    input [15:0]     rmt_crdt_resp
-    /*AUTOINPUT*/
-    /*AUTOOUTPUT*/
+    output reg [31:0] csr_crdt_status,
+    input [15:0]      csr_crdt_intrvl,
+    input [15:0]      rmt_crdt_req,
+    input [15:0]      rmt_crdt_resp,
+    input [15:0]      loc_crdt_req,
+    input [15:0]      loc_crdt_resp
     );
+
+   // local state
+   reg [(DW+AW+AW+CW)-1:0]   shiftreg;
+   reg [(DW+AW+AW+CW)-1:0]   shiftreg_odd;
+   wire [DW+AW+AW+CW-1:0]    shiftreg_in;
+   wire [DW+AW+AW+CW-1:0]    shiftreg_in_new;
+   reg [(DW+AW+AW+CW)/8-1:0] valid;
+   reg [(DW+AW+AW+CW)/8-1:0] valid_start_value_req;
+   reg [(DW+AW+AW+CW)/8-1:0] valid_start_value_resp;
+   wire [(DW+AW+AW+CW)/8-1:0] valid_start_value;
+
+   // local wires
+   wire [CW-1:0]             umi_out_cmd;
+   wire [CW-1:0]             umi_muxed_cmd;
+   wire [AW-1:0]             umi_out_dstaddr;
+   wire [AW-1:0]             umi_out_srcaddr;
+   wire [DW-1:0]             umi_out_data;
+   wire                      umi_out_valid;
+   wire                      umi_in_ready;
+
+   wire                      umi_req_in_gated;
+   wire                      umi_resp_in_gated;
+
+   wire [10:0]               iowidth;
+
+   // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
+   wire [$clog2(DW+AW+AW+CW)-1:0] byterate;
+   //   wire [$clog2(DW/8)-1:0] byterate;
+   wire [(DW+AW+AW+CW)/8-1:0]     bytemask;
+   wire [IOW-1:0]                 bitmask;
+   wire [(DW+AW+AW+CW)/8-1:0]     valid_next;
+
+   wire [1:0]                     rxready;
+   wire                           umi_req_ready;
+   wire                           umi_resp_ready;
+   wire                           lumi_txrdy;
+
+   wire                           sample_packet;
+
+   wire                           req_cmd_only;
+   wire                           req_no_data;
+
+   wire                           resp_cmd_only;
+   wire                           resp_no_data;
+
+   reg [15:0]                     tx_crdt_req;
+   reg [15:0]                     tx_crdt_resp;
+   reg [2:0]                      shift_reg_type;
+   wire [11:0]                    cmd_resp_lenp1;
+   wire [11:0]                    cmd_req_lenp1;
+   wire [11:0]                    cmd_resp_bytes;
+   wire [11:0]                    cmd_req_bytes;
+   reg [11:0]                     req_packet_bytes;
+   reg [11:0]                     resp_packet_bytes;
+   reg [15:0]                     crdt_updt_cntr;
+   reg [1:0]                      crdt_updt_send;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [CW-1:0]        umi_req_mac2phy_cmd;
-   wire [DW-1:0]        umi_req_mac2phy_data;
-   wire [AW-1:0]        umi_req_mac2phy_dstaddr;
-   wire                 umi_req_mac2phy_ready;
-   wire [AW-1:0]        umi_req_mac2phy_srcaddr;
-   wire                 umi_req_mac2phy_valid;
-   wire [CW-1:0]        umi_resp_mac2phy_cmd;
-   wire [DW-1:0]        umi_resp_mac2phy_data;
-   wire [AW-1:0]        umi_resp_mac2phy_dstaddr;
-   wire                 umi_resp_mac2phy_ready;
-   wire [AW-1:0]        umi_resp_mac2phy_srcaddr;
-   wire                 umi_resp_mac2phy_valid;
+   wire [7:0]           cmd_req_len;
+   wire [2:0]           cmd_req_size;
+   wire [7:0]           cmd_resp_len;
+   wire [2:0]           cmd_resp_size;
+   wire                 req_cmd_atomic;
+   wire                 req_cmd_error;
+   wire                 req_cmd_future0;
+   wire                 req_cmd_future0_resp;
+   wire                 req_cmd_future1_resp;
+   wire                 req_cmd_invalid;
+   wire                 req_cmd_link;
+   wire                 req_cmd_link_resp;
+   wire                 req_cmd_rdma;
+   wire                 req_cmd_read;
+   wire                 req_cmd_read_resp;
+   wire                 req_cmd_request;
+   wire                 req_cmd_response;
+   wire                 req_cmd_user0;
+   wire                 req_cmd_user0_resp;
+   wire                 req_cmd_user1_resp;
+   wire                 req_cmd_write;
+   wire                 req_cmd_write_posted;
+   wire                 req_cmd_write_resp;
+   wire                 resp_cmd_atomic;
+   wire                 resp_cmd_error;
+   wire                 resp_cmd_future0;
+   wire                 resp_cmd_future0_resp;
+   wire                 resp_cmd_future1_resp;
+   wire                 resp_cmd_invalid;
+   wire                 resp_cmd_link;
+   wire                 resp_cmd_link_resp;
+   wire                 resp_cmd_rdma;
+   wire                 resp_cmd_read;
+   wire                 resp_cmd_read_resp;
+   wire                 resp_cmd_request;
+   wire                 resp_cmd_response;
+   wire                 resp_cmd_user0;
+   wire                 resp_cmd_user0_resp;
+   wire                 resp_cmd_user1_resp;
+   wire                 resp_cmd_write;
+   wire                 resp_cmd_write_posted;
+   wire                 resp_cmd_write_resp;
    // End of automatics
 
-   //#####################
-   //# UMI_RESP MAC
-   //#####################
+   //########################################
+   //# Credit management
+   //########################################
+   // credit counters store the number of transmitted bytes in units of CLINK width
 
-   /*clink_txmac  AUTO_TEMPLATE (
-    .umi_out_\(.*\)  (umi_@"(substring vl-cell-name 6)"_mac2phy_\1[]),
-    .umi_in_\(.*\)   (umi_@"(substring vl-cell-name 6)"_in_\1[]),
-    .csr_empty       (csr_@"(substring vl-cell-name 6)"empty),
-    .csr_full        (csr_@"(substring vl-cell-name 6)"full),
-    );
-    */
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          tx_crdt_req[15:0]  <= 'h0;
+          tx_crdt_resp[15:0] <= 'h0;
+       end
+     else
+       if (phy_txvld)
+         begin
+            tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
+            tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
+         end
 
-   clink_txmac #(.DW(DW),
-		 .AW(AW),
-		 .CW(CW),
-		 .TARGET(TARGET))
-   txmac_resp(/*AUTOINST*/
-              // Outputs
-              .csr_empty        (csr_respempty),         // Templated
-              .csr_full         (csr_respfull),          // Templated
-              .umi_in_ready     (umi_resp_in_ready),     // Templated
-              .umi_out_valid    (umi_resp_mac2phy_valid), // Templated
-              .umi_out_cmd      (umi_resp_mac2phy_cmd[CW-1:0]), // Templated
-              .umi_out_dstaddr  (umi_resp_mac2phy_dstaddr[AW-1:0]), // Templated
-              .umi_out_srcaddr  (umi_resp_mac2phy_srcaddr[AW-1:0]), // Templated
-              .umi_out_data     (umi_resp_mac2phy_data[DW-1:0]), // Templated
-              // Inputs
-              .clk              (clk),
-              .nreset           (nreset),
-              .ioclk            (ioclk),
-              .ionreset         (ionreset),
-              .devicemode       (devicemode),
-              .chipdir          (chipdir[1:0]),
-              .csr_protocol     (csr_protocol[3:0]),
-              .csr_eccmode      (csr_eccmode[3:0]),
-              .csr_bpprotocol   (csr_bpprotocol),
-              .csr_bpfifo       (csr_bpfifo),
-              .csr_chaos        (csr_chaos),
-              .vss              (vss),
-              .vdd              (vdd),
-              .umi_in_valid     (umi_resp_in_valid),     // Templated
-              .umi_in_cmd       (umi_resp_in_cmd[CW-1:0]), // Templated
-              .umi_in_dstaddr   (umi_resp_in_dstaddr[AW-1:0]), // Templated
-              .umi_in_srcaddr   (umi_resp_in_srcaddr[AW-1:0]), // Templated
-              .umi_in_data      (umi_resp_in_data[DW-1:0]), // Templated
-              .umi_out_ready    (umi_resp_mac2phy_ready)); // Templated
+   // Credit status - count cycles of no-credit
 
-   //#####################
-   //# UMI_REQ MAC
-   //#####################
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       csr_crdt_status[31:0] <= 'h0;
+     else
+       begin
+          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & phy_txrdy & ~rxready[0])};
+          csr_crdt_status[31:16] <= csr_crdt_status[31:16] + {15'h0000,(umi_resp_in_valid  & phy_txrdy & ~rxready[1])};
+       end
 
-   clink_txmac #(.DW(DW),
-		 .AW(AW),
-		 .CW(CW),
-		 .TARGET(TARGET))
-   txmac_req(/*AUTOINST*/
-             // Outputs
-             .csr_empty         (csr_reqempty),          // Templated
-             .csr_full          (csr_reqfull),           // Templated
-             .umi_in_ready      (umi_req_in_ready),      // Templated
-             .umi_out_valid     (umi_req_mac2phy_valid), // Templated
-             .umi_out_cmd       (umi_req_mac2phy_cmd[CW-1:0]), // Templated
-             .umi_out_dstaddr   (umi_req_mac2phy_dstaddr[AW-1:0]), // Templated
-             .umi_out_srcaddr   (umi_req_mac2phy_srcaddr[AW-1:0]), // Templated
-             .umi_out_data      (umi_req_mac2phy_data[DW-1:0]), // Templated
-             // Inputs
-             .clk               (clk),
-             .nreset            (nreset),
-             .ioclk             (ioclk),
-             .ionreset          (ionreset),
-             .devicemode        (devicemode),
-             .chipdir           (chipdir[1:0]),
-             .csr_protocol      (csr_protocol[3:0]),
-             .csr_eccmode       (csr_eccmode[3:0]),
-             .csr_bpprotocol    (csr_bpprotocol),
-             .csr_bpfifo        (csr_bpfifo),
-             .csr_chaos         (csr_chaos),
-             .vss               (vss),
-             .vdd               (vdd),
-             .umi_in_valid      (umi_req_in_valid),      // Templated
-             .umi_in_cmd        (umi_req_in_cmd[CW-1:0]), // Templated
-             .umi_in_dstaddr    (umi_req_in_dstaddr[AW-1:0]), // Templated
-             .umi_in_srcaddr    (umi_req_in_srcaddr[AW-1:0]), // Templated
-             .umi_in_data       (umi_req_in_data[DW-1:0]), // Templated
-             .umi_out_ready     (umi_req_mac2phy_ready)); // Templated
+   //########################################
+   //# Credit message generation for the remote side
+   //########################################
+   // credit counters are stored in the rxphy block and sent periodically
 
-   /*clink_txphy  AUTO_TEMPLATE (
-    .csr_txcrd_stat     (),
-    .\(.*\)_in_\(.*\)   (\1_mac2phy_\2[]),
-    )
-    */
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       crdt_updt_cntr <= 'h0;
+     else
+       if (csr_crdt_en)
+         crdt_updt_cntr <= (crdt_updt_cntr == csr_crdt_intrvl) ?
+                           'h0:
+                           crdt_updt_cntr + 1;
 
-   clink_txphy #(.DW(DW),
-		 .AW(AW),
-		 .CW(CW),
-		 .IOW(IOW),
-		 .TARGET(TARGET))
-   clink_txphy(/*AUTOINST*/
-               // Outputs
-               .umi_req_in_ready(umi_req_mac2phy_ready), // Templated
-               .umi_resp_in_ready(umi_resp_mac2phy_ready), // Templated
-               .io_txdata       (io_txdata[IOW-1:0]),
-               .io_txctrl       (io_txctrl[3:0]),
-               .csr_crdt_status (csr_crdt_status[31:0]),
-               // Inputs
-               .ioclk           (ioclk),
-               .ionreset        (ionreset),
-               .devicemode      (devicemode),
-               .chipdir         (chipdir[1:0]),
-               .csr_en          (csr_en),
-               .csr_crdt_en     (csr_crdt_en),
-               .csr_chipletmode (csr_chipletmode[1:0]),
-               .csr_ddrmode     (csr_ddrmode),
-               .csr_iowidth     (csr_iowidth[7:0]),
-               .csr_eccmode     (csr_eccmode[3:0]),
-               .csr_arbmode     (csr_arbmode[1:0]),
-               .csr_bpio        (csr_bpio),
-               .vss             (vss),
-               .vdd             (vdd),
-               .vddio           (vddio),
-               .umi_req_in_valid(umi_req_mac2phy_valid), // Templated
-               .umi_req_in_cmd  (umi_req_mac2phy_cmd[CW-1:0]), // Templated
-               .umi_req_in_dstaddr(umi_req_mac2phy_dstaddr[AW-1:0]), // Templated
-               .umi_req_in_srcaddr(umi_req_mac2phy_srcaddr[AW-1:0]), // Templated
-               .umi_req_in_data (umi_req_mac2phy_data[DW-1:0]), // Templated
-               .umi_resp_in_valid(umi_resp_mac2phy_valid), // Templated
-               .umi_resp_in_cmd (umi_resp_mac2phy_cmd[CW-1:0]), // Templated
-               .umi_resp_in_dstaddr(umi_resp_mac2phy_dstaddr[AW-1:0]), // Templated
-               .umi_resp_in_srcaddr(umi_resp_mac2phy_srcaddr[AW-1:0]), // Templated
-               .umi_resp_in_data(umi_resp_mac2phy_data[DW-1:0]), // Templated
-               .io_txstatus     (io_txstatus[3:0]),
-               .csr_crdt_intrvl (csr_crdt_intrvl[15:0]),
-               .rmt_crdt_req    (rmt_crdt_req[15:0]),
-               .rmt_crdt_resp   (rmt_crdt_resp[15:0]),
-               .loc_crdt_req    (loc_crdt_req[15:0]),
-               .loc_crdt_resp   (loc_crdt_resp[15:0]));
+   // Credit update send:
+   // - set when counter reaches 0
+   // - clear when both updates are sent
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       crdt_updt_send <= 2'b00;
+     else
+       if (crdt_updt_cntr == csr_crdt_intrvl)
+         crdt_updt_send <= 2'b01;
+       else
+         crdt_updt_send <= (|crdt_updt_send) & sample_packet ?
+                           (crdt_updt_send << 1) :
+                           crdt_updt_send;
 
-endmodule // clink_tx
+   //########################################
+   //# UMI Transmit Arbiter
+   //########################################
+
+   // Mux together response and request over one data channel
+   // the mux assumes one hot select (valid so need to prioritize the resp)
+   /*umi_mux AUTO_TEMPLATE(
+    .umi_out_ready     (lumi_txrdy & ~(|crdt_updt_send)),
+    .umi_out_valid     (),
+    .umi_in_ready      ({umi_req_ready,umi_resp_ready}),
+    .umi_in_valid      ({umi_req_in_gated & ~umi_resp_in_gated ,umi_resp_in_gated}),
+    .umi_in_cmd        ({umi_req_in_cmd,umi_resp_in_cmd}),
+    .umi_in_\(.*\)addr ({umi_req_in_\1addr,umi_resp_in_\1addr}),
+    .umi_in_data       ({umi_req_in_data,umi_resp_in_data}),
+    );*/
+
+   umi_mux #(.DW(DW),
+             .CW(CW),
+             .AW(AW),
+             .N(2))
+   umi_mux(/*AUTOINST*/
+           // Outputs
+           .umi_in_ready        ({umi_req_ready,umi_resp_ready}), // Templated
+           .umi_out_valid       (),                      // Templated
+           .umi_out_cmd         (umi_out_cmd[CW-1:0]),
+           .umi_out_dstaddr     (umi_out_dstaddr[AW-1:0]),
+           .umi_out_srcaddr     (umi_out_srcaddr[AW-1:0]),
+           .umi_out_data        (umi_out_data[DW-1:0]),
+           // Inputs
+           .umi_in_valid        ({umi_req_in_gated & ~umi_resp_in_gated ,umi_resp_in_gated}), // Templated
+           .umi_in_cmd          ({umi_req_in_cmd,umi_resp_in_cmd}), // Templated
+           .umi_in_dstaddr      ({umi_req_in_dstaddr,umi_resp_in_dstaddr}), // Templated
+           .umi_in_srcaddr      ({umi_req_in_srcaddr,umi_resp_in_srcaddr}), // Templated
+           .umi_in_data         ({umi_req_in_data,umi_resp_in_data}), // Templated
+           .umi_out_ready       (lumi_txrdy & ~(|crdt_updt_send))); // Templated
+
+   // Muxing the umi_mux output with sending credit updates
+   // Change the order to send resp credits first so in case both are pending
+   // response will get credits first
+   assign umi_muxed_cmd = crdt_updt_send[1] ?
+                          {loc_crdt_req[15:0],4'h0,4'h2,8'h2F}  :
+                          crdt_updt_send[0] ?
+                          {loc_crdt_resp[15:0],4'h1,4'h2,8'h2F} :
+                          umi_out_cmd;
+
+   // response takes precedence over request
+   // Ready to the UMI input is set upon packet acception for tranmission (lumi_txrdy)
+   // credit update is highest priority so it blocks both ready signals
+   // Add phy_txrdy to allow for backpressure (local) from the phy
+   assign umi_req_in_gated  = umi_req_in_valid  & phy_txrdy & rxready[0] & ~(|crdt_updt_send);
+   assign umi_resp_in_gated = umi_resp_in_valid & phy_txrdy & rxready[1] & ~(|crdt_updt_send);
+
+   assign lumi_txrdy        = ((~|valid[(DW+AW+AW+CW)/8-1:0]) | (~|valid_next[(DW+AW+AW+CW)/8-1:0]));
+   assign umi_req_in_ready  = umi_req_ready  & umi_req_in_gated & ~umi_resp_in_gated;
+   assign umi_resp_in_ready = umi_resp_ready & umi_resp_in_gated;
+
+   //########################################
+   // Credit based FC:
+   //########################################
+
+   // Ready to transmit is provided when the number of available credits is sufficient for the packet size
+
+   /*umi_unpack AUTO_TEMPLATE(
+    .cmd_len    (cmd_@"(substring vl-cell-name 11)"_len[]),
+    .cmd_size   (cmd_@"(substring vl-cell-name 11)"_size[]),
+    .cmd.*      (),
+    .packet_cmd (umi_@"(substring vl-cell-name 11)"_in_cmd[]),
+    );*/
+
+   umi_unpack #(.CW(CW))
+   umi_unpack_req(/*AUTOINST*/
+                  // Outputs
+                  .cmd_opcode           (),                      // Templated
+                  .cmd_size             (cmd_req_size[2:0]),     // Templated
+                  .cmd_len              (cmd_req_len[7:0]),      // Templated
+                  .cmd_atype            (),                      // Templated
+                  .cmd_qos              (),                      // Templated
+                  .cmd_prot             (),                      // Templated
+                  .cmd_eom              (),                      // Templated
+                  .cmd_eof              (),                      // Templated
+                  .cmd_ex               (),                      // Templated
+                  .cmd_user             (),                      // Templated
+                  .cmd_user_extended    (),                      // Templated
+                  .cmd_err              (),                      // Templated
+                  .cmd_hostid           (),                      // Templated
+                  // Inputs
+                  .packet_cmd           (umi_req_in_cmd[CW-1:0])); // Templated
+
+   umi_unpack #(.CW(CW))
+   umi_unpack_resp(/*AUTOINST*/
+                   // Outputs
+                   .cmd_opcode          (),                      // Templated
+                   .cmd_size            (cmd_resp_size[2:0]),    // Templated
+                   .cmd_len             (cmd_resp_len[7:0]),     // Templated
+                   .cmd_atype           (),                      // Templated
+                   .cmd_qos             (),                      // Templated
+                   .cmd_prot            (),                      // Templated
+                   .cmd_eom             (),                      // Templated
+                   .cmd_eof             (),                      // Templated
+                   .cmd_ex              (),                      // Templated
+                   .cmd_user            (),                      // Templated
+                   .cmd_user_extended   (),                      // Templated
+                   .cmd_err             (),                      // Templated
+                   .cmd_hostid          (),                      // Templated
+                   // Inputs
+                   .packet_cmd          (umi_resp_in_cmd[CW-1:0])); // Templated
+
+   assign cmd_resp_lenp1[11:0] = {4'h0,cmd_resp_len[7:0]} + 1'b1;
+   assign cmd_req_lenp1[11:0]  = {4'h0,cmd_req_len[7:0]}  + 1'b1;
+
+   assign cmd_resp_bytes[11:0] = cmd_resp_lenp1[11:0] << cmd_resp_size[2:0];
+   assign cmd_req_bytes[11:0]  = cmd_req_lenp1[11:0] << cmd_req_size[2:0];
+
+   assign rxready[0] = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0])  >= ({4'h0,req_packet_bytes[11:0]}  >> (byterate[7:0] >> 1));
+   assign rxready[1] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]) >= ({4'h0,resp_packet_bytes[11:0]} >> (byterate[7:0] >> 1));
+
+   assign phy_txvld = |valid[(DW+AW+AW+CW)/8-1:0];
+
+   //########################################
+   //# CTRL MODES
+   //########################################
+   // shift left size is the width of the operand so need to reserve space for shifts
+   assign iowidth[10:8] = {3'b000,csr_iowidth[7:0]};
+
+   // Bytes transferred per cycle
+   // TODO - this will need to change based on DW
+   assign byterate[$clog2(DW+AW+AW+CW)-1:0] = iowidth[8:0] << csr_ddrmode;
+
+   // Enabling IO pins - TODO?
+   assign bitmask[IOW-1:0] = ~({(IOW){1'b1}} << (iowidth<<3));
+
+   //########################################
+   //# FLOW CONTROL - currently not affected by CLINK RX ready.
+   // No point in fixing since we will move to credit based FC.
+   //########################################
+
+   // sample input controls to avoid timing issues
+
+   always @ (posedge clk or negedge nreset)
+     if(~nreset)
+       valid[(DW+AW+AW+CW)/8-1:0] <= 'b0;
+     else if (sample_packet)
+       valid[(DW+AW+AW+CW)/8-1:0] <= valid_start_value[(DW+AW+AW+CW)/8-1:0];
+     else
+       valid[(DW+AW+AW+CW)/8-1:0] <= valid_next[(DW+AW+AW+CW)/8-1:0];
+
+   assign valid_next[(DW+AW+AW+CW)/8-1:0] = valid[(DW+AW+AW+CW)/8-1:0] << byterate[$clog2(DW+AW+AW+CW)-1:0];
+
+   //########################################
+   //# DATA SHIFT REGISTER
+   //########################################
+
+   assign sample_packet = lumi_txrdy & csr_en & phy_txrdy & ((|crdt_updt_send) |
+                                                             umi_resp_in_gated |
+			                                     umi_req_in_gated  );
+
+   //########################################
+   // UMI bandwidth optimization - send only what is needed
+   //########################################
+
+   // First step - decode the packet
+   // Need to do separately for request and response since the decode affects the credit calc
+
+   /*umi_decode AUTO_TEMPLATE(
+    .command       (umi_@"(substring vl-cell-name 11)"_in_cmd[]),
+    .cmd_atomic_.* (),
+    .cmd_\(.*\)    (@"(substring vl-cell-name 11)"_cmd_\1[]),
+    );*/
+
+   umi_decode #(.CW(CW))
+   umi_decode_req (//.command             (umi_muxed_cmd[CW-1:0]),
+                   /*AUTOINST*/
+                   // Outputs
+                   .cmd_invalid         (req_cmd_invalid),       // Templated
+                   .cmd_request         (req_cmd_request),       // Templated
+                   .cmd_response        (req_cmd_response),      // Templated
+                   .cmd_read            (req_cmd_read),          // Templated
+                   .cmd_write           (req_cmd_write),         // Templated
+                   .cmd_write_posted    (req_cmd_write_posted),  // Templated
+                   .cmd_rdma            (req_cmd_rdma),          // Templated
+                   .cmd_atomic          (req_cmd_atomic),        // Templated
+                   .cmd_user0           (req_cmd_user0),         // Templated
+                   .cmd_future0         (req_cmd_future0),       // Templated
+                   .cmd_error           (req_cmd_error),         // Templated
+                   .cmd_link            (req_cmd_link),          // Templated
+                   .cmd_read_resp       (req_cmd_read_resp),     // Templated
+                   .cmd_write_resp      (req_cmd_write_resp),    // Templated
+                   .cmd_user0_resp      (req_cmd_user0_resp),    // Templated
+                   .cmd_user1_resp      (req_cmd_user1_resp),    // Templated
+                   .cmd_future0_resp    (req_cmd_future0_resp),  // Templated
+                   .cmd_future1_resp    (req_cmd_future1_resp),  // Templated
+                   .cmd_link_resp       (req_cmd_link_resp),     // Templated
+                   .cmd_atomic_add      (),                      // Templated
+                   .cmd_atomic_and      (),                      // Templated
+                   .cmd_atomic_or       (),                      // Templated
+                   .cmd_atomic_xor      (),                      // Templated
+                   .cmd_atomic_max      (),                      // Templated
+                   .cmd_atomic_min      (),                      // Templated
+                   .cmd_atomic_maxu     (),                      // Templated
+                   .cmd_atomic_minu     (),                      // Templated
+                   .cmd_atomic_swap     (),                      // Templated
+                   // Inputs
+                   .command             (umi_req_in_cmd[CW-1:0])); // Templated
+
+   umi_decode #(.CW(CW))
+   umi_decode_resp (/*AUTOINST*/
+                    // Outputs
+                    .cmd_invalid        (resp_cmd_invalid),      // Templated
+                    .cmd_request        (resp_cmd_request),      // Templated
+                    .cmd_response       (resp_cmd_response),     // Templated
+                    .cmd_read           (resp_cmd_read),         // Templated
+                    .cmd_write          (resp_cmd_write),        // Templated
+                    .cmd_write_posted   (resp_cmd_write_posted), // Templated
+                    .cmd_rdma           (resp_cmd_rdma),         // Templated
+                    .cmd_atomic         (resp_cmd_atomic),       // Templated
+                    .cmd_user0          (resp_cmd_user0),        // Templated
+                    .cmd_future0        (resp_cmd_future0),      // Templated
+                    .cmd_error          (resp_cmd_error),        // Templated
+                    .cmd_link           (resp_cmd_link),         // Templated
+                    .cmd_read_resp      (resp_cmd_read_resp),    // Templated
+                    .cmd_write_resp     (resp_cmd_write_resp),   // Templated
+                    .cmd_user0_resp     (resp_cmd_user0_resp),   // Templated
+                    .cmd_user1_resp     (resp_cmd_user1_resp),   // Templated
+                    .cmd_future0_resp   (resp_cmd_future0_resp), // Templated
+                    .cmd_future1_resp   (resp_cmd_future1_resp), // Templated
+                    .cmd_link_resp      (resp_cmd_link_resp),    // Templated
+                    .cmd_atomic_add     (),                      // Templated
+                    .cmd_atomic_and     (),                      // Templated
+                    .cmd_atomic_or      (),                      // Templated
+                    .cmd_atomic_xor     (),                      // Templated
+                    .cmd_atomic_max     (),                      // Templated
+                    .cmd_atomic_min     (),                      // Templated
+                    .cmd_atomic_maxu    (),                      // Templated
+                    .cmd_atomic_minu    (),                      // Templated
+                    .cmd_atomic_swap    (),                      // Templated
+                    // Inputs
+                    .command            (umi_resp_in_cmd[CW-1:0])); // Templated
+
+   // Second step - push all to the right, this is only needed when you skip a field
+   assign shiftreg_in_new = {umi_out_data,umi_out_srcaddr,umi_out_dstaddr,umi_muxed_cmd};
+
+   // Third step - only send the required number of bits
+   assign req_cmd_only  = req_cmd_invalid    |
+                          req_cmd_link       |
+                          req_cmd_link_resp  ;
+   assign req_no_data   = req_cmd_read       |
+                          req_cmd_rdma       |
+                          req_cmd_error      |
+                          req_cmd_write_resp |
+                          req_cmd_user0      |
+                          req_cmd_future0    ;
+
+   assign resp_cmd_only = resp_cmd_invalid    |
+                          req_cmd_link        |
+                          req_cmd_link_resp   ;
+   assign resp_no_data  = resp_cmd_read       |
+                          resp_cmd_rdma       |
+                          resp_cmd_error      |
+                          resp_cmd_write_resp |
+                          resp_cmd_user0      |
+                          resp_cmd_future0    ;
+
+   always @(*)
+     case ({req_cmd_only,req_no_data})
+       2'b10:
+         begin
+            valid_start_value_req = {{CW/8{1'b1}},{(DW+AW+AW)/8{1'b0}}};
+            req_packet_bytes[11:0] = CW/8;
+         end
+       2'b01:
+         begin
+            valid_start_value_req = {{(AW+AW+CW)/8{1'b1}},{DW/8{1'b0}}};
+            req_packet_bytes[11:0] = (AW+AW+CW)/8;
+         end
+       default:
+         begin
+            valid_start_value_req = {{(AW+AW+CW)/8{1'b1}},~({DW/8{1'b1}}>>cmd_req_bytes[11:0])};
+            req_packet_bytes[11:0] = (AW+AW+CW)/8 + cmd_req_bytes[11:0];
+         end
+     endcase
+
+   always @(*)
+     case ({resp_cmd_only,resp_no_data})
+       2'b10:
+         begin
+            valid_start_value_resp = {{CW/8{1'b1}},{(DW+AW+AW)/8{1'b0}}};
+            resp_packet_bytes[11:0] = CW/8;
+         end
+       2'b01:
+         begin
+            valid_start_value_resp = {{(AW+AW+CW)/8{1'b1}},{DW/8{1'b0}}};
+            resp_packet_bytes[11:0] = (AW+AW+CW)/8;
+         end
+       default:
+         begin
+            valid_start_value_resp = {{(AW+AW+CW)/8{1'b1}},~({DW/8{1'b1}}>>cmd_resp_bytes[11:0])};
+            resp_packet_bytes[11:0] = (AW+AW+CW)/8 + cmd_resp_bytes[11:0];
+         end
+     endcase
+
+   assign valid_start_value = lumi_txrdy & csr_en & (|crdt_updt_send) ?
+                              {{CW/8{1'b1}},{(DW+AW+AW)/8{1'b0}}}     :
+                              lumi_txrdy & umi_resp_in_gated          ?
+                              valid_start_value_resp                  :
+                              valid_start_value_req;
+
+   // TX is done as lsb first
+   // adding indication to the packet type in the shift register for crdt management
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          shiftreg[(DW+AW+AW+CW)-1:0] <= 'b0;
+          shift_reg_type[2:0] <= 3'b000;
+       end
+     else if (sample_packet)
+       begin
+          shiftreg[(DW+AW+AW+CW)-1:0] <= shiftreg_in_new[(DW+AW+AW+CW)-1:0];
+          shift_reg_type[2] <=  (req_cmd_link | resp_cmd_link_resp);
+          shift_reg_type[1] <= ~(req_cmd_link | resp_cmd_link_resp) & umi_resp_in_gated;
+          shift_reg_type[0] <= ~(req_cmd_link | resp_cmd_link_resp) & ~umi_resp_in_gated & umi_req_in_gated;
+       end
+     else
+       shiftreg[(DW+AW+AW+CW)-1:0] <= shiftreg_in[(DW+AW+AW+CW)-1:0];
+
+   assign shiftreg_in[(DW+AW+AW+CW)-1:0] = shiftreg[(DW+AW+AW+CW)-1:0] >>
+				           (byterate[$clog2(DW+AW+AW+CW)-1:0] <<3);
+
+   //########################################
+   //# Output data - no need for masking or by anymore
+   //########################################
+
+   assign phy_txdata[IOW-1:0] = shiftreg[IOW-1:0];
+
+endmodule // clink_txphy
 // Local Variables:
-// verilog-library-directories:("." "../../../umi/umi/rtl")
+// verilog-library-directories:("." "../../umi/rtl/" "../../submodules/umi/umi/rtl/")
 // End:
