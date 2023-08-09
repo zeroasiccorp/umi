@@ -57,7 +57,7 @@
  *
  *
  ******************************************************************************/
-module clink_crossbar
+module lumi_crossbar
   #(parameter TARGET = "DEFAULT", // target
     parameter DW = 256,           // umi packet width
     parameter CW = 32,            // umi packet width

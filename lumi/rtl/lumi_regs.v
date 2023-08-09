@@ -6,7 +6,7 @@
  *
  *****************************************************************************/
 
-module clink_regs
+module lumi_regs
   #(parameter TARGET = "DEFAULT", // clink type
     parameter GRPOFFSET = 24,     // group address offset
     parameter GRPAW = 8,          // group address width
@@ -114,15 +114,6 @@ module clink_regs
     output           csr_rxbpio,
     output           csr_txchaos,        // enable random tx fifo pushback
     output           csr_rxchaos,        // enable random rx fifo pushback
-    // link status signals
-    input            csr_rxrespfull,
-    input            csr_rxrespempty,
-    input            csr_rxreqfull,
-    input            csr_rxreqempty,
-    input            csr_txrespfull,
-    input            csr_txrespempty,
-    input            csr_txreqfull,
-    input            csr_txreqempty,
     // fine grain clock control
     output           csr_rxclkchange,    // indicates a parameter change
     output           csr_rxclken,        // clock enable
