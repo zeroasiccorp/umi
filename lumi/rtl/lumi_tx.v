@@ -1,12 +1,12 @@
 /******************************************************************************
- * Function: CLINK Transmitter IO
+ * Function: Link UMI (LUMI) transmit
  * Author:   Andreas Olofsson
  * License:  (c) 2020 Zero ASIC Corporation
  *
  * Version history:
  * Version 1 - change from packet UMI to exploded
  *****************************************************************************/
-module lumi_txphy
+module lumi_tx
   #(parameter TARGET = "DEFAULT", // implementation target
     // for development only (fixed )
     parameter IOW = 64,           // Lumi rx/tx width (SDR only, DDR is handled in the phy)
@@ -543,7 +543,7 @@ module lumi_txphy
 
    assign phy_txdata[IOW-1:0] = shiftreg[IOW-1:0];
 
-endmodule // clink_txphy
+endmodule
 // Local Variables:
-// verilog-library-directories:("." "../../umi/rtl/" "../../submodules/umi/umi/rtl/")
+// verilog-library-directories:("." "../../umi/rtl/")
 // End:
