@@ -1,239 +1,786 @@
 /******************************************************************************
- * Function:  CLINK Receiver
+ * Function:  CLINK Receiver PHY
  * Author:    Andreas Olofsson
- * Copyright: (c) 2022 Zero ASIC Corporation
+ * Copyright: 2020 Zero ASIC Corporation
  * License:
  *
  * Documentation:
- *
- *
+ * -Samples I/O inputs and converts to a standardized packet width
  *
  *****************************************************************************/
-module clink_rx
+module clink_rxphy
   #(parameter TARGET = "DEFAULT", // implementation target
-    parameter FIFODEPTH = 4,      // fifo depth
+    // for development only (fixed )
     parameter IOW = 64,           // clink rx/tx width
-    parameter CW = 32,            // umi cmd width
-    parameter AW = 64,            // umi addr width
     parameter DW = 256,           // umi data width
-    parameter CRDTFIFOD = 64      // Fifo size need to account for 64B over 2B link
+    parameter CW = 32,            // umi data width
+    parameter AW = 64,            // address width
+    parameter CRDTFIFOD = 64     // Fifo size need to account for 64B over 2B link
     )
    (// local control
-    input           clk,             // core clock
-    input           ioclk,           // rx clock
-    input           nreset,          // async active low reset
-    input           ionreset,        // rx async active low reset
-    input           vss,             // common ground
-    input           vdd,             // core supply
-    input           vddio,           // io voltage
-    input           devicemode,      // 1=device, 0=host
-    input [1:0]     chipdir,         // rotation (00=0,01=90,10=180,11=270)
-    input           csr_en,          // link enable
-    input [1:0]     csr_chipletmode, // 00=110um,01=45um,10=10um,11=1um
-    input           csr_ddrmode,     // 1 = ddr, 0 = sdr
-    input [7:0]     csr_iowidth,     // pad bus width
-    input [3:0]     csr_eccmode,     // pad bus width
-    input [3:0]     csr_protocol,    // protocol selector
-    input           csr_chaos,       // enable random fifo pushback
-    input           csr_bpio,        // bypass rx io shift register
-    input           csr_bpfifo,      // bypass rx fifo
-    input           csr_bpprotocol,  // bypass rx protocol engine
-    // status signals
-    output          csr_respfull,
-    output          csr_respempty,
-    output          csr_reqfull,
-    output          csr_reqempty,
-    // Feedback clock (TODO)
-    output          clkfb,           // feedback clock from RX
+    input             ioclk,              // clock for sampling input data
+    input             ionreset,           // async active low reset
+    input             devicemode,
+    input [1:0]       chipdir,            // device rotation
+    input             csr_en,             // 1=enable outputs
+    input [1:0]       csr_chipletmode,    // 00=110um,01=45um,10=10um,11=1um
+    input             csr_ddrmode,        // 1 = ddr, 0 = sdr
+    input [7:0]       csr_iowidth,        // pad bus width
+    input [3:0]       csr_eccmode,        // ecc mode
+    input             csr_bpio,           // bypass shift register
+    input             vss,                // common ground
+    input             vdd,                // core supply
+    input             vddio,              // io voltage
     // pad signals
-    input [IOW-1:0] io_rxdata,       // link data from pads
-    input [3:0]     io_rxctrl,       // link ctrl(valid) from pads
-    output [3:0]    io_rxstatus,     // flow control to pads
-    // Write/response to core
-    output          umi_resp_out_valid,
-    output [CW-1:0] umi_resp_out_cmd,
-    output [AW-1:0] umi_resp_out_dstaddr,
-    output [AW-1:0] umi_resp_out_srcaddr,
-    output [DW-1:0] umi_resp_out_data,
-    input           umi_resp_out_ready,
-    // Read/request to core
-    output          umi_req_out_valid,
-    output [CW-1:0] umi_req_out_cmd,
-    output [AW-1:0] umi_req_out_dstaddr,
-    output [AW-1:0] umi_req_out_srcaddr,
-    output [DW-1:0] umi_req_out_data,
-    input           umi_req_out_ready,
+    input [IOW-1:0]   io_rxdata,
+    input [3:0]       io_rxctrl,
+    output [3:0]      io_rxstatus,
+    // internal signals
+    output            clkfb,
+    // Write/Response
+    output [CW-1:0]   umi_resp_out_cmd,
+    output [AW-1:0]   umi_resp_out_dstaddr,
+    output [AW-1:0]   umi_resp_out_srcaddr,
+    output [DW-1:0]   umi_resp_out_data,  // link data pads
+    output            umi_resp_out_valid, // valid for fifo
+    input             umi_resp_out_ready, // flow control from fifo
+    // Read/Request
+    output [CW-1:0]   umi_req_out_cmd,
+    output [AW-1:0]   umi_req_out_dstaddr,
+    output [AW-1:0]   umi_req_out_srcaddr,
+    output [DW-1:0]   umi_req_out_data,   // link data pads
+    output            umi_req_out_valid,  // valid for fifo
+    input             umi_req_out_ready,  // flow control from fifo
     // Credit interface
-    input [15:0]    csr_crdt_req_init,
-    input [15:0]    csr_crdt_resp_init,
-    output [15:0]   loc_crdt_req,
-    output [15:0]   loc_crdt_resp,
-    output [15:0]   rmt_crdt_req,
-    output [15:0]   rmt_crdt_resp
-    /*AUTOINPUT*/
-    /*AUTOOUTPUT*/
+    input [15:0]      csr_crdt_req_init,  // Initial value from clink_regs
+    input [15:0]      csr_crdt_resp_init, // Initial value from clink_regs
+    output [15:0]     loc_crdt_req,       // Realtime rx credits to be sent to the remote side
+    output [15:0]     loc_crdt_resp,      // Realtime rx credits to be sent to the remote side
+    output reg [15:0] rmt_crdt_req,       // Credit value from remote side (for Tx)
+    output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
     );
+
+   // local state
+   reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
+   reg [$clog2((DW+AW+AW+CW))-1:0] rxptr;
+   reg [$clog2((DW+AW+AW+CW))-1:0] rxbytes_raw;
+   wire [$clog2((DW+AW+AW+CW))-1:0] full_hdr_size;
+   wire [$clog2((DW+AW+AW+CW))-1:0] rxbytes_to_rcv;
+   reg [$clog2((DW+AW+AW+CW))-1:0]  rxbytes_keep;
+   reg [$clog2((DW+AW+AW+CW))-1:0]  bytes_to_receive;
+   reg                              rxvalid;
+   reg                              rxvalid2;
+   reg                              rxfec;
+   reg [(DW+AW+AW+CW)-1:0]          shiftreg;
+   wire [(DW+AW+AW+CW)-1:0]         shiftreg_in;
+   reg                              transfer;
+   reg [IOW:0]                      rxdata_posedge;//extra raux bit
+   reg [IOW:0]                      rxdata_negedge;//extra raux bit
+   reg [2:0]                        rxtype_next;
+   reg [15:0]                       rx_crdt_req;
+   reg [15:0]                       rx_crdt_resp;
+   reg [2:0]                        fifo_sel_hold;
+   wire [2:0]                       fifo_sel;
+   wire [2:0]                       fifo_empty;
+   wire [2:0]                       fifo_wr;
+   wire [2:0]                       fifo_rd;
+
+   // local wires
+   wire [7:0]                       fixedwidth;
+   wire [9:0]                       iowidth;
+   wire [2:0]                       rxtype;
+   // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
+   wire [$clog2((DW+AW+AW+CW))-1:0] byterate;
+   //   wire [$clog2(DW/8)-1:0] byterate;
+   wire [$clog2((DW+AW+AW+CW))-1:0] sopptr_next;
+   wire [$clog2((DW+AW+AW+CW))-1:0] rxptr_next;
+   wire [$clog2((DW+AW+AW+CW))-1:0] datashift;
+   wire [(DW+AW+AW+CW)-1:0]         writemask;
+   wire [2*IOW+1:0]                 ddrdata;
+   wire [2*IOW+1:0]                 sdrdata;
+   wire [2*IOW+1:0]                 rxdata; // accounting for ddr data
+   wire [2*IOW+1:0]                 req_fifo_dout;
+   wire [2*IOW+1:0]                 resp_fifo_dout;
+   wire [2*IOW+1:0]                 lnk_fifo_dout;
+   wire [2*IOW+1:0]                 fifo_data_muxed;
+   wire                             rxaux;
+   wire [CW-1:0]                    umi_out_cmd;
+   wire [AW-1:0]                    umi_out_dstaddr;
+   wire [AW-1:0]                    umi_out_srcaddr;
+   wire [DW-1:0]                    umi_out_data;
+   wire                             umi_out_valid;
+
+   wire                             rx_cmd_only;
+   wire                             rx_no_data;
+   wire                             cmd_only;
+   wire                             fifo_cmd_only;
+   wire                             no_data;
+   wire [11:0]                      rxcmd_lenp1;
+   wire [11:0]                      rxcmd_bytes;
+   wire [11:0]                      cmd_lenp1;
+   wire [11:0]                      cmd_bytes;
+
+   wire [1:0]                       credit_req_in;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [CW-1:0]        umi_req_phy2mac_cmd;
-   wire [DW-1:0]        umi_req_phy2mac_data;
-   wire [AW-1:0]        umi_req_phy2mac_dstaddr;
-   wire                 umi_req_phy2mac_ready;
-   wire [AW-1:0]        umi_req_phy2mac_srcaddr;
-   wire                 umi_req_phy2mac_valid;
-   wire [CW-1:0]        umi_resp_phy2mac_cmd;
-   wire [DW-1:0]        umi_resp_phy2mac_data;
-   wire [AW-1:0]        umi_resp_phy2mac_dstaddr;
-   wire                 umi_resp_phy2mac_ready;
-   wire [AW-1:0]        umi_resp_phy2mac_srcaddr;
-   wire                 umi_resp_phy2mac_valid;
+   wire                 cmd_error;
+   wire                 cmd_future0;
+   wire                 cmd_future0_resp;
+   wire                 cmd_future1_resp;
+   wire                 cmd_invalid;
+   wire [7:0]           cmd_len;
+   wire                 cmd_link;
+   wire                 cmd_link_resp;
+   wire                 cmd_rdma;
+   wire                 cmd_read;
+   wire                 cmd_read_resp;
+   wire                 cmd_request;
+   wire                 cmd_response;
+   wire [2:0]           cmd_size;
+   wire                 cmd_user0;
+   wire                 cmd_user0_resp;
+   wire                 cmd_user1_resp;
+   wire [23:0]          cmd_user_extended;
+   wire                 cmd_write;
+   wire                 cmd_write_posted;
+   wire                 cmd_write_resp;
+   wire                 fifo_cmd_invalid;
+   wire                 fifo_cmd_link;
+   wire                 fifo_cmd_link_resp;
+   wire                 rxcmd_error;
+   wire                 rxcmd_future0;
+   wire                 rxcmd_future0_resp;
+   wire                 rxcmd_future1_resp;
+   wire                 rxcmd_invalid;
+   wire [7:0]           rxcmd_len;
+   wire                 rxcmd_link;
+   wire                 rxcmd_link_resp;
+   wire                 rxcmd_rdma;
+   wire                 rxcmd_read;
+   wire                 rxcmd_read_resp;
+   wire                 rxcmd_request;
+   wire                 rxcmd_response;
+   wire [2:0]           rxcmd_size;
+   wire                 rxcmd_user0;
+   wire                 rxcmd_user0_resp;
+   wire                 rxcmd_user1_resp;
+   wire                 rxcmd_write;
+   wire                 rxcmd_write_posted;
+   wire                 rxcmd_write_resp;
+   wire                 umi_out_ready;
    // End of automatics
 
-   //#####################
-   //# PHY
-   //#####################
+   //########################################
+   //# interface width calculation
+   //########################################
+   // fixed io width based on tie-off constants
+   // Amir - fix 8B and 32B mode to the right values
+   assign fixedwidth[7:0] = (csr_chipletmode[1:0] == 2'h0) ? 'h2  : //2B
+			    (csr_chipletmode[1:0] == 2'h1) ? 'h8  : //8B
+			    (csr_chipletmode[1:0] == 2'h2) ? 'h20 : //32B
+		            'h8;                                    //8B
 
-   /*clink_rxphy  AUTO_TEMPLATE (
-    .umi\(.*\)_out_\(.*\) (umi\1_phy2mac_\2[]),
-    )
-    */
+   // variable io widths (<IOW)
+   assign iowidth[7:0] = |csr_iowidth[7:0] ? csr_iowidth[7:0] : fixedwidth[7:0];
 
-   clink_rxphy #(.DW(DW),
-		 .AW(AW),
-		 .CW(CW),
-		 .IOW(IOW),
-		 .TARGET(TARGET),
-                 .CRDTFIFOD(CRDTFIFOD))
-   clink_rxphy(/*AUTOINST*/
-               // Outputs
-               .io_rxstatus     (io_rxstatus[3:0]),
-               .clkfb           (clkfb),
-               .umi_resp_out_cmd(umi_resp_phy2mac_cmd[CW-1:0]), // Templated
-               .umi_resp_out_dstaddr(umi_resp_phy2mac_dstaddr[AW-1:0]), // Templated
-               .umi_resp_out_srcaddr(umi_resp_phy2mac_srcaddr[AW-1:0]), // Templated
-               .umi_resp_out_data(umi_resp_phy2mac_data[DW-1:0]), // Templated
-               .umi_resp_out_valid(umi_resp_phy2mac_valid), // Templated
-               .umi_req_out_cmd (umi_req_phy2mac_cmd[CW-1:0]), // Templated
-               .umi_req_out_dstaddr(umi_req_phy2mac_dstaddr[AW-1:0]), // Templated
-               .umi_req_out_srcaddr(umi_req_phy2mac_srcaddr[AW-1:0]), // Templated
-               .umi_req_out_data(umi_req_phy2mac_data[DW-1:0]), // Templated
-               .umi_req_out_valid(umi_req_phy2mac_valid), // Templated
-               .loc_crdt_req    (loc_crdt_req[15:0]),
-               .loc_crdt_resp   (loc_crdt_resp[15:0]),
-               .rmt_crdt_req    (rmt_crdt_req[15:0]),
-               .rmt_crdt_resp   (rmt_crdt_resp[15:0]),
-               // Inputs
-               .ioclk           (ioclk),
-               .ionreset        (ionreset),
-               .devicemode      (devicemode),
-               .chipdir         (chipdir[1:0]),
-               .csr_en          (csr_en),
-               .csr_chipletmode (csr_chipletmode[1:0]),
-               .csr_ddrmode     (csr_ddrmode),
-               .csr_iowidth     (csr_iowidth[7:0]),
-               .csr_eccmode     (csr_eccmode[3:0]),
-               .csr_bpio        (csr_bpio),
-               .vss             (vss),
-               .vdd             (vdd),
-               .vddio           (vddio),
-               .io_rxdata       (io_rxdata[IOW-1:0]),
-               .io_rxctrl       (io_rxctrl[3:0]),
-               .umi_resp_out_ready(umi_resp_phy2mac_ready), // Templated
-               .umi_req_out_ready(umi_req_phy2mac_ready), // Templated
-               .csr_crdt_req_init(csr_crdt_req_init[15:0]),
-               .csr_crdt_resp_init(csr_crdt_resp_init[15:0]));
+   // Leave place for shift left result
+   assign iowidth[9:8] = 2'b00;
 
+   // bytes per clock cycle
+   // Updating to 128b DW. TODO: this will need to change later
+   assign byterate[$clog2((DW+AW+AW+CW))-1:0] = iowidth[8:0] << csr_ddrmode;
 
-   //#####################
-   //# UMI_RESP MAC
-   //#####################
+   //########################################
+   //# Input Sampling
+   //########################################
 
-   /*clink_rxmac  AUTO_TEMPLATE (
-    .umi_out_\(.*\)  (@"(substring vl-cell-name  6)"_out_\1[]),
-    .umi_in_\(.*\)   (@"(substring vl-cell-name  6)"_phy2mac_\1[]),
-    .csr_empty       (csr_@"(substring vl-cell-name  10)"empty),
-    .csr_full        (csr_@"(substring vl-cell-name  10)"full),
-    );
-    */
+   // Detect valis signal
+   always @ (posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       begin
+	  rxvalid  <= 1'b0;
+	  rxvalid2 <= 1'b0;
+       end
+     else
+       begin
+	  rxvalid  <= io_rxctrl[0];
+	  rxvalid2 <= rxvalid;
+       end
 
-   clink_rxmac #(.DW(DW),
-		 .AW(AW),
-		 .CW(CW),
-		 .TARGET(TARGET))
-   rxmac_umi_resp(
-		  /*AUTOINST*/
-                  // Outputs
-                  .csr_empty            (csr_respempty),         // Templated
-                  .csr_full             (csr_respfull),          // Templated
-                  .umi_in_ready         (umi_resp_phy2mac_ready), // Templated
-                  .umi_out_valid        (umi_resp_out_valid),    // Templated
-                  .umi_out_cmd          (umi_resp_out_cmd[CW-1:0]), // Templated
-                  .umi_out_dstaddr      (umi_resp_out_dstaddr[AW-1:0]), // Templated
-                  .umi_out_srcaddr      (umi_resp_out_srcaddr[AW-1:0]), // Templated
-                  .umi_out_data         (umi_resp_out_data[DW-1:0]), // Templated
-                  // Inputs
-                  .clk                  (clk),
-                  .nreset               (nreset),
-                  .ioclk                (ioclk),
-                  .ionreset             (ionreset),
-                  .devicemode           (devicemode),
-                  .chipdir              (chipdir[1:0]),
-                  .csr_protocol         (csr_protocol[3:0]),
-                  .csr_eccmode          (csr_eccmode[3:0]),
-                  .csr_bpprotocol       (csr_bpprotocol),
-                  .csr_bpfifo           (csr_bpfifo),
-                  .csr_chaos            (csr_chaos),
-                  .vss                  (vss),
-                  .vdd                  (vdd),
-                  .umi_in_cmd           (umi_resp_phy2mac_cmd[CW-1:0]), // Templated
-                  .umi_in_dstaddr       (umi_resp_phy2mac_dstaddr[AW-1:0]), // Templated
-                  .umi_in_srcaddr       (umi_resp_phy2mac_srcaddr[AW-1:0]), // Templated
-                  .umi_in_data          (umi_resp_phy2mac_data[DW-1:0]), // Templated
-                  .umi_in_valid         (umi_resp_phy2mac_valid), // Templated
-                  .umi_out_ready        (umi_resp_out_ready));   // Templated
+   // Hard stop on falling valid (edge case) TODO - what is this for?
+//   assign rxstop = ~rxvalid & rxvalid2;
 
+   // Feedback clock
+   assign clkfb     = io_rxctrl[1];
 
-   //#####################
-   //# UMI_REQ MAC
-   //#####################
+   // FEC signal
+   always @ (posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       rxfec <= 1'b0;
+     else
+       rxfec <= io_rxctrl[2];
 
-   clink_rxmac #(.DW(DW),
-		 .AW(AW),
-		 .CW(CW),
-		 .TARGET(TARGET))
-   rxmac_umi_req(/*AUTOINST*/
+   // Data redundenccy
+   assign rxaux     = io_rxctrl[3];
+
+   // rising edge data sample
+   always @ (posedge ioclk)
+     rxdata_posedge[IOW:0] <= {rxaux,io_rxdata[IOW-1:0]};
+
+   // falling edge data sample
+   always @ (negedge ioclk)
+     rxdata_negedge[IOW:0] <= {rxaux,io_rxdata[IOW-1:0]};
+
+   // ddr data (TODO: implement)
+   assign ddrdata[2*IOW+1:0] = 'b0;
+
+   // sdr data
+   assign sdrdata[2*IOW+1:0] = {{(IOW+1){1'b0}},rxdata_posedge[IOW:0]};
+
+   // selecte between sdr/ddr data
+   assign rxdata[2*IOW+1:0] = csr_ddrmode? ddrdata[2*IOW+1:0] : sdrdata[2*IOW+1:0];
+
+   //########################################
+   //# Input data tracking
+   //########################################
+   //
+   // Input data is now separate before and after the input fifo
+   // As a result need to understand data size and track (to generate SOP)
+
+   /*umi_unpack AUTO_TEMPLATE(
+    .cmd_len    (rxcmd_len[]),
+    .cmd_size   (rxcmd_size[]),
+    .cmd.*      (),
+    .packet_cmd ({{CW-16{1'b0}},rxdata[15:0]}),
+    );*/
+
+   umi_unpack #(.CW(CW))
+   rxdata_unpack(/*AUTOINST*/
                  // Outputs
-                 .csr_empty             (csr_reqempty),          // Templated
-                 .csr_full              (csr_reqfull),           // Templated
-                 .umi_in_ready          (umi_req_phy2mac_ready), // Templated
-                 .umi_out_valid         (umi_req_out_valid),     // Templated
-                 .umi_out_cmd           (umi_req_out_cmd[CW-1:0]), // Templated
-                 .umi_out_dstaddr       (umi_req_out_dstaddr[AW-1:0]), // Templated
-                 .umi_out_srcaddr       (umi_req_out_srcaddr[AW-1:0]), // Templated
-                 .umi_out_data          (umi_req_out_data[DW-1:0]), // Templated
+                 .cmd_opcode            (),                      // Templated
+                 .cmd_size              (rxcmd_size[2:0]),       // Templated
+                 .cmd_len               (rxcmd_len[7:0]),        // Templated
+                 .cmd_atype             (),                      // Templated
+                 .cmd_qos               (),                      // Templated
+                 .cmd_prot              (),                      // Templated
+                 .cmd_eom               (),                      // Templated
+                 .cmd_eof               (),                      // Templated
+                 .cmd_ex                (),                      // Templated
+                 .cmd_user              (),                      // Templated
+                 .cmd_user_extended     (),                      // Templated
+                 .cmd_err               (),                      // Templated
+                 .cmd_hostid            (),                      // Templated
                  // Inputs
-                 .clk                   (clk),
-                 .nreset                (nreset),
-                 .ioclk                 (ioclk),
-                 .ionreset              (ionreset),
-                 .devicemode            (devicemode),
-                 .chipdir               (chipdir[1:0]),
-                 .csr_protocol          (csr_protocol[3:0]),
-                 .csr_eccmode           (csr_eccmode[3:0]),
-                 .csr_bpprotocol        (csr_bpprotocol),
-                 .csr_bpfifo            (csr_bpfifo),
-                 .csr_chaos             (csr_chaos),
-                 .vss                   (vss),
-                 .vdd                   (vdd),
-                 .umi_in_cmd            (umi_req_phy2mac_cmd[CW-1:0]), // Templated
-                 .umi_in_dstaddr        (umi_req_phy2mac_dstaddr[AW-1:0]), // Templated
-                 .umi_in_srcaddr        (umi_req_phy2mac_srcaddr[AW-1:0]), // Templated
-                 .umi_in_data           (umi_req_phy2mac_data[DW-1:0]), // Templated
-                 .umi_in_valid          (umi_req_phy2mac_valid), // Templated
-                 .umi_out_ready         (umi_req_out_ready));    // Templated
+                 .packet_cmd            ({{CW-16{1'b0}},rxdata[15:0]})); // Templated
 
-endmodule // clink_rx
+   /*umi_decode AUTO_TEMPLATE(
+    .command      ({{CW-16{1'b0}},rxdata[15:0]}),
+    .cmd_atomic.* (),
+    .cmd_\(.*\)   (rxcmd_\1[]),
+    );*/
+
+   umi_decode #(.CW(CW))
+   rxdata_decode (/*AUTOINST*/
+                  // Outputs
+                  .cmd_invalid          (rxcmd_invalid),         // Templated
+                  .cmd_request          (rxcmd_request),         // Templated
+                  .cmd_response         (rxcmd_response),        // Templated
+                  .cmd_read             (rxcmd_read),            // Templated
+                  .cmd_write            (rxcmd_write),           // Templated
+                  .cmd_write_posted     (rxcmd_write_posted),    // Templated
+                  .cmd_rdma             (rxcmd_rdma),            // Templated
+                  .cmd_atomic           (),                      // Templated
+                  .cmd_user0            (rxcmd_user0),           // Templated
+                  .cmd_future0          (rxcmd_future0),         // Templated
+                  .cmd_error            (rxcmd_error),           // Templated
+                  .cmd_link             (rxcmd_link),            // Templated
+                  .cmd_read_resp        (rxcmd_read_resp),       // Templated
+                  .cmd_write_resp       (rxcmd_write_resp),      // Templated
+                  .cmd_user0_resp       (rxcmd_user0_resp),      // Templated
+                  .cmd_user1_resp       (rxcmd_user1_resp),      // Templated
+                  .cmd_future0_resp     (rxcmd_future0_resp),    // Templated
+                  .cmd_future1_resp     (rxcmd_future1_resp),    // Templated
+                  .cmd_link_resp        (rxcmd_link_resp),       // Templated
+                  .cmd_atomic_add       (),                      // Templated
+                  .cmd_atomic_and       (),                      // Templated
+                  .cmd_atomic_or        (),                      // Templated
+                  .cmd_atomic_xor       (),                      // Templated
+                  .cmd_atomic_max       (),                      // Templated
+                  .cmd_atomic_min       (),                      // Templated
+                  .cmd_atomic_maxu      (),                      // Templated
+                  .cmd_atomic_minu      (),                      // Templated
+                  .cmd_atomic_swap      (),                      // Templated
+                  // Inputs
+                  .command              ({{CW-16{1'b0}},rxdata[15:0]})); // Templated
+
+   // Second step - decode what format will be received
+   assign rx_cmd_only  = rxcmd_invalid    |
+                         rxcmd_link       |
+                         rxcmd_link_resp  ;
+   assign rx_no_data   = rxcmd_read       |
+                         rxcmd_rdma       |
+                         rxcmd_error      |
+                         rxcmd_write_resp |
+                         rxcmd_user0      |
+                         rxcmd_future0    ;
+
+   assign rxcmd_lenp1[11:0] = {4'h0,rxcmd_len[7:0]} + 1'b1;
+   assign rxcmd_bytes[11:0] = rxcmd_lenp1[11:0] << rxcmd_size[2:0];
+
+   assign full_hdr_size = (CW+AW+AW)/8;
+
+   always @(*)
+     case ({rx_cmd_only,rx_no_data})
+       2'b10: rxbytes_raw = (CW)/8;
+       2'b01: rxbytes_raw = (CW+AW+AW)/8;
+       default: rxbytes_raw = full_hdr_size + rxcmd_bytes[8:0];
+     endcase
+
+   // TODO - add support for 1B IOW (#bytes unknown in first cycle)
+   always @ (posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       rxbytes_keep <= 'h0;
+     else
+       if (~(|sopptr) & rxvalid)
+         rxbytes_keep <= rxbytes_raw;
+
+   assign rxbytes_to_rcv = ~(|sopptr) & rxvalid ?
+                           rxbytes_raw :
+                           rxbytes_keep;
+
+   // Valid register holds one bit per byte to transfer
+   always @ (posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       sopptr <= 'b0;
+     else if (rxvalid)
+       sopptr <= sopptr_next;
+
+   // Count by the number of bytes per cycle transfered
+   // When reaching the end of the header need to re-align to the remaining bytes
+   assign sopptr_next = ((sopptr + byterate) >= rxbytes_to_rcv) ?
+                        0 :
+                        sopptr + byterate;
+
+   //########################################
+   //# Credit management
+   //########################################
+   // credit counters store the number of bytes received
+   // The default will be the FIFO depth but configuration can choose to use less
+   // As we use separate credit and fifo for req/resp we need to decode the cmd
+   // Since the data might come on a narror interface will only use the first byte
+
+   // Sample packet type from the RX lines upon SOP
+   always @(posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       rxtype_next[2:0] <= 3'b000;
+     else
+       if (~(|sopptr) & rxvalid)
+         rxtype_next[2:0] <= {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link};
+
+   assign rxtype = ~(|sopptr) & rxvalid ?
+                   {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link} :
+                   rxtype_next;
+
+   // credit counters - to be sent to the remote side
+   always @(posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       begin
+          rx_crdt_req[15:0]  <= 'h0;
+          rx_crdt_resp[15:0] <= 'h0;
+       end
+     else
+       if (~csr_en)
+         begin
+            rx_crdt_req[15:0]  <= csr_crdt_req_init[15:0];
+            rx_crdt_resp[15:0] <= csr_crdt_resp_init[15:0];
+         end
+       else
+         begin
+            if (fifo_rd[0])
+              rx_crdt_req[15:0]  <= rx_crdt_req[15:0]  + 1;
+            if (fifo_rd[1])
+              rx_crdt_resp[15:0] <= rx_crdt_resp[15:0] + 1;
+         end
+
+   assign loc_crdt_req  = rx_crdt_req;
+   assign loc_crdt_resp = rx_crdt_resp;
+
+   //########################################
+   // Request Fifo
+   //########################################
+   assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
+   assign fifo_rd[0] = ~fifo_empty[0] & fifo_sel[0] & umi_out_ready;
+
+   la_syncfifo #(.DW(2*(IOW+1)),    // Memory width
+                 .DEPTH(CRDTFIFOD),  // FIFO depth
+                 .NS(1),     // Number of power supplies
+                 .CHAOS(0),  // generates random full logic when set
+                 .CTRLW(1),  // width of asic ctrl interface
+                 .TESTW(1),  // width of asic test interface
+                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   req_fifo_i(// Outputs
+              .wr_full          (),
+              .rd_dout          (req_fifo_dout[2*IOW+1:0]),
+              .rd_empty         (fifo_empty[0]),
+              // Inputs
+              .clk              (ioclk),
+              .nreset           (ionreset),
+              .vss              (1'b0),
+              .vdd              (1'b1),
+              .chaosmode        (1'b0),
+              .ctrl             (1'b0),
+              .test             (1'b0),
+              .wr_en            (fifo_wr[0]),
+              .wr_din           (rxdata[2*IOW+1:0]),
+              .rd_en            (fifo_rd[0]));
+
+   //########################################
+   // Response Fifo
+   //########################################
+   // Write whenever there is valid data
+   assign fifo_wr[1] = rxvalid & (rxtype[2:0] == 3'b010);
+   // Read when not empty.
+   assign fifo_rd[1] = ~fifo_empty[1] & fifo_sel[1] & umi_out_ready;
+
+   la_syncfifo #(.DW(2*(IOW+1)),    // Memory width
+                 .DEPTH(CRDTFIFOD),  // FIFO depth
+                 .NS(1),     // Number of power supplies
+                 .CHAOS(0),  // generates random full logic when set
+                 .CTRLW(1),  // width of asic ctrl interface
+                 .TESTW(1),  // width of asic test interface
+                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   resp_fifo_i(// Outputs
+               .wr_full          (),
+               .rd_dout          (resp_fifo_dout[2*IOW+1:0]),
+               .rd_empty         (fifo_empty[1]),
+               // Inputs
+               .clk              (ioclk),
+               .nreset           (ionreset),
+               .vss              (1'b0),
+               .vdd              (1'b1),
+               .chaosmode        (1'b0),
+               .ctrl             (1'b0),
+               .test             (1'b0),
+               .wr_en            (fifo_wr[1]),
+               .wr_din           (rxdata[2*IOW+1:0]),
+               .rd_en            (fifo_rd[1]));
+
+   //########################################
+   // link cmd Fifo - no FC
+   //########################################
+   assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
+   assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
+
+   la_syncfifo #(.DW(2*(IOW+1)),    // Memory width
+                 .DEPTH(4),  // FIFO depth
+                 .NS(1),     // Number of power supplies
+                 .CHAOS(0),  // generates random full logic when set
+                 .CTRLW(1),  // width of asic ctrl interface
+                 .TESTW(1),  // width of asic test interface
+                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   lnk_fifo_i(// Outputs
+              .wr_full          (),
+              .rd_dout          (lnk_fifo_dout[2*IOW+1:0]),
+              .rd_empty         (fifo_empty[2]),
+              // Inputs
+              .clk              (ioclk),
+              .nreset           (ionreset),
+              .vss              (1'b0),
+              .vdd              (1'b1),
+              .chaosmode        (1'b0),
+              .ctrl             (1'b0),
+              .test             (1'b0),
+              .wr_en            (fifo_wr[2]),
+              .wr_din           (rxdata[2*IOW+1:0]),
+              .rd_en            (fifo_rd[2]));
+
+   // arbitrate fifo outputs towards umi. Priority is lnk->resp->req
+   always @(posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       fifo_sel_hold <= 3'b000;
+     else
+       fifo_sel_hold <= fifo_sel;
+
+   assign fifo_sel = ~(|rxptr) ?
+                     {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], &fifo_empty[2:1]} :
+                     fifo_sel_hold;
+
+   assign fifo_data_muxed = {(2*IOW+2){fifo_sel[2]}} & lnk_fifo_dout[2*IOW+1:0]  |
+                            {(2*IOW+2){fifo_sel[1]}} & resp_fifo_dout[2*IOW+1:0] |
+                            {(2*IOW+2){fifo_sel[0]}} & req_fifo_dout[2*IOW+1:0]  ;
+
+   /*umi_decode AUTO_TEMPLATE(
+    .command       (fifo_data_muxed[]),
+    .cmd_invalid   (fifo_cmd_invalid[]),
+    .cmd_link      (fifo_cmd_link[]),
+    .cmd_link_resp (fifo_cmd_link_resp[]),
+    .cmd_.*        (),
+    );*/
+   umi_decode #(.CW(CW))
+   fifo_decode (/*AUTOINST*/
+                // Outputs
+                .cmd_invalid    (fifo_cmd_invalid),      // Templated
+                .cmd_request    (),                      // Templated
+                .cmd_response   (),                      // Templated
+                .cmd_read       (),                      // Templated
+                .cmd_write      (),                      // Templated
+                .cmd_write_posted(),                     // Templated
+                .cmd_rdma       (),                      // Templated
+                .cmd_atomic     (),                      // Templated
+                .cmd_user0      (),                      // Templated
+                .cmd_future0    (),                      // Templated
+                .cmd_error      (),                      // Templated
+                .cmd_link       (fifo_cmd_link),         // Templated
+                .cmd_read_resp  (),                      // Templated
+                .cmd_write_resp (),                      // Templated
+                .cmd_user0_resp (),                      // Templated
+                .cmd_user1_resp (),                      // Templated
+                .cmd_future0_resp(),                     // Templated
+                .cmd_future1_resp(),                     // Templated
+                .cmd_link_resp  (fifo_cmd_link_resp),    // Templated
+                .cmd_atomic_add (),                      // Templated
+                .cmd_atomic_and (),                      // Templated
+                .cmd_atomic_or  (),                      // Templated
+                .cmd_atomic_xor (),                      // Templated
+                .cmd_atomic_max (),                      // Templated
+                .cmd_atomic_min (),                      // Templated
+                .cmd_atomic_maxu(),                      // Templated
+                .cmd_atomic_minu(),                      // Templated
+                .cmd_atomic_swap(),                      // Templated
+                // Inputs
+                .command        (fifo_data_muxed[CW-1:0])); // Templated
+
+   assign fifo_cmd_only  = fifo_cmd_invalid    |
+                           fifo_cmd_link       |
+                           fifo_cmd_link_resp  ;
+
+   //########################################
+   // UMI bandwidth optimization - only what is needed is sent
+   //########################################
+
+   // First step - decode the packet
+   /*umi_unpack AUTO_TEMPLATE(
+    .cmd_len           (cmd_len[]),
+    .cmd_size          (cmd_size[]),
+    .cmd_user_extended (cmd_user_extended[]),
+    .cmd.*             (),
+    .packet_cmd        (shiftreg[]),
+    );*/
+
+   umi_unpack #(.CW(CW))
+   umi_unpack(/*AUTOINST*/
+              // Outputs
+              .cmd_opcode       (),                      // Templated
+              .cmd_size         (cmd_size[2:0]),         // Templated
+              .cmd_len          (cmd_len[7:0]),          // Templated
+              .cmd_atype        (),                      // Templated
+              .cmd_qos          (),                      // Templated
+              .cmd_prot         (),                      // Templated
+              .cmd_eom          (),                      // Templated
+              .cmd_eof          (),                      // Templated
+              .cmd_ex           (),                      // Templated
+              .cmd_user         (),                      // Templated
+              .cmd_user_extended(cmd_user_extended[23:0]), // Templated
+              .cmd_err          (),                      // Templated
+              .cmd_hostid       (),                      // Templated
+              // Inputs
+              .packet_cmd       (shiftreg[CW-1:0]));     // Templated
+
+   /*umi_decode AUTO_TEMPLATE(
+    .command       (shiftreg[]),
+    .cmd_atomic.* (),
+    );*/
+   umi_decode #(.CW(CW))
+   umi_decode (/*AUTOINST*/
+               // Outputs
+               .cmd_invalid     (cmd_invalid),
+               .cmd_request     (cmd_request),
+               .cmd_response    (cmd_response),
+               .cmd_read        (cmd_read),
+               .cmd_write       (cmd_write),
+               .cmd_write_posted(cmd_write_posted),
+               .cmd_rdma        (cmd_rdma),
+               .cmd_atomic      (),                      // Templated
+               .cmd_user0       (cmd_user0),
+               .cmd_future0     (cmd_future0),
+               .cmd_error       (cmd_error),
+               .cmd_link        (cmd_link),
+               .cmd_read_resp   (cmd_read_resp),
+               .cmd_write_resp  (cmd_write_resp),
+               .cmd_user0_resp  (cmd_user0_resp),
+               .cmd_user1_resp  (cmd_user1_resp),
+               .cmd_future0_resp(cmd_future0_resp),
+               .cmd_future1_resp(cmd_future1_resp),
+               .cmd_link_resp   (cmd_link_resp),
+               .cmd_atomic_add  (),                      // Templated
+               .cmd_atomic_and  (),                      // Templated
+               .cmd_atomic_or   (),                      // Templated
+               .cmd_atomic_xor  (),                      // Templated
+               .cmd_atomic_max  (),                      // Templated
+               .cmd_atomic_min  (),                      // Templated
+               .cmd_atomic_maxu (),                      // Templated
+               .cmd_atomic_minu (),                      // Templated
+               .cmd_atomic_swap (),                      // Templated
+               // Inputs
+               .command         (shiftreg[CW-1:0]));     // Templated
+
+   // Second step - decode what format will be received
+   assign cmd_only  = cmd_invalid    |
+                      cmd_link       |
+                      cmd_link_resp  ;
+   assign no_data   = cmd_read       |
+                      cmd_rdma       |
+                      cmd_error      |
+                      cmd_write_resp |
+                      cmd_user0      |
+                      cmd_future0    ;
+
+   assign cmd_lenp1[11:0] = {4'h0,cmd_len[7:0]} + 1'b1;
+   assign cmd_bytes[11:0] = cmd_lenp1[11:0] << cmd_size[2:0];
+
+   always @(*)
+     case ({cmd_only,no_data})
+       2'b10: bytes_to_receive = (CW)/8;
+       2'b01: bytes_to_receive = (CW+AW+AW)/8;
+       default: bytes_to_receive = full_hdr_size + cmd_bytes[8:0];
+     endcase
+
+   // Valid register holds one bit per byte to transfer
+   always @ (posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       rxptr <= 'b0;
+     else if (|fifo_rd[2:0])
+       rxptr <= rxptr_next;
+
+   // Count by the number of bytes per cycle transfered
+   // When reaching the end of the header need to re-align to the remaining bytes
+   // Special case - need to check that the fifo data is cmd_only and then hold rxptr
+
+   assign rxptr_next = ((|rxptr) & ((rxptr + byterate) >= bytes_to_receive) |
+                        ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) ?
+                       0 :
+                       rxptr + byterate;
+
+   // Transfer shift regster data when counter rolls over
+
+   always @ (posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       transfer <= 'b0;
+     else
+       transfer <= ((|rxptr) |
+                    ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) &
+                   (|fifo_rd) &
+		   (~|rxptr_next);
+
+   //########################################
+   //# DATA SHIFT REGISTER
+   //########################################
+
+   // extending byte based rxptr for full DW vector
+   assign datashift[$clog2((DW+AW+AW+CW))-1:0] = rxptr;
+
+   // writemask for writing to shift register
+   assign writemask[(DW+AW+AW+CW)-1:0] = ~({(DW+AW+AW+CW){1'b1}} << (byterate<<3)) <<
+			                 (datashift<<3);
+
+   // The input bus needs to account for the shift output size
+   assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-2*IOW-2){1'b0}},fifo_data_muxed[2*IOW+1:0]};
+
+   // non traditional shift register to handle multi modes
+   always @ (posedge ioclk)
+     shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) |
+			            (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
+
+   //########################################
+   //# BYPASS PHY
+   //########################################
+
+   assign umi_out_cmd[CW-1:0] = csr_bpio ? io_rxdata[CW-1:0] :
+				           shiftreg[CW-1:0];
+
+   assign umi_out_dstaddr[AW-1:0] = csr_bpio ? io_rxdata[AW-1:0] :
+                                    cmd_only ? {AW{1'b0}} :
+				               shiftreg[CW+:AW];
+
+   assign umi_out_srcaddr[AW-1:0] = csr_bpio ? io_rxdata[AW-1:0] :
+                                    cmd_only ? {AW{1'b0}} :
+				               shiftreg[(CW+AW)+:AW];
+
+   assign umi_out_data[DW-1:0] = csr_bpio             ? {DW/IOW{io_rxdata[IOW-1:0]}} :
+                                 (cmd_only | no_data) ? {DW{1'b0}}              :
+				                        shiftreg[(CW+AW+AW)+:DW];
+
+   // link commands are not passed on to the umi port
+   assign umi_out_valid =  csr_bpio ? io_rxctrl[0] : transfer & ~(cmd_link | cmd_link_resp);
+
+   //########################################
+   //# "steal" incoming credit update
+   //########################################
+   assign credit_req_in[0] = transfer &
+                             cmd_link &
+                             ((cmd_user_extended[7:0] == 8'h01) | (cmd_user_extended[7:0] == 8'h02));
+
+   assign credit_req_in[1] = transfer &
+                             cmd_link &
+                             ((cmd_user_extended[7:0] == 8'h11) | (cmd_user_extended[7:0] == 8'h12));
+
+   always @(posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       begin
+          rmt_crdt_req  <= 'h0;
+          rmt_crdt_resp <= 'h0;
+       end
+     else
+       begin
+          if (credit_req_in[0])
+            rmt_crdt_req  <= cmd_user_extended[23:8];
+          if (credit_req_in[1])
+            rmt_crdt_resp <= cmd_user_extended[23:8];
+       end
+
+   //########################################
+   //# Output Signal Assignment
+   //########################################
+
+   assign io_rxstatus[0] = 1'b0/*umi_resp_out_ready & csr_en*/;
+   assign io_rxstatus[1] = 1'b0/*umi_req_out_ready & csr_en*/;
+   assign io_rxstatus[2] = 1'b0;
+   assign io_rxstatus[3] = 1'b0;
+
+   //########################################
+   //# SPLIT OUT UMI_RESP/UMI_REQ TRAFFIC
+   //########################################
+
+   /*umi_splitter AUTO_TEMPLATE(
+    .umi_in_\(.*\)       (umi_out_\1[]),
+    );*/
+   umi_splitter #(.DW(DW),
+                  .CW(CW),
+                  .AW(AW))
+   umi_splitter(/*AUTOINST*/
+                // Outputs
+                .umi_in_ready   (umi_out_ready),         // Templated
+                .umi_resp_out_valid(umi_resp_out_valid),
+                .umi_resp_out_cmd(umi_resp_out_cmd[CW-1:0]),
+                .umi_resp_out_dstaddr(umi_resp_out_dstaddr[AW-1:0]),
+                .umi_resp_out_srcaddr(umi_resp_out_srcaddr[AW-1:0]),
+                .umi_resp_out_data(umi_resp_out_data[DW-1:0]),
+                .umi_req_out_valid(umi_req_out_valid),
+                .umi_req_out_cmd(umi_req_out_cmd[CW-1:0]),
+                .umi_req_out_dstaddr(umi_req_out_dstaddr[AW-1:0]),
+                .umi_req_out_srcaddr(umi_req_out_srcaddr[AW-1:0]),
+                .umi_req_out_data(umi_req_out_data[DW-1:0]),
+                // Inputs
+                .umi_in_valid   (umi_out_valid),         // Templated
+                .umi_in_cmd     (umi_out_cmd[CW-1:0]),   // Templated
+                .umi_in_dstaddr (umi_out_dstaddr[AW-1:0]), // Templated
+                .umi_in_srcaddr (umi_out_srcaddr[AW-1:0]), // Templated
+                .umi_in_data    (umi_out_data[DW-1:0]),  // Templated
+                .umi_resp_out_ready(umi_resp_out_ready),
+                .umi_req_out_ready(umi_req_out_ready));
+
+endmodule // clink_rxio
 // Local Variables:
-// verilog-library-directories:("." "../../../umi/umi/rtl")
+// verilog-library-directories:("." "../../submodules/umi/umi/rtl/" "../../../lambdalib/ramlib/rtl/")
 // End:
