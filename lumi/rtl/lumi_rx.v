@@ -1,14 +1,14 @@
 /******************************************************************************
- * Function:  CLINK Receiver PHY
- * Author:    Andreas Olofsson
- * Copyright: 2020 Zero ASIC Corporation
+ * Function:  Link UMI (LUMI) Rx block
+ * Author:    Amir Volk
+ * Copyright: 2023 Zero ASIC Corporation
  * License:
  *
  * Documentation:
- * -Samples I/O inputs and converts to a standardized packet width
+ * - converts UMI signaling layer (cmd, addr, data) to multiplexed LUMI i/f
  *
  *****************************************************************************/
-module clink_rxphy
+module lumi_rx
   #(parameter TARGET = "DEFAULT", // implementation target
     // for development only (fixed )
     parameter IOW = 64,           // clink rx/tx width
@@ -18,25 +18,17 @@ module clink_rxphy
     parameter CRDTFIFOD = 64     // Fifo size need to account for 64B over 2B link
     )
    (// local control
-    input             ioclk,              // clock for sampling input data
-    input             ionreset,           // async active low reset
-    input             devicemode,
-    input [1:0]       chipdir,            // device rotation
+    input             clk,                // clock for sampling input data
+    input             nreset,             // async active low reset
     input             csr_en,             // 1=enable outputs
-    input [1:0]       csr_chipletmode,    // 00=110um,01=45um,10=10um,11=1um
-    input             csr_ddrmode,        // 1 = ddr, 0 = sdr
     input [7:0]       csr_iowidth,        // pad bus width
-    input [3:0]       csr_eccmode,        // ecc mode
-    input             csr_bpio,           // bypass shift register
     input             vss,                // common ground
     input             vdd,                // core supply
     input             vddio,              // io voltage
     // pad signals
-    input [IOW-1:0]   io_rxdata,
-    input [3:0]       io_rxctrl,
-    output [3:0]      io_rxstatus,
-    // internal signals
-    output            clkfb,
+    input [IOW-1:0]   phy_rxdata,
+    input             phy_rxvld,
+    output            phy_rxrdy,
     // Write/Response
     output [CW-1:0]   umi_resp_out_cmd,
     output [AW-1:0]   umi_resp_out_dstaddr,
@@ -74,8 +66,6 @@ module clink_rxphy
    reg [(DW+AW+AW+CW)-1:0]          shiftreg;
    wire [(DW+AW+AW+CW)-1:0]         shiftreg_in;
    reg                              transfer;
-   reg [IOW:0]                      rxdata_posedge;//extra raux bit
-   reg [IOW:0]                      rxdata_negedge;//extra raux bit
    reg [2:0]                        rxtype_next;
    reg [15:0]                       rx_crdt_req;
    reg [15:0]                       rx_crdt_resp;
@@ -96,14 +86,11 @@ module clink_rxphy
    wire [$clog2((DW+AW+AW+CW))-1:0] rxptr_next;
    wire [$clog2((DW+AW+AW+CW))-1:0] datashift;
    wire [(DW+AW+AW+CW)-1:0]         writemask;
-   wire [2*IOW+1:0]                 ddrdata;
-   wire [2*IOW+1:0]                 sdrdata;
-   wire [2*IOW+1:0]                 rxdata; // accounting for ddr data
-   wire [2*IOW+1:0]                 req_fifo_dout;
-   wire [2*IOW+1:0]                 resp_fifo_dout;
-   wire [2*IOW+1:0]                 lnk_fifo_dout;
-   wire [2*IOW+1:0]                 fifo_data_muxed;
-   wire                             rxaux;
+   reg [IOW-1:0]                    rxdata; // accounting for ddr data
+   wire [IOW-1:0]                 req_fifo_dout;
+   wire [IOW-1:0]                 resp_fifo_dout;
+   wire [IOW-1:0]                 lnk_fifo_dout;
+   wire [IOW-1:0]                 fifo_data_muxed;
    wire [CW-1:0]                    umi_out_cmd;
    wire [AW-1:0]                    umi_out_dstaddr;
    wire [AW-1:0]                    umi_out_srcaddr;
@@ -174,72 +161,34 @@ module clink_rxphy
    //########################################
    //# interface width calculation
    //########################################
-   // fixed io width based on tie-off constants
-   // Amir - fix 8B and 32B mode to the right values
-   assign fixedwidth[7:0] = (csr_chipletmode[1:0] == 2'h0) ? 'h2  : //2B
-			    (csr_chipletmode[1:0] == 2'h1) ? 'h8  : //8B
-			    (csr_chipletmode[1:0] == 2'h2) ? 'h20 : //32B
-		            'h8;                                    //8B
-
-   // variable io widths (<IOW)
-   assign iowidth[7:0] = |csr_iowidth[7:0] ? csr_iowidth[7:0] : fixedwidth[7:0];
 
    // Leave place for shift left result
-   assign iowidth[9:8] = 2'b00;
+   assign iowidth[9:8] = {2'b00,csr_iowidth[7:0]};
 
    // bytes per clock cycle
    // Updating to 128b DW. TODO: this will need to change later
-   assign byterate[$clog2((DW+AW+AW+CW))-1:0] = iowidth[8:0] << csr_ddrmode;
+   assign byterate[$clog2((DW+AW+AW+CW))-1:0] = iowidth[8:0];
 
    //########################################
    //# Input Sampling
    //########################################
 
    // Detect valis signal
-   always @ (posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
        begin
 	  rxvalid  <= 1'b0;
 	  rxvalid2 <= 1'b0;
        end
      else
        begin
-	  rxvalid  <= io_rxctrl[0];
+	  rxvalid  <= phy_rxvld;
 	  rxvalid2 <= rxvalid;
        end
 
-   // Hard stop on falling valid (edge case) TODO - what is this for?
-//   assign rxstop = ~rxvalid & rxvalid2;
-
-   // Feedback clock
-   assign clkfb     = io_rxctrl[1];
-
-   // FEC signal
-   always @ (posedge ioclk or negedge ionreset)
-     if (~ionreset)
-       rxfec <= 1'b0;
-     else
-       rxfec <= io_rxctrl[2];
-
-   // Data redundenccy
-   assign rxaux     = io_rxctrl[3];
-
    // rising edge data sample
-   always @ (posedge ioclk)
-     rxdata_posedge[IOW:0] <= {rxaux,io_rxdata[IOW-1:0]};
-
-   // falling edge data sample
-   always @ (negedge ioclk)
-     rxdata_negedge[IOW:0] <= {rxaux,io_rxdata[IOW-1:0]};
-
-   // ddr data (TODO: implement)
-   assign ddrdata[2*IOW+1:0] = 'b0;
-
-   // sdr data
-   assign sdrdata[2*IOW+1:0] = {{(IOW+1){1'b0}},rxdata_posedge[IOW:0]};
-
-   // selecte between sdr/ddr data
-   assign rxdata[2*IOW+1:0] = csr_ddrmode? ddrdata[2*IOW+1:0] : sdrdata[2*IOW+1:0];
+   always @ (posedge clk)
+     rxdata[IOW-1:0] <= phy_rxdata[IOW-1:0];
 
    //########################################
    //# Input data tracking
@@ -338,8 +287,8 @@ module clink_rxphy
      endcase
 
    // TODO - add support for 1B IOW (#bytes unknown in first cycle)
-   always @ (posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
        rxbytes_keep <= 'h0;
      else
        if (~(|sopptr) & rxvalid)
@@ -350,8 +299,8 @@ module clink_rxphy
                            rxbytes_keep;
 
    // Valid register holds one bit per byte to transfer
-   always @ (posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
        sopptr <= 'b0;
      else if (rxvalid)
        sopptr <= sopptr_next;
@@ -371,8 +320,8 @@ module clink_rxphy
    // Since the data might come on a narror interface will only use the first byte
 
    // Sample packet type from the RX lines upon SOP
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        rxtype_next[2:0] <= 3'b000;
      else
        if (~(|sopptr) & rxvalid)
@@ -383,8 +332,8 @@ module clink_rxphy
                    rxtype_next;
 
    // credit counters - to be sent to the remote side
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        begin
           rx_crdt_req[15:0]  <= 'h0;
           rx_crdt_resp[15:0] <= 'h0;
@@ -412,7 +361,7 @@ module clink_rxphy
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
    assign fifo_rd[0] = ~fifo_empty[0] & fifo_sel[0] & umi_out_ready;
 
-   la_syncfifo #(.DW(2*(IOW+1)),    // Memory width
+   la_syncfifo #(.DW(IOW),    // Memory width
                  .DEPTH(CRDTFIFOD),  // FIFO depth
                  .NS(1),     // Number of power supplies
                  .CHAOS(0),  // generates random full logic when set
@@ -421,18 +370,18 @@ module clink_rxphy
                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    req_fifo_i(// Outputs
               .wr_full          (),
-              .rd_dout          (req_fifo_dout[2*IOW+1:0]),
+              .rd_dout          (req_fifo_dout[IOW-1:0]),
               .rd_empty         (fifo_empty[0]),
               // Inputs
-              .clk              (ioclk),
-              .nreset           (ionreset),
+              .clk              (clk),
+              .nreset           (nreset),
               .vss              (1'b0),
               .vdd              (1'b1),
               .chaosmode        (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[0]),
-              .wr_din           (rxdata[2*IOW+1:0]),
+              .wr_din           (rxdata[IOW-1:0]),
               .rd_en            (fifo_rd[0]));
 
    //########################################
@@ -443,7 +392,7 @@ module clink_rxphy
    // Read when not empty.
    assign fifo_rd[1] = ~fifo_empty[1] & fifo_sel[1] & umi_out_ready;
 
-   la_syncfifo #(.DW(2*(IOW+1)),    // Memory width
+   la_syncfifo #(.DW(IOW),    // Memory width
                  .DEPTH(CRDTFIFOD),  // FIFO depth
                  .NS(1),     // Number of power supplies
                  .CHAOS(0),  // generates random full logic when set
@@ -452,18 +401,18 @@ module clink_rxphy
                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    resp_fifo_i(// Outputs
                .wr_full          (),
-               .rd_dout          (resp_fifo_dout[2*IOW+1:0]),
+               .rd_dout          (resp_fifo_dout[IOW-1:0]),
                .rd_empty         (fifo_empty[1]),
                // Inputs
-               .clk              (ioclk),
-               .nreset           (ionreset),
+               .clk              (clk),
+               .nreset           (nreset),
                .vss              (1'b0),
                .vdd              (1'b1),
                .chaosmode        (1'b0),
                .ctrl             (1'b0),
                .test             (1'b0),
                .wr_en            (fifo_wr[1]),
-               .wr_din           (rxdata[2*IOW+1:0]),
+               .wr_din           (rxdata[IOW-1:0]),
                .rd_en            (fifo_rd[1]));
 
    //########################################
@@ -472,7 +421,7 @@ module clink_rxphy
    assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
    assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
 
-   la_syncfifo #(.DW(2*(IOW+1)),    // Memory width
+   la_syncfifo #(.DW(IOW),    // Memory width
                  .DEPTH(4),  // FIFO depth
                  .NS(1),     // Number of power supplies
                  .CHAOS(0),  // generates random full logic when set
@@ -481,23 +430,23 @@ module clink_rxphy
                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
-              .rd_dout          (lnk_fifo_dout[2*IOW+1:0]),
+              .rd_dout          (lnk_fifo_dout[IOW-1:0]),
               .rd_empty         (fifo_empty[2]),
               // Inputs
-              .clk              (ioclk),
-              .nreset           (ionreset),
+              .clk              (clk),
+              .nreset           (nreset),
               .vss              (1'b0),
               .vdd              (1'b1),
               .chaosmode        (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[2]),
-              .wr_din           (rxdata[2*IOW+1:0]),
+              .wr_din           (rxdata[IOW-1:0]),
               .rd_en            (fifo_rd[2]));
 
    // arbitrate fifo outputs towards umi. Priority is lnk->resp->req
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        fifo_sel_hold <= 3'b000;
      else
        fifo_sel_hold <= fifo_sel;
@@ -506,9 +455,9 @@ module clink_rxphy
                      {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], &fifo_empty[2:1]} :
                      fifo_sel_hold;
 
-   assign fifo_data_muxed = {(2*IOW+2){fifo_sel[2]}} & lnk_fifo_dout[2*IOW+1:0]  |
-                            {(2*IOW+2){fifo_sel[1]}} & resp_fifo_dout[2*IOW+1:0] |
-                            {(2*IOW+2){fifo_sel[0]}} & req_fifo_dout[2*IOW+1:0]  ;
+   assign fifo_data_muxed = {IOW{fifo_sel[2]}} & lnk_fifo_dout[IOW-1:0]  |
+                            {IOW{fifo_sel[1]}} & resp_fifo_dout[IOW-1:0] |
+                            {IOW{fifo_sel[0]}} & req_fifo_dout[IOW-1:0]  ;
 
    /*umi_decode AUTO_TEMPLATE(
     .command       (fifo_data_muxed[]),
@@ -647,8 +596,8 @@ module clink_rxphy
      endcase
 
    // Valid register holds one bit per byte to transfer
-   always @ (posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
        rxptr <= 'b0;
      else if (|fifo_rd[2:0])
        rxptr <= rxptr_next;
@@ -664,8 +613,8 @@ module clink_rxphy
 
    // Transfer shift regster data when counter rolls over
 
-   always @ (posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
        transfer <= 'b0;
      else
        transfer <= ((|rxptr) |
@@ -685,10 +634,10 @@ module clink_rxphy
 			                 (datashift<<3);
 
    // The input bus needs to account for the shift output size
-   assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-2*IOW-2){1'b0}},fifo_data_muxed[2*IOW+1:0]};
+   assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},fifo_data_muxed[IOW-1:0]};
 
    // non traditional shift register to handle multi modes
-   always @ (posedge ioclk)
+   always @ (posedge clk)
      shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) |
 			            (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
 
@@ -725,8 +674,8 @@ module clink_rxphy
                              cmd_link &
                              ((cmd_user_extended[7:0] == 8'h11) | (cmd_user_extended[7:0] == 8'h12));
 
-   always @(posedge ioclk or negedge ionreset)
-     if (~ionreset)
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
        begin
           rmt_crdt_req  <= 'h0;
           rmt_crdt_resp <= 'h0;
@@ -780,7 +729,7 @@ module clink_rxphy
                 .umi_resp_out_ready(umi_resp_out_ready),
                 .umi_req_out_ready(umi_req_out_ready));
 
-endmodule // clink_rxio
+endmodule
 // Local Variables:
-// verilog-library-directories:("." "../../submodules/umi/umi/rtl/" "../../../lambdalib/ramlib/rtl/")
+// verilog-library-directories:("." "../../umi/rtl/" "../../../lambdalib/ramlib/rtl/")
 // End:
