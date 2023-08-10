@@ -86,7 +86,7 @@ module umi_fifo
 	  .wr_clk	(umi_in_clk),
 	  .wr_nreset	(umi_in_nreset),
 	  .wr_din	({umi_in_data[DW-1:0],umi_in_srcaddr[AW-1:0],umi_in_dstaddr[AW-1:0],umi_in_cmd[CW-1:0]}),
-	  .wr_en	(umi_in_valid),
+	  .wr_en	(umi_in_valid & sync_nreset),
 	  .wr_chaosmode (chaosmode),
 	  .rd_clk	(umi_out_clk),
 	  .rd_nreset	(umi_out_nreset),
