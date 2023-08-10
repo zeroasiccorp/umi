@@ -1,10 +1,15 @@
 /******************************************************************************
- * Function: Link UMI (LUMI) transmit
- * Author:   Andreas Olofsson
- * License:  (c) 2020 Zero ASIC Corporation
+ * Function:  Link UMI (LUMI) transmit
+ * Author:    Amir Volk
+ * Copyright: 2023 Zero ASIC Corporation
+ *
+ * License: This file contains confidential and proprietary information of
+ * Zero ASIC. This file may only be used in accordance with the terms and
+ * conditions of a signed license agreement with Zero ASIC. All other use,
+ * reproduction, or distribution of this software is strictly prohibited.
  *
  * Version history:
- * Version 1 - change from packet UMI to exploded
+ * Version 1 - conver from CLINK to LUMI
  *****************************************************************************/
 module lumi_tx
   #(parameter TARGET = "DEFAULT", // implementation target

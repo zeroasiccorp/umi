@@ -1,8 +1,15 @@
 /******************************************************************************
  * Function:  CLINK Control Registers
- * Author:    Andreas Olofsson
- * Copyright: 2022 Zero ASIC Corporation
- * License:
+ * Author:    Amir Volk
+ * Copyright: 2023 Zero ASIC Corporation
+ *
+ * License: This file contains confidential and proprietary information of
+ * Zero ASIC. This file may only be used in accordance with the terms and
+ * conditions of a signed license agreement with Zero ASIC. All other use,
+ * reproduction, or distribution of this software is strictly prohibited.
+ *
+ * Version history:
+ * Ver 1 - convert from CLINK register
  *
  *****************************************************************************/
 
@@ -227,7 +234,6 @@ module lumi_regs
 
    // Hold device in reset until ready
    assign io_nreset_out = host_nreset & ~soft_reset;
-
 
    // ctrl signals depend on mode
    assign io_ctrl_out[0] = host_scanmode ? host_scanenable :

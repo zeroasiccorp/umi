@@ -1,7 +1,7 @@
 /*******************************************************************************
- * Function:  CLINK REGISTER CROSSBAR (3x3)
- * Author:    Andreas Olofsson
- * Copyright: 2022 Zero ASIC Corporation. All rights reserved.
+ * Function:  LUMI REGISTER CROSSBAR
+ * Author:    Amir Volk
+ * Copyright: 2023 Zero ASIC Corporation. All rights reserved.
  *
  * License: This file contains confidential and proprietary information of
  * Zero ASIC. This file may only be used in accordance with the terms and
