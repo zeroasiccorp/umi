@@ -24,7 +24,6 @@ module lumi_tx
     input             nreset,      // clk synced async active low reset
     input             csr_en,      // 1=enable outputs
     input             csr_crdt_en, // 1=enable sending updates
-    input             csr_ddrmode, // 1 = ddr, 0 = sdr
     input [7:0]       csr_iowidth, // bus width
     input             vss,         // common ground
     input             vdd,         // core supply
