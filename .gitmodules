@@ -1,3 +1,6 @@
 [submodule "submodules/lambdalib"]
 	path = submodules/lambdalib
 	url = git@github.com:siliconcompiler/lambdalib.git
+[submodule "submodules/switchboard"]
+	path = submodules/switchboard
+	url = git@github.com:zeroasiccorp/switchboard.git
