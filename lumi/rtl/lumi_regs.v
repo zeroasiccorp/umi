@@ -19,7 +19,6 @@ module lumi_regs
     parameter GRPAW = 8,          // group address width
     parameter GRPID = 0,          // group ID
     // for development only (fixed )
-    parameter DW = 128,           // umi data width
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
     parameter RW = 32,            // register width
@@ -36,13 +35,13 @@ module lumi_regs
     input [CW-1:0]  udev_req_cmd,
     input [AW-1:0]  udev_req_dstaddr,
     input [AW-1:0]  udev_req_srcaddr,
-    input [DW-1:0]  udev_req_data,
+    input [RW-1:0]  udev_req_data,
     output          udev_req_ready,
     output          udev_resp_valid,
     output [CW-1:0] udev_resp_cmd,
     output [AW-1:0] udev_resp_dstaddr,
     output [AW-1:0] udev_resp_srcaddr,
-    output [DW-1:0] udev_resp_data,
+    output [RW-1:0] udev_resp_data,
     input           udev_resp_ready,
     // phy control signals
     input           phy_linkactive,
@@ -65,7 +64,7 @@ module lumi_regs
     );
 
 `include "lumi_regmap.vh"
-
+   localparam DW = RW;
    genvar     i;
 
    /*AUTOWIRE*/
