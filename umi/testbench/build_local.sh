@@ -1,6 +1,6 @@
 \rm -f a.out
 
-iverilog tb_umi_fifo_flex.v \
+iverilog tb_umi_fifo.v \
 	 -y . \
 	 -y ../rtl \
 	 -I . \

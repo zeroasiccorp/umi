@@ -38,6 +38,7 @@ module tb_umi_fifo
    reg 		   clk;
    reg 		   load;
    reg 		   nreset;
+   reg 		   dut_nreset;
    reg 		   go;
    integer 	   r;
 
@@ -46,13 +47,17 @@ module tb_umi_fifo
      begin
 	#(1)
 	nreset   = 1'b0;
+	dut_nreset = 1'b0;
 	clk      = 1'b0;
 	load     = 1'b0;
 	go       = 1'b0;
-	#(PERIOD_CLK * 10)
-	nreset   = 1'b1;
-	#(PERIOD_CLK * 10)
+	#(PERIOD_CLK)
 	go       = 1'b1;
+        nreset   = 1'b1;
+	#(PERIOD_CLK * 10)
+	dut_nreset   = 1'b1;
+//	#(PERIOD_CLK * 10)
+//	go       = 1'b1;
      end // initial begin
 
    // clocks
@@ -145,12 +150,12 @@ module tb_umi_fifo
                  .umi_out_srcaddr       (umi_dut2check_srcaddr[NUMI*AW-1:0]), // Templated
                  .umi_out_data          (umi_dut2check_data[NUMI*DW-1:0]), // Templated
                  // Inputs
-                 .nreset                (nreset),
+                 .nreset                (dut_nreset),
                  .clk                   (clk),                   // Templated
                  .go                    (go),
                  .ctrl                  (1'b0),                  // Templated
                  .umi_in_clk            (clk),                   // Templated
-                 .umi_in_nreset         (nreset),                // Templated
+                 .umi_in_nreset         (dut_nreset),                // Templated
                  .umi_in_valid          (umi_stim2dut_valid),    // Templated
                  .umi_in_cmd            (umi_stim2dut_cmd[NUMI*CW-1:0]), // Templated
                  .umi_in_dstaddr        (umi_stim2dut_dstaddr[NUMI*AW-1:0]), // Templated
