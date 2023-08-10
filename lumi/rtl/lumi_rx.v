@@ -2,11 +2,17 @@
  * Function:  Link UMI (LUMI) Rx block
  * Author:    Amir Volk
  * Copyright: 2023 Zero ASIC Corporation
- * License:
+ *
+ * License: This file contains confidential and proprietary information of
+ * Zero ASIC. This file may only be used in accordance with the terms and
+ * conditions of a signed license agreement with Zero ASIC. All other use,
+ * reproduction, or distribution of this software is strictly prohibited.
  *
  * Documentation:
  * - converts UMI signaling layer (cmd, addr, data) to multiplexed LUMI i/f
  *
+ * Version history:
+ * Version 1 - conver from CLINK to LUMI
  *****************************************************************************/
 module lumi_rx
   #(parameter TARGET = "DEFAULT", // implementation target
