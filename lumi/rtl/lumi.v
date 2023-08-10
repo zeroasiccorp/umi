@@ -29,7 +29,7 @@ module lumi
     parameter CRDTFIFOD = 64      // Fifo size need to account for 64B over 2B link
     )
    (// host/device selector
-    input            devicemode,         // 1=device, 0=host
+    input            devicemode,     // 1=device, 0=host
     // UMI host port
     output           uhost_req_valid,
     output [CW-1:0]  uhost_req_cmd,
@@ -57,26 +57,26 @@ module lumi
     output [DW-1:0]  udev_resp_data,
     input            udev_resp_ready,
     // LinkHost sideband interface - register access
-    input            sb_in_valid,        // host-request, device-response
+    input            sb_in_valid,    // host-request, device-response
     input [CW-1:0]   sb_in_cmd,
     input [AW-1:0]   sb_in_dstaddr,
     input [AW-1:0]   sb_in_srcaddr,
     input [RW-1:0]   sb_in_data,
     output           sb_in_ready,
-    output           sb_out_valid,       // device-request, host-response
+    output           sb_out_valid,   // device-request, host-response
     output [CW-1:0]  sb_out_cmd,
     output [AW-1:0]  sb_out_dstaddr,
     output [AW-1:0]  sb_out_srcaddr,
     output [RW-1:0]  sb_out_data,
     input            sb_out_ready,
     // phy sideband interface - paththrough based on address
-    input            phy_in_valid,       // host-response, device-request
+    input            phy_in_valid,   // host-response, device-request
     input [CW-1:0]   phy_in_cmd,
     input [AW-1:0]   phy_in_dstaddr,
     input [AW-1:0]   phy_in_srcaddr,
     input [RW-1:0]   phy_in_data,
     output           phy_in_ready,
-    output           phy_out_valid,       // host-request, device-response
+    output           phy_out_valid,  // host-request, device-response
     output [CW-1:0]  phy_out_cmd,
     output [AW-1:0]  phy_out_dstaddr,
     output [AW-1:0]  phy_out_srcaddr,
@@ -89,37 +89,20 @@ module lumi
     output [IOW-1:0] phy_txdata,
     output           phy_txvld,
     input            phy_txrdy,
+    // phy control interface
+    input            phy_linkactive,
     // Host control interface
-    input            nreset,             // host driven reset
-    input            clk,                // host driven clock
-    input            host_calibrate,     // start link calibration
-    output [6:0]     host_error,         // errors
-    output           host_linkready,     // link is locked/ready
+    input            nreset,         // host driven reset
+    input            clk,            // host driven clock
+    input            devicready,
+    output           host_linkactive, // link is locked/ready
     // supplies
-    input            vss,                // common ground
-    input            vdd,                // core supply
-    input            vddio,              // io voltage
+    input            vss,            // common ground
+    input            vdd,            // core supply
+    input            vddio,          // io voltage
     /*AUTOINPUT*/
     // Beginning of automatic inputs (from unused autoinst inputs)
     input               cb2serial_ready,
-    input [6:0]         device_error,
-    input               device_ready,
-    input               device_scanout,
-    input               device_sdo,
-    input [AW-1:0]      device_status,
-    input [3:0]         host_clk,
-    input               host_nreset,
-    input               host_scanclk,
-    input               host_scanenable,
-    input               host_scanin,
-    input               host_scanmode,
-    input               host_sck,
-    input               host_scsn,
-    input               host_sdo,
-    input [3:0]         io_clk_in,
-    input [3:0]         io_ctrl_in,
-    input               io_nreset_in,
-    input [3:0]         io_status_in,
     input [CW-1:0]      serial2cb_cmd,
     input [DW-1:0]      serial2cb_data,
     input [AW-1:0]      serial2cb_dstaddr,
@@ -133,51 +116,6 @@ module lumi
     output [AW-1:0]     cb2serial_dstaddr,
     output [AW-1:0]     cb2serial_srcaddr,
     output              cb2serial_valid,
-    output [1:0]        chipdir,
-    output              csr_rxbpfifo,
-    output              csr_rxbpio,
-    output              csr_rxbpprotocol,
-    output              csr_rxchaos,
-    output              csr_rxclkchange,
-    output [7:0]        csr_rxclkdiv,
-    output              csr_rxclken,
-    output [15:0]       csr_rxclkphase,
-    output              csr_rxddrmode,
-    output [3:0]        csr_rxeccmode,
-    output [3:0]        csr_rxprotocol,
-    output [7:0]        csr_spidiv,
-    output [31:0]       csr_spitimeout,
-    output [1:0]        csr_txarbmode,
-    output              csr_txbpfifo,
-    output              csr_txbpio,
-    output              csr_txbpprotocol,
-    output              csr_txchaos,
-    output              csr_txclkchange,
-    output [7:0]        csr_txclkdiv,
-    output              csr_txclken,
-    output [15:0]       csr_txclkphase,
-    output [3:0]        csr_txeccmode,
-    output [3:0]        csr_txprotocol,
-    output [1:0]        device_chipdir,
-    output [IDW-1:0]    device_chipid,
-    output [1:0]        device_chipletmode,
-    output [3:0]        device_clk,
-    output [AW-1:0]     device_ctrl,
-    output              device_go,
-    output              device_nreset,
-    output              device_scanclk,
-    output              device_scanenable,
-    output              device_scanin,
-    output              device_sck,
-    output              device_scsn,
-    output              device_sdi,
-    output              device_testmode,
-    output              host_scanout,
-    output              host_sdi,
-    output [3:0]        io_clk_out,
-    output [3:0]        io_ctrl_out,
-    output              io_nreset_out,
-    output [3:0]        io_status_out,
     output              serial2cb_ready
     // End of automatics
     );
@@ -197,7 +135,6 @@ module lumi
    wire                 csr_txcrdt_en;
    wire [15:0]          csr_txcrdt_intrvl;
    wire [31:0]          csr_txcrdt_status;
-   wire                 csr_txddrmode;
    wire                 csr_txen;
    wire [7:0]           csr_txiowidth;
    wire [15:0]          loc_crdt_req;
@@ -236,7 +173,6 @@ module lumi
                 .CRDTFIFOD(CRDTFIFOD))
    lumi_regs(/*AUTOINST*/
              // Outputs
-             .chipdir           (chipdir[1:0]),
              .nreset            (nreset),
              .clk               (clk),
              .udev_req_ready    (cb2regs_ready),         // Templated
@@ -245,92 +181,26 @@ module lumi
              .udev_resp_dstaddr (regs2cb_dstaddr[AW-1:0]), // Templated
              .udev_resp_srcaddr (regs2cb_srcaddr[AW-1:0]), // Templated
              .udev_resp_data    (regs2cb_data[DW-1:0]),  // Templated
-             .io_nreset_out     (io_nreset_out),
-             .io_clk_out        (io_clk_out[3:0]),
-             .io_ctrl_out       (io_ctrl_out[3:0]),
-             .io_status_out     (io_status_out[3:0]),
-             .host_error        (host_error[6:0]),
-             .device_nreset     (device_nreset),
-             .device_clk        (device_clk[3:0]),
-             .device_go         (device_go),
-             .device_testmode   (device_testmode),
-             .device_ctrl       (device_ctrl[AW-1:0]),
-             .device_chipid     (device_chipid[IDW-1:0]),
-             .device_chipdir    (device_chipdir[1:0]),
-             .device_chipletmode(device_chipletmode[1:0]),
-             .host_scanout      (host_scanout),
-             .device_scanenable (device_scanenable),
-             .device_scanclk    (device_scanclk),
-             .device_scanin     (device_scanin),
-             .host_sdi          (host_sdi),
-             .device_scsn       (device_scsn),
-             .device_sck        (device_sck),
-             .device_sdi        (device_sdi),
+             .host_linkactive   (host_linkactive),
              .csr_arbmode       (),                      // Templated
              .csr_txen          (csr_txen),
              .csr_txcrdt_en     (csr_txcrdt_en),
-             .csr_txddrmode     (csr_txddrmode),
              .csr_txiowidth     (csr_txiowidth[7:0]),
-             .csr_txprotocol    (csr_txprotocol[3:0]),
-             .csr_txeccmode     (csr_txeccmode[3:0]),
-             .csr_txarbmode     (csr_txarbmode[1:0]),
              .csr_rxen          (csr_rxen),
-             .csr_rxddrmode     (csr_rxddrmode),
              .csr_rxiowidth     (csr_rxiowidth[7:0]),
-             .csr_rxprotocol    (csr_rxprotocol[3:0]),
-             .csr_rxeccmode     (csr_rxeccmode[3:0]),
-             .csr_rxarbmode     (),                      // Templated
-             .csr_spidiv        (csr_spidiv[7:0]),
-             .csr_spitimeout    (csr_spitimeout[31:0]),
-             .csr_testmode      (),                      // Templated
-             .csr_testlfsr      (),                      // Templated
-             .csr_testinject    (),                      // Templated
-             .csr_testpattern   (),                      // Templated
-             .csr_txbpprotocol  (csr_txbpprotocol),
-             .csr_txbpfifo      (csr_txbpfifo),
-             .csr_txbpio        (csr_txbpio),
-             .csr_rxbpprotocol  (csr_rxbpprotocol),
-             .csr_rxbpfifo      (csr_rxbpfifo),
-             .csr_rxbpio        (csr_rxbpio),
-             .csr_txchaos       (csr_txchaos),
-             .csr_rxchaos       (csr_rxchaos),
-             .csr_rxclkchange   (csr_rxclkchange),
-             .csr_rxclken       (csr_rxclken),
-             .csr_rxclkdiv      (csr_rxclkdiv[7:0]),
-             .csr_rxclkphase    (csr_rxclkphase[15:0]),
-             .csr_txclkchange   (csr_txclkchange),
-             .csr_txclken       (csr_txclken),
-             .csr_txclkdiv      (csr_txclkdiv[7:0]),
-             .csr_txclkphase    (csr_txclkphase[15:0]),
              .csr_txcrdt_intrvl (csr_txcrdt_intrvl[15:0]),
              .csr_rxcrdt_req_init(csr_rxcrdt_req_init[15:0]),
              .csr_rxcrdt_resp_init(csr_rxcrdt_resp_init[15:0]),
              // Inputs
              .devicemode        (devicemode),
+             .devicready        (devicready),
              .udev_req_valid    (cb2regs_valid),         // Templated
              .udev_req_cmd      (cb2regs_cmd[CW-1:0]),   // Templated
              .udev_req_dstaddr  (cb2regs_dstaddr[AW-1:0]), // Templated
              .udev_req_srcaddr  (cb2regs_srcaddr[AW-1:0]), // Templated
              .udev_req_data     (cb2regs_data[DW-1:0]),  // Templated
              .udev_resp_ready   (regs2cb_ready),         // Templated
-             .io_nreset_in      (io_nreset_in),
-             .io_clk_in         (io_clk_in[3:0]),
-             .io_ctrl_in        (io_ctrl_in[3:0]),
-             .io_status_in      (io_status_in[3:0]),
-             .host_nreset       (host_nreset),
-             .host_clk          (host_clk[3:0]),
-             .host_scanmode     (host_scanmode),
-             .device_status     (device_status[AW-1:0]),
-             .device_ready      (device_ready),
-             .device_error      (device_error[6:0]),
-             .host_scanenable   (host_scanenable),
-             .host_scanclk      (host_scanclk),
-             .host_scanin       (host_scanin),
-             .device_scanout    (device_scanout),
-             .host_scsn         (host_scsn),
-             .host_sck          (host_sck),
-             .host_sdo          (host_sdo),
-             .device_sdo        (device_sdo),
+             .phy_linkactive    (phy_linkactive),
              .csr_txcrdt_status (csr_txcrdt_status[31:0]));
 
    //###########################
@@ -477,7 +347,6 @@ module lumi
            .nreset              (nreset),
            .csr_en              (csr_txen),              // Templated
            .csr_crdt_en         (csr_txcrdt_en),         // Templated
-           .csr_ddrmode         (csr_txddrmode),         // Templated
            .csr_iowidth         (csr_txiowidth[7:0]),    // Templated
            .vss                 (vss),
            .vdd                 (vdd),
