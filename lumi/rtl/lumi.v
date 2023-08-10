@@ -8,10 +8,9 @@
  * conditions of a signed license agreement with Zero ASIC. All other use,
  * reproduction, or distribution of this software is strictly prohibited.
  *
- * Documentation:
+ * Version history:
  *
- * 1. Use devicemode to configure clink in device or host mode
- *
+ * 1. convert from CLINK
  *
  *****************************************************************************/
 module lumi
@@ -21,11 +20,12 @@ module lumi
     parameter GRPAW = 8,          // group address width
     parameter GRPID = 0,          // group ID
     // for development
-    parameter DW = 256,           // umi packet width
+    parameter DW = 128,           // umi packet width
     parameter CW = 32,            // umi packet width
     parameter AW = 64,            // address width
+    parameter RW = 64,            // register width
     parameter IDW = 16,           // chipid width
-    parameter IOW = 64,           // data pins per clink
+    parameter IOW = 64,           // phy IO width
     parameter CRDTFIFOD = 64      // Fifo size need to account for 64B over 2B link
     )
    (// host/device selector
@@ -56,77 +56,70 @@ module lumi
     output [AW-1:0]  udev_resp_srcaddr,
     output [DW-1:0]  udev_resp_data,
     input            udev_resp_ready,
-    // Link siddeband
-    input            sb_in_valid,       // host-request, device-response
+    // LinkHost sideband interface - register access
+    input            sb_in_valid,        // host-request, device-response
     input [CW-1:0]   sb_in_cmd,
     input [AW-1:0]   sb_in_dstaddr,
     input [AW-1:0]   sb_in_srcaddr,
-    input [DW-1:0]   sb_in_data,
+    input [RW-1:0]   sb_in_data,
     output           sb_in_ready,
-    output           sb_out_valid,      // device-request, host-response
+    output           sb_out_valid,       // device-request, host-response
     output [CW-1:0]  sb_out_cmd,
     output [AW-1:0]  sb_out_dstaddr,
     output [AW-1:0]  sb_out_srcaddr,
-    output [DW-1:0]  sb_out_data,
+    output [RW-1:0]  sb_out_data,
     input            sb_out_ready,
-    // io pins
-    input            io_nreset_in,       // reset input (device)
-    output           io_nreset_out,      // reset input (host)
-    input [3:0]      io_clk_in,          // clock input (device)
-    output [3:0]     io_clk_out,         // clock output (host)
-    input [3:0]      io_ctrl_in,         // ctrl input (device)
-    output [3:0]     io_ctrl_out,        // ctrl output (host)
-    input [3:0]      io_status_in,       // status input (host)
-    output [3:0]     io_status_out,      // status output (device)
-    input [3:0]      io_rxctrl_in,       // rx data valid
-    input [IOW-1:0]  io_rxdata_in,       // rx data
-    output [3:0]     io_rxstatus_out,    // rx ready
-    output [3:0]     io_txctrl_out,      // tx data valid
-    output [IOW-1:0] io_txdata_out,      // tx data
-    input [3:0]      io_txstatus_in,     // tx ready
-    // Host side interface
-    input            host_nreset,        // host driven reset
-    input [3:0]      host_clk,           // host driven clock
+    // phy sideband interface - paththrough based on address
+    input            phy_in_valid,       // host-response, device-request
+    input [CW-1:0]   phy_in_cmd,
+    input [AW-1:0]   phy_in_dstaddr,
+    input [AW-1:0]   phy_in_srcaddr,
+    input [RW-1:0]   phy_in_data,
+    output           phy_in_ready,
+    output           phy_out_valid,       // host-request, device-response
+    output [CW-1:0]  phy_out_cmd,
+    output [AW-1:0]  phy_out_dstaddr,
+    output [AW-1:0]  phy_out_srcaddr,
+    output [RW-1:0]  phy_out_data,
+    input            phy_out_ready,
+    // phy data interface (LUMI)
+    input [IOW-1:0]  phy_rxdata,
+    input            phy_rxvld,
+    output           phy_rxrdy,
+    output [IOW-1:0] phy_txdata,
+    output           phy_txvld,
+    input            phy_txrdy,
+    // Host control interface
+    input            nreset,             // host driven reset
+    input            clk,                // host driven clock
     input            host_calibrate,     // start link calibration
     output [6:0]     host_error,         // errors
     output           host_linkready,     // link is locked/ready
-    // Device side interface
-    input [AW-1:0]   device_status,      // device status (to reg)
-    input            device_ready,       // device is ready
-    input [6:0]      device_error,       // device errors to I/O
-    output           device_nreset,      // device reset from I/O
-    output [3:0]     device_clk,         // device clks from I/O
-    output           device_go,          // 1 = start (boot), 0 = wait
-    output           device_testmode,    // puts device in testmode
-    output [AW-1:0]  device_ctrl,        // generic ctrl signals (from reg)
-    output [IDW-1:0] device_chipid,      // device chipid ("whoami")
-    output [1:0]     device_chipdir,     // rotation (00=0, 01=90,10=180,11=270)
-    output [1:0]     device_chipletmode, // 00=1X,01=4X,10=16X,11=1024X
-    // scan interface
-    input            host_scanmode,
-    input            host_scanenable,
-    input            host_scanclk,
-    input            host_scanin,
-    output           host_scanout,
-    output           device_scanmode,
-    output           device_scanenable,
-    output           device_scanclk,
-    output           device_scanin,
-    input            device_scanout,
     // supplies
     input            vss,                // common ground
     input            vdd,                // core supply
-    input            vddio,               // io voltage
+    input            vddio,              // io voltage
     /*AUTOINPUT*/
     // Beginning of automatic inputs (from unused autoinst inputs)
     input               cb2serial_ready,
+    input [6:0]         device_error,
+    input               device_ready,
+    input               device_scanout,
     input               device_sdo,
+    input [AW-1:0]      device_status,
+    input [3:0]         host_clk,
+    input               host_nreset,
+    input               host_scanclk,
+    input               host_scanenable,
+    input               host_scanin,
+    input               host_scanmode,
     input               host_sck,
     input               host_scsn,
     input               host_sdo,
-    input [IOW-1:0]     phy_rxdata,
-    input               phy_rxvld,
-    input               phy_txrdy,
+    input [3:0]         io_clk_in,
+    input [3:0]         io_ctrl_in,
+    input               io_nreset_in,
+    input [3:0]         io_status_in,
     input [CW-1:0]      serial2cb_cmd,
     input [DW-1:0]      serial2cb_data,
     input [AW-1:0]      serial2cb_dstaddr,
@@ -165,18 +158,29 @@ module lumi
     output [15:0]       csr_txclkphase,
     output [3:0]        csr_txeccmode,
     output [3:0]        csr_txprotocol,
+    output [1:0]        device_chipdir,
+    output [IDW-1:0]    device_chipid,
+    output [1:0]        device_chipletmode,
+    output [3:0]        device_clk,
+    output [AW-1:0]     device_ctrl,
+    output              device_go,
+    output              device_nreset,
+    output              device_scanclk,
+    output              device_scanenable,
+    output              device_scanin,
     output              device_sck,
     output              device_scsn,
     output              device_sdi,
+    output              device_testmode,
+    output              host_scanout,
     output              host_sdi,
-    output              phy_rxrdy,
-    output [IOW-1:0]    phy_txdata,
-    output              phy_txvld,
+    output [3:0]        io_clk_out,
+    output [3:0]        io_ctrl_out,
+    output              io_nreset_out,
+    output [3:0]        io_status_out,
     output              serial2cb_ready
     // End of automatics
     );
-
-   localparam RW = 64;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -186,7 +190,6 @@ module lumi
    wire                 cb2regs_ready;
    wire [AW-1:0]        cb2regs_srcaddr;
    wire                 cb2regs_valid;
-   wire                 clk;
    wire [15:0]          csr_rxcrdt_req_init;
    wire [15:0]          csr_rxcrdt_resp_init;
    wire                 csr_rxen;
@@ -199,7 +202,6 @@ module lumi
    wire [7:0]           csr_txiowidth;
    wire [15:0]          loc_crdt_req;
    wire [15:0]          loc_crdt_resp;
-   wire                 nreset;
    wire [CW-1:0]        regs2cb_cmd;
    wire [DW-1:0]        regs2cb_data;
    wire [AW-1:0]        regs2cb_dstaddr;
@@ -400,15 +402,8 @@ module lumi
    //########################
 
    /*lumi_rx  AUTO_TEMPLATE (
-    .csr_chipid          (device_chipid[IDW-1:0]),
-    .csr_chipletmode     (device_chipletmode[1:0]),
     .csr_rx\(.*\)        (csr_rx\1),
     .csr_\(.*\)          (csr_@"(substring vl-cell-name 5 7)"\1[]),
-    .io_rxdata	         (io_rxdata_in[IOW-1:0]),
-    .io_rxctrl	         (io_rxctrl_in[3:0]),
-    .io_rxstatus         (io_rxstatus_out[3:0]),
-    .ioclk               (rxclk),
-    .ionreset            (rxnreset),
     .umi_resp_out_\(.*\) (udev_resp_\1[]),
     .umi_req_out_\(.*\)  (uhost_req_\1[]),
     .clkfb               (),
@@ -458,15 +453,8 @@ module lumi
    //########################
 
    /*lumi_tx  AUTO_TEMPLATE (
-    .csr_chipid          (device_chipid[IDW-1:0]),
-    .csr_chipletmode     (device_chipletmode[1:0]),
     .csr_tx\(.*\)        (csr_tx\1),
     .csr_\(.*\)          (csr_@"(substring vl-cell-name 5 7)"\1[]),
-    .io_txdata	         (io_txdata_out[IOW-1:0]),
-    .io_txctrl	         (io_txctrl_out[3:0]),
-    .io_txstatus         (io_txstatus_in[3:0]),
-    .ioclk               (txclk),
-    .ionreset            (txnreset),
     .umi_resp_in_\(.*\)  (uhost_resp_\1[]),
     .umi_req_in_\(.*\)   (udev_req_\1[]),
     )
