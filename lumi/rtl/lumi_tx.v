@@ -340,7 +340,7 @@ module lumi_tx
 
    // Bytes transferred per cycle
    // TODO - this will need to change based on DW
-   assign byterate[$clog2(DW+AW+AW+CW)-1:0] = iowidth[8:0] << csr_ddrmode;
+   assign byterate[$clog2(DW+AW+AW+CW)-1:0] = {{($clog2(DW+AW+AW+CW)-8){1'b0}},iowidth[7:0]};
 
    // Enabling IO pins - TODO?
    assign bitmask[IOW-1:0] = ~({(IOW){1'b1}} << (iowidth<<3));
