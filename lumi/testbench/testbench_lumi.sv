@@ -16,12 +16,12 @@ module testbench (
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire                 host_linkactive;
+   wire [CW-1:0]        phy_in_cmd;
+   wire [RW-1:0]        phy_in_data;
+   wire [AW-1:0]        phy_in_dstaddr;
    wire                 phy_in_ready;
-   wire [CW-1:0]        phy_int_cmd;
-   wire [RW-1:0]        phy_int_data;
-   wire [AW-1:0]        phy_int_dstaddr;
-   wire [AW-1:0]        phy_int_srcaddr;
-   wire                 phy_int_valid;
+   wire [AW-1:0]        phy_in_srcaddr;
+   wire                 phy_in_valid;
    wire [CW-1:0]        phy_out_cmd;
    wire [RW-1:0]        phy_out_data;
    wire [AW-1:0]        phy_out_dstaddr;
@@ -34,12 +34,6 @@ module testbench (
    wire [IOW-1:0]       phy_txdata;
    wire                 phy_txrdy;
    wire                 phy_txvld;
-   wire                 sb_in_ready;
-   wire [CW-1:0]        sb_out_cmd;
-   wire [RW-1:0]        sb_out_data;
-   wire [AW-1:0]        sb_out_dstaddr;
-   wire [AW-1:0]        sb_out_srcaddr;
-   wire                 sb_out_valid;
    wire [CW-1:0]        udev_req_cmd;
    wire [DW-1:0]        udev_req_data;
    wire [AW-1:0]        udev_req_dstaddr;
@@ -130,7 +124,7 @@ module testbench (
              .valid(host_req_valid)
              );
 
-   assign uhost_req_data[511:256] = 'h0;
+   assign host_req_data[511:256] = 'h0;
 
    umi_tx_sim #(
                 .READY_MODE_DEFAULT(2),
@@ -154,13 +148,16 @@ module testbench (
     .uhost_resp_ready (),
     .uhost_resp_.*    ('0),
     .phy_in_\(.*\)    (phy_out_\1[]),
-    .phy_out_\(.*\)   (phy_int_\1[]),
+    .phy_out_\(.*\)   (phy_in_\1[]),
     .sb_in_\(.*\)     (host_sb_req_\1[]),
     .sb_out_\(.*\)    (host_sb_resp_\1[]),
     .phy_rx\(.*\)     (phy_tx\1[]),
     .phy_tx\(.*\)     (phy_rx\1[]),
     .devicemode       (1'b0),
+    .deviceready      (1'b1),
     .phy_linkactive   (1'b1),
+    .vss              (),
+    .vdd.*            (),
     );*/
    lumi #(.RW(RW),
           .CW(CW),
@@ -187,11 +184,11 @@ module testbench (
                .sb_out_srcaddr  (host_sb_resp_srcaddr[AW-1:0]), // Templated
                .sb_out_data     (host_sb_resp_data[RW-1:0]), // Templated
                .phy_in_ready    (phy_out_ready),         // Templated
-               .phy_out_valid   (phy_int_valid),         // Templated
-               .phy_out_cmd     (phy_int_cmd[CW-1:0]),   // Templated
-               .phy_out_dstaddr (phy_int_dstaddr[AW-1:0]), // Templated
-               .phy_out_srcaddr (phy_int_srcaddr[AW-1:0]), // Templated
-               .phy_out_data    (phy_int_data[RW-1:0]),  // Templated
+               .phy_out_valid   (phy_in_valid),          // Templated
+               .phy_out_cmd     (phy_in_cmd[CW-1:0]),    // Templated
+               .phy_out_dstaddr (phy_in_dstaddr[AW-1:0]), // Templated
+               .phy_out_srcaddr (phy_in_srcaddr[AW-1:0]), // Templated
+               .phy_out_data    (phy_in_data[RW-1:0]),   // Templated
                .phy_rxrdy       (phy_txrdy),             // Templated
                .phy_txdata      (phy_rxdata[IOW-1:0]),   // Templated
                .phy_txvld       (phy_rxvld),             // Templated
@@ -221,17 +218,17 @@ module testbench (
                .phy_in_dstaddr  (phy_out_dstaddr[AW-1:0]), // Templated
                .phy_in_srcaddr  (phy_out_srcaddr[AW-1:0]), // Templated
                .phy_in_data     (phy_out_data[RW-1:0]),  // Templated
-               .phy_out_ready   (phy_int_ready),         // Templated
+               .phy_out_ready   (phy_in_ready),          // Templated
                .phy_rxdata      (phy_txdata[IOW-1:0]),   // Templated
                .phy_rxvld       (phy_txvld),             // Templated
                .phy_txrdy       (phy_rxrdy),             // Templated
                .phy_linkactive  (1'b1),                  // Templated
                .nreset          (nreset),
                .clk             (clk),
-               .devicready      (devicready),
-               .vss             (vss),
-               .vdd             (vdd),
-               .vddio           (vddio));
+               .deviceready     (1'b1),                  // Templated
+               .vss             (),                      // Templated
+               .vdd             (),                      // Templated
+               .vddio           ());                     // Templated
 
    /* lumi AUTO_TEMPLATE(
     .uhost_req_\(.*\)  (udev_req_\1[]),
@@ -240,8 +237,15 @@ module testbench (
     .udev_req_.*       ('h0),
     .udev_resp_ready   (1'b0),
     .udev_resp_.*      (),
+    .sb_in_ready       (),
+    .sb_in_.*          ('h0),
+    .sb_out_ready      (1'b0),
+    .sb_out.*          (),
     .devicemode        (1'b0),
+    .deviceready       (1'b1),
     .phy_linkactive    (1'b1),
+    .vss               (),
+    .vdd.*             (),
     );*/
    lumi #(.RW(RW),
           .CW(CW),
@@ -261,12 +265,12 @@ module testbench (
               .udev_resp_dstaddr(),                      // Templated
               .udev_resp_srcaddr(),                      // Templated
               .udev_resp_data   (),                      // Templated
-              .sb_in_ready      (sb_in_ready),
-              .sb_out_valid     (sb_out_valid),
-              .sb_out_cmd       (sb_out_cmd[CW-1:0]),
-              .sb_out_dstaddr   (sb_out_dstaddr[AW-1:0]),
-              .sb_out_srcaddr   (sb_out_srcaddr[AW-1:0]),
-              .sb_out_data      (sb_out_data[RW-1:0]),
+              .sb_in_ready      (),                      // Templated
+              .sb_out_valid     (),                      // Templated
+              .sb_out_cmd       (),                      // Templated
+              .sb_out_dstaddr   (),                      // Templated
+              .sb_out_srcaddr   (),                      // Templated
+              .sb_out_data      (),                      // Templated
               .phy_in_ready     (phy_in_ready),
               .phy_out_valid    (phy_out_valid),
               .phy_out_cmd      (phy_out_cmd[CW-1:0]),
@@ -291,12 +295,12 @@ module testbench (
               .udev_req_srcaddr ('h0),                   // Templated
               .udev_req_data    ('h0),                   // Templated
               .udev_resp_ready  (1'b0),                  // Templated
-              .sb_in_valid      (sb_in_valid),
-              .sb_in_cmd        (sb_in_cmd[CW-1:0]),
-              .sb_in_dstaddr    (sb_in_dstaddr[AW-1:0]),
-              .sb_in_srcaddr    (sb_in_srcaddr[AW-1:0]),
-              .sb_in_data       (sb_in_data[RW-1:0]),
-              .sb_out_ready     (sb_out_ready),
+              .sb_in_valid      ('h0),                   // Templated
+              .sb_in_cmd        ('h0),                   // Templated
+              .sb_in_dstaddr    ('h0),                   // Templated
+              .sb_in_srcaddr    ('h0),                   // Templated
+              .sb_in_data       ('h0),                   // Templated
+              .sb_out_ready     (1'b0),                  // Templated
               .phy_in_valid     (phy_in_valid),
               .phy_in_cmd       (phy_in_cmd[CW-1:0]),
               .phy_in_dstaddr   (phy_in_dstaddr[AW-1:0]),
@@ -309,24 +313,24 @@ module testbench (
               .phy_linkactive   (1'b1),                  // Templated
               .nreset           (nreset),
               .clk              (clk),
-              .devicready       (devicready),
-              .vss              (vss),
-              .vdd              (vdd),
-              .vddio            (vddio));
+              .deviceready      (1'b1),                  // Templated
+              .vss              (),                      // Templated
+              .vdd              (),                      // Templated
+              .vddio            ());                     // Templated
 
-   umiram #(.ADDR_WIDTH(ADDR_WIDTH),
-            .DATA_WIDTH(DATA_WIDTH),
+   umiram #(.ADDR_WIDTH(8),
+            .DATA_WIDTH(32),
             .DW(DW),
             .AW(AW),
             .CW(CW),
-            .ATOMIC_WIDTH(ATOMIC_WIDTH))
+            .ATOMIC_WIDTH(64))
    umiram_i(// Outputs
             .udev_req_ready(udev_req_ready),
             .udev_resp_valid(udev_resp_valid),
             .udev_resp_cmd(udev_resp_cmd),
             .udev_resp_dstaddr(udev_resp_dstaddr),
             .udev_resp_srcaddr(udev_resp_srcaddr),
-            .udev_resp_data(udev_resp_data)
+            .udev_resp_data(udev_resp_data),
             // Inputs
             .clk(clk),
             .udev_req_valid(udev_req_valid),
@@ -334,7 +338,7 @@ module testbench (
             .udev_req_dstaddr(udev_req_dstaddr),
             .udev_req_srcaddr(udev_req_srcaddr),
             .udev_req_data(udev_req_data),
-            .udev_resp_ready(udev_resp_ready),
+            .udev_resp_ready(udev_resp_ready)
             /*AUTOINST*/);
 
             // Initialize UMI

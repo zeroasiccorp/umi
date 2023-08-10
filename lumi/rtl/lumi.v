@@ -94,7 +94,7 @@ module lumi
     // Host control interface
     input            nreset,          // host driven reset
     input            clk,             // host driven clock
-    input            devicready,
+    input            deviceready,
     output           host_linkactive, // link is locked/ready
     // supplies
     input            vss,             // common ground
@@ -156,8 +156,6 @@ module lumi
                .CRDTFIFOD(CRDTFIFOD))
    lumi_regs(/*AUTOINST*/
              // Outputs
-             .nreset            (nreset),
-             .clk               (clk),
              .udev_req_ready    (cb2regs_ready),         // Templated
              .udev_resp_valid   (regs2cb_valid),         // Templated
              .udev_resp_cmd     (regs2cb_cmd[CW-1:0]),   // Templated
@@ -176,7 +174,9 @@ module lumi
              .csr_rxcrdt_resp_init(csr_rxcrdt_resp_init[15:0]),
              // Inputs
              .devicemode        (devicemode),
-             .devicready        (devicready),
+             .deviceready       (deviceready),
+             .nreset            (nreset),
+             .clk               (clk),
              .udev_req_valid    (cb2regs_valid),         // Templated
              .udev_req_cmd      (cb2regs_cmd[CW-1:0]),   // Templated
              .udev_req_dstaddr  (cb2regs_dstaddr[AW-1:0]), // Templated
@@ -200,7 +200,7 @@ module lumi
 
    lumi_crossbar #(.AW(AW),
                    .CW(CW),
-                   .DW(DW),
+                   .RW(RW),
                    .IDOFFSET(IDOFFSET),
                    .GRPOFFSET(GRPOFFSET),
                    .GRPAW(GRPAW),

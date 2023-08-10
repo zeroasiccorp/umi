@@ -27,9 +27,9 @@ module lumi_regs
     )
    (// common controls
     input           devicemode,    // 1=host, 0=device
-    input           devicready,    // ready indication from the brick controller
-    output          nreset,        // active low reset
-    output          clk,           // common clock
+    input           deviceready,   // ready indication from the brick controller
+    input           nreset,        // active low reset
+    input           clk,           // common clock
     // register access
     input           udev_req_valid,
     input [CW-1:0]  udev_req_cmd,
@@ -108,7 +108,7 @@ module lumi_regs
    always @ (posedge clk or negedge nreset)
      if (!nreset)
        linkactive <= 1'b0;
-     else if (device_ready & devicemode | ~devicemode)
+     else if (deviceready & devicemode | ~devicemode)
        linkactive <= phy_linkactive;
 
    assign host_linkactive = linkactive;
@@ -135,8 +135,7 @@ module lumi_regs
      else
        status_reg[RW-1:0] <= {{(RW-5){1'b0}},
 			      linkactive,
-			      error_status[2:0],
-			      1'b0};
+			      4'h0};
 
    //######################################
    // TXMODE Register
@@ -147,7 +146,7 @@ module lumi_regs
      if(!nreset)
        txmode_reg[RW-1:0] <= 'b0;
      else if(write_txmode)
-       txmode_reg[Rw-1:0] <= reg_wrdata[RW-1:0];
+       txmode_reg[RW-1:0] <= reg_wrdata[RW-1:0];
 
    assign csr_txen        = linkactive & txmode_reg[0]; // tx enable
    assign csr_txcrdt_en   = txmode_reg[4];   // Enable sending credit updates
@@ -265,8 +264,8 @@ module lumi_regs
          case (reg_addr[7:2])
            LUMI_CTRL[7:2]      : reg_rddata[RW-1:0] <= ctrl_reg[RW-1:0];
            LUMI_STATUS[7:2]    : reg_rddata[RW-1:0] <= status_reg[RW-1:0];
-           LUMI_TXMODE[7:2]    : reg_rddata[RW-1:0] <= txmode_reg[RW-1:0]};
-           LUMI_RXMODE[7:2]    : reg_rddata[RW-1:0] <= rxmode_reg[RW-1:0]};
+           LUMI_TXMODE[7:2]    : reg_rddata[RW-1:0] <= txmode_reg[RW-1:0];
+           LUMI_RXMODE[7:2]    : reg_rddata[RW-1:0] <= rxmode_reg[RW-1:0];
            LUMI_CRDTINIT[7:2]  : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},rxcrdt_init_reg[31:0]};
            LUMI_CRDTINTRVL[7:2]: reg_rddata[RW-1:0] <= {{RW-16{1'b0}},txcrdt_intrvl_reg[15:0]};
            LUMI_CRDTSTAT[7:2]  : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_txcrdt_status[31:0]};

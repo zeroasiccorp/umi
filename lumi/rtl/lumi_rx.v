@@ -83,7 +83,6 @@ module lumi_rx
 
    // local wires
    wire [7:0]                       fixedwidth;
-   wire [9:0]                       iowidth;
    wire [2:0]                       rxtype;
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
    wire [$clog2((DW+AW+AW+CW))-1:0] byterate;
@@ -168,12 +167,9 @@ module lumi_rx
    //# interface width calculation
    //########################################
 
-   // Leave place for shift left result
-   assign iowidth[9:8] = {2'b00,csr_iowidth[7:0]};
-
    // bytes per clock cycle
    // Updating to 128b DW. TODO: this will need to change later
-   assign byterate[$clog2((DW+AW+AW+CW))-1:0] = iowidth[8:0];
+   assign byterate[$clog2((DW+AW+AW+CW))-1:0] = {{($clog2(DW+AW+AW+CW)-8){1'b0}},csr_iowidth[7:0]};
 
    //########################################
    //# Input Sampling
@@ -191,6 +187,9 @@ module lumi_rx
 	  rxvalid  <= phy_rxvld;
 	  rxvalid2 <= rxvalid;
        end
+
+   // As LUMI uses credit based flow control we will never stop the phy Rx
+   assign phy_rxrdy = 1'b1;
 
    // rising edge data sample
    always @ (posedge clk)
@@ -651,23 +650,19 @@ module lumi_rx
    //# BYPASS PHY
    //########################################
 
-   assign umi_out_cmd[CW-1:0] = csr_bpio ? io_rxdata[CW-1:0] :
-				           shiftreg[CW-1:0];
+   assign umi_out_cmd[CW-1:0] = shiftreg[CW-1:0];
 
-   assign umi_out_dstaddr[AW-1:0] = csr_bpio ? io_rxdata[AW-1:0] :
-                                    cmd_only ? {AW{1'b0}} :
+   assign umi_out_dstaddr[AW-1:0] = cmd_only ? {AW{1'b0}} :
 				               shiftreg[CW+:AW];
 
-   assign umi_out_srcaddr[AW-1:0] = csr_bpio ? io_rxdata[AW-1:0] :
-                                    cmd_only ? {AW{1'b0}} :
+   assign umi_out_srcaddr[AW-1:0] = cmd_only ? {AW{1'b0}} :
 				               shiftreg[(CW+AW)+:AW];
 
-   assign umi_out_data[DW-1:0] = csr_bpio             ? {DW/IOW{io_rxdata[IOW-1:0]}} :
-                                 (cmd_only | no_data) ? {DW{1'b0}}              :
+   assign umi_out_data[DW-1:0] = (cmd_only | no_data) ? {DW{1'b0}}              :
 				                        shiftreg[(CW+AW+AW)+:DW];
 
    // link commands are not passed on to the umi port
-   assign umi_out_valid =  csr_bpio ? io_rxctrl[0] : transfer & ~(cmd_link | cmd_link_resp);
+   assign umi_out_valid =  transfer & ~(cmd_link | cmd_link_resp);
 
    //########################################
    //# "steal" incoming credit update
@@ -693,15 +688,6 @@ module lumi_rx
           if (credit_req_in[1])
             rmt_crdt_resp <= cmd_user_extended[23:8];
        end
-
-   //########################################
-   //# Output Signal Assignment
-   //########################################
-
-   assign io_rxstatus[0] = 1'b0/*umi_resp_out_ready & csr_en*/;
-   assign io_rxstatus[1] = 1'b0/*umi_req_out_ready & csr_en*/;
-   assign io_rxstatus[2] = 1'b0;
-   assign io_rxstatus[3] = 1'b0;
 
    //########################################
    //# SPLIT OUT UMI_RESP/UMI_REQ TRAFFIC
