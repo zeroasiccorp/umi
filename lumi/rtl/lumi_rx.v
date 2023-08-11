@@ -82,7 +82,6 @@ module lumi_rx
    wire [2:0]                       fifo_rd;
 
    // local wires
-   wire [7:0]                       fixedwidth;
    wire [2:0]                       rxtype;
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
    wire [$clog2((DW+AW+AW+CW))-1:0] byterate;
