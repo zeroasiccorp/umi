@@ -617,15 +617,16 @@ module lumi_rx
                        rxptr + byterate;
 
    // Transfer shift regster data when counter rolls over
-
+   // Need to stall it when the output is not ready
    always @ (posedge clk or negedge nreset)
      if (~nreset)
        transfer <= 'b0;
      else
-       transfer <= ((|rxptr) |
-                    ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) &
-                   (|fifo_rd) &
-		   (~|rxptr_next);
+       if (~transfer | fifo_rd[2] | umi_out_ready)
+         transfer <= ((|rxptr) |
+                      ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) &
+                     (|fifo_rd) &
+		     (~|rxptr_next);
 
    //########################################
    //# DATA SHIFT REGISTER
@@ -642,12 +643,14 @@ module lumi_rx
    assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},fifo_data_muxed[IOW-1:0]};
 
    // non traditional shift register to handle multi modes
+   // Need to stall the pipeline, including the shiftreg, when output is stalled
    always @ (posedge clk)
+     if (|fifo_rd)
      shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) |
 			            (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
 
    //########################################
-   //# BYPASS PHY
+   //# output stage
    //########################################
 
    assign umi_out_cmd[CW-1:0] = shiftreg[CW-1:0];
