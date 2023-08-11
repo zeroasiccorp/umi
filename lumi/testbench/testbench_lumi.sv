@@ -40,11 +40,11 @@ module testbench (
    wire                 udev_req_ready;
    wire [AW-1:0]        udev_req_srcaddr;
    wire                 udev_req_valid;
-   wire                 udev_resp_cmd;
-   wire                 udev_resp_data;
-   wire                 udev_resp_dstaddr;
+   wire [CW-1:0]        udev_resp_cmd;
+   wire [DW-1:0]        udev_resp_data;
+   wire [AW-1:0]        udev_resp_dstaddr;
    wire                 udev_resp_ready;
-   wire                 udev_resp_srcaddr;
+   wire [AW-1:0]        udev_resp_srcaddr;
    wire                 udev_resp_valid;
    // End of automatics
    reg                  nreset;
@@ -327,17 +327,17 @@ module testbench (
    umiram_i(// Outputs
             .udev_req_ready(udev_req_ready),
             .udev_resp_valid(udev_resp_valid),
-            .udev_resp_cmd(udev_resp_cmd),
-            .udev_resp_dstaddr(udev_resp_dstaddr),
-            .udev_resp_srcaddr(udev_resp_srcaddr),
-            .udev_resp_data(udev_resp_data),
+            .udev_resp_cmd(udev_resp_cmd[CW-1:0]),
+            .udev_resp_dstaddr(udev_resp_dstaddr[AW-1:0]),
+            .udev_resp_srcaddr(udev_resp_srcaddr[AW-1:0]),
+            .udev_resp_data(udev_resp_data[DW-1:0]),
             // Inputs
             .clk(clk),
             .udev_req_valid(udev_req_valid),
-            .udev_req_cmd(udev_req_cmd),
-            .udev_req_dstaddr(udev_req_dstaddr),
-            .udev_req_srcaddr(udev_req_srcaddr),
-            .udev_req_data(udev_req_data),
+            .udev_req_cmd(udev_req_cmd[CW-1:0]),
+            .udev_req_dstaddr(udev_req_dstaddr[AW-1:0]),
+            .udev_req_srcaddr(udev_req_srcaddr[AW-1:0]),
+            .udev_req_data(udev_req_data[DW-1:0]),
             .udev_resp_ready(udev_resp_ready)
             /*AUTOINST*/);
 
