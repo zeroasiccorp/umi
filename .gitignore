@@ -6,6 +6,11 @@
 *.d
 
 ######################
+# test results
+*.q
+*.vcd
+
+######################
 # Emacs/vim/gedit backup files
 *~
 .*.swp
