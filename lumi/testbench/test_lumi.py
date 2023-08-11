@@ -138,7 +138,7 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
     print("### UMI WRITES ###")
 
 #    host.write(0x70, np.arange(32, dtype=np.uint8), srcaddr=0x0000110000000000)
-    host.write(0x70, np.uint64(0xBAADD70DCAFEFACE) , srcaddr=0x0000110000000000)
+    host.write(0x70, np.uint64(0xBAADD70DCAFEFACE), srcaddr=0x0000110000000000)
     host.write(0x80, np.uint64(0xBAADD80DCAFEFACE), srcaddr=0x0000110000000000)
     host.write(0x90, np.uint64(0xBAADD90DCAFEFACE), srcaddr=0x0000110000000000)
     host.write(0xA0, np.uint64(0xBAADDA0DCAFEFACE), srcaddr=0x0000110000000000)
