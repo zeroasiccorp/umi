@@ -336,7 +336,7 @@ module lumi_tx
    //# CTRL MODES
    //########################################
    // shift left size is the width of the operand so need to reserve space for shifts
-   assign iowidth[10:8] = {3'b000,csr_iowidth[7:0]};
+   assign iowidth[10:0] = {3'b000,csr_iowidth[7:0]};
 
    // Bytes transferred per cycle
    // TODO - this will need to change based on DW
