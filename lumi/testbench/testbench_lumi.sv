@@ -15,7 +15,6 @@ module testbench (
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire                 host_linkactive;
    wire [CW-1:0]        phy_in_cmd;
    wire [RW-1:0]        phy_in_data;
    wire [AW-1:0]        phy_in_dstaddr;
@@ -156,13 +155,15 @@ module testbench (
     .devicemode       (1'b0),
     .deviceready      (1'b1),
     .phy_linkactive   (1'b1),
+    .host_linkactive  (),
     .vss              (),
     .vdd.*            (),
     );*/
    lumi #(.RW(RW),
           .CW(CW),
           .AW(AW),
-          .DW(DW))
+          .DW(DW),
+          .GRPID(8'h70))
    lumi_host_i(/*AUTOINST*/
                // Outputs
                .uhost_req_valid (),                      // Templated
@@ -192,7 +193,7 @@ module testbench (
                .phy_rxrdy       (phy_txrdy),             // Templated
                .phy_txdata      (phy_rxdata[IOW-1:0]),   // Templated
                .phy_txvld       (phy_rxvld),             // Templated
-               .host_linkactive (host_linkactive),
+               .host_linkactive (),                      // Templated
                // Inputs
                .devicemode      (1'b0),                  // Templated
                .uhost_req_ready ('0),                    // Templated
@@ -241,16 +242,18 @@ module testbench (
     .sb_in_.*          ('h0),
     .sb_out_ready      (1'b0),
     .sb_out.*          (),
-    .devicemode        (1'b0),
+    .devicemode        (1'b1),
     .deviceready       (1'b1),
     .phy_linkactive    (1'b1),
+    .host_linkactive   (),
     .vss               (),
     .vdd.*             (),
     );*/
    lumi #(.RW(RW),
           .CW(CW),
           .AW(AW),
-          .DW(DW))
+          .DW(DW),
+          .GRPID(8'h60))
    lumi_dev_i(/*AUTOINST*/
               // Outputs
               .uhost_req_valid  (udev_req_valid),        // Templated
@@ -280,9 +283,9 @@ module testbench (
               .phy_rxrdy        (phy_rxrdy),
               .phy_txdata       (phy_txdata[IOW-1:0]),
               .phy_txvld        (phy_txvld),
-              .host_linkactive  (host_linkactive),
+              .host_linkactive  (),                      // Templated
               // Inputs
-              .devicemode       (1'b0),                  // Templated
+              .devicemode       (1'b1),                  // Templated
               .uhost_req_ready  (udev_req_ready),        // Templated
               .uhost_resp_valid (udev_resp_valid),       // Templated
               .uhost_resp_cmd   (udev_resp_cmd[CW-1:0]), // Templated
