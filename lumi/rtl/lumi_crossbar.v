@@ -113,7 +113,7 @@ module lumi_crossbar
    //# Creating input-->output enable (see help)
    //###########################################
 
-   assign enable[8:0] = devicemode ? 9'b010_000_010 : 9'b001_001_000;
+   assign enable[8:0] = devicemode ? 9'b010_101_010 : 9'b001_001_110;
 
    // The device and host have different GRPIDs assigned
    // UMI packet must have the correct return to send address

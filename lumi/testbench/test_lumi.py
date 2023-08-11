@@ -79,38 +79,88 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
     print(f"Read: 0x{val32:08x}")
     assert val32 == 0x00000000
 
-    if topo=='3d':
-        print("### configure 8B width ###")
-        sb.write(0x70000000, np.uint32(0x00000040), posted=True)
+    if topo=='2d':
+        print("### configure loc Rx 2B width ###")
+        sb.write(0x70000010, np.uint32(0x00020000), posted=True)
 
-        print("### Read loc ctrl ###")
-        val32 = sb.read(0x70000000, np.uint32)
+        print("### Read Rx ctrl ###")
+        val32 = sb.read(0x70000010, np.uint32)
         print(f"Read: 0x{val32:08x}")
-        assert val32 == 0x00000040
+        assert val32 == 0x00020000
 
-        print("### configure rmt 8B width ###")
-        sb.write(0x60000000, np.uint32(0x00000040), posted=True)
+        print("### configure rmt Rx 2B width ###")
+        sb.write(0x60000010, np.uint32(0x00020000), posted=True)
+
+        print("### Read rmt Rx ctrl ###")
+        val32 = sb.read(0x60000010, np.uint32)
+        print(f"Read: 0x{val32:08x}")
+        assert val32 == 0x00020000
+
+        print("### configure loc Tx 2B width ###")
+        sb.write(0x70000014, np.uint32(0x00020000), posted=True)
+
+        print("### Read Tx ctrl ###")
+        val32 = sb.read(0x70000014, np.uint32)
+        print(f"Read: 0x{val32:08x}")
+        assert val32 == 0x00020000
+
+        print("### configure rmt Tx 2B width ###")
+        sb.write(0x60000014, np.uint32(0x00020000), posted=True)
+
+        print("### Read rmt Tx ctrl ###")
+        val32 = sb.read(0x60000014, np.uint32)
+        print(f"Read: 0x{val32:08x}")
+        assert val32 == 0x00020000
+    if topo=='3d':
+        print("### configure loc Rx 8B width ###")
+        sb.write(0x70000010, np.uint32(0x00080000), posted=True)
+
+        print("### Read Rx ctrl ###")
+        val32 = sb.read(0x70000010, np.uint32)
+        print(f"Read: 0x{val32:08x}")
+        assert val32 == 0x00080000
+
+        print("### configure rmt Rx 8B width ###")
+        sb.write(0x60000010, np.uint32(0x00080000), posted=True)
+
+        print("### Read rmt Rx ctrl ###")
+        val32 = sb.read(0x60000010, np.uint32)
+        print(f"Read: 0x{val32:08x}")
+        assert val32 == 0x00080000
+
+        print("### configure loc Tx 8B width ###")
+        sb.write(0x70000014, np.uint32(0x00080000), posted=True)
+
+        print("### Read Tx ctrl ###")
+        val32 = sb.read(0x70000014, np.uint32)
+        print(f"Read: 0x{val32:08x}")
+        assert val32 == 0x00080000
+
+        print("### configure rmt Tx 8B width ###")
+        sb.write(0x60000014, np.uint32(0x00080000), posted=True)
+
+        print("### Read rmt Tx ctrl ###")
+        val32 = sb.read(0x60000014, np.uint32)
+        print(f"Read: 0x{val32:08x}")
+        assert val32 == 0x00080000
 
     print("### Rx enable local ###")
-    sb.write(0x70000014, np.uint32(0x00000001), posted=True)
-
-    print("### set chipid to 1 ###")
-    sb.write(0x60000008, np.uint32(0x00000001), posted=True)
+    sb.write(0x70000014, np.uint32(0x00020001), posted=True)
 
     print("### Rx enable remote ###")
-    sb.write(0x60000014, np.uint32(0x00000001), posted=True)
+    sb.write(0x60000014, np.uint32(0x00020001), posted=True)
 
     print("### Tx enable remote ###")
-    sb.write(0x60000010, np.uint32(0x00000001), posted=True)
+    sb.write(0x60000010, np.uint32(0x00020001), posted=True)
 
     print("### Tx enable local ###")
-    sb.write(0x70000010, np.uint32(0x00000001), posted=True)
+    sb.write(0x70000010, np.uint32(0x00020001), posted=True)
 
     print("### Tx enable credit ###")
-    sb.write(0x60000010, np.uint32(0x00000011), posted=True)
+    sb.write(0x60000010, np.uint32(0x00020011), posted=True)
 
     print("### Tx enable credit ###")
-    sb.write(0x70000010, np.uint32(0x00000011), posted=True)
+    sb.write(0x70000010, np.uint32(0x00020011), posted=True)
 
     print("### Read rmt ctrl reset ###")
     val32 = sb.read(0x60000000, np.uint32)
