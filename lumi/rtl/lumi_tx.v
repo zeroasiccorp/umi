@@ -169,7 +169,7 @@ module lumi_tx
           tx_crdt_resp[15:0] <= 'h0;
        end
      else
-       if (phy_txvld)
+       if (phy_txvld & phy_txrdy)
          begin
             tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
             tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
