@@ -357,7 +357,7 @@ module lumi_tx
        valid[(DW+AW+AW+CW)/8-1:0] <= 'b0;
      else if (sample_packet)
        valid[(DW+AW+AW+CW)/8-1:0] <= valid_start_value[(DW+AW+AW+CW)/8-1:0];
-     else
+     else if (phy_txrdy)
        valid[(DW+AW+AW+CW)/8-1:0] <= valid_next[(DW+AW+AW+CW)/8-1:0];
 
    assign valid_next[(DW+AW+AW+CW)/8-1:0] = valid[(DW+AW+AW+CW)/8-1:0] << byterate[$clog2(DW+AW+AW+CW)-1:0];
@@ -535,7 +535,7 @@ module lumi_tx
           shift_reg_type[1] <= ~(req_cmd_link | resp_cmd_link_resp) & umi_resp_in_gated;
           shift_reg_type[0] <= ~(req_cmd_link | resp_cmd_link_resp) & ~umi_resp_in_gated & umi_req_in_gated;
        end
-     else
+     else if (phy_txrdy)
        shiftreg[(DW+AW+AW+CW)-1:0] <= shiftreg_in[(DW+AW+AW+CW)-1:0];
 
    assign shiftreg_in[(DW+AW+AW+CW)-1:0] = shiftreg[(DW+AW+AW+CW)-1:0] >>
