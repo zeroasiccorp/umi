@@ -130,19 +130,21 @@ The table below documents all UMI message types. CMD[4:0] is the UMI opcode defi
 |REQ_FUTURE0 |Y   |Y |Y |HOSTID|U    |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xD|
 |REQ_ERROR   |    |Y |Y |HOSTID|U    |U         |U    |U    |U    |0x0 |R,0xF|
 |REQ_LINK    |    |  |  |U     |U    |U         |U    |U    |U    |0x1 |R,0xF|
-|RESP_RD     |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
-|RESP_WR     |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
-|RESP_USER0  |    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
-|RESP_USER1  |Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
-|RESP_FUTURE0|    |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
-|RESP_FUTURE1|Y   |Y |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
+|RESP_RD     |Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x2|
+|RESP_WR     |    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x4|
+|RESP_USER0  |    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x6|
+|RESP_USER1  |Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0x8|
+|RESP_FUTURE0|    |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xA|
+|RESP_FUTURE1|Y   |  |Y |HOSTID|ERR  |EX,EOF,EOM|PROT |QOS  |LEN  |SIZE|R,0xC|
 |RESP_LINK   |    |  |  |U     |U    |U         |U    |U    |U    |0x0 |R,0xE|
 
 ### 3.3 Message Fields
 
 ### 3.3.1 Source Address and Destination Address (SA[63:0], DA[63:0])
 
-The destination address (DA) specifies the target address of a request or response message. For requests, the DA field is the full device address to access. For responses, the DA field returned is a copy of the requester SA field. The SA field can be a full address (32/64 bits) or a partial routing address and a set of optional [UMI signal layer](#UMI-Signal-layer) controls needed to drive the interconnect network.
+The destination address (DA) specifies the target address of a request or response message. For requests, the DA field is the full device address to access. For responses, the DA field returned is a copy of the requester SA field.  The SA field can be a full address (32/64 bits) or a partial routing address and a set of optional [UMI signal layer](#UMI-Signal-layer) controls needed to drive the interconnect network.
+
+Responses do not have the SA field.  At the SUMI level, while the SA bus is always present, its value is undefined in response packets.  Implementations must not depend on the value of the SA bus in response packets.
 
 The table below shows the bit mapping for SA field.
 
@@ -376,30 +378,30 @@ The following examples illlustrate splitting of UMI read and write messages into
 TUMI read example:
 
 * TUMI_REQ_RD  (SIZE=0, LEN=71, DA=200, SA=100)
-* TUMI_RESP_RD (SIZE=0, LEN=71, DA=100, SA=200, DATA=...)
+* TUMI_RESP_RD (SIZE=0, LEN=71, DA=100, DATA=...)
 
 Potential SUMI packet sequence:
 
 * SUMI_REQ_RD  (SIZE=0, LEN=71, DA=200, SA=100, EOM=1)
-* SUMI_RESP_RD (SIZE=0, LEN=12, DA=100, SA=200, DATA=..., EOM=0)
-* SUMI_RESP_RD (SIZE=0, LEN=23, DA=113, SA=213, DATA=..., EOM=0)
-* SUMI_RESP_RD (SIZE=0, LEN=34, DA=137, SA=237, DATA=..., EOM=1)
+* SUMI_RESP_RD (SIZE=0, LEN=12, DA=100, DATA=..., EOM=0)
+* SUMI_RESP_RD (SIZE=0, LEN=23, DA=113, DATA=..., EOM=0)
+* SUMI_RESP_RD (SIZE=0, LEN=34, DA=137, DATA=..., EOM=1)
 
 TUMI write example:
 
 * TUMI_REQ_WR  (SIZE=0, LEN=71, DA=200, SA=100, DATA...)
-* TUMI_RESP_WR (SIZE=0, LEN=71, DA=100, SA=200)
+* TUMI_RESP_WR (SIZE=0, LEN=71, DA=100)
 
 Potential SUMI packet sequence:
 
 * SUMI_REQ_WR  (SIZE=0, LEN=12, DA=200, SA=100, DATA=..., EOM=0)
 * SUMI_REQ_WR  (SIZE=0, LEN=23, DA=213, SA=113, DATA=..., EOM=0)
 * SUMI_REQ_WR  (SIZE=0, LEN=34, DA=237, SA=137, DATA=..., EOM=1)
-* SUMI_RESP_WR (SIZE=0, LEN=12, DA=100, SA=200, EOM=0)
-* SUMI_RESP_WR (SIZE=0, LEN=23, DA=113, SA=213, EOM=0)
-* SUMI_RESP_WR (SIZE=0, LEN=34, DA=137, SA=237, EOM=1)
+* SUMI_RESP_WR (SIZE=0, LEN=12, DA=100, EOM=0)
+* SUMI_RESP_WR (SIZE=0, LEN=23, DA=113, EOM=0)
+* SUMI_RESP_WR (SIZE=0, LEN=34, DA=137, EOM=1)
 
-Note that SA and DA increment in the sequence of transactions resulting from a split transaction.  Please be aware of this when storing user information in SA or DA, since this incrementing behavior could modify that information.  Formally, bit *n* in an address is safe from modification if the original outbound transaction satisfies:
+Note that SA and DA increment in the sequence of transactions resulting from a split request.  In a split response, only DA increments in the resulting transactions, because responses don't have the SA field.  Please be aware of this incrementing behavior when storing user information in SA or DA, since incrementing could modify that information.  Formally, bit *n* in an address is safe from modification if the original outbound transaction satisfies:
 
 A\[n-1:0\] + (2^SIZE)*(LEN+1) < 2^n
 
@@ -420,7 +422,7 @@ Rules:
 2. Copy HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields into each split output.
 3. LEN_out\[i\] may be different for each split output as long as sum(LEN_out[0:N-1])+N == LEN_in+1.
 4. DA_out\[i\] := DA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  DA_out\[0\] := DA_in.
-5. SA_out\[i\] := SA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  SA_out\[0\] := SA_in.
+5. SA_out\[i\] := SA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  SA_out\[0\] := SA_in.  Applies only to split requests, because reponses do not have the SA field.
 6. EOM_out\[i\] := EOM_in & (i == (N-1)).
 
 ### 4.1.2 Merging Rules
@@ -439,8 +441,8 @@ Rules:
 3. EOM_in\[i\] must be 0 for 0<=i<=(N-2), that is, it must be zero for all but the last merge input.  EOM_in\[N-1\] may be either 0 or 1.
 4. DA_in\[i\] must be equal to DA_in\[i-1\] + (2^SIZE)*(LEN_in\[i-1\]+1), 1<=i<=(N-1).
 5. DA_out := DA_in\[0\].
-6. SA_in\[i\] must be equal to SA_in\[i-1\] + (2^SIZE)*(LEN_in\[i-1\]+1), 1<=i<=(N-1).
-7. SA_out := SA_in\[0\].
+6. SA_in\[i\] must be equal to SA_in\[i-1\] + (2^SIZE)*(LEN_in\[i-1\]+1), 1<=i<=(N-1).  Applies only to merged requests.
+7. SA_out := SA_in\[0\].  Applies only to merged requests.
 8. LEN_out := sum(LEN_in\[0:N-1\])+N-1.
 9. EOM_out := EOM_in\[N-1\].
 
