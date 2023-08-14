@@ -15,5 +15,9 @@ def setup(target=None):
     root = os.path.dirname(__file__)
     chip.add('option', 'ydir', f"{root}/rtl")
     chip.add('option', 'idir', f"{root}/rtl")
+#    chip.add('option', 'ydir', f"sumi/rtl")
+#    chip.add('option', 'idir', f"sumi/rtl")
+    chip.add('option', 'ydir', f"umi/rtl")
+    chip.add('option', 'idir', f"umi/rtl")
 
     return chip
