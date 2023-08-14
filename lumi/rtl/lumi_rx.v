@@ -455,7 +455,8 @@ module lumi_rx
      else
        fifo_sel_hold <= fifo_sel;
 
-   assign fifo_sel = ~(|rxptr) ?
+   // Cannot change fifo sel when there is already a pending transaction
+   assign fifo_sel = ~(|rxptr) & ~(umi_out_valid & ~umi_out_ready)?
                      {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], &fifo_empty[2:1]} :
                      fifo_sel_hold;
 
