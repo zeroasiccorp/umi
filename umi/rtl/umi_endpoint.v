@@ -31,15 +31,15 @@ module umi_endpoint
     output [DW-1:0] udev_resp_data,
     input           udev_resp_ready,
     // Memory interface
-    output [AW-1:0] loc_addr,    // memory address
-    output          loc_write,   // write enable
-    output          loc_read,    // read request
-    output [7:0]    loc_opcode,  // opcode
-    output [2:0]    loc_size,    // size
-    output [7:0]    loc_len,     // len
-    output [DW-1:0] loc_wrdata,  // data to write
-    input [DW-1:0]  loc_rddata,  // data response
-    input           loc_ready    // device is ready
+    output [AW-1:0] loc_addr,   // memory address
+    output          loc_write,  // write enable
+    output          loc_read,   // read request
+    output [7:0]    loc_opcode, // opcode
+    output [2:0]    loc_size,   // size
+    output [7:0]    loc_len,    // len
+    output [DW-1:0] loc_wrdata, // data to write
+    input [DW-1:0]  loc_rddata, // data response
+    input           loc_ready   // device is ready
     );
 
 `include "umi_messages.vh"
@@ -92,6 +92,7 @@ module umi_endpoint
    reg [AW-1:0]         srcaddr_out;
    reg [CW-1:0]         command_out;
    reg [DW-1:0]         data_out;
+   reg                  data_out_sample;
 
    // local wires
    wire [DW-1:0]        data_mux;
@@ -181,15 +182,14 @@ module umi_endpoint
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if (loc_resp)
-       udev_resp_valid <= loc_ready;
+     else if (loc_ready & loc_resp & udev_resp_ready)
+       udev_resp_valid <= 1'b1;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
 
    // Propagating wait signal
-   // Amir - bug fix - request ready should not be gated by response ready
-//   assign udev_req_ready = loc_ready & udev_resp_ready;
-   assign udev_req_ready = loc_ready;
+   // Since this is a pipeline we hold the request if we cannot respond
+   assign udev_req_ready = loc_ready & udev_resp_ready;
 
    //#############################
    //# Pipeline Packet
@@ -232,7 +232,7 @@ module umi_endpoint
 	  srcaddr_out[AW-1:0] <= {AW{1'b0}};
 	  command_out[CW-1:0] <= {CW{1'b0}};
        end
-     else if(loc_resp & loc_ready)
+     else if (loc_ready & udev_resp_ready)
        begin
 	  dstaddr_out[AW-1:0] <= udev_req_srcaddr[AW-1:0];
 	  srcaddr_out[AW-1:0] <= loc_addr[AW-1:0];
@@ -244,12 +244,20 @@ module umi_endpoint
    // adding the same logic for the loc_valid
    always @(posedge clk or negedge nreset)
      if (!nreset)
-       data_out[DW-1:0] <= {DW{1'b0}};
+       data_out_sample <= 1'b0;
      else
+       data_out_sample <= loc_resp & loc_ready & udev_resp_ready;
+
+   always @(posedge clk or negedge nreset)
+     if (!nreset)
+       data_out[DW-1:0] <= {DW{1'b0}};
+     else if (data_out_sample)
        data_out[DW-1:0] <= loc_rddata[DW-1:0];
 
-   assign data_mux[DW-1:0] = (REG) ? data_out[DW-1:0] :
-			             loc_rddata[DW-1:0];
+   // If REG is set always take the sampled data
+   // If not then only when the response is stalled
+   assign data_mux[DW-1:0] = ((REG) | ~data_out_sample) ? data_out[DW-1:0] :
+                                                          loc_rddata[DW-1:0];
 
    // Final outputs
    assign udev_resp_cmd[CW-1:0]     = command_out[CW-1:0];
