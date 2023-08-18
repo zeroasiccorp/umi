@@ -82,6 +82,7 @@ module lumi_tx
    wire                      phy_txrdy;
    wire                      phy_fifo_empty;
    wire                      phy_fifo_wr;
+   wire                      phy_fifo_full;
 
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
    wire [$clog2(DW+AW+AW+CW)-1:0] byterate;
@@ -548,6 +549,7 @@ module lumi_tx
    //########################################
    //# Output data - no need for masking or by anymore
    //########################################
+   assign phy_txrdy = ~phy_fifo_full;
 
    la_asyncfifo #(.DW(IOW),          // Memory width
                   .DEPTH(8),         // FIFO depth
@@ -557,7 +559,7 @@ module lumi_tx
                   .TESTW(1),         // width of asic test interface
                   .TYPE("DEFAULT"))  // Pass through variable for hard macro
    req_fifo_i(// Outputs
-              .wr_full          (phy_txrdy),
+              .wr_full          (phy_fifo_full),
               .rd_dout          (phy_txdata[IOW-1:0]),
               .rd_empty         (phy_fifo_empty),
               // Inputs
