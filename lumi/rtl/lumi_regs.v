@@ -22,8 +22,7 @@ module lumi_regs
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
     parameter RW = 32,            // register width
-    parameter IDW = 16,           // chipid width
-    parameter CRDTFIFOD = 64
+    parameter IDW = 16            // chipid width
     )
    (// common controls
     input           devicemode,    // 1=host, 0=device

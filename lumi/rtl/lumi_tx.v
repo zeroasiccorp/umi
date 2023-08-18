@@ -45,7 +45,8 @@ module lumi_tx
     // phy interface
     output [IOW-1:0]  phy_txdata,  // Tx data to the phy
     output            phy_txvld,   // valid signal to the phy
-    input             phy_txrdy,   // ready signal from phy
+    input             ioclk,
+    input             ionreset,
     // Credit interface
     output reg [31:0] csr_crdt_status,
     input [15:0]      csr_crdt_intrvl,
@@ -78,6 +79,9 @@ module lumi_tx
    wire                      umi_resp_in_gated;
 
    wire [10:0]               iowidth;
+   wire                      phy_txrdy;
+   wire                      phy_fifo_empty;
+   wire                      phy_fifo_wr;
 
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
    wire [$clog2(DW+AW+AW+CW)-1:0] byterate;
@@ -169,7 +173,7 @@ module lumi_tx
           tx_crdt_resp[15:0] <= 'h0;
        end
      else
-       if (phy_txvld & phy_txrdy)
+       if (phy_fifo_wr & phy_txrdy)
          begin
             tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
             tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
@@ -182,8 +186,8 @@ module lumi_tx
        csr_crdt_status[31:0] <= 'h0;
      else
        begin
-          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & phy_txrdy & phy_txrdy & ~rxready[0])};
-          csr_crdt_status[31:16] <= csr_crdt_status[31:16] + {15'h0000,(umi_resp_in_valid  & phy_txrdy & phy_txrdy & ~rxready[1])};
+          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & phy_txrdy & ~rxready[0])};
+          csr_crdt_status[31:16] <= csr_crdt_status[31:16] + {15'h0000,(umi_resp_in_valid  & phy_txrdy & ~rxready[1])};
        end
 
    //########################################
@@ -330,7 +334,7 @@ module lumi_tx
    assign rxready[0] = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0])  >= ({4'h0,req_packet_bytes[11:0]}  >> (byterate[7:0] >> 1));
    assign rxready[1] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]) >= ({4'h0,resp_packet_bytes[11:0]} >> (byterate[7:0] >> 1));
 
-   assign phy_txvld = |valid[(DW+AW+AW+CW)/8-1:0];
+   assign phy_fifo_wr = |valid[(DW+AW+AW+CW)/8-1:0];
 
    //########################################
    //# CTRL MODES
@@ -545,7 +549,32 @@ module lumi_tx
    //# Output data - no need for masking or by anymore
    //########################################
 
-   assign phy_txdata[IOW-1:0] = shiftreg[IOW-1:0];
+   la_asyncfifo #(.DW(IOW),          // Memory width
+                  .DEPTH(8),         // FIFO depth
+                  .NS(1),            // Number of power supplies
+                  .CHAOS(0),         // generates random full logic when set
+                  .CTRLW(1),         // width of asic ctrl interface
+                  .TESTW(1),         // width of asic test interface
+                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
+   req_fifo_i(// Outputs
+              .wr_full          (phy_txrdy),
+              .rd_dout          (phy_txdata[IOW-1:0]),
+              .rd_empty         (phy_fifo_empty),
+              // Inputs
+              .rd_clk           (ioclk),
+              .rd_nreset        (ionreset),
+              .wr_clk           (clk),
+              .wr_nreset        (nreset),
+              .vss              (1'b0),
+              .vdd              (1'b1),
+              .wr_chaosmode     (1'b0),
+              .ctrl             (1'b0),
+              .test             (1'b0),
+              .wr_en            (phy_fifo_wr),
+              .wr_din           (shiftreg[IOW-1:0]),
+              .rd_en            (1'b1));
+
+   assign phy_txvld = ~phy_fifo_empty;
 
 endmodule
 // Local Variables:
