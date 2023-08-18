@@ -26,7 +26,7 @@ module lumi
     parameter RW = 64,            // register width
     parameter IDW = 16,           // chipid width
     parameter IOW = 64,           // phy IO width
-    parameter CRDTFIFOD = 64      // Fifo size need to account for 64B over 2B link
+    parameter CRDTDEPTH = 64      // Fifo size need to account for 64B over 2B link
     )
    (// host/device selector
     input            devicemode,      // 1=device, 0=host
@@ -85,10 +85,12 @@ module lumi
     // phy data interface (LUMI)
     input [IOW-1:0]  phy_rxdata,
     input            phy_rxvld,
-    output           phy_rxrdy,
+    input            rxclk,
+    input            rxnreset,
     output [IOW-1:0] phy_txdata,
     output           phy_txvld,
-    input            phy_txrdy,
+    input            txclk,
+    input            txnreset,
     // phy control interface
     input            phy_linkactive,
     // Host control interface
@@ -152,8 +154,7 @@ module lumi
 	       .GRPID(GRPID),
                .RW(RW),
                .CW(CW),
-	       .AW(AW),
-               .CRDTFIFOD(CRDTFIFOD))
+	       .AW(AW))
    lumi_regs(/*AUTOINST*/
              // Outputs
              .udev_req_ready    (cb2regs_ready),         // Templated
@@ -255,6 +256,7 @@ module lumi
    /*lumi_rx  AUTO_TEMPLATE (
     .csr_rx\(.*\)        (csr_rx\1),
     .csr_\(.*\)          (csr_@"(substring vl-cell-name 5 7)"\1[]),
+    .io\(.*\)            (@"(substring vl-cell-name 5 7)"\1[]),
     .umi_resp_out_\(.*\) (udev_resp_\1[]),
     .umi_req_out_\(.*\)  (uhost_req_\1[]),
     .clkfb               (),
@@ -266,10 +268,9 @@ module lumi
              .CW(CW),
              .AW(AW),
 	     .DW(DW),
-             .CRDTFIFOD(CRDTFIFOD))
+             .CRDTDEPTH(CRDTDEPTH))
    lumi_rx(/*AUTOINST*/
            // Outputs
-           .phy_rxrdy           (phy_rxrdy),
            .umi_resp_out_cmd    (udev_resp_cmd[CW-1:0]), // Templated
            .umi_resp_out_dstaddr(udev_resp_dstaddr[AW-1:0]), // Templated
            .umi_resp_out_srcaddr(udev_resp_srcaddr[AW-1:0]), // Templated
@@ -292,6 +293,8 @@ module lumi
            .vss                 (vss),
            .vdd                 (vdd),
            .vddio               (vddio),
+           .ioclk               (rxclk),                 // Templated
+           .ionreset            (rxnreset),              // Templated
            .phy_rxdata          (phy_rxdata[IOW-1:0]),
            .phy_rxvld           (phy_rxvld),
            .umi_resp_out_ready  (udev_resp_ready),       // Templated
@@ -306,16 +309,17 @@ module lumi
    /*lumi_tx  AUTO_TEMPLATE (
     .csr_tx\(.*\)        (csr_tx\1),
     .csr_\(.*\)          (csr_@"(substring vl-cell-name 5 7)"\1[]),
+    .io\(.*\)            (@"(substring vl-cell-name 5 7)"\1[]),
     .umi_resp_in_\(.*\)  (uhost_resp_\1[]),
     .umi_req_in_\(.*\)   (udev_req_\1[]),
     )
     */
 
    lumi_tx #(.TARGET(TARGET),
-	     .IOW(IOW),
+             .IOW(IOW),
              .CW(CW),
              .AW(AW),
-	     .DW(DW))
+             .DW(DW))
    lumi_tx(/*AUTOINST*/
            // Outputs
            .umi_req_in_ready    (udev_req_ready),        // Templated
@@ -342,7 +346,8 @@ module lumi
            .umi_resp_in_dstaddr (uhost_resp_dstaddr[AW-1:0]), // Templated
            .umi_resp_in_srcaddr (uhost_resp_srcaddr[AW-1:0]), // Templated
            .umi_resp_in_data    (uhost_resp_data[DW-1:0]), // Templated
-           .phy_txrdy           (phy_txrdy),
+           .ioclk               (txclk),                 // Templated
+           .ionreset            (txnreset),              // Templated
            .csr_crdt_intrvl     (csr_txcrdt_intrvl[15:0]), // Templated
            .rmt_crdt_req        (rmt_crdt_req[15:0]),
            .rmt_crdt_resp       (rmt_crdt_resp[15:0]),

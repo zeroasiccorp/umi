@@ -21,7 +21,7 @@ module lumi_rx
     parameter DW = 256,           // umi data width
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
-    parameter CRDTFIFOD = 64     // Fifo size need to account for 64B over 2B link
+    parameter CRDTDEPTH = 64      // Fifo size need to account for 64B over 2B link
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -32,9 +32,10 @@ module lumi_rx
     input             vdd,                // core supply
     input             vddio,              // io voltage
     // pad signals
+    input             ioclk,                // clock for sampling input data
+    input             ionreset,             // async active low reset
     input [IOW-1:0]   phy_rxdata,
     input             phy_rxvld,
-    output            phy_rxrdy,
     // Write/Response
     output [CW-1:0]   umi_resp_out_cmd,
     output [AW-1:0]   umi_resp_out_dstaddr,
@@ -186,9 +187,6 @@ module lumi_rx
 	  rxvalid  <= phy_rxvld;
 	  rxvalid2 <= rxvalid;
        end
-
-   // As LUMI uses credit based flow control we will never stop the phy Rx
-   assign phy_rxrdy = 1'b1;
 
    // rising edge data sample
    always @ (posedge clk)
@@ -365,23 +363,25 @@ module lumi_rx
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
    assign fifo_rd[0] = ~fifo_empty[0] & fifo_sel[0] & umi_out_ready;
 
-   la_syncfifo #(.DW(IOW),    // Memory width
-                 .DEPTH(CRDTFIFOD),  // FIFO depth
-                 .NS(1),     // Number of power supplies
-                 .CHAOS(0),  // generates random full logic when set
-                 .CTRLW(1),  // width of asic ctrl interface
-                 .TESTW(1),  // width of asic test interface
-                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),          // Memory width
+                  .DEPTH(CRDTDEPTH), // FIFO depth
+                  .NS(1),            // Number of power supplies
+                  .CHAOS(0),         // generates random full logic when set
+                  .CTRLW(1),         // width of asic ctrl interface
+                  .TESTW(1),         // width of asic test interface
+                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
    req_fifo_i(// Outputs
               .wr_full          (),
               .rd_dout          (req_fifo_dout[IOW-1:0]),
               .rd_empty         (fifo_empty[0]),
               // Inputs
-              .clk              (clk),
-              .nreset           (nreset),
+              .rd_clk           (clk),
+              .rd_nreset        (nreset),
+              .wr_clk           (ioclk),
+              .wr_nreset        (ionreset),
               .vss              (1'b0),
               .vdd              (1'b1),
-              .chaosmode        (1'b0),
+              .wr_chaosmode     (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[0]),
@@ -396,23 +396,25 @@ module lumi_rx
    // Read when not empty.
    assign fifo_rd[1] = ~fifo_empty[1] & fifo_sel[1] & umi_out_ready;
 
-   la_syncfifo #(.DW(IOW),    // Memory width
-                 .DEPTH(CRDTFIFOD),  // FIFO depth
-                 .NS(1),     // Number of power supplies
-                 .CHAOS(0),  // generates random full logic when set
-                 .CTRLW(1),  // width of asic ctrl interface
-                 .TESTW(1),  // width of asic test interface
-                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),          // Memory width
+                  .DEPTH(CRDTDEPTH), // FIFO depth
+                  .NS(1),            // Number of power supplies
+                  .CHAOS(0),         // generates random full logic when set
+                  .CTRLW(1),         // width of asic ctrl interface
+                  .TESTW(1),         // width of asic test interface
+                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
    resp_fifo_i(// Outputs
                .wr_full          (),
                .rd_dout          (resp_fifo_dout[IOW-1:0]),
                .rd_empty         (fifo_empty[1]),
                // Inputs
-               .clk              (clk),
-               .nreset           (nreset),
+               .rd_clk           (clk),
+               .rd_nreset        (nreset),
+               .wr_clk           (ioclk),
+               .wr_nreset        (ionreset),
                .vss              (1'b0),
                .vdd              (1'b1),
-               .chaosmode        (1'b0),
+               .wr_chaosmode     (1'b0),
                .ctrl             (1'b0),
                .test             (1'b0),
                .wr_en            (fifo_wr[1]),
@@ -425,23 +427,25 @@ module lumi_rx
    assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
    assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
 
-   la_syncfifo #(.DW(IOW),    // Memory width
-                 .DEPTH(4),  // FIFO depth
-                 .NS(1),     // Number of power supplies
-                 .CHAOS(0),  // generates random full logic when set
-                 .CTRLW(1),  // width of asic ctrl interface
-                 .TESTW(1),  // width of asic test interface
-                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),   // Memory width
+                  .DEPTH(4),  // FIFO depth
+                  .NS(1),     // Number of power supplies
+                  .CHAOS(0),  // generates random full logic when set
+                  .CTRLW(1),  // width of asic ctrl interface
+                  .TESTW(1),  // width of asic test interface
+                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .rd_dout          (lnk_fifo_dout[IOW-1:0]),
               .rd_empty         (fifo_empty[2]),
               // Inputs
-              .clk              (clk),
-              .nreset           (nreset),
+              .rd_clk           (clk),
+              .rd_nreset        (nreset),
+              .wr_clk           (ioclk),
+              .wr_nreset        (ionreset),
               .vss              (1'b0),
               .vdd              (1'b1),
-              .chaosmode        (1'b0),
+              .wr_chaosmode     (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[2]),
