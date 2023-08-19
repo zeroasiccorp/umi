@@ -26,7 +26,7 @@ module lumi
     parameter RW = 64,            // register width
     parameter IDW = 16,           // chipid width
     parameter IOW = 64,           // phy IO width
-    parameter CRDTDEPTH = 64      // Fifo size need to account for 64B over 2B link
+    parameter CRDTDEPTH = 84      // Fifo size need to account for 64B over 2B link
     )
    (// host/device selector
     input            devicemode,      // 1=device, 0=host

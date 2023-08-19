@@ -91,11 +91,12 @@ module lumi_rx
    wire [$clog2((DW+AW+AW+CW))-1:0] rxptr_next;
    wire [$clog2((DW+AW+AW+CW))-1:0] datashift;
    wire [(DW+AW+AW+CW)-1:0]         writemask;
-   reg [IOW-1:0]                    rxdata; // accounting for ddr data
-   wire [IOW-1:0]                 req_fifo_dout;
-   wire [IOW-1:0]                 resp_fifo_dout;
-   wire [IOW-1:0]                 lnk_fifo_dout;
-   wire [IOW-1:0]                 fifo_data_muxed;
+   reg [IOW-1:0]                    rxdata;
+   reg [7:0]                        rxdata_d;
+   wire [IOW-1:0]                   req_fifo_dout;
+   wire [IOW-1:0]                   resp_fifo_dout;
+   wire [IOW-1:0]                   lnk_fifo_dout;
+   wire [IOW-1:0]                   fifo_data_muxed;
    wire [CW-1:0]                    umi_out_cmd;
    wire [AW-1:0]                    umi_out_dstaddr;
    wire [AW-1:0]                    umi_out_srcaddr;
@@ -113,6 +114,9 @@ module lumi_rx
    wire [11:0]                      cmd_bytes;
 
    wire [1:0]                       credit_req_in;
+
+   wire [15:0]                      rxhdr;
+   wire                             rxhdr_sample;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -192,6 +196,13 @@ module lumi_rx
    always @ (posedge clk)
      rxdata[IOW-1:0] <= phy_rxdata[IOW-1:0];
 
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
+       rxdata_d[7:0] <= 'h0;
+     else
+       if (rxvalid)
+         rxdata_d[7:0] <= rxdata[7:0];
+
    //########################################
    //# Input data tracking
    //########################################
@@ -199,11 +210,16 @@ module lumi_rx
    // Input data is now separate before and after the input fifo
    // As a result need to understand data size and track (to generate SOP)
 
+   // Handle 1B i/f width
+   assign rxhdr[15:0] = (sopptr == 'h0) & (csr_iowidth == 8'h1) ? {8'h0,rxdata[7:0]}       : // dummy width of 4B
+                        (sopptr == 'h1) & (csr_iowidth == 8'h1) ? {rxdata[7:0],rxdata_d[7:0]} :
+                        rxdata[15:0];
+
    /*umi_unpack AUTO_TEMPLATE(
     .cmd_len    (rxcmd_len[]),
     .cmd_size   (rxcmd_size[]),
     .cmd.*      (),
-    .packet_cmd ({{CW-16{1'b0}},rxdata[15:0]}),
+    .packet_cmd ({{CW-16{1'b0}},rxhdr[15:0]}),
     );*/
 
    umi_unpack #(.CW(CW))
@@ -223,10 +239,10 @@ module lumi_rx
                  .cmd_err               (),                      // Templated
                  .cmd_hostid            (),                      // Templated
                  // Inputs
-                 .packet_cmd            ({{CW-16{1'b0}},rxdata[15:0]})); // Templated
+                 .packet_cmd            ({{CW-16{1'b0}},rxhdr[15:0]})); // Templated
 
    /*umi_decode AUTO_TEMPLATE(
-    .command      ({{CW-16{1'b0}},rxdata[15:0]}),
+    .command      ({{CW-16{1'b0}},rxhdr[15:0]}),
     .cmd_atomic.* (),
     .cmd_\(.*\)   (rxcmd_\1[]),
     );*/
@@ -263,7 +279,7 @@ module lumi_rx
                   .cmd_atomic_minu      (),                      // Templated
                   .cmd_atomic_swap      (),                      // Templated
                   // Inputs
-                  .command              ({{CW-16{1'b0}},rxdata[15:0]})); // Templated
+                  .command              ({{CW-16{1'b0}},rxhdr[15:0]})); // Templated
 
    // Second step - decode what format will be received
    assign rx_cmd_only  = rxcmd_invalid    |
@@ -288,15 +304,18 @@ module lumi_rx
        default: rxbytes_raw = full_hdr_size + rxcmd_bytes[8:0];
      endcase
 
-   // TODO - add support for 1B IOW (#bytes unknown in first cycle)
+   // support for 1B IOW (#bytes unknown in first cycle)
+   assign rxhdr_sample = (sopptr == 'h0) |
+                         (sopptr == 'h1) & (csr_iowidth == 8'h1);
+
    always @ (posedge clk or negedge nreset)
      if (~nreset)
        rxbytes_keep <= 'h0;
      else
-       if (~(|sopptr) & rxvalid)
+       if (rxhdr_sample & rxvalid)
          rxbytes_keep <= rxbytes_raw;
 
-   assign rxbytes_to_rcv = ~(|sopptr) & rxvalid ?
+   assign rxbytes_to_rcv = rxhdr_sample & rxvalid ?
                            rxbytes_raw :
                            rxbytes_keep;
 
@@ -326,10 +345,10 @@ module lumi_rx
      if (~nreset)
        rxtype_next[2:0] <= 3'b000;
      else
-       if (~(|sopptr) & rxvalid)
+       if (rxhdr_sample & rxvalid)
          rxtype_next[2:0] <= {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link};
 
-   assign rxtype = ~(|sopptr) & rxvalid ?
+   assign rxtype = rxhdr_sample & rxvalid ?
                    {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link} :
                    rxtype_next;
 
@@ -428,7 +447,7 @@ module lumi_rx
    assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
 
    la_asyncfifo #(.DW(IOW),   // Memory width
-                  .DEPTH(4),  // FIFO depth
+                  .DEPTH(8),  // FIFO depth
                   .NS(1),     // Number of power supplies
                   .CHAOS(0),  // generates random full logic when set
                   .CTRLW(1),  // width of asic ctrl interface
@@ -650,7 +669,7 @@ module lumi_rx
    // Need to stall the pipeline, including the shiftreg, when output is stalled
    always @ (posedge clk)
      if (|fifo_rd)
-     shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) |
+     shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) & writemask[(DW+AW+AW+CW)-1:0] |
 			            (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
 
    //########################################
