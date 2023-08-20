@@ -80,9 +80,9 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
     assert val32 == 0x00000000
 
     if topo=='2d':
-        width = np.uint32(0x00020000)
+        width = np.uint32(0x00010000)
     if topo=='3d':
-        width = np.uint32(0x00080000)
+        width = np.uint32(0x00030000)
 
     print("### configure loc Rx width ###")
     sb.write(0x70000010, width, posted=True)

@@ -151,15 +151,12 @@ module lumi_regs
    assign csr_txcrdt_en   = txmode_reg[4];   // Enable sending credit updates
 
    assign csr_txiowidth[7:0] = txmode_reg[23:16];
-   // 00000000 = (0=disabled)
-   // 00000001 = 1 bytes
-   // 00000010 = 2 bytes
-   // 00000011 = 3 bytes
-   // 00000100 = 4 bytes
-   // 00000101 = 5 bytes
-   // 00000110 = 6 bytes
+   // 00000000 = 1 bytes
+   // 00000001 = 2 bytes
+   // 00000010 = 4 bytes
+   // 00000011 = 8 bytes
+   // 00000100 = 16 bytes
    // ...
-   // 11111111 = 255 bytes
 
    //######################################
    // RXMODE Register
@@ -174,15 +171,12 @@ module lumi_regs
    assign csr_rxen      = linkactive & rxmode_reg[0]; // rx enable
 
    assign csr_rxiowidth[7:0]  = rxmode_reg[23:16];
-   // 00000000 = (0=disabled)
-   // 00000001 = 1 bytes
-   // 00000010 = 2 bytes
-   // 00000011 = 3 bytes
-   // 00000100 = 4 bytes
-   // 00000101 = 5 bytes
-   // 00000110 = 6 bytes
+   // 00000000 = 1 bytes
+   // 00000001 = 2 bytes
+   // 00000010 = 4 bytes
+   // 00000011 = 8 bytes
+   // 00000100 = 16 bytes
    // ...
-   // 11111111 = 255 bytes
 
    //######################################
    //  Credit init Register
