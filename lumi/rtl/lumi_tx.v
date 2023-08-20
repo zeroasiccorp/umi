@@ -113,6 +113,14 @@ module lumi_tx
    wire [11:0]                    cmd_req_bytes;
    reg [11:0]                     req_packet_bytes;
    reg [11:0]                     resp_packet_bytes;
+   reg [11:0]                     req_packet_lines;
+   reg [11:0]                     resp_packet_lines;
+   reg [11:0]                     req_packet_mod;
+   reg [11:0]                     resp_packet_mod;
+   reg [15:0]                     req_crdt_need;
+   reg [15:0]                     resp_crdt_need;
+   reg [15:0]                     req_crdt_avail;
+   reg [15:0]                     resp_crdt_avail;
    reg [15:0]                     crdt_updt_cntr;
    reg [1:0]                      crdt_updt_send;
 
@@ -332,8 +340,21 @@ module lumi_tx
    assign cmd_resp_bytes[11:0] = cmd_resp_lenp1[11:0] << cmd_resp_size[2:0];
    assign cmd_req_bytes[11:0]  = cmd_req_lenp1[11:0] << cmd_req_size[2:0];
 
-   assign rxready[0] = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0])  >= ({4'h0,req_packet_bytes[11:0]}  >> (byterate[7:0] >> 1));
-   assign rxready[1] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]) >= ({4'h0,resp_packet_bytes[11:0]} >> (byterate[7:0] >> 1));
+   // Find how many lines of credit are needed
+   assign req_packet_lines[11:0]  = req_packet_bytes[11:0]  >> csr_iowidth[7:0];
+   assign resp_packet_lines[11:0] = resp_packet_bytes[11:0] >> csr_iowidth[7:0];
+   // The above calulation is doing round down so need to see if an extra line is needed
+   assign req_packet_mod[11:0]  = ~(req_packet_lines[11:0]  << csr_iowidth[7:0]) & req_packet_bytes[11:0];
+   assign resp_packet_mod[11:0] = ~(resp_packet_lines[11:0] << csr_iowidth[7:0]) & resp_packet_bytes[11:0];
+
+   assign req_crdt_need[15:0]  = {4'h0,req_packet_lines[11:0]}  + {15'h0,(|req_packet_mod[11:0])};
+   assign resp_crdt_need[15:0] = {4'h0,resp_packet_lines[11:0]} + {15'h0,(|resp_packet_mod[11:0])};
+
+   assign req_crdt_avail[15:0]  = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0]);
+   assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]);
+
+   assign rxready[0] = req_crdt_avail[15:0]  >= req_crdt_need[15:0];
+   assign rxready[1] = resp_crdt_avail[15:0] >= resp_crdt_need[15:0];
 
    assign phy_fifo_wr = |valid[(DW+AW+AW+CW)/8-1:0];
 
@@ -341,7 +362,7 @@ module lumi_tx
    //# CTRL MODES
    //########################################
    // shift left size is the width of the operand so need to reserve space for shifts
-   assign iowidth[10:0] = {3'b000,csr_iowidth[7:0]};
+   assign iowidth[10:0] = 11'h1 << csr_iowidth[7:0];
 
    // Bytes transferred per cycle
    // TODO - this will need to change based on DW
