@@ -86,6 +86,7 @@ module lumi_rx
    wire [2:0]                       rxtype;
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
    wire [$clog2((DW+AW+AW+CW))-1:0] byterate;
+   wire [10:0]                      iowidth;
    //   wire [$clog2(DW/8)-1:0] byterate;
    wire [$clog2((DW+AW+AW+CW))-1:0] sopptr_next;
    wire [$clog2((DW+AW+AW+CW))-1:0] rxptr_next;
@@ -170,10 +171,11 @@ module lumi_rx
    //########################################
    //# interface width calculation
    //########################################
+   assign iowidth[10:0] = 11'h1 << csr_iowidth[7:0];
 
    // bytes per clock cycle
    // Updating to 128b DW. TODO: this will need to change later
-   assign byterate[$clog2((DW+AW+AW+CW))-1:0] = {{($clog2(DW+AW+AW+CW)-8){1'b0}},csr_iowidth[7:0]};
+   assign byterate[$clog2((DW+AW+AW+CW))-1:0] = {{($clog2(DW+AW+AW+CW)-8){1'b0}},iowidth[7:0]};
 
    //########################################
    //# Input Sampling
@@ -211,8 +213,8 @@ module lumi_rx
    // As a result need to understand data size and track (to generate SOP)
 
    // Handle 1B i/f width
-   assign rxhdr[15:0] = (sopptr == 'h0) & (csr_iowidth == 8'h1) ? {8'h0,rxdata[7:0]}       : // dummy width of 4B
-                        (sopptr == 'h1) & (csr_iowidth == 8'h1) ? {rxdata[7:0],rxdata_d[7:0]} :
+   assign rxhdr[15:0] = (sopptr == 'h0) & (csr_iowidth == 8'h0) ? {8'h0,rxdata[7:0]}       : // dummy width of 4B
+                        (sopptr == 'h1) & (csr_iowidth == 8'h0) ? {rxdata[7:0],rxdata_d[7:0]} :
                         rxdata[15:0];
 
    /*umi_unpack AUTO_TEMPLATE(
@@ -306,7 +308,7 @@ module lumi_rx
 
    // support for 1B IOW (#bytes unknown in first cycle)
    assign rxhdr_sample = (sopptr == 'h0) |
-                         (sopptr == 'h1) & (csr_iowidth == 8'h1);
+                         (sopptr == 'h1) & (csr_iowidth == 8'h0);
 
    always @ (posedge clk or negedge nreset)
      if (~nreset)
