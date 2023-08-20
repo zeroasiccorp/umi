@@ -21,7 +21,7 @@ module lumi_rx
     parameter DW = 256,           // umi data width
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
-    parameter CRDTFIFOD = 64     // Fifo size need to account for 64B over 2B link
+    parameter CRDTDEPTH = 64      // Fifo size need to account for 64B over 2B link
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -32,9 +32,10 @@ module lumi_rx
     input             vdd,                // core supply
     input             vddio,              // io voltage
     // pad signals
+    input             ioclk,                // clock for sampling input data
+    input             ionreset,             // async active low reset
     input [IOW-1:0]   phy_rxdata,
     input             phy_rxvld,
-    output            phy_rxrdy,
     // Write/Response
     output [CW-1:0]   umi_resp_out_cmd,
     output [AW-1:0]   umi_resp_out_dstaddr,
@@ -90,11 +91,12 @@ module lumi_rx
    wire [$clog2((DW+AW+AW+CW))-1:0] rxptr_next;
    wire [$clog2((DW+AW+AW+CW))-1:0] datashift;
    wire [(DW+AW+AW+CW)-1:0]         writemask;
-   reg [IOW-1:0]                    rxdata; // accounting for ddr data
-   wire [IOW-1:0]                 req_fifo_dout;
-   wire [IOW-1:0]                 resp_fifo_dout;
-   wire [IOW-1:0]                 lnk_fifo_dout;
-   wire [IOW-1:0]                 fifo_data_muxed;
+   reg [IOW-1:0]                    rxdata;
+   reg [7:0]                        rxdata_d;
+   wire [IOW-1:0]                   req_fifo_dout;
+   wire [IOW-1:0]                   resp_fifo_dout;
+   wire [IOW-1:0]                   lnk_fifo_dout;
+   wire [IOW-1:0]                   fifo_data_muxed;
    wire [CW-1:0]                    umi_out_cmd;
    wire [AW-1:0]                    umi_out_dstaddr;
    wire [AW-1:0]                    umi_out_srcaddr;
@@ -112,6 +114,9 @@ module lumi_rx
    wire [11:0]                      cmd_bytes;
 
    wire [1:0]                       credit_req_in;
+
+   wire [15:0]                      rxhdr;
+   wire                             rxhdr_sample;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -187,12 +192,16 @@ module lumi_rx
 	  rxvalid2 <= rxvalid;
        end
 
-   // As LUMI uses credit based flow control we will never stop the phy Rx
-   assign phy_rxrdy = 1'b1;
-
    // rising edge data sample
    always @ (posedge clk)
      rxdata[IOW-1:0] <= phy_rxdata[IOW-1:0];
+
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
+       rxdata_d[7:0] <= 'h0;
+     else
+       if (rxvalid)
+         rxdata_d[7:0] <= rxdata[7:0];
 
    //########################################
    //# Input data tracking
@@ -201,11 +210,16 @@ module lumi_rx
    // Input data is now separate before and after the input fifo
    // As a result need to understand data size and track (to generate SOP)
 
+   // Handle 1B i/f width
+   assign rxhdr[15:0] = (sopptr == 'h0) & (csr_iowidth == 8'h1) ? {8'h0,rxdata[7:0]}       : // dummy width of 4B
+                        (sopptr == 'h1) & (csr_iowidth == 8'h1) ? {rxdata[7:0],rxdata_d[7:0]} :
+                        rxdata[15:0];
+
    /*umi_unpack AUTO_TEMPLATE(
     .cmd_len    (rxcmd_len[]),
     .cmd_size   (rxcmd_size[]),
     .cmd.*      (),
-    .packet_cmd ({{CW-16{1'b0}},rxdata[15:0]}),
+    .packet_cmd ({{CW-16{1'b0}},rxhdr[15:0]}),
     );*/
 
    umi_unpack #(.CW(CW))
@@ -225,10 +239,10 @@ module lumi_rx
                  .cmd_err               (),                      // Templated
                  .cmd_hostid            (),                      // Templated
                  // Inputs
-                 .packet_cmd            ({{CW-16{1'b0}},rxdata[15:0]})); // Templated
+                 .packet_cmd            ({{CW-16{1'b0}},rxhdr[15:0]})); // Templated
 
    /*umi_decode AUTO_TEMPLATE(
-    .command      ({{CW-16{1'b0}},rxdata[15:0]}),
+    .command      ({{CW-16{1'b0}},rxhdr[15:0]}),
     .cmd_atomic.* (),
     .cmd_\(.*\)   (rxcmd_\1[]),
     );*/
@@ -265,7 +279,7 @@ module lumi_rx
                   .cmd_atomic_minu      (),                      // Templated
                   .cmd_atomic_swap      (),                      // Templated
                   // Inputs
-                  .command              ({{CW-16{1'b0}},rxdata[15:0]})); // Templated
+                  .command              ({{CW-16{1'b0}},rxhdr[15:0]})); // Templated
 
    // Second step - decode what format will be received
    assign rx_cmd_only  = rxcmd_invalid    |
@@ -290,15 +304,18 @@ module lumi_rx
        default: rxbytes_raw = full_hdr_size + rxcmd_bytes[8:0];
      endcase
 
-   // TODO - add support for 1B IOW (#bytes unknown in first cycle)
+   // support for 1B IOW (#bytes unknown in first cycle)
+   assign rxhdr_sample = (sopptr == 'h0) |
+                         (sopptr == 'h1) & (csr_iowidth == 8'h1);
+
    always @ (posedge clk or negedge nreset)
      if (~nreset)
        rxbytes_keep <= 'h0;
      else
-       if (~(|sopptr) & rxvalid)
+       if (rxhdr_sample & rxvalid)
          rxbytes_keep <= rxbytes_raw;
 
-   assign rxbytes_to_rcv = ~(|sopptr) & rxvalid ?
+   assign rxbytes_to_rcv = rxhdr_sample & rxvalid ?
                            rxbytes_raw :
                            rxbytes_keep;
 
@@ -328,10 +345,10 @@ module lumi_rx
      if (~nreset)
        rxtype_next[2:0] <= 3'b000;
      else
-       if (~(|sopptr) & rxvalid)
+       if (rxhdr_sample & rxvalid)
          rxtype_next[2:0] <= {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link};
 
-   assign rxtype = ~(|sopptr) & rxvalid ?
+   assign rxtype = rxhdr_sample & rxvalid ?
                    {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link} :
                    rxtype_next;
 
@@ -365,23 +382,25 @@ module lumi_rx
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
    assign fifo_rd[0] = ~fifo_empty[0] & fifo_sel[0] & umi_out_ready;
 
-   la_syncfifo #(.DW(IOW),    // Memory width
-                 .DEPTH(CRDTFIFOD),  // FIFO depth
-                 .NS(1),     // Number of power supplies
-                 .CHAOS(0),  // generates random full logic when set
-                 .CTRLW(1),  // width of asic ctrl interface
-                 .TESTW(1),  // width of asic test interface
-                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),          // Memory width
+                  .DEPTH(CRDTDEPTH), // FIFO depth
+                  .NS(1),            // Number of power supplies
+                  .CHAOS(0),         // generates random full logic when set
+                  .CTRLW(1),         // width of asic ctrl interface
+                  .TESTW(1),         // width of asic test interface
+                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
    req_fifo_i(// Outputs
               .wr_full          (),
               .rd_dout          (req_fifo_dout[IOW-1:0]),
               .rd_empty         (fifo_empty[0]),
               // Inputs
-              .clk              (clk),
-              .nreset           (nreset),
+              .rd_clk           (clk),
+              .rd_nreset        (nreset),
+              .wr_clk           (ioclk),
+              .wr_nreset        (ionreset),
               .vss              (1'b0),
               .vdd              (1'b1),
-              .chaosmode        (1'b0),
+              .wr_chaosmode     (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[0]),
@@ -396,23 +415,25 @@ module lumi_rx
    // Read when not empty.
    assign fifo_rd[1] = ~fifo_empty[1] & fifo_sel[1] & umi_out_ready;
 
-   la_syncfifo #(.DW(IOW),    // Memory width
-                 .DEPTH(CRDTFIFOD),  // FIFO depth
-                 .NS(1),     // Number of power supplies
-                 .CHAOS(0),  // generates random full logic when set
-                 .CTRLW(1),  // width of asic ctrl interface
-                 .TESTW(1),  // width of asic test interface
-                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),          // Memory width
+                  .DEPTH(CRDTDEPTH), // FIFO depth
+                  .NS(1),            // Number of power supplies
+                  .CHAOS(0),         // generates random full logic when set
+                  .CTRLW(1),         // width of asic ctrl interface
+                  .TESTW(1),         // width of asic test interface
+                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
    resp_fifo_i(// Outputs
                .wr_full          (),
                .rd_dout          (resp_fifo_dout[IOW-1:0]),
                .rd_empty         (fifo_empty[1]),
                // Inputs
-               .clk              (clk),
-               .nreset           (nreset),
+               .rd_clk           (clk),
+               .rd_nreset        (nreset),
+               .wr_clk           (ioclk),
+               .wr_nreset        (ionreset),
                .vss              (1'b0),
                .vdd              (1'b1),
-               .chaosmode        (1'b0),
+               .wr_chaosmode     (1'b0),
                .ctrl             (1'b0),
                .test             (1'b0),
                .wr_en            (fifo_wr[1]),
@@ -425,23 +446,25 @@ module lumi_rx
    assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
    assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
 
-   la_syncfifo #(.DW(IOW),    // Memory width
-                 .DEPTH(4),  // FIFO depth
-                 .NS(1),     // Number of power supplies
-                 .CHAOS(0),  // generates random full logic when set
-                 .CTRLW(1),  // width of asic ctrl interface
-                 .TESTW(1),  // width of asic test interface
-                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),   // Memory width
+                  .DEPTH(8),  // FIFO depth
+                  .NS(1),     // Number of power supplies
+                  .CHAOS(0),  // generates random full logic when set
+                  .CTRLW(1),  // width of asic ctrl interface
+                  .TESTW(1),  // width of asic test interface
+                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .rd_dout          (lnk_fifo_dout[IOW-1:0]),
               .rd_empty         (fifo_empty[2]),
               // Inputs
-              .clk              (clk),
-              .nreset           (nreset),
+              .rd_clk           (clk),
+              .rd_nreset        (nreset),
+              .wr_clk           (ioclk),
+              .wr_nreset        (ionreset),
               .vss              (1'b0),
               .vdd              (1'b1),
-              .chaosmode        (1'b0),
+              .wr_chaosmode     (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[2]),
@@ -646,7 +669,7 @@ module lumi_rx
    // Need to stall the pipeline, including the shiftreg, when output is stalled
    always @ (posedge clk)
      if (|fifo_rd)
-     shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) |
+     shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) & writemask[(DW+AW+AW+CW)-1:0] |
 			            (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
 
    //########################################
