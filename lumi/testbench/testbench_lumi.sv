@@ -28,10 +28,8 @@ module testbench (
    wire [AW-1:0]        phy_out_srcaddr;
    wire                 phy_out_valid;
    wire [IOW-1:0]       phy_rxdata;
-   wire                 phy_rxrdy;
    wire                 phy_rxvld;
    wire [IOW-1:0]       phy_txdata;
-   wire                 phy_txrdy;
    wire                 phy_txvld;
    wire [CW-1:0]        udev_req_cmd;
    wire [DW-1:0]        udev_req_data;
@@ -139,6 +137,12 @@ module testbench (
              .valid(host_resp_valid)
              );
 
+   // No clink so driving all clock from the tb
+   wire rxclk = clk;
+   wire txclk = clk;
+   wire rxnreset = nreset;
+   wire txnreset = nreset;
+
    // instantiate dut with UMI ports
    /* lumi AUTO_TEMPLATE(
     .udev_\(.*\)      (host_\1[]),
@@ -190,7 +194,6 @@ module testbench (
                .phy_out_dstaddr (phy_in_dstaddr[AW-1:0]), // Templated
                .phy_out_srcaddr (phy_in_srcaddr[AW-1:0]), // Templated
                .phy_out_data    (phy_in_data[RW-1:0]),   // Templated
-               .phy_rxrdy       (phy_txrdy),             // Templated
                .phy_txdata      (phy_rxdata[IOW-1:0]),   // Templated
                .phy_txvld       (phy_rxvld),             // Templated
                .host_linkactive (),                      // Templated
@@ -222,7 +225,10 @@ module testbench (
                .phy_out_ready   (phy_in_ready),          // Templated
                .phy_rxdata      (phy_txdata[IOW-1:0]),   // Templated
                .phy_rxvld       (phy_txvld),             // Templated
-               .phy_txrdy       (phy_rxrdy),             // Templated
+               .rxclk           (rxclk),
+               .rxnreset        (rxnreset),
+               .txclk           (txclk),
+               .txnreset        (txnreset),
                .phy_linkactive  (1'b1),                  // Templated
                .nreset          (nreset),
                .clk             (clk),
@@ -280,7 +286,6 @@ module testbench (
               .phy_out_dstaddr  (phy_out_dstaddr[AW-1:0]),
               .phy_out_srcaddr  (phy_out_srcaddr[AW-1:0]),
               .phy_out_data     (phy_out_data[RW-1:0]),
-              .phy_rxrdy        (phy_rxrdy),
               .phy_txdata       (phy_txdata[IOW-1:0]),
               .phy_txvld        (phy_txvld),
               .host_linkactive  (),                      // Templated
@@ -312,7 +317,10 @@ module testbench (
               .phy_out_ready    (phy_out_ready),
               .phy_rxdata       (phy_rxdata[IOW-1:0]),
               .phy_rxvld        (phy_rxvld),
-              .phy_txrdy        (phy_txrdy),
+              .rxclk            (rxclk),
+              .rxnreset         (rxnreset),
+              .txclk            (txclk),
+              .txnreset         (txnreset),
               .phy_linkactive   (1'b1),                  // Templated
               .nreset           (nreset),
               .clk              (clk),
