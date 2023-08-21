@@ -15,13 +15,14 @@
  * Version 1 - conver from CLINK to LUMI
  *****************************************************************************/
 module lumi_rx
-  #(parameter TARGET = "DEFAULT", // implementation target
+  #(parameter TARGET = "DEFAULT",                     // implementation target
     // for development only (fixed )
-    parameter IOW = 64,           // clink rx/tx width
-    parameter DW = 256,           // umi data width
-    parameter CW = 32,            // umi data width
-    parameter AW = 64,            // address width
-    parameter CRDTDEPTH = 64      // Fifo size need to account for 64B over 2B link
+    parameter IOW = 64,                               // clink rx/tx width
+    parameter DW = 256,                               // umi data width
+    parameter CW = 32,                                // umi data width
+    parameter AW = 64,                                // address width
+    parameter RXFIFOWIDTH = 8,                        // width of Rx fifo
+    parameter CRDTDEPTH = (DW+AW+AW+CW)/RXFIFOWIDTH+1 // Fifo size need to account for 64B over 2B link
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -379,10 +380,36 @@ module lumi_rx
    assign loc_crdt_resp = rx_crdt_resp;
 
    //########################################
+   // Input fifo alignment
+   //########################################
+   // In order to support various iowidth without paying in area the input fifo
+   // need to be split into smaller fifo that can be arranged in the right configuration
+   // The fifo's will be aligned in a way that minimizes the muxing
+   // As an example for 128b IOW with 8b minimum width the following configurations will be used:
+   // iowidth=128b: all fifo's used in parallel
+   // iowidth=64b:  1 ->  2
+   //               3 ->  4
+   //               5 ->  6
+   //               7 ->  8
+   //               9 -> 10
+   //              11 -> 12
+   //              13 -> 14
+   //              15 -> 16
+   // iowidth=32b:  1 ->  2 ->  3 ->  4
+   //               5 ->  6 ->  7 ->  8
+   //               9 -> 10 -> 11 -> 12
+   //              13 -> 14 -> 15 -> 16
+   // iowidth=16b:  1 ->  2 ->  3 ->  4 ->  5 ->  6 ->  7 ->  8
+   //               9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
+   // iowidth=8b:   1 ->  2 ->  3 ->  4 ->  5 ->  6 ->  7 ->  8 ->  9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
+   //########################################
    // Request Fifo
    //########################################
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
    assign fifo_rd[0] = ~fifo_empty[0] & fifo_sel[0] & umi_out_ready;
+
+   genvar l;
+   localparam NFIFO = IOW/RXFIFOWIDTH;
 
    la_asyncfifo #(.DW(IOW),          // Memory width
                   .DEPTH(CRDTDEPTH), // FIFO depth
