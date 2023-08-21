@@ -15,14 +15,13 @@
  * Version 1 - conver from CLINK to LUMI
  *****************************************************************************/
 module lumi_rx
-  #(parameter TARGET = "DEFAULT",                     // implementation target
+  #(parameter TARGET = "DEFAULT", // implementation target
     // for development only (fixed )
-    parameter IOW = 64,                               // clink rx/tx width
-    parameter DW = 256,                               // umi data width
-    parameter CW = 32,                                // umi data width
-    parameter AW = 64,                                // address width
-    parameter RXFIFOWIDTH = 8,                        // width of Rx fifo
-    parameter CRDTDEPTH = (DW+AW+AW+CW)/RXFIFOWIDTH+1 // Fifo size need to account for 64B over 2B link
+    parameter IOW = 64,           // clink rx/tx width
+    parameter DW = 256,           // umi data width
+    parameter CW = 32,            // umi data width
+    parameter AW = 64,            // address width
+    parameter RXFIFOWIDTH = 8     // width of Rx fifo
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -60,6 +59,9 @@ module lumi_rx
     output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
     );
 
+   localparam NFIFO = IOW/RXFIFOWIDTH;
+   localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOWIDTH)/NFIFO;
+
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
    reg [$clog2((DW+AW+AW+CW))-1:0] rxptr;
@@ -82,6 +84,13 @@ module lumi_rx
    wire [2:0]                       fifo_empty;
    wire [2:0]                       fifo_wr;
    wire [2:0]                       fifo_rd;
+   wire [IOW-1:0]                   req_fifo_din;
+   wire [NFIFO-1:0]                 req_fifo_sel;
+   wire [NFIFO-1:0]                 req_fifo_wr;
+   wire [NFIFO-1:0]                 req_fifo_rd;
+   wire [NFIFO-1:0]                 req_fifo_empty;
+   wire [7:0]                       iow_mask;
+   wire [7:0]                       fifo_mux_mask;
 
    // local wires
    wire [2:0]                       rxtype;
@@ -408,33 +417,40 @@ module lumi_rx
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
    assign fifo_rd[0] = ~fifo_empty[0] & fifo_sel[0] & umi_out_ready;
 
-   genvar l;
-   localparam NFIFO = IOW/RXFIFOWIDTH;
+   assign iow_mask[7:0] = (IOW >> 3) - 1'b1;
+   assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0];
 
-   la_asyncfifo #(.DW(IOW),          // Memory width
-                  .DEPTH(CRDTDEPTH), // FIFO depth
-                  .NS(1),            // Number of power supplies
-                  .CHAOS(0),         // generates random full logic when set
-                  .CTRLW(1),         // width of asic ctrl interface
-                  .TESTW(1),         // width of asic test interface
-                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
-   req_fifo_i(// Outputs
-              .wr_full          (),
-              .rd_dout          (req_fifo_dout[IOW-1:0]),
-              .rd_empty         (fifo_empty[0]),
-              // Inputs
-              .rd_clk           (clk),
-              .rd_nreset        (nreset),
-              .wr_clk           (ioclk),
-              .wr_nreset        (ionreset),
-              .vss              (1'b0),
-              .vdd              (1'b1),
-              .wr_chaosmode     (1'b0),
-              .ctrl             (1'b0),
-              .test             (1'b0),
-              .wr_en            (fifo_wr[0]),
-              .wr_din           (rxdata[IOW-1:0]),
-              .rd_en            (fifo_rd[0]));
+   genvar i;
+   for(i=0;i<NFIFO;i=i+1)
+     begin
+        assign req_fifo_sel[i] = (i[7:0] & fifo_mux_mask[7:0]) == 8'h0;
+        assign req_fifo_din[i*RXFIFOWIDTH+:RXFIFOWIDTH] = req_fifo_sel[i] ?
+                                                          rxdata[i*RXFIFOWIDTH+:RXFIFOWIDTH]      :
+                                                          req_fifo_dout[(i-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
+
+        la_syncfifo #(.DW(RXFIFOWIDTH),  // Memory width
+                      .DEPTH(CRDTDEPTH), // FIFO depth
+                      .NS(1),            // Number of power supplies
+                      .CHAOS(0),         // generates random full logic when set
+                      .CTRLW(1),         // width of asic ctrl interface
+                      .TESTW(1),         // width of asic test interface
+                      .TYPE("DEFAULT"))  // Pass through variable for hard macro
+        req_fifo_i(// Outputs
+                   .wr_full          (),
+                   .rd_dout          (req_fifo_dout[i*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                   .rd_empty         (req_fifo_empty[i]),
+                   // Inputs
+                   .clk              (clk),
+                   .nreset           (nreset),
+                   .vss              (1'b0),
+                   .vdd              (1'b1),
+                   .chaosmode        (1'b0),
+                   .ctrl             (1'b0),
+                   .test             (1'b0),
+                   .wr_en            (req_fifo_wr[i]),
+                   .wr_din           (req_fifo_din[i*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                   .rd_en            (req_fifo_rd[i]));
+     end
 
    //########################################
    // Response Fifo
