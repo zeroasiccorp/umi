@@ -1,0 +1,12 @@
+`verilator_config
+lint_off -file "*umi/umi/rtl/*"
+lint_off -file "*lambdalib/ramlib/*"
+lint_off -file "*lambdalib/stdlib/*"
+lint_off -file "*verilog-axi/rtl/*"
+lint_off -rule LATCH
+lint_off -rule UNOPTFLAT
+lint_off -rule WIDTHTRUNC
+lint_off -rule SELRANGE
+lint_off -rule IMPLICIT
+lint_off -rule WIDTHEXPAND
+lint_off -rule TIMESCALEMOD
