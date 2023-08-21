@@ -86,12 +86,13 @@ module lumi_rx
    wire [2:0]                       fifo_wr;
    wire [2:0]                       fifo_rd;
    wire [IOW-1:0]                   req_fifo_din;
-   wire [NFIFO-1:0]                 fifo_wr_sel;
-   wire [NFIFO-1:0]                 fifo_rd_sel;
+   wire [NFIFO:0]                   fifo_mux_sel;
    wire [NFIFO-1:0]                 req_fifo_wr;
    wire [NFIFO-1:0]                 req_fifo_rd;
    wire [NFIFO-1:0]                 req_fifo_empty;
    wire [NFIFO-1:0]                 req_fifo_full;
+   wire [NFIFO-1:0]                 fifo_dout_sel;
+   wire [7:0]                       iow_mask;
    wire [7:0]                       fifo_mux_mask;
 
    // local wires
@@ -399,59 +400,62 @@ module lumi_rx
    // The fifo's will be aligned in a way that minimizes the muxing
    // As an example for 128b IOW with 8b minimum width the following configurations will be used:
    // iowidth=128b: all fifo's used in parallel
-   // iowidth=64b:  0 ->  8
-   //               1 ->  9
-   //               2 -> 10
-   //               3 -> 11
-   //               4 -> 12
-   //               5 -> 13
-   //               6 -> 14
-   //               7 -> 15
-   // iowidth=32b:  0 ->  8 ->  4 -> 12
-   //               1 ->  9 ->  5 -> 13
-   //               2 -> 10 ->  6 -> 14
-   //               3 -> 11 ->  7 -> 15
-   // iowidth=16b:  0 ->  8 ->  4 -> 12 ->  2 -> 10 ->  6 -> 14
-   //               1 ->  9 ->  5 -> 13 ->  3 -> 11 ->  7 -> 15
-   // iowidth=8b:   0 ->  8 ->  4 -> 12 ->  2 -> 10 ->  6 -> 14 ->  1 ->  9 ->  5 -> 14 ->  3 -> 11 ->  7 -> 15
+   // iowidth=64b:  0 ->  1
+   //               2 ->  3
+   //               4 ->  5
+   //               6 ->  7
+   //               8 ->  9
+   //              10 -> 11
+   //              12 -> 13
+   //              14 -> 15
+   // iowidth=32b:  0 ->  1 ->  2 ->  3
+   //               4 ->  5 ->  6 ->  7
+   //               8 ->  9 -> 10 -> 11
+   //              11 -> 12 -> 14 -> 15
+   // iowidth=16b:  0 ->  1 ->  2 ->  3 ->  4 ->  5 ->  6 ->  7
+   //               8 ->  9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15
+   // iowidth=8b:   0 ->  1 ->  2 ->  3 ->  4 ->  5 ->  6 ->  7 ->  8 ->  9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15
    //########################################
    // common masks
    //########################################
-   assign fifo_mux_mask[7:0] = iowidth[7:0] >> LOGFIFOWIDTH;
+   assign iow_mask[7:0] = (IOW >> 3) - 1'b1;
+   assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0];
 
    genvar i;
    for(i=0;i<NFIFO;i=i+1)
      begin
-        assign fifo_wr_sel[i] = i[7:0] < fifo_mux_mask[7:0];
-        assign fifo_rd_sel[i] = (NFIFO - i[7:0]) <= fifo_mux_mask[7:0];
+        assign fifo_mux_sel[i] = (i[7:0] & fifo_mux_mask[7:0]) == 8'h0;
+        /* verilator lint_off UNSIGNED */
+        assign fifo_dout_sel[i] = (i << LOGFIFOWIDTH) >= iowidth;
+        /* verilator lint_off UNSIGNED */
      end
+
+   // Dummy, just for the equations in the loop below
+   assign fifo_mux_sel[NFIFO] = 1'b1;
 
    //########################################
    // Request Fifo
    //########################################
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
-   assign fifo_rd[0] = (|(~{1'b1,req_fifo_empty[NFIFO-1:0]} & (fifo_wr_sel[NFIFO:0] >> 1))) &
+   assign fifo_rd[0] = (|(~{1'b1,req_fifo_empty[NFIFO-1:0]} & (fifo_mux_sel[NFIFO:0] >> 1))) &
                        fifo_sel[0] &
                        umi_out_ready;
 
    genvar j;
    for(j=0;j<NFIFO;j=j+1)
      begin
-        if (j >= NFIFO/2) // TODO: need to find if there is a more elegant way to do that
-          begin
-             assign req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_wr_sel[j] ?
-                                                               rxdata[j*RXFIFOWIDTH+:RXFIFOWIDTH] :
-                                                               req_fifo_dout[(j-NFIFO/2)*RXFIFOWIDTH+:RXFIFOWIDTH];
+        assign req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_mux_sel[j] ?
+                                                          rxdata[j*RXFIFOWIDTH+:RXFIFOWIDTH]      :
+                                                          req_fifo_dout[(j-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
 
-             assign req_fifo_wr[j] = fifo_wr_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-NFIFO/2];
+        assign req_fifo_wr[j] = fifo_mux_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-1];
 
-             assign req_fifo_rd[j-NFIFO/2] = fifo_wr_sel[j] ? fifo_rd[0] : ~req_fifo_full[j+1];
-          end
+        assign req_fifo_rd[j] = fifo_mux_sel[j+1] ? fifo_rd[0] : ~req_fifo_full[j+1];
 
         // Collapse the data from the last fifo in each row to the left
-        assign req_fifo_dout_muxed[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_rd_sel[j] ?
-                                                                 req_fifo_dout[j*RXFIFOWIDTH+:RXFIFOWIDTH] :
-                                                                 'h0;
+        assign req_fifo_dout_muxed[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_dout_sel[j] ?
+                                                                 'h0 :
+                                                                 req_fifo_dout[((j+1)*((IOW >> 3) >> csr_iowidth)-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
 
         la_syncfifo #(.DW(RXFIFOWIDTH),  // Memory width
                       .DEPTH(CRDTDEPTH), // FIFO depth
