@@ -86,7 +86,8 @@ module lumi_rx
    wire [2:0]                       fifo_wr;
    wire [2:0]                       fifo_rd;
    wire [IOW-1:0]                   req_fifo_din;
-   wire [NFIFO-1:0]                 fifo_mux_sel;
+   wire [NFIFO-1:0]                 fifo_wr_sel;
+   wire [NFIFO-1:0]                 fifo_rd_sel;
    wire [NFIFO-1:0]                 req_fifo_wr;
    wire [NFIFO-1:0]                 req_fifo_rd;
    wire [NFIFO-1:0]                 req_fifo_empty;
@@ -421,30 +422,34 @@ module lumi_rx
    genvar i;
    for(i=0;i<NFIFO;i=i+1)
      begin
-        assign fifo_mux_sel[i] = (i[7:0] < fifo_mux_mask[7:0]);
+        assign fifo_wr_sel[i] = i[7:0] < fifo_mux_mask[7:0];
+        assign fifo_rd_sel[i] = (NFIFO - i[7:0]) <= fifo_mux_mask[7:0];
      end
 
    //########################################
    // Request Fifo
    //########################################
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
-   assign fifo_rd[0] = (|(~{1'b1,req_fifo_empty[NFIFO-1:0]} & (fifo_mux_sel[NFIFO:0] >> 1))) &
+   assign fifo_rd[0] = (|(~{1'b1,req_fifo_empty[NFIFO-1:0]} & (fifo_wr_sel[NFIFO:0] >> 1))) &
                        fifo_sel[0] &
                        umi_out_ready;
 
    genvar j;
    for(j=0;j<NFIFO;j=j+1)
      begin
-        assign req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_mux_sel[j] ?
-                                                          rxdata[j*RXFIFOWIDTH+:RXFIFOWIDTH] :
-                                                          req_fifo_dout[(j-NFIFO/2)*RXFIFOWIDTH+:RXFIFOWIDTH];
+        if (j >= NFIFO/2) // TODO: need to find if there is a more elegant way to do that
+          begin
+             assign req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_wr_sel[j] ?
+                                                               rxdata[j*RXFIFOWIDTH+:RXFIFOWIDTH] :
+                                                               req_fifo_dout[(j-NFIFO/2)*RXFIFOWIDTH+:RXFIFOWIDTH];
 
-        assign req_fifo_wr[j] = fifo_mux_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-NFIFO/2];
+             assign req_fifo_wr[j] = fifo_wr_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-NFIFO/2];
 
-        assign req_fifo_rd[j] = fifo_mux_sel[j] ? fifo_rd[0] : ~req_fifo_full[j+1];
+             assign req_fifo_rd[j-NFIFO/2] = fifo_wr_sel[j] ? fifo_rd[0] : ~req_fifo_full[j+1];
+          end
 
         // Collapse the data from the last fifo in each row to the left
-        assign req_fifo_dout_muxed[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_dout_sel[j] ?
+        assign req_fifo_dout_muxed[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_rd_sel[j] ?
                                                                  req_fifo_dout[j*RXFIFOWIDTH+:RXFIFOWIDTH] :
                                                                  'h0;
 
