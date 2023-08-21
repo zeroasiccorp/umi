@@ -61,6 +61,7 @@ module lumi_rx
 
    localparam NFIFO = IOW/RXFIFOWIDTH;
    localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOWIDTH)/NFIFO;
+   localparam LOGFIFOWIDTH = $clog2(RXFIFOWIDTH/8);
 
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
@@ -85,10 +86,12 @@ module lumi_rx
    wire [2:0]                       fifo_wr;
    wire [2:0]                       fifo_rd;
    wire [IOW-1:0]                   req_fifo_din;
-   wire [NFIFO-1:0]                 req_fifo_sel;
+   wire [NFIFO:0]                   fifo_mux_sel;
    wire [NFIFO-1:0]                 req_fifo_wr;
    wire [NFIFO-1:0]                 req_fifo_rd;
    wire [NFIFO-1:0]                 req_fifo_empty;
+   wire [NFIFO-1:0]                 req_fifo_full;
+   wire [NFIFO-1:0]                 fifo_dout_sel;
    wire [7:0]                       iow_mask;
    wire [7:0]                       fifo_mux_mask;
 
@@ -105,6 +108,7 @@ module lumi_rx
    reg [IOW-1:0]                    rxdata;
    reg [7:0]                        rxdata_d;
    wire [IOW-1:0]                   req_fifo_dout;
+   wire [IOW-1:0]                   req_fifo_dout_muxed;
    wire [IOW-1:0]                   resp_fifo_dout;
    wire [IOW-1:0]                   lnk_fifo_dout;
    wire [IOW-1:0]                   fifo_data_muxed;
@@ -412,21 +416,46 @@ module lumi_rx
    //               9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
    // iowidth=8b:   1 ->  2 ->  3 ->  4 ->  5 ->  6 ->  7 ->  8 ->  9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
    //########################################
-   // Request Fifo
+   // common masks
    //########################################
-   assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
-   assign fifo_rd[0] = ~fifo_empty[0] & fifo_sel[0] & umi_out_ready;
-
    assign iow_mask[7:0] = (IOW >> 3) - 1'b1;
    assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0];
 
    genvar i;
    for(i=0;i<NFIFO;i=i+1)
      begin
-        assign req_fifo_sel[i] = (i[7:0] & fifo_mux_mask[7:0]) == 8'h0;
-        assign req_fifo_din[i*RXFIFOWIDTH+:RXFIFOWIDTH] = req_fifo_sel[i] ?
-                                                          rxdata[i*RXFIFOWIDTH+:RXFIFOWIDTH]      :
-                                                          req_fifo_dout[(i-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
+        assign fifo_mux_sel[i] = (i[7:0] & fifo_mux_mask[7:0]) == 8'h0;
+        /* verilator lint_off UNSIGNED */
+        assign fifo_dout_sel[i] = (i << LOGFIFOWIDTH) >= iowidth;
+        /* verilator lint_off UNSIGNED */
+     end
+
+   // Dummy, just for the equations in the loop below
+   assign fifo_mux_sel[NFIFO] = 1'b1;
+
+   //########################################
+   // Request Fifo
+   //########################################
+   assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
+   assign fifo_rd[0] = (|(~{1'b1,req_fifo_empty[NFIFO-1:0]} & (fifo_mux_sel[NFIFO:0] >> 1))) &
+                       fifo_sel[0] &
+                       umi_out_ready;
+
+   genvar j;
+   for(j=0;j<NFIFO;j=j+1)
+     begin
+        assign req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_mux_sel[j] ?
+                                                          rxdata[j*RXFIFOWIDTH+:RXFIFOWIDTH]      :
+                                                          req_fifo_dout[(j-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
+
+        assign req_fifo_wr[j] = fifo_mux_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-1];
+
+        assign req_fifo_rd[j] = fifo_mux_sel[j+1] ? fifo_rd[0] : ~req_fifo_full[j+1];
+
+        // Collapse the data from the last fifo in each row to the left
+        assign req_fifo_dout_muxed[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_dout_sel[j] ?
+                                                                 'h0 :
+                                                                 req_fifo_dout[((j+1)*((IOW >> 3) >> csr_iowidth)-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
 
         la_syncfifo #(.DW(RXFIFOWIDTH),  // Memory width
                       .DEPTH(CRDTDEPTH), // FIFO depth
@@ -436,9 +465,9 @@ module lumi_rx
                       .TESTW(1),         // width of asic test interface
                       .TYPE("DEFAULT"))  // Pass through variable for hard macro
         req_fifo_i(// Outputs
-                   .wr_full          (),
-                   .rd_dout          (req_fifo_dout[i*RXFIFOWIDTH+:RXFIFOWIDTH]),
-                   .rd_empty         (req_fifo_empty[i]),
+                   .wr_full          (req_fifo_full[j]),
+                   .rd_dout          (req_fifo_dout[j*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                   .rd_empty         (req_fifo_empty[j]),
                    // Inputs
                    .clk              (clk),
                    .nreset           (nreset),
@@ -447,9 +476,9 @@ module lumi_rx
                    .chaosmode        (1'b0),
                    .ctrl             (1'b0),
                    .test             (1'b0),
-                   .wr_en            (req_fifo_wr[i]),
-                   .wr_din           (req_fifo_din[i*RXFIFOWIDTH+:RXFIFOWIDTH]),
-                   .rd_en            (req_fifo_rd[i]));
+                   .wr_en            (req_fifo_wr[j]),
+                   .wr_din           (req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                   .rd_en            (req_fifo_rd[j]));
      end
 
    //########################################
@@ -530,7 +559,7 @@ module lumi_rx
 
    assign fifo_data_muxed = {IOW{fifo_sel[2]}} & lnk_fifo_dout[IOW-1:0]  |
                             {IOW{fifo_sel[1]}} & resp_fifo_dout[IOW-1:0] |
-                            {IOW{fifo_sel[0]}} & req_fifo_dout[IOW-1:0]  ;
+                            {IOW{fifo_sel[0]}} & req_fifo_dout_muxed[IOW-1:0]  ;
 
    /*umi_decode AUTO_TEMPLATE(
     .command       (fifo_data_muxed[]),
