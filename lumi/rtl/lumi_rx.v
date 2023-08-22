@@ -62,6 +62,7 @@ module lumi_rx
    localparam NFIFO = IOW/RXFIFOWIDTH;
    localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOWIDTH)/NFIFO;
    localparam LOGFIFOWIDTH = $clog2(RXFIFOWIDTH/8);
+   localparam LOGNFIFO = $clog2(NFIFO);
 
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
@@ -91,9 +92,13 @@ module lumi_rx
    wire [NFIFO-1:0]                 req_fifo_rd;
    wire [NFIFO-1:0]                 req_fifo_empty;
    wire [NFIFO-1:0]                 req_fifo_full;
-   wire [NFIFO-1:0]                 fifo_dout_sel;
+   wire [NFIFO:0]                   fifo_dout_sel;
+   wire [NFIFO:0]                   fifo_dout_mask;
    wire [7:0]                       iow_mask;
+   wire [7:0]                       iow_shift;
    wire [7:0]                       fifo_mux_mask;
+   wire [NFIFO*8-1:0]               fifo_rd_shift;
+   wire [NFIFO*8-1:0]               fifo_wr_shift;
 
    // local wires
    wire [2:0]                       rxtype;
@@ -418,44 +423,54 @@ module lumi_rx
    //########################################
    // common masks
    //########################################
-   assign iow_mask[7:0] = (IOW >> 3) - 1'b1;
+   assign iow_mask[7:0]      = (IOW >> 3) - 1'b1;
    assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0];
 
    genvar i;
    for(i=0;i<NFIFO;i=i+1)
      begin
+        // Mask for which fifo gets IO data
         assign fifo_mux_sel[i] = (i[7:0] & fifo_mux_mask[7:0]) == 8'h0;
         /* verilator lint_off UNSIGNED */
+        // Mapping of which fifo output goes to the output bus
         assign fifo_dout_sel[i] = (i << LOGFIFOWIDTH) >= iowidth;
         /* verilator lint_off UNSIGNED */
+        // Mask for looking at empty singlas
+        assign fifo_dout_mask[((i+1)<<1<<(LOGNFIFO >> csr_iowidth))-1] = fifo_dout_sel[i];
+        // Shift for input busses
+        assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> ((LOGNFIFO >> csr_iowidth)+1) : 8'h0;
+        // Shift for output busses
+        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : ((i+1)<<1<<(LOGNFIFO >> csr_iowidth))-1;
      end
 
    // Dummy, just for the equations in the loop below
    assign fifo_mux_sel[NFIFO] = 1'b1;
+   assign fifo_dout_sel[NFIFO] = 1'b1;
+   assign fifo_dout_mask[NFIFO] = 1'b0;
 
    //########################################
    // Request Fifo
    //########################################
    assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
-   assign fifo_rd[0] = (|(~{1'b1,req_fifo_empty[NFIFO-1:0]} & (fifo_mux_sel[NFIFO:0] >> 1))) &
+   assign fifo_rd[0] = (|(~req_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0])) &
                        fifo_sel[0] &
                        umi_out_ready;
 
    genvar j;
+
    for(j=0;j<NFIFO;j=j+1)
      begin
         assign req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_mux_sel[j] ?
-                                                          rxdata[j*RXFIFOWIDTH+:RXFIFOWIDTH]      :
+                                                          rxdata[fifo_wr_shift[j*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH] :
                                                           req_fifo_dout[(j-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
 
         assign req_fifo_wr[j] = fifo_mux_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-1];
 
         assign req_fifo_rd[j] = fifo_mux_sel[j+1] ? fifo_rd[0] : ~req_fifo_full[j+1];
 
-        // Collapse the data from the last fifo in each row to the left
         assign req_fifo_dout_muxed[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_dout_sel[j] ?
                                                                  'h0 :
-                                                                 req_fifo_dout[((j+1)*((IOW >> 3) >> csr_iowidth)-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
+                                                                 req_fifo_dout[fifo_rd_shift[j*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH];
 
         la_syncfifo #(.DW(RXFIFOWIDTH),  // Memory width
                       .DEPTH(CRDTDEPTH), // FIFO depth
@@ -490,7 +505,7 @@ module lumi_rx
    assign fifo_rd[1] = ~fifo_empty[1] & fifo_sel[1] & umi_out_ready;
 
    la_asyncfifo #(.DW(IOW),          // Memory width
-                  .DEPTH(CRDTDEPTH), // FIFO depth
+                  .DEPTH(84), // FIFO depth
                   .NS(1),            // Number of power supplies
                   .CHAOS(0),         // generates random full logic when set
                   .CTRLW(1),         // width of asic ctrl interface
@@ -520,25 +535,23 @@ module lumi_rx
    assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
    assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
 
-   la_asyncfifo #(.DW(IOW),   // Memory width
-                  .DEPTH(8),  // FIFO depth
-                  .NS(1),     // Number of power supplies
-                  .CHAOS(0),  // generates random full logic when set
-                  .CTRLW(1),  // width of asic ctrl interface
-                  .TESTW(1),  // width of asic test interface
-                  .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_syncfifo #(.DW(IOW),   // Memory width
+                 .DEPTH(8),  // FIFO depth
+                 .NS(1),     // Number of power supplies
+                 .CHAOS(0),  // generates random full logic when set
+                 .CTRLW(1),  // width of asic ctrl interface
+                 .TESTW(1),  // width of asic test interface
+                 .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .rd_dout          (lnk_fifo_dout[IOW-1:0]),
               .rd_empty         (fifo_empty[2]),
               // Inputs
-              .rd_clk           (clk),
-              .rd_nreset        (nreset),
-              .wr_clk           (ioclk),
-              .wr_nreset        (ionreset),
+              .clk              (clk),
+              .nreset           (nreset),
               .vss              (1'b0),
               .vdd              (1'b1),
-              .wr_chaosmode     (1'b0),
+              .chaosmode        (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[2]),
