@@ -62,9 +62,11 @@ module lumi_rx
    localparam FIFOW = RXFIFOW + 1;
    localparam ASYNCFIFODEPTH = 4;
    localparam NFIFO = IOW/RXFIFOW;
-   localparam [7:0] CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
+   localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
+   /* verilator lint_off WIDTHTRUNC */
    localparam [7:0] LOGFIFOWIDTH = $clog2(RXFIFOW/8);
    localparam [7:0] LOGNFIFO = $clog2(NFIFO);
+   /* verilator lint_off WIDTHTRUNC */
 
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
@@ -85,6 +87,7 @@ module lumi_rx
    reg [15:0]                       rx_crdt_resp;
    reg [2:0]                        fifo_sel_hold;
    wire [2:0]                       fifo_sel;
+   wire [2:0]                       fifo_eop;
    wire [2:0]                       fifo_empty;
    wire [2:0]                       fifo_wr;
    wire [2:0]                       fifo_rd;
@@ -455,7 +458,7 @@ module lumi_rx
         // Shift for input busses
         assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO - csr_iowidth) : 8'h0;
         // Shift for output busses
-        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
+        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 32'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
      end
 
    // Dummy, just for the equations in the loop below
@@ -470,15 +473,11 @@ module lumi_rx
                           fifo_sel[0] &
                           ~sync_fifo_full;
    genvar j;
-
    for(j=0;j<NFIFO;j=j+1)
      begin
-        assign req_fifo_din[j*FIFOW+:RXFIFOW] = fifo_mux_sel[j] ?
-                                                rxdata[fifo_wr_shift[j*8+:8]*FIFOW+:RXFIFOW] :
-                                                req_fifo_dout[(j-1)*FIFOW+:RXFIFOW];
-
-        // Need to store SOP in the fifo to lock fifo_sel at the output
-        assign req_fifo_din[j*FIFOW + RXFIFOW] = ~(|sopptr);
+        assign req_fifo_din[j*FIFOW+:FIFOW] = fifo_mux_sel[j] | (j == 0) ?
+                                              {~(|sopptr_next),rxdata[fifo_wr_shift[j*8+:8]*RXFIFOW+:RXFIFOW]} :
+                                              req_fifo_dout[(j-1)*FIFOW+:FIFOW];
 
         assign req_fifo_wr[j] = fifo_mux_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-1];
 
@@ -525,12 +524,9 @@ module lumi_rx
 
    for(k=0;k<NFIFO;k=k+1)
      begin
-        assign resp_fifo_din[k*FIFOW+:RXFIFOW] = fifo_mux_sel[k] ?
-                                                 rxdata[fifo_wr_shift[k*8+:8]*FIFOW+:RXFIFOW] :
-                                                 resp_fifo_dout[(k-1)*FIFOW+:RXFIFOW];
-
-        // Need to store SOP in the fifo to lock fifo_sel at the output
-        assign resp_fifo_din[k*FIFOW + RXFIFOW] = ~(|sopptr);
+        assign resp_fifo_din[k*FIFOW+:FIFOW] = fifo_mux_sel[k]  | (k == 0)?
+                                               {~(|sopptr_next),rxdata[fifo_wr_shift[k*8+:8]*RXFIFOW+:RXFIFOW]} :
+                                               resp_fifo_dout[(k-1)*FIFOW+:FIFOW];
 
         assign resp_fifo_wr[k] = fifo_mux_sel[k] ? fifo_wr[1] : ~resp_fifo_empty[k-1];
 
@@ -573,7 +569,10 @@ module lumi_rx
                        ~sync_fifo_full;
 
    assign lnk_fifo_din[CW-1:0] = rxdata[CW-1:0];
-   assign lnk_fifo_din[CW]     = ~(|sopptr);
+   assign lnk_fifo_din[CW]     = ~(|sopptr_next);
+
+   // Remove the sop bit
+   assign lnk_fifo_dout_muxed[IOW-1:0] = {{IOW-CW{1'b0}},lnk_fifo_dout[CW-1:0]};
 
    la_syncfifo #(.DW(CW+1),  // Link commands are only 32b
                  .DEPTH(2),  // FIFO depth
@@ -598,22 +597,21 @@ module lumi_rx
               .wr_din           (lnk_fifo_din[CW:0]),
               .rd_en            (fifo_rd[2]));
 
-   // arbitrate fifo outputs towards umi. Priority is lnk->resp->req
+   assign fifo_eop[2:0] = {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW],req_fifo_dout_muxed[FIFOW]};
+
+   // lock fifo sel, change only at EOP
    always @(posedge clk or negedge nreset)
      if (~nreset)
        fifo_sel_hold <= 3'b000;
      else
-       fifo_sel_hold <= fifo_sel;
+       fifo_sel_hold <= ~sync_fifo_full & |(fifo_sel[2:0] & fifo_eop[2:0]) ? 3'b000            :
+                        ~sync_fifo_full & ~(|fifo_sel_hold)                ? fifo_sel[2:0]     :
+                                                                             fifo_sel_hold[2:0];
 
-   // Cannot change fifo sel when there is already a pending transaction
-   assign fifo_sel = ~(|fifo_sel_hold) | (|(fifo_sel_hold[2:0] &
-                                            (fifo_empty[2:0] |
-                                             {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW],req_fifo_dout_muxed[FIFOW]}))) ?
+   // Cannot change fifo sel when there is already a pending transaction - wait for EOP
+   assign fifo_sel = ~(|fifo_sel_hold) ?
                      {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], (&fifo_empty[2:1]) & ~fifo_empty[0]} :
                      fifo_sel_hold;
-
-   // Remove the sop bit
-   assign lnk_fifo_dout_muxed[IOW-1:0] = {{IOW-CW{1'b0}},lnk_fifo_dout[CW-1:0]};
 
    genvar l;
    for(l=0;l<NFIFO;l=l+1)
@@ -639,7 +637,7 @@ module lumi_rx
    clock_fifo_i(// Outputs
               .wr_full          (sync_fifo_full),
               .rd_dout          (sync_fifo_dout[IOW-1:0]),
-              .rd_empty         (sync_fifo_),
+              .rd_empty         (sync_fifo_empty),
               // Inputs
               .rd_clk           (ioclk),
               .rd_nreset        (ionreset),
