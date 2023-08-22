@@ -530,7 +530,7 @@ module lumi_rx
                                                  resp_fifo_dout[(k-1)*FIFOW+:RXFIFOW];
 
         // Need to store SOP in the fifo to lock fifo_sel at the output
-        assign req_fifo_din[k*FIFOW + RXFIFOW] = ~(|sopptr);
+        assign resp_fifo_din[k*FIFOW + RXFIFOW] = ~(|sopptr);
 
         assign resp_fifo_wr[k] = fifo_mux_sel[k] ? fifo_wr[1] : ~resp_fifo_empty[k-1];
 
@@ -616,7 +616,7 @@ module lumi_rx
    genvar l;
    for(l=0;l<NFIFO;l=l+1)
      begin
-        assign fifo_data_muxed[l*RXFIFOW+:RXFIFOW] = {RXFIFOW{fifo_sel[2]}} & lnk_fifo_dout_muxed[l*RXFIFO+:RXFIFOW]} |
+        assign fifo_data_muxed[l*RXFIFOW+:RXFIFOW] = {RXFIFOW{fifo_sel[2]}} & lnk_fifo_dout_muxed[l*RXFIFOW+:RXFIFOW] |
                                                      {RXFIFOW{fifo_sel[1]}} & resp_fifo_dout_muxed[l*FIFOW+:RXFIFOW]  |
                                                      {RXFIFOW{fifo_sel[0]}} & req_fifo_dout_muxed[l*FIFOW+:RXFIFOW]   ;
      end
