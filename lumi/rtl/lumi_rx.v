@@ -60,9 +60,9 @@ module lumi_rx
     );
 
    localparam NFIFO = IOW/RXFIFOWIDTH;
-   localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOWIDTH)/NFIFO;
-   localparam LOGFIFOWIDTH = $clog2(RXFIFOWIDTH/8);
-   localparam LOGNFIFO = $clog2(NFIFO);
+   localparam [7:0] CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOWIDTH)/NFIFO;
+   localparam [7:0] LOGFIFOWIDTH = $clog2(RXFIFOWIDTH/8);
+   localparam [7:0] LOGNFIFO = $clog2(NFIFO);
 
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
@@ -92,8 +92,8 @@ module lumi_rx
    wire [NFIFO-1:0]                 req_fifo_rd;
    wire [NFIFO-1:0]                 req_fifo_empty;
    wire [NFIFO-1:0]                 req_fifo_full;
-   wire [NFIFO:0]                   fifo_dout_sel;
-   wire [NFIFO:0]                   fifo_dout_mask;
+   wire [NFIFO-1:0]                 fifo_dout_sel;
+   wire [NFIFO-1:0]                 fifo_dout_mask;
    wire [7:0]                       iow_mask;
    wire [7:0]                       iow_shift;
    wire [7:0]                       fifo_mux_mask;
@@ -435,18 +435,16 @@ module lumi_rx
         // Mapping of which fifo output goes to the output bus
         assign fifo_dout_sel[i] = (i << LOGFIFOWIDTH) >= iowidth;
         /* verilator lint_off UNSIGNED */
-        // Mask for looking at empty singlas
-        assign fifo_dout_mask[((i+1)<<1<<(LOGNFIFO >> csr_iowidth))-1] = fifo_dout_sel[i];
+        // Mask for looking at empty fifo
+        assign fifo_dout_mask[i] = (i[7:0] & fifo_mux_mask[7:0]) == fifo_mux_mask[7:0];
         // Shift for input busses
-        assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> ((LOGNFIFO >> csr_iowidth)+1) : 8'h0;
+        assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO - csr_iowidth) : 8'h0;
         // Shift for output busses
-        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : ((i+1)<<1<<(LOGNFIFO >> csr_iowidth))-1;
+        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
      end
 
    // Dummy, just for the equations in the loop below
    assign fifo_mux_sel[NFIFO] = 1'b1;
-   assign fifo_dout_sel[NFIFO] = 1'b1;
-   assign fifo_dout_mask[NFIFO] = 1'b0;
 
    //########################################
    // Request Fifo
