@@ -13,6 +13,7 @@
  *
  * Version history:
  * Version 1 - conver from CLINK to LUMI
+ * Version 2 - reduce fifo sizes by diving into multiple fifo's
  *****************************************************************************/
 module lumi_rx
   #(parameter TARGET = "DEFAULT", // implementation target
@@ -21,7 +22,7 @@ module lumi_rx
     parameter DW = 256,           // umi data width
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
-    parameter RXFIFOW = 8         // width of Rx fifo
+    parameter RXFIFOW = 8         // width of Rx fifo - cannot be smaller than IOW!!!
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -421,6 +422,7 @@ module lumi_rx
    // In order to support various iowidth without paying in area the input fifo
    // need to be split into smaller fifo that can be arranged in the right configuration
    // The fifo's will be aligned in a way that minimizes the muxing
+   // Limitation: IOW cannot be smaller than the fifo width!
    // As an example for 128b IOW with 8b minimum width the following configurations will be used:
    // iowidth=128b: all fifo's used in parallel
    // iowidth=64b:  0 ->  1
@@ -442,7 +444,7 @@ module lumi_rx
    // common masks - for both request and response fifos
    //########################################
    assign iow_mask[7:0]      = (IOW >> 3) - 1'b1;
-   assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0];
+   assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0] >> LOGFIFOWIDTH;
 
    genvar i;
    for(i=0;i<NFIFO;i=i+1)
