@@ -121,7 +121,7 @@ module lumi_rx
    wire [(DW+AW+AW+CW)-1:0]         writemask;
    reg [IOW-1:0]                    rxdata;
    reg [7:0]                        rxdata_d;
-   wire [IOW-1:0]                   lnk_fifo_dout;
+   wire [CW-1:0]                    lnk_fifo_dout;
    wire [IOW-1:0]                   fifo_data_muxed;
    wire [CW-1:0]                    umi_out_cmd;
    wire [AW-1:0]                    umi_out_dstaddr;
@@ -555,8 +555,8 @@ module lumi_rx
    assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
    assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
 
-   la_syncfifo #(.DW(IOW),   // Memory width
-                 .DEPTH(8),  // FIFO depth
+   la_syncfifo #(.DW(CW),    // Link commands are only 32b
+                 .DEPTH(2),  // FIFO depth
                  .NS(1),     // Number of power supplies
                  .CHAOS(0),  // generates random full logic when set
                  .CTRLW(1),  // width of asic ctrl interface
@@ -564,7 +564,7 @@ module lumi_rx
                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
-              .rd_dout          (lnk_fifo_dout[IOW-1:0]),
+              .rd_dout          (lnk_fifo_dout[CW-1:0]),
               .rd_empty         (fifo_empty[2]),
               // Inputs
               .clk              (clk),
@@ -575,7 +575,7 @@ module lumi_rx
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[2]),
-              .wr_din           (rxdata[IOW-1:0]),
+              .wr_din           (rxdata[CW-1:0]),
               .rd_en            (fifo_rd[2]));
 
    // arbitrate fifo outputs towards umi. Priority is lnk->resp->req
@@ -590,9 +590,9 @@ module lumi_rx
                      {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], &fifo_empty[2:1]} :
                      fifo_sel_hold;
 
-   assign fifo_data_muxed = {IOW{fifo_sel[2]}} & lnk_fifo_dout[IOW-1:0]  |
-                            {IOW{fifo_sel[1]}} & resp_fifo_dout_muxed[IOW-1:0] |
-                            {IOW{fifo_sel[0]}} & req_fifo_dout_muxed[IOW-1:0]  ;
+   assign fifo_data_muxed = {IOW{fifo_sel[2]}} & {{IOW-CW{1'b0}},lnk_fifo_dout[CW-1:0]} |
+                            {IOW{fifo_sel[1]}} & resp_fifo_dout_muxed[IOW-1:0]          |
+                            {IOW{fifo_sel[0]}} & req_fifo_dout_muxed[IOW-1:0]           ;
 
    /*umi_decode AUTO_TEMPLATE(
     .command       (fifo_data_muxed[]),
