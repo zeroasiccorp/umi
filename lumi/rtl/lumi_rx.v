@@ -597,7 +597,7 @@ module lumi_rx
               .wr_din           (lnk_fifo_din[CW:0]),
               .rd_en            (fifo_rd[2]));
 
-   assign fifo_eop[2:0] = {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW],req_fifo_dout_muxed[FIFOW]};
+   assign fifo_eop[2:0] = {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW-1],req_fifo_dout_muxed[FIFOW-1]};
 
    // lock fifo sel, change only at EOP
    always @(posedge clk or negedge nreset)
