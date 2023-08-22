@@ -86,12 +86,7 @@ module lumi_rx
    wire [2:0]                       fifo_empty;
    wire [2:0]                       fifo_wr;
    wire [2:0]                       fifo_rd;
-   wire [IOW-1:0]                   req_fifo_din;
    wire [NFIFO:0]                   fifo_mux_sel;
-   wire [NFIFO-1:0]                 req_fifo_wr;
-   wire [NFIFO-1:0]                 req_fifo_rd;
-   wire [NFIFO-1:0]                 req_fifo_empty;
-   wire [NFIFO-1:0]                 req_fifo_full;
    wire [NFIFO-1:0]                 fifo_dout_sel;
    wire [NFIFO-1:0]                 fifo_dout_mask;
    wire [7:0]                       iow_mask;
@@ -99,6 +94,20 @@ module lumi_rx
    wire [7:0]                       fifo_mux_mask;
    wire [NFIFO*8-1:0]               fifo_rd_shift;
    wire [NFIFO*8-1:0]               fifo_wr_shift;
+   wire [IOW-1:0]                   req_fifo_din;
+   wire [NFIFO-1:0]                 req_fifo_wr;
+   wire [NFIFO-1:0]                 req_fifo_rd;
+   wire [NFIFO-1:0]                 req_fifo_empty;
+   wire [NFIFO-1:0]                 req_fifo_full;
+   wire [IOW-1:0]                   req_fifo_dout;
+   wire [IOW-1:0]                   req_fifo_dout_muxed;
+   wire [IOW-1:0]                   resp_fifo_din;
+   wire [NFIFO-1:0]                 resp_fifo_wr;
+   wire [NFIFO-1:0]                 resp_fifo_rd;
+   wire [NFIFO-1:0]                 resp_fifo_empty;
+   wire [NFIFO-1:0]                 resp_fifo_full;
+   wire [IOW-1:0]                   resp_fifo_dout;
+   wire [IOW-1:0]                   resp_fifo_dout_muxed;
 
    // local wires
    wire [2:0]                       rxtype;
@@ -112,9 +121,6 @@ module lumi_rx
    wire [(DW+AW+AW+CW)-1:0]         writemask;
    reg [IOW-1:0]                    rxdata;
    reg [7:0]                        rxdata_d;
-   wire [IOW-1:0]                   req_fifo_dout;
-   wire [IOW-1:0]                   req_fifo_dout_muxed;
-   wire [IOW-1:0]                   resp_fifo_dout;
    wire [IOW-1:0]                   lnk_fifo_dout;
    wire [IOW-1:0]                   fifo_data_muxed;
    wire [CW-1:0]                    umi_out_cmd;
@@ -421,7 +427,7 @@ module lumi_rx
    //               8 ->  9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15
    // iowidth=8b:   0 ->  1 ->  2 ->  3 ->  4 ->  5 ->  6 ->  7 ->  8 ->  9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15
    //########################################
-   // common masks
+   // common masks - for both request and response fifos
    //########################################
    assign iow_mask[7:0]      = (IOW >> 3) - 1'b1;
    assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0];
@@ -449,11 +455,11 @@ module lumi_rx
    //########################################
    // Request Fifo
    //########################################
-   assign fifo_wr[0] = rxvalid & (rxtype[2:0] == 3'b001);
-   assign fifo_rd[0] = (|(~req_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0])) &
-                       fifo_sel[0] &
-                       umi_out_ready;
-
+   assign fifo_wr[0]    = rxvalid & (rxtype[2:0] == 3'b001);
+   assign fifo_empty[0] = ~(|(~req_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0]));
+   assign fifo_rd[0]    = ~fifo_empty[0] &
+                          fifo_sel[0] &
+                          umi_out_ready;
    genvar j;
 
    for(j=0;j<NFIFO;j=j+1)
@@ -497,35 +503,51 @@ module lumi_rx
    //########################################
    // Response Fifo
    //########################################
-   // Write whenever there is valid data
-   assign fifo_wr[1] = rxvalid & (rxtype[2:0] == 3'b010);
-   // Read when not empty.
-   assign fifo_rd[1] = ~fifo_empty[1] & fifo_sel[1] & umi_out_ready;
+   assign fifo_wr[1]    = rxvalid & (rxtype[2:0] == 3'b010);
+   assign fifo_empty[1] = ~(|(~resp_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0]));
+   assign fifo_rd[1]    = ~fifo_empty[1] &
+                          fifo_sel[1] &
+                          umi_out_ready;
 
-   la_asyncfifo #(.DW(IOW),          // Memory width
-                  .DEPTH(84), // FIFO depth
-                  .NS(1),            // Number of power supplies
-                  .CHAOS(0),         // generates random full logic when set
-                  .CTRLW(1),         // width of asic ctrl interface
-                  .TESTW(1),         // width of asic test interface
-                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
-   resp_fifo_i(// Outputs
-               .wr_full          (),
-               .rd_dout          (resp_fifo_dout[IOW-1:0]),
-               .rd_empty         (fifo_empty[1]),
-               // Inputs
-               .rd_clk           (clk),
-               .rd_nreset        (nreset),
-               .wr_clk           (ioclk),
-               .wr_nreset        (ionreset),
-               .vss              (1'b0),
-               .vdd              (1'b1),
-               .wr_chaosmode     (1'b0),
-               .ctrl             (1'b0),
-               .test             (1'b0),
-               .wr_en            (fifo_wr[1]),
-               .wr_din           (rxdata[IOW-1:0]),
-               .rd_en            (fifo_rd[1]));
+   genvar k;
+
+   for(k=0;k<NFIFO;k=k+1)
+     begin
+        assign resp_fifo_din[k*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_mux_sel[k] ?
+                                                           rxdata[fifo_wr_shift[k*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH] :
+                                                           resp_fifo_dout[(k-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
+
+        assign resp_fifo_wr[k] = fifo_mux_sel[k] ? fifo_wr[1] : ~resp_fifo_empty[k-1];
+
+        assign resp_fifo_rd[k] = fifo_mux_sel[k+1] ? fifo_rd[1] : ~resp_fifo_full[k+1];
+
+        assign resp_fifo_dout_muxed[k*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_dout_sel[k] ?
+                                                                  'h0 :
+                                                                  resp_fifo_dout[fifo_rd_shift[k*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH];
+
+        la_syncfifo #(.DW(RXFIFOWIDTH),  // Memory width
+                      .DEPTH(CRDTDEPTH), // FIFO depth
+                      .NS(1),            // Number of power supplies
+                      .CHAOS(0),         // generates random full logic when set
+                      .CTRLW(1),         // width of asic ctrl interface
+                      .TESTW(1),         // width of asic test interface
+                      .TYPE("DEFAULT"))  // Pass through variable for hard macro
+        resp_fifo_i(// Outputs
+                    .wr_full          (resp_fifo_full[k]),
+                    .rd_dout          (resp_fifo_dout[k*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                    .rd_empty         (resp_fifo_empty[k]),
+                    // Inputs
+                    .clk              (clk),
+                    .nreset           (nreset),
+                    .vss              (1'b0),
+                    .vdd              (1'b1),
+                    .chaosmode        (1'b0),
+                    .ctrl             (1'b0),
+                    .test             (1'b0),
+                    .wr_en            (resp_fifo_wr[k]),
+                    .wr_din           (resp_fifo_din[k*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                    .rd_en            (resp_fifo_rd[k]));
+     end
 
    //########################################
    // link cmd Fifo - no FC
@@ -569,7 +591,7 @@ module lumi_rx
                      fifo_sel_hold;
 
    assign fifo_data_muxed = {IOW{fifo_sel[2]}} & lnk_fifo_dout[IOW-1:0]  |
-                            {IOW{fifo_sel[1]}} & resp_fifo_dout[IOW-1:0] |
+                            {IOW{fifo_sel[1]}} & resp_fifo_dout_muxed[IOW-1:0] |
                             {IOW{fifo_sel[0]}} & req_fifo_dout_muxed[IOW-1:0]  ;
 
    /*umi_decode AUTO_TEMPLATE(
