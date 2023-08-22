@@ -21,7 +21,7 @@ module lumi_rx
     parameter DW = 256,           // umi data width
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
-    parameter RXFIFOWIDTH = 8     // width of Rx fifo
+    parameter RXFIFOW = 8         // width of Rx fifo
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -59,10 +59,11 @@ module lumi_rx
     output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
     );
 
+   localparam FIFOW = RXFIFOW + 1;
    localparam ASYNCFIFODEPTH = 4;
-   localparam NFIFO = IOW/RXFIFOWIDTH;
-   localparam [7:0] CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOWIDTH)/NFIFO;
-   localparam [7:0] LOGFIFOWIDTH = $clog2(RXFIFOWIDTH/8);
+   localparam NFIFO = IOW/RXFIFOW;
+   localparam [7:0] CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
+   localparam [7:0] LOGFIFOWIDTH = $clog2(RXFIFOW/8);
    localparam [7:0] LOGNFIFO = $clog2(NFIFO);
 
    // local state
@@ -95,21 +96,23 @@ module lumi_rx
    wire [7:0]                       fifo_mux_mask;
    wire [NFIFO*8-1:0]               fifo_rd_shift;
    wire [NFIFO*8-1:0]               fifo_wr_shift;
-   wire [IOW-1:0]                   req_fifo_din;
+   wire [IOW+NFIFO-1:0]             req_fifo_din;
    wire [NFIFO-1:0]                 req_fifo_wr;
    wire [NFIFO-1:0]                 req_fifo_rd;
    wire [NFIFO-1:0]                 req_fifo_empty;
    wire [NFIFO-1:0]                 req_fifo_full;
-   wire [IOW-1:0]                   req_fifo_dout;
-   wire [IOW-1:0]                   req_fifo_dout_muxed;
-   wire [IOW-1:0]                   resp_fifo_din;
+   wire [IOW+NFIFO-1:0]             req_fifo_dout;
+   wire [IOW+NFIFO-1:0]             req_fifo_dout_muxed;
+   wire [IOW+NFIFO-1:0]             resp_fifo_din;
    wire [NFIFO-1:0]                 resp_fifo_wr;
    wire [NFIFO-1:0]                 resp_fifo_rd;
    wire [NFIFO-1:0]                 resp_fifo_empty;
    wire [NFIFO-1:0]                 resp_fifo_full;
-   wire [IOW-1:0]                   resp_fifo_dout;
-   wire [IOW-1:0]                   resp_fifo_dout_muxed;
-   wire [CW-1:0]                    lnk_fifo_dout;
+   wire [IOW+NFIFO-1:0]             resp_fifo_dout;
+   wire [IOW+NFIFO-1:0]             resp_fifo_dout_muxed;
+   wire [CW:0]                      lnk_fifo_din;
+   wire [CW:0]                      lnk_fifo_dout;
+   wire [IOW-1:0]                   lnk_fifo_dout_muxed;
    wire [IOW-1:0]                   fifo_data_muxed;
    wire [IOW-1:0]                   sync_fifo_dout;
    wire                             sync_fifo_wr;
@@ -470,19 +473,22 @@ module lumi_rx
 
    for(j=0;j<NFIFO;j=j+1)
      begin
-        assign req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_mux_sel[j] ?
-                                                          rxdata[fifo_wr_shift[j*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH] :
-                                                          req_fifo_dout[(j-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
+        assign req_fifo_din[j*FIFOW+:RXFIFOW] = fifo_mux_sel[j] ?
+                                                rxdata[fifo_wr_shift[j*8+:8]*FIFOW+:RXFIFOW] :
+                                                req_fifo_dout[(j-1)*FIFOW+:RXFIFOW];
+
+        // Need to store SOP in the fifo to lock fifo_sel at the output
+        assign req_fifo_din[j*FIFOW + RXFIFOW] = ~(|sopptr);
 
         assign req_fifo_wr[j] = fifo_mux_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-1];
 
         assign req_fifo_rd[j] = fifo_mux_sel[j+1] ? fifo_rd[0] : ~req_fifo_full[j+1];
 
-        assign req_fifo_dout_muxed[j*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_dout_sel[j] ?
-                                                                 'h0 :
-                                                                 req_fifo_dout[fifo_rd_shift[j*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH];
+        assign req_fifo_dout_muxed[j*FIFOW+:FIFOW] = fifo_dout_sel[j] ?
+                                                     'h0 :
+                                                     req_fifo_dout[fifo_rd_shift[j*8+:8]*FIFOW+:FIFOW];
 
-        la_syncfifo #(.DW(RXFIFOWIDTH),  // Memory width
+        la_syncfifo #(.DW(FIFOW),  // Memory width
                       .DEPTH(CRDTDEPTH), // FIFO depth
                       .NS(1),            // Number of power supplies
                       .CHAOS(0),         // generates random full logic when set
@@ -491,7 +497,7 @@ module lumi_rx
                       .TYPE("DEFAULT"))  // Pass through variable for hard macro
         req_fifo_i(// Outputs
                    .wr_full          (req_fifo_full[j]),
-                   .rd_dout          (req_fifo_dout[j*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                   .rd_dout          (req_fifo_dout[j*FIFOW+:FIFOW]),
                    .rd_empty         (req_fifo_empty[j]),
                    // Inputs
                    .clk              (clk),
@@ -502,7 +508,7 @@ module lumi_rx
                    .ctrl             (1'b0),
                    .test             (1'b0),
                    .wr_en            (req_fifo_wr[j]),
-                   .wr_din           (req_fifo_din[j*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                   .wr_din           (req_fifo_din[j*FIFOW+:FIFOW]),
                    .rd_en            (req_fifo_rd[j]));
      end
 
@@ -519,19 +525,22 @@ module lumi_rx
 
    for(k=0;k<NFIFO;k=k+1)
      begin
-        assign resp_fifo_din[k*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_mux_sel[k] ?
-                                                           rxdata[fifo_wr_shift[k*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH] :
-                                                           resp_fifo_dout[(k-1)*RXFIFOWIDTH+:RXFIFOWIDTH];
+        assign resp_fifo_din[k*FIFOW+:RXFIFOW] = fifo_mux_sel[k] ?
+                                                 rxdata[fifo_wr_shift[k*8+:8]*FIFOW+:RXFIFOW] :
+                                                 resp_fifo_dout[(k-1)*FIFOW+:RXFIFOW];
+
+        // Need to store SOP in the fifo to lock fifo_sel at the output
+        assign req_fifo_din[k*FIFOW + RXFIFOW] = ~(|sopptr);
 
         assign resp_fifo_wr[k] = fifo_mux_sel[k] ? fifo_wr[1] : ~resp_fifo_empty[k-1];
 
         assign resp_fifo_rd[k] = fifo_mux_sel[k+1] ? fifo_rd[1] : ~resp_fifo_full[k+1];
 
-        assign resp_fifo_dout_muxed[k*RXFIFOWIDTH+:RXFIFOWIDTH] = fifo_dout_sel[k] ?
-                                                                  'h0 :
-                                                                  resp_fifo_dout[fifo_rd_shift[k*8+:8]*RXFIFOWIDTH+:RXFIFOWIDTH];
+        assign resp_fifo_dout_muxed[k*FIFOW+:FIFOW] = fifo_dout_sel[k] ?
+                                                      'h0 :
+                                                      resp_fifo_dout[fifo_rd_shift[k*8+:8]*FIFOW+:FIFOW];
 
-        la_syncfifo #(.DW(RXFIFOWIDTH),  // Memory width
+        la_syncfifo #(.DW(FIFOW),  // Memory width
                       .DEPTH(CRDTDEPTH), // FIFO depth
                       .NS(1),            // Number of power supplies
                       .CHAOS(0),         // generates random full logic when set
@@ -540,7 +549,7 @@ module lumi_rx
                       .TYPE("DEFAULT"))  // Pass through variable for hard macro
         resp_fifo_i(// Outputs
                     .wr_full          (resp_fifo_full[k]),
-                    .rd_dout          (resp_fifo_dout[k*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                    .rd_dout          (resp_fifo_dout[k*FIFOW+:FIFOW]),
                     .rd_empty         (resp_fifo_empty[k]),
                     // Inputs
                     .clk              (clk),
@@ -551,7 +560,7 @@ module lumi_rx
                     .ctrl             (1'b0),
                     .test             (1'b0),
                     .wr_en            (resp_fifo_wr[k]),
-                    .wr_din           (resp_fifo_din[k*RXFIFOWIDTH+:RXFIFOWIDTH]),
+                    .wr_din           (resp_fifo_din[k*FIFOW+:FIFOW]),
                     .rd_en            (resp_fifo_rd[k]));
      end
 
@@ -563,7 +572,10 @@ module lumi_rx
                        fifo_sel[2] &
                        ~sync_fifo_full;
 
-   la_syncfifo #(.DW(CW),    // Link commands are only 32b
+   assign lnk_fifo_din[CW-1:0] = rxdata[CW-1:0];
+   assign lnk_fifo_din[CW]     = ~(|sopptr);
+
+   la_syncfifo #(.DW(CW+1),  // Link commands are only 32b
                  .DEPTH(2),  // FIFO depth
                  .NS(1),     // Number of power supplies
                  .CHAOS(0),  // generates random full logic when set
@@ -572,7 +584,7 @@ module lumi_rx
                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
-              .rd_dout          (lnk_fifo_dout[CW-1:0]),
+              .rd_dout          (lnk_fifo_dout[CW:0]),
               .rd_empty         (fifo_empty[2]),
               // Inputs
               .clk              (clk),
@@ -583,7 +595,7 @@ module lumi_rx
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (fifo_wr[2]),
-              .wr_din           (rxdata[CW-1:0]),
+              .wr_din           (lnk_fifo_din[CW:0]),
               .rd_en            (fifo_rd[2]));
 
    // arbitrate fifo outputs towards umi. Priority is lnk->resp->req
@@ -594,19 +606,26 @@ module lumi_rx
        fifo_sel_hold <= fifo_sel;
 
    // Cannot change fifo sel when there is already a pending transaction
-   assign fifo_sel = ~(|rxptr) & ~(umi_out_valid & ~umi_out_ready)?
+   assign fifo_sel = (|(fifo_rd[2:0] & {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW],req_fifo_dout_muxed[FIFOW]}))  ?
                      {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], &fifo_empty[2:1]} :
                      fifo_sel_hold;
 
-   assign fifo_data_muxed = {IOW{fifo_sel[2]}} & {{IOW-CW{1'b0}},lnk_fifo_dout[CW-1:0]} |
-                            {IOW{fifo_sel[1]}} & resp_fifo_dout_muxed[IOW-1:0]          |
-                            {IOW{fifo_sel[0]}} & req_fifo_dout_muxed[IOW-1:0]           ;
+   // Remove the sop bit
+   assign lnk_fifo_dout_muxed[IOW-1:0] = {{IOW-CW{1'b0}},lnk_fifo_dout[CW-1:0]};
+
+   genvar l;
+   for(l=0;l<NFIFO;l=l+1)
+     begin
+        assign fifo_data_muxed[l*RXFIFOW+:RXFIFOW] = {RXFIFOW{fifo_sel[2]}} & lnk_fifo_dout_muxed[l*RXFIFO+:RXFIFOW]} |
+                                                     {RXFIFOW{fifo_sel[1]}} & resp_fifo_dout_muxed[l*FIFOW+:RXFIFOW]  |
+                                                     {RXFIFOW{fifo_sel[0]}} & req_fifo_dout_muxed[l*FIFOW+:RXFIFOW]   ;
+     end
 
    //########################################
    // Async fifo to cross from phy clock to lumi clock
    //########################################
    assign sync_fifo_wr = |fifo_rd[2:0];
-   assign sync_fifo_rd = ~sync_fifo_empty & umi_out_ready;
+   assign sync_fifo_rd = ~sync_fifo_empty & ~(umi_out_valid & ~umi_out_ready);
 
    la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
                   .DEPTH(ASYNCFIFODEPTH), // FIFO depth
@@ -773,7 +792,7 @@ module lumi_rx
    always @ (posedge clk or negedge nreset)
      if (~nreset)
        rxptr <= 'b0;
-     else if (|fifo_rd[2:0])
+     else if (sync_fifo_rd)
        rxptr <= rxptr_next;
 
    // Count by the number of bytes per cycle transfered
@@ -791,10 +810,10 @@ module lumi_rx
      if (~nreset)
        transfer <= 'b0;
      else
-       if (~transfer | fifo_rd[2] | umi_out_ready)
+       if (~transfer /*| fifo_rd[2]*/ | umi_out_ready) // TODO - how to identify link command in flight
          transfer <= ((|rxptr) |
                       ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) &
-                     (|fifo_rd) &
+                     sync_fifo_rd &
 		     (~|rxptr_next);
 
    //########################################
@@ -814,7 +833,7 @@ module lumi_rx
    // non traditional shift register to handle multi modes
    // Need to stall the pipeline, including the shiftreg, when output is stalled
    always @ (posedge clk)
-     if (|fifo_rd)
+     if (sync_fifo_rd)
      shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) & writemask[(DW+AW+AW+CW)-1:0] |
 			            (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
 
