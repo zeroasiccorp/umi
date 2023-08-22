@@ -61,7 +61,7 @@ module lumi_rx
     );
 
    localparam FIFOW = RXFIFOW + 1;
-   localparam ASYNCFIFODEPTH = 4;
+   localparam ASYNCFIFODEPTH = 8;
    localparam NFIFO = IOW/RXFIFOW;
    localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
    /* verilator lint_off WIDTHTRUNC */
