@@ -59,6 +59,7 @@ module lumi_rx
     output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
     );
 
+   localparam ASYNCFIFODEPTH = 4;
    localparam NFIFO = IOW/RXFIFOWIDTH;
    localparam [7:0] CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOWIDTH)/NFIFO;
    localparam [7:0] LOGFIFOWIDTH = $clog2(RXFIFOWIDTH/8);
@@ -108,6 +109,13 @@ module lumi_rx
    wire [NFIFO-1:0]                 resp_fifo_full;
    wire [IOW-1:0]                   resp_fifo_dout;
    wire [IOW-1:0]                   resp_fifo_dout_muxed;
+   wire [CW-1:0]                    lnk_fifo_dout;
+   wire [IOW-1:0]                   fifo_data_muxed;
+   wire [IOW-1:0]                   sync_fifo_dout;
+   wire                             sync_fifo_wr;
+   wire                             sync_fifo_rd;
+   wire                             sync_fifo_empty;
+   wire                             sync_fifo_full;
 
    // local wires
    wire [2:0]                       rxtype;
@@ -121,8 +129,6 @@ module lumi_rx
    wire [(DW+AW+AW+CW)-1:0]         writemask;
    reg [IOW-1:0]                    rxdata;
    reg [7:0]                        rxdata_d;
-   wire [CW-1:0]                    lnk_fifo_dout;
-   wire [IOW-1:0]                   fifo_data_muxed;
    wire [CW-1:0]                    umi_out_cmd;
    wire [AW-1:0]                    umi_out_dstaddr;
    wire [AW-1:0]                    umi_out_srcaddr;
@@ -459,7 +465,7 @@ module lumi_rx
    assign fifo_empty[0] = ~(|(~req_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0]));
    assign fifo_rd[0]    = ~fifo_empty[0] &
                           fifo_sel[0] &
-                          umi_out_ready;
+                          ~sync_fifo_full;
    genvar j;
 
    for(j=0;j<NFIFO;j=j+1)
@@ -507,7 +513,7 @@ module lumi_rx
    assign fifo_empty[1] = ~(|(~resp_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0]));
    assign fifo_rd[1]    = ~fifo_empty[1] &
                           fifo_sel[1] &
-                          umi_out_ready;
+                          ~sync_fifo_full;
 
    genvar k;
 
@@ -553,7 +559,9 @@ module lumi_rx
    // link cmd Fifo - no FC
    //########################################
    assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
-   assign fifo_rd[2] = ~fifo_empty[2] & fifo_sel[2];
+   assign fifo_rd[2] = ~fifo_empty[2] &
+                       fifo_sel[2] &
+                       ~sync_fifo_full;
 
    la_syncfifo #(.DW(CW),    // Link commands are only 32b
                  .DEPTH(2),  // FIFO depth
@@ -594,8 +602,39 @@ module lumi_rx
                             {IOW{fifo_sel[1]}} & resp_fifo_dout_muxed[IOW-1:0]          |
                             {IOW{fifo_sel[0]}} & req_fifo_dout_muxed[IOW-1:0]           ;
 
+   //########################################
+   // Async fifo to cross from phy clock to lumi clock
+   //########################################
+   assign sync_fifo_wr = |fifo_rd[2:0];
+   assign sync_fifo_rd = ~sync_fifo_empty & umi_out_ready;
+
+   la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
+                  .DEPTH(ASYNCFIFODEPTH), // FIFO depth
+                  .NS(1),                 // Number of power supplies
+                  .CHAOS(0),              // generates random full logic when set
+                  .CTRLW(1),              // width of asic ctrl interface
+                  .TESTW(1),              // width of asic test interface
+                  .TYPE("DEFAULT"))       // Pass through variable for hard macro
+   clock_fifo_i(// Outputs
+              .wr_full          (sync_fifo_full),
+              .rd_dout          (sync_fifo_dout[IOW-1:0]),
+              .rd_empty         (sync_fifo_),
+              // Inputs
+              .rd_clk           (ioclk),
+              .rd_nreset        (ionreset),
+              .wr_clk           (clk),
+              .wr_nreset        (nreset),
+              .vss              (1'b0),
+              .vdd              (1'b1),
+              .wr_chaosmode     (1'b0),
+              .ctrl             (1'b0),
+              .test             (1'b0),
+              .wr_en            (sync_fifo_wr),
+              .wr_din           (fifo_data_muxed[IOW-1:0]),
+              .rd_en            (sync_fifo_rd));
+
    /*umi_decode AUTO_TEMPLATE(
-    .command       (fifo_data_muxed[]),
+    .command       (sync_fifo_dout[]),
     .cmd_invalid   (fifo_cmd_invalid[]),
     .cmd_link      (fifo_cmd_link[]),
     .cmd_link_resp (fifo_cmd_link_resp[]),
@@ -633,7 +672,7 @@ module lumi_rx
                 .cmd_atomic_minu(),                      // Templated
                 .cmd_atomic_swap(),                      // Templated
                 // Inputs
-                .command        (fifo_data_muxed[CW-1:0])); // Templated
+                .command        (sync_fifo_dout[CW-1:0])); // Templated
 
    assign fifo_cmd_only  = fifo_cmd_invalid    |
                            fifo_cmd_link       |
@@ -770,7 +809,7 @@ module lumi_rx
 			                 (datashift<<3);
 
    // The input bus needs to account for the shift output size
-   assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},fifo_data_muxed[IOW-1:0]};
+   assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},sync_fifo_dout[IOW-1:0]};
 
    // non traditional shift register to handle multi modes
    // Need to stall the pipeline, including the shiftreg, when output is stalled
