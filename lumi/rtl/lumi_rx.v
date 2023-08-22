@@ -606,8 +606,10 @@ module lumi_rx
        fifo_sel_hold <= fifo_sel;
 
    // Cannot change fifo sel when there is already a pending transaction
-   assign fifo_sel = (|(fifo_rd[2:0] & {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW],req_fifo_dout_muxed[FIFOW]}))  ?
-                     {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], &fifo_empty[2:1]} :
+   assign fifo_sel = ~(|fifo_sel_hold) | (|(fifo_sel_hold[2:0] &
+                                            (fifo_empty[2:0] |
+                                             {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW],req_fifo_dout_muxed[FIFOW]}))) ?
+                     {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], (&fifo_empty[2:1]) & ~fifo_empty[0]} :
                      fifo_sel_hold;
 
    // Remove the sop bit
