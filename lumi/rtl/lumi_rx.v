@@ -575,7 +575,7 @@ module lumi_rx
    assign lnk_fifo_dout_muxed[IOW-1:0] = {{IOW-CW{1'b0}},lnk_fifo_dout[CW-1:0]};
 
    la_syncfifo #(.DW(CW+1),  // Link commands are only 32b
-                 .DEPTH(2),  // FIFO depth
+                 .DEPTH(8),  // FIFO depth
                  .NS(1),     // Number of power supplies
                  .CHAOS(0),  // generates random full logic when set
                  .CTRLW(1),  // width of asic ctrl interface
