@@ -91,7 +91,7 @@ def main(topo="2d", vldmode="2", n=100, client2rtl="client2rtl_0.q", rtl2client=
         val8 = umi.read(addr, length, np.uint8, srcaddr=0x0000110000000000)
         print(f"umi Read: {val8}")
         if ~((val8 == data8).all()) :
-            print(f"ERROR core read from addr 0x{addr:08x} expected 0x{data8:08x} actual 0x{val8:08x}")
+            print(f"ERROR core read from addr 0x{addr:08x} expected {data8} actual {val8}")
         assert (val8 == data8).all()
         n_sent = n_sent + 1
 
