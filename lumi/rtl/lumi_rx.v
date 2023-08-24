@@ -83,7 +83,9 @@ module lumi_rx
    reg [(DW+AW+AW+CW)-1:0]          shiftreg;
    wire [(DW+AW+AW+CW)-1:0]         shiftreg_in;
    reg [CW-1:0]                     lnk_shiftreg;
-   reg                              lnk_cmd_sop;
+   reg [CW-1:0]                     lnk_fifo_dout_mask;
+   reg [1:0]                        lnk_sop;
+   wire [1:0]                       lnk_sop_next;
    reg                              transfer;
    reg [2:0]                        rxtype_next;
    reg [15:0]                       rx_crdt_req;
@@ -91,7 +93,6 @@ module lumi_rx
    reg [1:0]                        fifo_sel_hold;
    wire [1:0]                       fifo_sel;
    wire [1:0]                       fifo_eop;
-   wire                             lnk_fifo_eop;
    wire [1:0]                       fifo_empty;
    wire                             lnk_fifo_empty;
    wire [1:0]                       fifo_wr;
@@ -120,8 +121,8 @@ module lumi_rx
    wire [NFIFO-1:0]                 resp_fifo_full;
    wire [IOW+NFIFO-1:0]             resp_fifo_dout;
    wire [IOW+NFIFO-1:0]             resp_fifo_dout_muxed;
-   wire [CW:0]                      lnk_fifo_din;
-   wire [CW:0]                      lnk_fifo_dout;
+   wire [CW-1:0]                    lnk_fifo_din;
+   wire [CW-1:0]                    lnk_fifo_dout;
    wire [IOW-1:0]                   fifo_data_muxed;
    wire [IOW-1:0]                   sync_fifo_dout;
    wire                             sync_fifo_wr;
@@ -570,9 +571,9 @@ module lumi_rx
    //########################################
    assign lnk_fifo_wr = rxvalid & (rxtype[2:0] == 3'b100);
    assign lnk_fifo_rd = ~lnk_fifo_empty;
-   assign lnk_fifo_din[CW-1:0] = {~(|sopptr_next),rxdata[CW-1:0]};
+   assign lnk_fifo_din[CW-1:0] = rxdata[CW-1:0];
 
-   la_asyncfifo #(.DW(CW),  // Link commands are only 32b
+   la_asyncfifo #(.DW(CW)  ,  // Link commands are only 32b
                   .DEPTH(8),  // FIFO depth
                   .NS(1),     // Number of power supplies
                   .CHAOS(0),  // generates random full logic when set
@@ -581,7 +582,7 @@ module lumi_rx
                   .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
-              .rd_dout          (lnk_fifo_dout[CW:0]),
+              .rd_dout          (lnk_fifo_dout[CW-1:0]),
               .rd_empty         (lnk_fifo_empty),
               // Inputs
               .rd_clk           (ioclk),
@@ -594,26 +595,26 @@ module lumi_rx
               .ctrl             (1'b0),
               .test             (1'b0),
               .wr_en            (lnk_fifo_wr),
-              .wr_din           (lnk_fifo_din[CW:0]),
+              .wr_din           (lnk_fifo_din[CW-1:0]),
               .rd_en            (lnk_fifo_rd));
 
-   wire [CW-1:0] lnk_fifo_dout_mask;
-   assign lnk_fifo_dout_shift = lnk_fifo_dout[CW-1:0]
+   assign lnk_sop_next[1:0] = lnk_sop[1:0] + iowidth[1:0];
+
    always @(posedge clk or negedge nreset)
      if (~nreset)
        begin
-          lnk_cmd_sop                <= 'h0;
+          lnk_sop[1:0]               <= 'h0;
           lnk_fifo_dout_mask[CW-1:0] <= 'h0;
           lnk_shiftreg[CW-1:0]       <= 'h0;
        end
      else if (lnk_fifo_rd)
        begin
-          lnk_cmd_sop                <= lnk_fifo_dout[CW];
-          lnk_fifo_dout_mask[CW-1:0] <= lnk_fifo_dout[CW] ?
-                                        {{CW-iowidth*8{1'b0}},{iowidth*8{1'b1}}} :
+          lnk_sop[1:0]               <= lnk_sop_next[1:0];
+          lnk_fifo_dout_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
+                                        ~({CW{1'b1}}<<(iowidth<<3))  :
                                         lnk_fifo_dout_mask[CW-1:0] << (iowidth*8);
-          lnk_shiftreg[CW-1:0]       <= lnk_cmd_sop ?
-                                        lnk_fifo_dout[CW-1:0] :
+          lnk_shiftreg[CW-1:0]       <= (lnk_sop[1:0] == 2'b00)      ?
+                                        lnk_fifo_dout[CW-1:0]        :
                                         lnk_fifo_dout[CW-1:0] & lnk_fifo_dout_mask[CW-1:0] |
                                         lnk_shiftreg[CW-1:0] & ~lnk_fifo_dout_mask[CW-1:0];
        end
@@ -646,11 +647,11 @@ module lumi_rx
    //# "steal" incoming credit update
    //########################################
    assign credit_req_in[0] = lnk_fifo_rd &
-                             lnk_cmd_vld &
+                             (lnk_sop[1:0] == 2'b00) &
                              ((lnk_cmd_user[7:0] == 8'h01) | (lnk_cmd_user[7:0] == 8'h02));
 
    assign credit_req_in[1] = lnk_fifo_rd &
-                             lnk_cmd_vld &
+                             (lnk_sop[1:0] == 2'b00) &
                              ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
 
    always @(posedge clk or negedge nreset)
