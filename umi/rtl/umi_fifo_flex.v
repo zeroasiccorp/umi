@@ -191,8 +191,8 @@ module umi_fifo_flex
         assign fifo_len     = packet_latch_en    ? ((ODW >> cmd_size >> 3) - 1'b1) : cmd_len;
 
         // Latched command for next split
-        assign latch_dstaddr = fifo_dstaddr + (ODW >> 3);
-        assign latch_srcaddr = fifo_srcaddr + (ODW >> 3);
+        assign latch_dstaddr = fifo_dstaddr + (ODW/8);
+        assign latch_srcaddr = fifo_srcaddr + (ODW/8);
         assign latch_data    = fifo_data >> ODW;
         assign latch_len     = cmd_len_plus_one - (ODW >> cmd_size >> 3) - 1'b1;
 
