@@ -16,6 +16,7 @@ def build_testbench():
     dut = SbDut('testbench')
 
     EX_DIR = Path('..')
+    EX_DIR = EX_DIR.resolve()
 
     # Set up inputs
     dut.input('testbench_mem_agent.sv')
