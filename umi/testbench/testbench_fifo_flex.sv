@@ -9,7 +9,7 @@ module testbench (
    parameter integer AW=64;
    parameter integer CW=32;
    parameter integer DEPTH=512;
-   parameter integer SPLIT=0;
+   parameter integer SPLIT=1;
    parameter integer BYPASS=1;
 
    /*AUTOWIRE*/
