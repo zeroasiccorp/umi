@@ -16,6 +16,7 @@ def build_testbench():
     dut = SbDut('testbench')
 
     EX_DIR = Path('..')
+    EX_DIR = EX_DIR.resolve()
 
     # Set up inputs
     dut.input('testbench_fifo_flex.sv')
@@ -65,7 +66,8 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
     print("### Statring test ###")
 
     for count in range (10):
-        umip = random_umi_packet()
+        psize = random.choice([0, 1, 2])
+        umip = random_umi_packet(size=0)#psize)
         if host.send(umip, blocking=False):
             print('* TX *')
             print(str(umip))
