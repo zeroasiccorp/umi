@@ -65,9 +65,10 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
 
     print("### Statring test ###")
 
-    for count in range (10):
+    for count in range (100):
         psize = random.choice([0, 1, 2])
-        umip = random_umi_packet(size=0)#psize)
+        paddr = random.randrange(2**(64-psize))
+        umip = random_umi_packet(size=psize,dstaddr=paddr*2**psize)
         if host.send(umip, blocking=False):
             print('* TX *')
             print(str(umip))
