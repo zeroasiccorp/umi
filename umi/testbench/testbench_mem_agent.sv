@@ -46,7 +46,7 @@ module testbench (
                   );
 
    umi_tx_sim #(.READY_MODE_DEFAULT(2),
-                .DW(256)
+                .DW(DW)
                 )
    host_umi_tx_i (.clk(clk),
                   .data(udev_resp_data[DW-1:0]),
