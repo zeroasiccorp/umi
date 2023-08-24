@@ -37,25 +37,29 @@ module tb_umi_fifo
    reg umi_dut2check_ready;
 
    reg [128*8-1:0] memhfile;
-   reg 		   slowclk;
-   reg 		   clk;
-   reg 		   load;
-   reg 		   nreset;
-   reg 		   go;
-   integer 	   r;
+   reg             slowclk;
+   reg             clk;
+   reg             load;
+   reg             nreset;
+   reg             early_nreset;
+   reg             go;
+   integer         r;
 
    // reset initialization
    initial
      begin
-	#(1)
-	nreset   = 1'b0;
-	clk      = 1'b0;
-	load     = 1'b0;
-	go       = 1'b0;
-	#(PERIOD_CLK * 10)
-	nreset   = 1'b1;
-	#(PERIOD_CLK * 10)
-	go       = 1'b1;
+        #(1)
+        nreset       = 1'b0;
+        early_nreset = 1'b0;
+        clk      =  1'b0;
+        load     = 1'b0;
+        go       = 1'b0;
+        #(PERIOD_CLK * 5)
+        early_nreset   = 1'b1;
+        #(PERIOD_CLK * 10)
+        nreset   = 1'b1;
+        #(PERIOD_CLK * 10)
+        go       = 1'b1;
      end // initial begin
 
    // clocks
@@ -65,12 +69,12 @@ module tb_umi_fifo
    // control block
    initial
      begin
-	r = $value$plusargs("MEMHFILE=%s", memhfile);
-	$readmemh(memhfile, umi_stimulus.ram);
+        r = $value$plusargs("MEMHFILE=%s", memhfile);
+        $readmemh(memhfile, umi_stimulus.ram);
         $timeformat(-9, 0, " ns", 20);
         $dumpfile("waveform.vcd");
         $dumpvars();
-	#(TIMEOUT)
+        #(TIMEOUT)
         $finish;
      end
 
@@ -85,18 +89,18 @@ module tb_umi_fifo
        slowclk = clk;
    else
      // clock divider
-     always @ (posedge clk or negedge nreset)
-       if (~nreset)
+     always @ (posedge clk or negedge early_nreset)
+       if (~early_nreset)
          slowclk <= 1'b0;
        else
          slowclk <= ~slowclk;
    endgenerate
 
    la_rsync la_rsync (// Outputs
-		      .nrst_out		(slownreset),
-		      // Inputs
-		      .clk		(slowclk),
-		      .nrst_in		(nreset));
+                      .nrst_out         (slownreset),
+                      // Inputs
+                      .clk              (slowclk),
+                      .nrst_in          (nreset));
 
 
    /*AUTOWIRE*/
@@ -126,25 +130,25 @@ module tb_umi_fifo
     .ctrl               (1'b0),
     .status             (),
     .bypass             (|BYPASS),
-    .umi_out_clk	(slowclk),
+    .umi_out_clk        (slowclk),
     .umi_out_nreset     (slownreset),
-    .umi_out_ready	(1'b1),
-    .umi_out_\(.*\)	(umi_dut2check_\1[]),
-    .umi_in_clk	        (clk),
+    .umi_out_ready      (1'b1),
+    .umi_out_\(.*\)     (umi_dut2check_\1[]),
+    .umi_in_clk         (clk),
     .umi_in_nreset      (nreset),
     .umi_in_valid       (umi_stim2dut_valid),
-    .umi_in_\(.*\)	(umi_stim2dut_\1[]),
+    .umi_in_\(.*\)      (umi_stim2dut_\1[]),
     );
     */
 
    dut_umi_fifo_flex #(.CW(CW),
-		       .IDW(IDW),
-		       .AW(AW),
-		       .ODW(ODW),
-		       .DEPTH(FIFODEPTH),
+                       .IDW(IDW),
+                       .AW(AW),
+                       .ODW(ODW),
+                       .DEPTH(FIFODEPTH),
                        .BYPASS(BYPASS))
-   dut_umi_fifo_flex (.umi_out_ready		(umi_dut2check_ready),
-		       /*AUTOINST*/
+   dut_umi_fifo_flex (.umi_out_ready            (umi_dut2check_ready),
+                       /*AUTOINST*/
                       // Outputs
                       .error            (error),
                       .done             (done),
@@ -177,20 +181,20 @@ module tb_umi_fifo
 
    /*umi_stimulus AUTO_TEMPLATE (
     // Outputs
-    .stim_\(.*\)	(umi_stim2dut_\1[]),
+    .stim_\(.*\)        (umi_stim2dut_\1[]),
     .dut_ready          (umi_stim2dut_ready[]),
-    .ext_valid		(1'b0),
-    .ext_packet		({(IDW+AW+AW+CW+TCW){1'b0}}),
+    .ext_valid          (1'b0),
+    .ext_packet         ({(IDW+AW+AW+CW+TCW){1'b0}}),
     .\(.*\)_clk         (clk),
     );
     */
 
    umi_stimulus #(.DEPTH(STIMDEPTH),
-		  .TARGET(TARGET),
-		  .CW(CW),
-		  .AW(AW),
-		  .DW(IDW),
-		  .TCW(TCW))
+                  .TARGET(TARGET),
+                  .CW(CW),
+                  .AW(AW),
+                  .DW(IDW),
+                  .TCW(TCW))
    umi_stimulus (/*AUTOINST*/
                  // Outputs
                  .stim_valid            (umi_stim2dut_valid),    // Templated
