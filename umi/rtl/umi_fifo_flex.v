@@ -68,20 +68,20 @@ module umi_fifo_flex
    wire [AW-1:0]           fifo_dstaddr;
    wire [AW-1:0]           latch_srcaddr;
    wire [AW-1:0]           fifo_srcaddr;
-   wire [IDW-1:0]           latch_data;
+   wire [IDW-1:0]          latch_data;
    wire [IDW-1:0]          fifo_data;
 
    // local wires
-   wire                      umi_out_beat;
-   wire                      fifo_read;
-   wire                      fifo_write;
-   wire                      fifo_in_ready;
-   wire [7:0]                fifo_len;
-   wire [7:0]                latch_len;
-   reg                       last_sent;
-   wire [8:0]                cmd_len_plus_one;
-   reg [1:0]                 fifo_ready;
-   wire                      fifo_eom;
+   wire                    umi_out_beat;
+   wire                    fifo_read;
+   wire                    fifo_write;
+   wire                    fifo_in_ready;
+   wire [7:0]              fifo_len;
+   wire [7:0]              latch_len;
+   reg                     last_sent;
+   wire [8:0]              cmd_len_plus_one;
+   reg [1:0]               fifo_ready;
+   wire                    fifo_eom;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -131,7 +131,8 @@ module umi_fifo_flex
    // SPLIT will also split based on crossing DW boundary and not only size
    generate if (SPLIT == 1)
      begin
-        assign packet_latch_en = (cmd_len_plus_one + fifo_dstaddr[$clog2(ODW/8)-1:0]) > (ODW >> cmd_size >> 3);
+        assign packet_latch_en = (cmd_len_plus_one + (fifo_dstaddr[$clog2(ODW/8)-1:0] >> cmd_size)) >
+                                 (ODW >> cmd_size >> 3);
 
         assign packet_cmd[CW-1:0] = packet_latch_valid ?
                                     packet_cmd_latch[CW-1:0] :
@@ -144,14 +145,15 @@ module umi_fifo_flex
         // cmd manipulation - at each cycle need to remove the bytes sent out
         assign fifo_eom     = packet_latch_en    ? 1'b0                 : cmd_eom;
         assign fifo_len     = packet_latch_en    ?
-                              ((ODW >> cmd_size >> 3) - fifo_dstaddr[$clog2(ODW/8)-1:0] - 1'b1) :
+                              (((ODW/8) - fifo_dstaddr[$clog2(ODW/8)-1:0]) >> cmd_size) - 1'b1 :
                               cmd_len;
 
         // Latched command for next split
-        assign latch_dstaddr = (fifo_dstaddr[AW-1:$clog2(ODW/8)] + 1'b1) << (ODW >> 8) ;
-        assign latch_srcaddr = fifo_srcaddr + ((ODW >>8) - fifo_dstaddr[AW-1:$clog2(ODW/8)]);
+        assign latch_dstaddr = fifo_dstaddr + ((ODW/8) - fifo_dstaddr[$clog2(ODW/8)-1:0]);
+        assign latch_srcaddr = fifo_srcaddr + ((ODW/8) - fifo_dstaddr[$clog2(ODW/8)-1:0]);
         assign latch_data    = fifo_data >> (ODW - (fifo_dstaddr[AW-1:$clog2(ODW/8)] << 3));
-        assign latch_len     = cmd_len_plus_one - (ODW >> cmd_size >> 3) + fifo_dstaddr[$clog2(ODW/8)-1:0] - 1'b1;
+        assign latch_len     = cmd_len -
+                               (((ODW >> 3) - fifo_dstaddr[$clog2(ODW/8)-1:0]) >> cmd_size);
 
         // Packet latch
         always @(posedge umi_in_clk or negedge umi_in_nreset)
