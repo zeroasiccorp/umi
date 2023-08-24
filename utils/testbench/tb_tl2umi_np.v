@@ -145,9 +145,7 @@ module tb_tl2umi_np #(
         .uhost_resp_ready   (uhost_resp_ready)
     );
 
-    ebrick_mem_agent #(
-        .W          (2),
-        .H          (2),
+    umi_mem_agent #(
         .DW         (DW),
         .AW         (AW),
         .CW         (CW),
@@ -174,7 +172,7 @@ module tb_tl2umi_np #(
     // control block
     initial begin
         r = $value$plusargs("MEMHFILE=%s", memhfile);
-        $readmemh(memhfile, memory_module_.ram);
+        $readmemh(memhfile, memory_module_.la_spram_i.ram);
         $timeformat(-9, 0, " ns", 20);
         $dumpfile("waveform.vcd");
         $dumpvars();
