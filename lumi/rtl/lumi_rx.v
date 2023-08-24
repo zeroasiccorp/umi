@@ -82,16 +82,22 @@ module lumi_rx
    reg                              rxfec;
    reg [(DW+AW+AW+CW)-1:0]          shiftreg;
    wire [(DW+AW+AW+CW)-1:0]         shiftreg_in;
+   reg [CW-1:0]                     lnk_shiftreg;
+   reg                              lnk_cmd_sop;
    reg                              transfer;
    reg [2:0]                        rxtype_next;
    reg [15:0]                       rx_crdt_req;
    reg [15:0]                       rx_crdt_resp;
-   reg [2:0]                        fifo_sel_hold;
-   wire [2:0]                       fifo_sel;
-   wire [2:0]                       fifo_eop;
-   wire [2:0]                       fifo_empty;
-   wire [2:0]                       fifo_wr;
-   wire [2:0]                       fifo_rd;
+   reg [1:0]                        fifo_sel_hold;
+   wire [1:0]                       fifo_sel;
+   wire [1:0]                       fifo_eop;
+   wire                             lnk_fifo_eop;
+   wire [1:0]                       fifo_empty;
+   wire                             lnk_fifo_empty;
+   wire [1:0]                       fifo_wr;
+   wire                             lnk_fifo_wr;
+   wire [1:0]                       fifo_rd;
+   wire                             lnk_fifo_rd;
    wire [NFIFO:0]                   fifo_mux_sel;
    wire [NFIFO-1:0]                 fifo_dout_sel;
    wire [NFIFO-1:0]                 fifo_dout_mask;
@@ -116,7 +122,6 @@ module lumi_rx
    wire [IOW+NFIFO-1:0]             resp_fifo_dout_muxed;
    wire [CW:0]                      lnk_fifo_din;
    wire [CW:0]                      lnk_fifo_dout;
-   wire [IOW-1:0]                   lnk_fifo_dout_muxed;
    wire [IOW-1:0]                   fifo_data_muxed;
    wire [IOW-1:0]                   sync_fifo_dout;
    wire                             sync_fifo_wr;
@@ -176,13 +181,11 @@ module lumi_rx
    wire                 cmd_user0;
    wire                 cmd_user0_resp;
    wire                 cmd_user1_resp;
-   wire [23:0]          cmd_user_extended;
    wire                 cmd_write;
    wire                 cmd_write_posted;
    wire                 cmd_write_resp;
    wire                 fifo_cmd_invalid;
-   wire                 fifo_cmd_link;
-   wire                 fifo_cmd_link_resp;
+   wire [23:0]          lnk_cmd_user;
    wire                 rxcmd_error;
    wire                 rxcmd_future0;
    wire                 rxcmd_future0_resp;
@@ -223,13 +226,13 @@ module lumi_rx
    always @ (posedge clk or negedge nreset)
      if (~nreset)
        begin
-	  rxvalid  <= 1'b0;
-	  rxvalid2 <= 1'b0;
+          rxvalid  <= 1'b0;
+          rxvalid2 <= 1'b0;
        end
      else
        begin
-	  rxvalid  <= phy_rxvld;
-	  rxvalid2 <= rxvalid;
+          rxvalid  <= phy_rxvld;
+          rxvalid2 <= rxvalid;
        end
 
    // rising edge data sample
@@ -526,7 +529,7 @@ module lumi_rx
 
    for(k=0;k<NFIFO;k=k+1)
      begin
-        assign resp_fifo_din[k*FIFOW+:FIFOW] = fifo_mux_sel[k]  | (k == 0)?
+        assign resp_fifo_din[k*FIFOW+:FIFOW] = fifo_mux_sel[k]  | (k == 0) ?
                                                {~(|sopptr_next),rxdata[fifo_wr_shift[k*8+:8]*RXFIFOW+:RXFIFOW]} :
                                                resp_fifo_dout[(k-1)*FIFOW+:FIFOW];
 
@@ -565,69 +568,136 @@ module lumi_rx
    //########################################
    // link cmd Fifo - no FC
    //########################################
-   assign fifo_wr[2] = rxvalid & (rxtype[2:0] == 3'b100);
-   assign fifo_rd[2] = ~fifo_empty[2] &
-                       fifo_sel[2] &
-                       ~sync_fifo_full;
+   assign lnk_fifo_wr = rxvalid & (rxtype[2:0] == 3'b100);
+   assign lnk_fifo_rd = ~lnk_fifo_empty;
+   assign lnk_fifo_din[CW-1:0] = {~(|sopptr_next),rxdata[CW-1:0]};
 
-   assign lnk_fifo_din[CW-1:0] = rxdata[CW-1:0];
-   assign lnk_fifo_din[CW]     = ~(|sopptr_next);
-
-   // Remove the sop bit
-   assign lnk_fifo_dout_muxed[IOW-1:0] = {{IOW-CW{1'b0}},lnk_fifo_dout[CW-1:0]};
-
-   la_syncfifo #(.DW(CW+1),  // Link commands are only 32b
-                 .DEPTH(8),  // FIFO depth
-                 .NS(1),     // Number of power supplies
-                 .CHAOS(0),  // generates random full logic when set
-                 .CTRLW(1),  // width of asic ctrl interface
-                 .TESTW(1),  // width of asic test interface
-                 .TYPE("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(CW),  // Link commands are only 32b
+                  .DEPTH(8),  // FIFO depth
+                  .NS(1),     // Number of power supplies
+                  .CHAOS(0),  // generates random full logic when set
+                  .CTRLW(1),  // width of asic ctrl interface
+                  .TESTW(1),  // width of asic test interface
+                  .TYPE("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .rd_dout          (lnk_fifo_dout[CW:0]),
-              .rd_empty         (fifo_empty[2]),
+              .rd_empty         (lnk_fifo_empty),
               // Inputs
-              .clk              (clk),
-              .nreset           (nreset),
+              .rd_clk           (ioclk),
+              .rd_nreset        (ionreset),
+              .wr_clk           (clk),
+              .wr_nreset        (nreset),
               .vss              (1'b0),
               .vdd              (1'b1),
-              .chaosmode        (1'b0),
+              .wr_chaosmode     (1'b0),
               .ctrl             (1'b0),
               .test             (1'b0),
-              .wr_en            (fifo_wr[2]),
+              .wr_en            (lnk_fifo_wr),
               .wr_din           (lnk_fifo_din[CW:0]),
-              .rd_en            (fifo_rd[2]));
+              .rd_en            (lnk_fifo_rd));
 
-   assign fifo_eop[2:0] = {lnk_fifo_dout[CW],resp_fifo_dout_muxed[FIFOW-1],req_fifo_dout_muxed[FIFOW-1]} &
-                          ~fifo_empty[2:0];
+   wire [CW-1:0] lnk_fifo_dout_mask;
+   assign lnk_fifo_dout_shift = lnk_fifo_dout[CW-1:0]
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          lnk_cmd_sop                <= 'h0;
+          lnk_fifo_dout_mask[CW-1:0] <= 'h0;
+          lnk_shiftreg[CW-1:0]       <= 'h0;
+       end
+     else if (lnk_fifo_rd)
+       begin
+          lnk_cmd_sop                <= lnk_fifo_dout[CW];
+          lnk_fifo_dout_mask[CW-1:0] <= lnk_fifo_dout[CW] ?
+                                        {{CW-iowidth*8{1'b0}},{iowidth*8{1'b1}}} :
+                                        lnk_fifo_dout_mask[CW-1:0] << (iowidth*8);
+          lnk_shiftreg[CW-1:0]       <= lnk_cmd_sop ?
+                                        lnk_fifo_dout[CW-1:0] :
+                                        lnk_fifo_dout[CW-1:0] & lnk_fifo_dout_mask[CW-1:0] |
+                                        lnk_shiftreg[CW-1:0] & ~lnk_fifo_dout_mask[CW-1:0];
+       end
 
+   /*umi_unpack AUTO_TEMPLATE(
+    .packet_cmd        (lnk_fifo_dout[]),
+    .cmd_user_extended (lnk_cmd_user[]),
+    .cmd_.*            (),
+    );*/
+   umi_unpack #(.CW(CW))
+   lnk_unpack (/*AUTOINST*/
+               // Outputs
+               .cmd_opcode      (),                      // Templated
+               .cmd_size        (),                      // Templated
+               .cmd_len         (),                      // Templated
+               .cmd_atype       (),                      // Templated
+               .cmd_qos         (),                      // Templated
+               .cmd_prot        (),                      // Templated
+               .cmd_eom         (),                      // Templated
+               .cmd_eof         (),                      // Templated
+               .cmd_ex          (),                      // Templated
+               .cmd_user        (),                      // Templated
+               .cmd_user_extended(lnk_cmd_user[23:0]),   // Templated
+               .cmd_err         (),                      // Templated
+               .cmd_hostid      (),                      // Templated
+               // Inputs
+               .packet_cmd      (lnk_fifo_dout[CW-1:0])); // Templated
+
+   //########################################
+   //# "steal" incoming credit update
+   //########################################
+   assign credit_req_in[0] = lnk_fifo_rd &
+                             lnk_cmd_vld &
+                             ((lnk_cmd_user[7:0] == 8'h01) | (lnk_cmd_user[7:0] == 8'h02));
+
+   assign credit_req_in[1] = lnk_fifo_rd &
+                             lnk_cmd_vld &
+                             ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          rmt_crdt_req  <= 'h0;
+          rmt_crdt_resp <= 'h0;
+       end
+     else
+       begin
+          if (credit_req_in[0])
+            rmt_crdt_req  <= lnk_cmd_user[23:8];
+          if (credit_req_in[1])
+            rmt_crdt_resp <= lnk_cmd_user[23:8];
+       end
+
+   //########################################
+   //# mux between requests and responses (link was already consumed)
+   //########################################
    // lock fifo sel, change only at EOP
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       fifo_sel_hold <= 3'b000;
+       fifo_sel_hold <= 2'b00;
      else
-       fifo_sel_hold <= ~sync_fifo_full & |(fifo_sel[2:0] & fifo_eop[2:0]) ? 3'b000            :
-                        ~sync_fifo_full & ~(|fifo_sel_hold)                ? fifo_sel[2:0]     :
-                                                                             fifo_sel_hold[2:0];
+       fifo_sel_hold <= ~sync_fifo_full & |(fifo_sel[1:0] & fifo_eop[1:0]) ? 2'b00             :
+                        ~sync_fifo_full & ~(|fifo_sel_hold)                ? fifo_sel[1:0]     :
+                                                                             fifo_sel_hold[1:0];
+
+   assign fifo_eop[1:0] = {resp_fifo_dout_muxed[FIFOW-1],req_fifo_dout_muxed[FIFOW-1]} &
+                          ~fifo_empty[1:0];
 
    // Cannot change fifo sel when there is already a pending transaction - wait for EOP
    assign fifo_sel = ~(|fifo_sel_hold) ?
-                     {~fifo_empty[2], fifo_empty[2] & ~fifo_empty[1], (&fifo_empty[2:1]) & ~fifo_empty[0]} :
+                     {~fifo_empty[1], fifo_empty[1] & ~fifo_empty[0]} :
                      fifo_sel_hold;
 
    genvar l;
    for(l=0;l<NFIFO;l=l+1)
      begin
-        assign fifo_data_muxed[l*RXFIFOW+:RXFIFOW] = {RXFIFOW{fifo_sel[2]}} & lnk_fifo_dout_muxed[l*RXFIFOW+:RXFIFOW] |
-                                                     {RXFIFOW{fifo_sel[1]}} & resp_fifo_dout_muxed[l*FIFOW+:RXFIFOW]  |
+        assign fifo_data_muxed[l*RXFIFOW+:RXFIFOW] = {RXFIFOW{fifo_sel[1]}} & resp_fifo_dout_muxed[l*FIFOW+:RXFIFOW]  |
                                                      {RXFIFOW{fifo_sel[0]}} & req_fifo_dout_muxed[l*FIFOW+:RXFIFOW]   ;
      end
 
    //########################################
    // Async fifo to cross from phy clock to lumi clock
    //########################################
-   assign sync_fifo_wr = |fifo_rd[2:0];
+   assign sync_fifo_wr = |fifo_rd[1:0];
    assign sync_fifo_rd = ~sync_fifo_empty & ~(umi_out_valid & ~umi_out_ready);
 
    la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
@@ -655,11 +725,10 @@ module lumi_rx
               .wr_din           (fifo_data_muxed[IOW-1:0]),
               .rd_en            (sync_fifo_rd));
 
+   // link commands will be consumed before the sync fifo so that they are not blocked
    /*umi_decode AUTO_TEMPLATE(
     .command       (sync_fifo_dout[]),
     .cmd_invalid   (fifo_cmd_invalid[]),
-    .cmd_link      (fifo_cmd_link[]),
-    .cmd_link_resp (fifo_cmd_link_resp[]),
     .cmd_.*        (),
     );*/
    umi_decode #(.CW(CW))
@@ -676,14 +745,14 @@ module lumi_rx
                 .cmd_user0      (),                      // Templated
                 .cmd_future0    (),                      // Templated
                 .cmd_error      (),                      // Templated
-                .cmd_link       (fifo_cmd_link),         // Templated
+                .cmd_link       (),                      // Templated
                 .cmd_read_resp  (),                      // Templated
                 .cmd_write_resp (),                      // Templated
                 .cmd_user0_resp (),                      // Templated
                 .cmd_user1_resp (),                      // Templated
                 .cmd_future0_resp(),                     // Templated
                 .cmd_future1_resp(),                     // Templated
-                .cmd_link_resp  (fifo_cmd_link_resp),    // Templated
+                .cmd_link_resp  (),                      // Templated
                 .cmd_atomic_add (),                      // Templated
                 .cmd_atomic_and (),                      // Templated
                 .cmd_atomic_or  (),                      // Templated
@@ -696,9 +765,7 @@ module lumi_rx
                 // Inputs
                 .command        (sync_fifo_dout[CW-1:0])); // Templated
 
-   assign fifo_cmd_only  = fifo_cmd_invalid    |
-                           fifo_cmd_link       |
-                           fifo_cmd_link_resp  ;
+   assign fifo_cmd_only  = fifo_cmd_invalid;
 
    //########################################
    // UMI bandwidth optimization - only what is needed is sent
@@ -708,7 +775,6 @@ module lumi_rx
    /*umi_unpack AUTO_TEMPLATE(
     .cmd_len           (cmd_len[]),
     .cmd_size          (cmd_size[]),
-    .cmd_user_extended (cmd_user_extended[]),
     .cmd.*             (),
     .packet_cmd        (shiftreg[]),
     );*/
@@ -726,7 +792,7 @@ module lumi_rx
               .cmd_eof          (),                      // Templated
               .cmd_ex           (),                      // Templated
               .cmd_user         (),                      // Templated
-              .cmd_user_extended(cmd_user_extended[23:0]), // Templated
+              .cmd_user_extended(),                      // Templated
               .cmd_err          (),                      // Templated
               .cmd_hostid       (),                      // Templated
               // Inputs
@@ -813,11 +879,11 @@ module lumi_rx
      if (~nreset)
        transfer <= 'b0;
      else
-       if (~transfer /*| fifo_rd[2]*/ | umi_out_ready) // TODO - how to identify link command in flight
+       if (~transfer | umi_out_ready)
          transfer <= ((|rxptr) |
                       ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) &
                      sync_fifo_rd &
-		     (~|rxptr_next);
+                     (~|rxptr_next);
 
    //########################################
    //# DATA SHIFT REGISTER
@@ -828,7 +894,7 @@ module lumi_rx
 
    // writemask for writing to shift register
    assign writemask[(DW+AW+AW+CW)-1:0] = ~({(DW+AW+AW+CW){1'b1}} << (byterate<<3)) <<
-			                 (datashift<<3);
+                                         (datashift<<3);
 
    // The input bus needs to account for the shift output size
    assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},sync_fifo_dout[IOW-1:0]};
@@ -838,7 +904,7 @@ module lumi_rx
    always @ (posedge clk)
      if (sync_fifo_rd)
      shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) & writemask[(DW+AW+AW+CW)-1:0] |
-			            (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
+                                    (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
 
    //########################################
    //# output stage
@@ -847,41 +913,16 @@ module lumi_rx
    assign umi_out_cmd[CW-1:0] = shiftreg[CW-1:0];
 
    assign umi_out_dstaddr[AW-1:0] = cmd_only ? {AW{1'b0}} :
-				               shiftreg[CW+:AW];
+                                               shiftreg[CW+:AW];
 
    assign umi_out_srcaddr[AW-1:0] = cmd_only ? {AW{1'b0}} :
-				               shiftreg[(CW+AW)+:AW];
+                                               shiftreg[(CW+AW)+:AW];
 
    assign umi_out_data[DW-1:0] = (cmd_only | no_data) ? {DW{1'b0}}              :
-				                        shiftreg[(CW+AW+AW)+:DW];
+                                                        shiftreg[(CW+AW+AW)+:DW];
 
    // link commands are not passed on to the umi port
    assign umi_out_valid =  transfer & ~(cmd_link | cmd_link_resp);
-
-   //########################################
-   //# "steal" incoming credit update
-   //########################################
-   assign credit_req_in[0] = transfer &
-                             cmd_link &
-                             ((cmd_user_extended[7:0] == 8'h01) | (cmd_user_extended[7:0] == 8'h02));
-
-   assign credit_req_in[1] = transfer &
-                             cmd_link &
-                             ((cmd_user_extended[7:0] == 8'h11) | (cmd_user_extended[7:0] == 8'h12));
-
-   always @(posedge clk or negedge nreset)
-     if (~nreset)
-       begin
-          rmt_crdt_req  <= 'h0;
-          rmt_crdt_resp <= 'h0;
-       end
-     else
-       begin
-          if (credit_req_in[0])
-            rmt_crdt_req  <= cmd_user_extended[23:8];
-          if (credit_req_in[1])
-            rmt_crdt_resp <= cmd_user_extended[23:8];
-       end
 
    //########################################
    //# SPLIT OUT UMI_RESP/UMI_REQ TRAFFIC
