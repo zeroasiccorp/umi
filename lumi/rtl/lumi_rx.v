@@ -22,7 +22,7 @@ module lumi_rx
     parameter DW = 256,           // umi data width
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
-    parameter RXFIFOW = 8         // width of Rx fifo - cannot be smaller than IOW!!!
+    parameter RXFIFOW = 8         // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -224,7 +224,7 @@ module lumi_rx
    //########################################
 
    // Detect valis signal
-   always @ (posedge clk or negedge nreset)
+   always @ (posedge ioclk or negedge ionreset)
      if (~nreset)
        begin
           rxvalid  <= 1'b0;
@@ -237,10 +237,10 @@ module lumi_rx
        end
 
    // rising edge data sample
-   always @ (posedge clk)
+   always @ (posedge ioclk)
      rxdata[IOW-1:0] <= phy_rxdata[IOW-1:0];
 
-   always @ (posedge clk or negedge nreset)
+   always @ (posedge ioclk or negedge ionreset)
      if (~nreset)
        rxdata_d[7:0] <= 'h0;
      else
@@ -352,7 +352,7 @@ module lumi_rx
    assign rxhdr_sample = (sopptr == 'h0) |
                          (sopptr == 'h1) & (csr_iowidth == 8'h0);
 
-   always @ (posedge clk or negedge nreset)
+   always @ (posedge ioclk or negedge ionreset)
      if (~nreset)
        rxbytes_keep <= 'h0;
      else
@@ -364,7 +364,7 @@ module lumi_rx
                            rxbytes_keep;
 
    // Valid register holds one bit per byte to transfer
-   always @ (posedge clk or negedge nreset)
+   always @ (posedge ioclk or negedge ionreset)
      if (~nreset)
        sopptr <= 'b0;
      else if (rxvalid)
@@ -385,7 +385,7 @@ module lumi_rx
    // Since the data might come on a narror interface will only use the first byte
 
    // Sample packet type from the RX lines upon SOP
-   always @(posedge clk or negedge nreset)
+   always @(posedge ioclk or negedge ionreset)
      if (~nreset)
        rxtype_next[2:0] <= 3'b000;
      else
@@ -397,7 +397,7 @@ module lumi_rx
                    rxtype_next;
 
    // credit counters - to be sent to the remote side
-   always @(posedge clk or negedge nreset)
+   always @(posedge ioclk or negedge ionreset)
      if (~nreset)
        begin
           rx_crdt_req[15:0]  <= 'h0;
@@ -410,7 +410,7 @@ module lumi_rx
             rx_crdt_resp[15:0] <= csr_crdt_resp_init[15:0];
          end
        else
-         begin
+         begin // TODO - sync between io clock (read signals) and register (clk)
             if (fifo_rd[0])
               rx_crdt_req[15:0]  <= rx_crdt_req[15:0]  + 1;
             if (fifo_rd[1])
@@ -478,6 +478,10 @@ module lumi_rx
    assign fifo_rd[0]    = ~fifo_empty[0] &
                           fifo_sel[0] &
                           ~sync_fifo_full;
+
+   wire [NFIFO- 1:0] fifo_werror = req_fifo_wr[NFIFO-1:0] & req_fifo_full[NFIFO-1:0] & fifo_mux_sel[NFIFO-1:0];
+   wire [NFIFO- 1:0] fifo_rerror = req_fifo_rd[NFIFO-1:0] & req_fifo_empty[NFIFO-1:0];
+
    genvar j;
    for(j=0;j<NFIFO;j=j+1)
      begin
@@ -505,8 +509,8 @@ module lumi_rx
                    .rd_dout          (req_fifo_dout[j*FIFOW+:FIFOW]),
                    .rd_empty         (req_fifo_empty[j]),
                    // Inputs
-                   .clk              (clk),
-                   .nreset           (nreset),
+                   .clk              (ioclk),
+                   .nreset           (ionreset),
                    .vss              (1'b0),
                    .vdd              (1'b1),
                    .chaosmode        (1'b0),
@@ -554,8 +558,8 @@ module lumi_rx
                     .rd_dout          (resp_fifo_dout[k*FIFOW+:FIFOW]),
                     .rd_empty         (resp_fifo_empty[k]),
                     // Inputs
-                    .clk              (clk),
-                    .nreset           (nreset),
+                    .clk              (ioclk),
+                    .nreset           (ionreset),
                     .vss              (1'b0),
                     .vdd              (1'b1),
                     .chaosmode        (1'b0),
@@ -585,10 +589,10 @@ module lumi_rx
               .rd_dout          (lnk_fifo_dout[CW-1:0]),
               .rd_empty         (lnk_fifo_empty),
               // Inputs
-              .rd_clk           (ioclk),
-              .rd_nreset        (ionreset),
-              .wr_clk           (clk),
-              .wr_nreset        (nreset),
+              .rd_clk           (clk),
+              .rd_nreset        (nreset),
+              .wr_clk           (ioclk),
+              .wr_nreset        (ionreset),
               .vss              (1'b0),
               .vdd              (1'b1),
               .wr_chaosmode     (1'b0),
@@ -600,7 +604,7 @@ module lumi_rx
 
    assign lnk_sop_next[1:0] = lnk_sop[1:0] + iowidth[1:0];
 
-   always @(posedge clk or negedge nreset)
+   always @(posedge ioclk or negedge ionreset)
      if (~nreset)
        begin
           lnk_sop[1:0]               <= 'h0;
@@ -654,14 +658,14 @@ module lumi_rx
                              (lnk_sop[1:0] == 2'b00) &
                              ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
 
-   always @(posedge clk or negedge nreset)
+   always @(posedge ioclk or negedge ionreset)
      if (~nreset)
        begin
           rmt_crdt_req  <= 'h0;
           rmt_crdt_resp <= 'h0;
        end
      else
-       begin
+       begin //TODO - sync to internal clock
           if (credit_req_in[0])
             rmt_crdt_req  <= lnk_cmd_user[23:8];
           if (credit_req_in[1])
@@ -672,6 +676,7 @@ module lumi_rx
    //# mux between requests and responses (link was already consumed)
    //########################################
    // lock fifo sel, change only at EOP
+   // TODO - CDC
    always @(posedge clk or negedge nreset)
      if (~nreset)
        fifo_sel_hold <= 2'b00;
@@ -713,10 +718,10 @@ module lumi_rx
               .rd_dout          (sync_fifo_dout[IOW-1:0]),
               .rd_empty         (sync_fifo_empty),
               // Inputs
-              .rd_clk           (ioclk),
-              .rd_nreset        (ionreset),
-              .wr_clk           (clk),
-              .wr_nreset        (nreset),
+              .rd_clk           (clk),
+              .rd_nreset        (nreset),
+              .wr_clk           (ioclk),
+              .wr_nreset        (ionreset),
               .vss              (1'b0),
               .vdd              (1'b1),
               .wr_chaosmode     (1'b0),
