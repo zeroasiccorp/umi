@@ -324,7 +324,7 @@ module umi_fifo_flex
    //#################################
 
    assign umi_out_cmd[CW-1:0]     = (bypass | BYPASS) ? fifo_cmd[CW-1:0]     : fifo_dout[CW-1:0];
-   assign umi_out_dstaddr[AW-1:0] = (bypass | BYPASS) ? fifo_dstaddr[AW-1:0] : fifo_dout[CW+:AW] & 64'hFFFF_FFFF_F0FF_FFFF;
+   assign umi_out_dstaddr[AW-1:0] = (bypass | BYPASS) ? fifo_dstaddr[AW-1:0] : fifo_dout[CW+:AW] & 64'hFFFF_FFFF_FFFF_FFFF;
    assign umi_out_srcaddr[AW-1:0] = (bypass | BYPASS) ? fifo_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
    assign umi_out_data[ODW-1:0]   = (bypass | BYPASS) ? fifo_data[ODW-1:0]   : fifo_dout[CW+AW+AW+:ODW];
 
