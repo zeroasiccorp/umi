@@ -105,6 +105,8 @@ module lumi
     /*AUTOOUTPUT*/
     );
 
+   localparam RXFIFOW = 8;
+
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire [CW-1:0]        cb2regs_cmd;
@@ -150,10 +152,12 @@ module lumi
    lumi_regs #(.TARGET(TARGET),
                .GRPOFFSET(GRPOFFSET),
                .GRPAW(GRPAW),
-	       .GRPID(GRPID),
+               .GRPID(GRPID),
                .RW(RW),
+               .DW(DW),
                .CW(CW),
-	       .AW(AW))
+               .AW(AW),
+               .RXFIFOW(RXFIFOW))
    lumi_regs(/*AUTOINST*/
              // Outputs
              .udev_req_ready    (cb2regs_ready),         // Templated
@@ -263,10 +267,11 @@ module lumi
     */
 
    lumi_rx #(.TARGET(TARGET),
-	     .IOW(IOW),
+             .IOW(IOW),
              .CW(CW),
              .AW(AW),
-	     .DW(DW))
+             .DW(DW),
+             .RXFIFOW(RXFIFOW))
    lumi_rx(/*AUTOINST*/
            // Outputs
            .umi_resp_out_cmd    (udev_resp_cmd[CW-1:0]), // Templated
