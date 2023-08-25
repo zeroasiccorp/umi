@@ -163,6 +163,8 @@ module lumi_rx
    wire [15:0]                      rxhdr;
    wire                             rxhdr_sample;
 
+   wire                             csr_en_sync;
+
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire                 cmd_error;
@@ -404,7 +406,7 @@ module lumi_rx
           rx_crdt_resp[15:0] <= 'h0;
        end
      else
-       if (~csr_en)
+       if (~csr_en_sync)
          begin
             rx_crdt_req[15:0]  <= csr_crdt_req_init[15:0];
             rx_crdt_resp[15:0] <= csr_crdt_resp_init[15:0];
@@ -417,8 +419,16 @@ module lumi_rx
               rx_crdt_resp[15:0] <= rx_crdt_resp[15:0] + 1;
          end
 
+   // TODO - need to handle CDC
    assign loc_crdt_req  = rx_crdt_req;
    assign loc_crdt_resp = rx_crdt_resp;
+
+   //########################################
+   // CDC
+   //########################################
+   la_dsync csr_en_sync_i(.clk (ioclk),
+                          .in  (csr_en),
+                          .out (csr_en_sync));
 
    //########################################
    // Input fifo alignment
@@ -676,8 +686,8 @@ module lumi_rx
    //# mux between requests and responses (link was already consumed)
    //########################################
    // lock fifo sel, change only at EOP
-   // TODO - CDC
-   always @(posedge clk or negedge nreset)
+
+   always @(posedge ioclk or negedge ionreset)
      if (~nreset)
        fifo_sel_hold <= 2'b00;
      else
