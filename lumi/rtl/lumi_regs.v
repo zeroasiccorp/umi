@@ -21,8 +21,10 @@ module lumi_regs
     // for development only (fixed )
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
+    parameter DW = 128,           // register width
     parameter RW = 32,            // register width
-    parameter IDW = 16            // chipid width
+    parameter IDW = 16,           // chipid width
+    parameter RXFIFOW =8
     )
    (// common controls
     input           devicemode,    // 1=host, 0=device
@@ -63,7 +65,8 @@ module lumi_regs
     );
 
 `include "lumi_regmap.vh"
-   localparam DW = RW;
+   localparam CRDTDEPTH = 1+(DW+AW+AW+CW)/RXFIFOW;
+
    genvar     i;
 
    /*AUTOWIRE*/
@@ -133,8 +136,8 @@ module lumi_regs
        status_reg[RW-1:0] <= 'h0;
      else
        status_reg[RW-1:0] <= {{(RW-5){1'b0}},
-			      linkactive,
-			      4'h0};
+                              linkactive,
+                              4'h0};
 
    //######################################
    // TXMODE Register
@@ -183,7 +186,7 @@ module lumi_regs
    //######################################
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       rxcrdt_init_reg[31:0] <= {16'd42,16'd42};
+       rxcrdt_init_reg[31:0] <= {CRDTDEPTH[15:0],CRDTDEPTH[15:0]};
      else if(write_crdt_init)
        rxcrdt_init_reg[31:0] <= reg_wrdata[31:0];
 
@@ -206,8 +209,10 @@ module lumi_regs
    //######################################
 
    /* umi_regif AUTO_TEMPLATE(
+    .udev_resp_data   (udev_resp_data[RW-1:0]),
+    .udev_req_data    (udev_req_data[RW-1:0]),
     );*/
-   umi_regif #(.DW(DW),
+   umi_regif #(.DW(RW),
                .AW(AW),
                .CW(CW),
                .RW(RW),
@@ -221,7 +226,7 @@ module lumi_regs
               .udev_resp_cmd    (udev_resp_cmd[CW-1:0]),
               .udev_resp_dstaddr(udev_resp_dstaddr[AW-1:0]),
               .udev_resp_srcaddr(udev_resp_srcaddr[AW-1:0]),
-              .udev_resp_data   (udev_resp_data[DW-1:0]),
+              .udev_resp_data   (udev_resp_data[RW-1:0]), // Templated
               .reg_addr         (reg_addr[AW-1:0]),
               .reg_write        (reg_write),
               .reg_read         (reg_read),
@@ -236,7 +241,7 @@ module lumi_regs
               .udev_req_cmd     (udev_req_cmd[CW-1:0]),
               .udev_req_dstaddr (udev_req_dstaddr[AW-1:0]),
               .udev_req_srcaddr (udev_req_srcaddr[AW-1:0]),
-              .udev_req_data    (udev_req_data[DW-1:0]),
+              .udev_req_data    (udev_req_data[RW-1:0]), // Templated
               .udev_resp_ready  (udev_resp_ready),
               .reg_rddata       (reg_rddata[RW-1:0]));
 

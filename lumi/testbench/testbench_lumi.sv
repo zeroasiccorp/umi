@@ -10,7 +10,7 @@ module testbench (
    parameter integer CW=32;
    parameter integer PERIOD_CLK = 10;
    parameter integer TCW = 8;
-   parameter integer IOW = 64;
+   parameter integer IOW = 128;
    parameter integer NUMI = 2;
 
    /*AUTOWIRE*/
@@ -163,7 +163,8 @@ module testbench (
     .vss              (),
     .vdd.*            (),
     );*/
-   lumi #(.RW(RW),
+   lumi #(.IOW(IOW),
+          .RW(RW),
           .CW(CW),
           .AW(AW),
           .DW(DW),
@@ -255,7 +256,8 @@ module testbench (
     .vss               (),
     .vdd.*             (),
     );*/
-   lumi #(.RW(RW),
+   lumi #(.IOW(IOW),
+          .RW(RW),
           .CW(CW),
           .AW(AW),
           .DW(DW),
