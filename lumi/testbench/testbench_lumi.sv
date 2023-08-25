@@ -5,12 +5,12 @@ module testbench (
                   );
 
    parameter integer RW=32;
-   parameter integer DW=512;
+   parameter integer DW=256;
    parameter integer AW=64;
    parameter integer CW=32;
    parameter integer PERIOD_CLK = 10;
    parameter integer TCW = 8;
-   parameter integer IOW = 64;
+   parameter integer IOW = 128;
    parameter integer NUMI = 2;
 
    /*AUTOWIRE*/
@@ -71,7 +71,6 @@ module testbench (
    wire                 host_resp_ready;
    wire [CW-1:0]        host_resp_cmd;
    wire [DW-1:0]        host_resp_data;
-   wire [255:0]         host_resp_unused;
    wire [AW-1:0]        host_resp_dstaddr;
    wire [AW-1:0]        host_resp_srcaddr;
    wire                 host_resp_valid;
@@ -121,7 +120,7 @@ module testbench (
              .valid(host_req_valid)
              );
 
-   assign host_req_data[511:256] = 'h0;
+//   assign host_req_data[511:256] = 'h0;
 
    umi_tx_sim #(
                 .READY_MODE_DEFAULT(2),
@@ -163,7 +162,8 @@ module testbench (
     .vss              (),
     .vdd.*            (),
     );*/
-   lumi #(.RW(RW),
+   lumi #(.IOW(IOW),
+          .RW(RW),
           .CW(CW),
           .AW(AW),
           .DW(DW),
@@ -255,7 +255,8 @@ module testbench (
     .vss               (),
     .vdd.*             (),
     );*/
-   lumi #(.RW(RW),
+   lumi #(.IOW(IOW),
+          .RW(RW),
           .CW(CW),
           .AW(AW),
           .DW(DW),
@@ -329,8 +330,8 @@ module testbench (
               .vdd              (),                      // Templated
               .vddio            ());                     // Templated
 
-   umiram #(.ADDR_WIDTH(8),
-            .DATA_WIDTH(32),
+   umiram #(.ADDR_WIDTH(10),
+            .DATA_WIDTH(DW),
             .DW(DW),
             .AW(AW),
             .CW(CW),
@@ -384,8 +385,8 @@ module testbench (
 
    initial
      begin
-	nreset   = 1'b0;
-	go       = 1'b0;
+        nreset   = 1'b0;
+        go       = 1'b0;
      end // initial begin
 
    // Bring up reset and the go signal on the first clock cycle
