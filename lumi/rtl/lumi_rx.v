@@ -85,6 +85,7 @@ module lumi_rx
    reg [CW-1:0]                     lnk_shiftreg;
    reg [CW-1:0]                     lnk_fifo_dout_mask;
    reg [1:0]                        lnk_sop;
+   wire [4:0]                       lnk_sop_bit;
    wire [1:0]                       lnk_sop_next;
    reg                              transfer;
    reg [2:0]                        rxtype_next;
@@ -99,6 +100,7 @@ module lumi_rx
    wire                             lnk_fifo_wr;
    wire [1:0]                       fifo_rd;
    wire                             lnk_fifo_rd;
+   reg                              lnk_cmd_vld;
    wire [NFIFO:0]                   fifo_mux_sel;
    wire [NFIFO-1:0]                 fifo_dout_sel;
    wire [NFIFO-1:0]                 fifo_dout_mask;
@@ -614,6 +616,9 @@ module lumi_rx
 
    assign lnk_sop_next[1:0] = lnk_sop[1:0] + iowidth[1:0];
 
+   // For shift left
+   assign lnk_sop_bit[4:0] = {3'b000,lnk_sop[1:0]};
+
    always @(posedge ioclk or negedge ionreset)
      if (~nreset)
        begin
@@ -627,14 +632,14 @@ module lumi_rx
           lnk_fifo_dout_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
                                         ~({CW{1'b1}}<<(iowidth<<3))  :
                                         lnk_fifo_dout_mask[CW-1:0] << (iowidth*8);
-          lnk_shiftreg[CW-1:0]       <= (lnk_sop[1:0] == 2'b00)      ?
-                                        lnk_fifo_dout[CW-1:0]        :
-                                        lnk_fifo_dout[CW-1:0] & lnk_fifo_dout_mask[CW-1:0] |
+          lnk_shiftreg[CW-1:0]       <= (lnk_sop[1:0] == 2'b00) ?
+                                        lnk_fifo_dout[CW-1:0] :
+                                        (lnk_fifo_dout[CW-1:0] << (lnk_sop_bit<<3)) & lnk_fifo_dout_mask[CW-1:0] |
                                         lnk_shiftreg[CW-1:0] & ~lnk_fifo_dout_mask[CW-1:0];
        end
 
    /*umi_unpack AUTO_TEMPLATE(
-    .packet_cmd        (lnk_fifo_dout[]),
+    .packet_cmd        (lnk_shiftreg[]),
     .cmd_user_extended (lnk_cmd_user[]),
     .cmd_.*            (),
     );*/
@@ -655,17 +660,22 @@ module lumi_rx
                .cmd_err         (),                      // Templated
                .cmd_hostid      (),                      // Templated
                // Inputs
-               .packet_cmd      (lnk_fifo_dout[CW-1:0])); // Templated
+               .packet_cmd      (lnk_shiftreg[CW-1:0])); // Templated
 
    //########################################
    //# "steal" incoming credit update
    //########################################
-   assign credit_req_in[0] = lnk_fifo_rd &
-                             (lnk_sop[1:0] == 2'b00) &
+   always @(posedge ioclk or negedge ionreset)
+     if (~nreset)
+       lnk_cmd_vld <= 'h0;
+     else
+       lnk_cmd_vld <= lnk_fifo_rd &
+                      (lnk_sop_next[1:0] == 2'b00);
+
+   assign credit_req_in[0] = lnk_cmd_vld &
                              ((lnk_cmd_user[7:0] == 8'h01) | (lnk_cmd_user[7:0] == 8'h02));
 
-   assign credit_req_in[1] = lnk_fifo_rd &
-                             (lnk_sop[1:0] == 2'b00) &
+   assign credit_req_in[1] = lnk_cmd_vld &
                              ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
 
    always @(posedge ioclk or negedge ionreset)
