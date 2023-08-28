@@ -412,23 +412,35 @@ module tl2umi_np #(
         .packet_cmd         (uhost_req_packet_cmd)
     );
 
-    /* verilator lint_off PINMISSING */
-    fifo_nd #(
-        .WIDTH      (CW + AW + AW + DW),
-        .ABITS      (1)
+    wire tl2umi_req_fifo_wr_full;
+    wire tl2umi_req_fifo_rd_empty;
+
+    la_syncfifo #(
+        .DW     (CW + AW + AW + DW),
+        .DEPTH  (2),
+        .TYPE   ("DEFAULT")
     ) tl2umi_req_fifo (
         .clk        (clk),
-        .rst        (~nreset),
+        .nreset     (nreset),
 
-        .a_data     ({uhost_req_packet_cmd, uhost_req_packet_dstaddr, uhost_req_packet_srcaddr, uhost_req_packet_data}),
-        .a_valid    (uhost_req_packet_valid),
-        .a_ready    (uhost_req_packet_ready),
+        .vss        (1'b0),
+        .vdd        (1'b1),
 
-        .b_data     ({uhost_req_cmd, uhost_req_dstaddr, uhost_req_srcaddr, uhost_req_data}),
-        .b_valid    (uhost_req_valid),
-        .b_ready    (uhost_req_ready)
+        .chaosmode  (1'b0),
+        .ctrl       (1'b0),
+        .test       (1'b0),
+
+        .wr_en      (uhost_req_packet_valid),
+        .wr_din     ({uhost_req_packet_cmd, uhost_req_packet_dstaddr, uhost_req_packet_srcaddr, uhost_req_packet_data}),
+        .wr_full    (tl2umi_req_fifo_wr_full),
+
+        .rd_en      (uhost_req_ready),
+        .rd_dout    ({uhost_req_cmd, uhost_req_dstaddr, uhost_req_srcaddr, uhost_req_data}),
+        .rd_empty   (tl2umi_req_fifo_rd_empty)
     );
-    /* verilator lint_on PINMISSING */
+
+    assign uhost_req_packet_ready = !tl2umi_req_fifo_wr_full;
+    assign uhost_req_valid = !tl2umi_req_fifo_rd_empty;
 
     // Add mask to the source address, user defined bits. This will allow us
     // to shift the response for GET/READ and ATOMIC operations
