@@ -69,7 +69,7 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
         addr = random.randrange(511)
         src_addr = random.randrange(2**64-1)
         # lenth should not cross the DW boundary - umi_mem_agent limitation
-        length = np.random.randint(0,32-addr%32)
+        length = np.random.randint(0,16-addr%16)
         data8 = np.random.randint(0,255,size=length,dtype=np.uint8)
         print(f"umi writing {length+1} bytes to addr 0x{addr:08x}")
         host.write(addr, data8, srcaddr=src_addr)
