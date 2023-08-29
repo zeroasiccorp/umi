@@ -14,24 +14,34 @@ module testbench (
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire                 fifo_empty;
-   wire                 fifo_full;
+   wire [CW-1:0]        umi_req_out_cmd;
+   wire [ODW-1:0]       umi_req_out_data;
+   wire [AW-1:0]        umi_req_out_dstaddr;
+   wire                 umi_req_out_ready;
+   wire [AW-1:0]        umi_req_out_srcaddr;
+   wire                 umi_req_out_valid;
+   wire [CW-1:0]        umi_resp_in_cmd;
+   wire [ODW-1:0]       umi_resp_in_data;
+   wire [AW-1:0]        umi_resp_in_dstaddr;
+   wire                 umi_resp_in_ready;
+   wire [AW-1:0]        umi_resp_in_srcaddr;
+   wire                 umi_resp_in_valid;
    // End of automatics
    reg                  nreset;
 
-   wire                 umi_out_ready;
-   wire [CW-1:0]        umi_out_cmd;
-   wire [ODW-1:0]       umi_out_data;
-   wire [AW-1:0]        umi_out_dstaddr;
-   wire [AW-1:0]        umi_out_srcaddr;
-   wire                 umi_out_valid;
+   wire                 umi_resp_out_ready;
+   wire [CW-1:0]        umi_resp_out_cmd;
+   wire [IDW-1:0]       umi_resp_out_data;
+   wire [AW-1:0]        umi_resp_out_dstaddr;
+   wire [AW-1:0]        umi_resp_out_srcaddr;
+   wire                 umi_resp_out_valid;
 
-   wire                 umi_in_ready;
-   wire [CW-1:0]        umi_in_cmd;
-   wire [IDW-1:0]       umi_in_data;
-   wire [AW-1:0]        umi_in_dstaddr;
-   wire [AW-1:0]        umi_in_srcaddr;
-   wire                 umi_in_valid;
+   wire                 umi_req_in_ready;
+   wire [CW-1:0]        umi_req_in_cmd;
+   wire [IDW-1:0]       umi_req_in_data;
+   wire [AW-1:0]        umi_req_in_dstaddr;
+   wire [AW-1:0]        umi_req_in_srcaddr;
+   wire                 umi_req_in_valid;
 
    ///////////////////////////////////////////
    // Host side umi agents
@@ -41,24 +51,24 @@ module testbench (
                 .DW(IDW)
                 )
    host_umi_rx_i (.clk(clk),
-                  .data(umi_in_data[IDW-1:0]),
-                  .srcaddr(umi_in_srcaddr[AW-1:0]),
-                  .dstaddr(umi_in_dstaddr[AW-1:0]),
-                  .cmd(umi_in_cmd[CW-1:0]),
-                  .ready(umi_in_ready),
-                  .valid(umi_in_valid)
+                  .data(umi_req_in_data[IDW-1:0]),
+                  .srcaddr(umi_req_in_srcaddr[AW-1:0]),
+                  .dstaddr(umi_req_in_dstaddr[AW-1:0]),
+                  .cmd(umi_req_in_cmd[CW-1:0]),
+                  .ready(umi_req_in_ready),
+                  .valid(umi_req_in_valid)
                   );
 
    umi_tx_sim #(.READY_MODE_DEFAULT(2),
                 .DW(ODW)
                 )
    host_umi_tx_i (.clk(clk),
-                  .data(umi_out_data[ODW-1:0]),
-                  .srcaddr(umi_out_srcaddr[AW-1:0]),
-                  .dstaddr(umi_out_dstaddr[AW-1:0]),
-                  .cmd(umi_out_cmd[CW-1:0]),
-                  .ready(umi_out_ready),
-                  .valid(umi_out_valid)
+                  .data(umi_resp_out_data[ODW-1:0]),
+                  .srcaddr(umi_resp_out_srcaddr[AW-1:0]),
+                  .dstaddr(umi_resp_out_dstaddr[AW-1:0]),
+                  .cmd(umi_resp_out_cmd[CW-1:0]),
+                  .ready(umi_resp_out_ready),
+                  .valid(umi_resp_out_valid)
                   );
 
    wire bypass = 1'b1;
@@ -66,9 +76,12 @@ module testbench (
 
    // instantiate dut with UMI ports
    /* umi_fifo_flex AUTO_TEMPLATE(
-    .umi_.*_clk    (clk),
-    .umi_.*_nreset (nreset),
-    .v.*           (),
+    .umi_.*_clk     (clk),
+    .umi_.*_nreset  (nreset),
+    .umi_in_\(.*\)  (umi_req_in_\1[]),
+    .umi_out_\(.*\) (umi_req_out_\1[]),
+    .v.*            (),
+    .fifo_.*        (),
     );*/
    umi_fifo_flex #(.BYPASS(BYPASS),
                    .SPLIT(SPLIT),
@@ -77,33 +90,104 @@ module testbench (
                    .CW(CW),
                    .AW(AW),
                    .DEPTH(DEPTH))
-   umi_fifo_flex_i(/*AUTOINST*/
-                   // Outputs
-                   .fifo_full           (fifo_full),
-                   .fifo_empty          (fifo_empty),
-                   .umi_in_ready        (umi_in_ready),
-                   .umi_out_valid       (umi_out_valid),
-                   .umi_out_cmd         (umi_out_cmd[CW-1:0]),
-                   .umi_out_dstaddr     (umi_out_dstaddr[AW-1:0]),
-                   .umi_out_srcaddr     (umi_out_srcaddr[AW-1:0]),
-                   .umi_out_data        (umi_out_data[ODW-1:0]),
-                   // Inputs
-                   .bypass              (bypass),
-                   .chaosmode           (chaosmode),
-                   .umi_in_clk          (clk),                   // Templated
-                   .umi_in_nreset       (nreset),                // Templated
-                   .umi_in_valid        (umi_in_valid),
-                   .umi_in_cmd          (umi_in_cmd[CW-1:0]),
-                   .umi_in_dstaddr      (umi_in_dstaddr[AW-1:0]),
-                   .umi_in_srcaddr      (umi_in_srcaddr[AW-1:0]),
-                   .umi_in_data         (umi_in_data[IDW-1:0]),
-                   .umi_out_clk         (clk),                   // Templated
-                   .umi_out_nreset      (nreset),                // Templated
-                   .umi_out_ready       (umi_out_ready),
-                   .vdd                 (),                      // Templated
-                   .vss                 ());                     // Templated
+   umi_fifo_flex_rx_i(/*AUTOINST*/
+                      // Outputs
+                      .fifo_full        (),                      // Templated
+                      .fifo_empty       (),                      // Templated
+                      .umi_in_ready     (umi_req_in_ready),      // Templated
+                      .umi_out_valid    (umi_req_out_valid),     // Templated
+                      .umi_out_cmd      (umi_req_out_cmd[CW-1:0]), // Templated
+                      .umi_out_dstaddr  (umi_req_out_dstaddr[AW-1:0]), // Templated
+                      .umi_out_srcaddr  (umi_req_out_srcaddr[AW-1:0]), // Templated
+                      .umi_out_data     (umi_req_out_data[ODW-1:0]), // Templated
+                      // Inputs
+                      .bypass           (bypass),
+                      .chaosmode        (chaosmode),
+                      .umi_in_clk       (clk),                   // Templated
+                      .umi_in_nreset    (nreset),                // Templated
+                      .umi_in_valid     (umi_req_in_valid),      // Templated
+                      .umi_in_cmd       (umi_req_in_cmd[CW-1:0]), // Templated
+                      .umi_in_dstaddr   (umi_req_in_dstaddr[AW-1:0]), // Templated
+                      .umi_in_srcaddr   (umi_req_in_srcaddr[AW-1:0]), // Templated
+                      .umi_in_data      (umi_req_in_data[IDW-1:0]), // Templated
+                      .umi_out_clk      (clk),                   // Templated
+                      .umi_out_nreset   (nreset),                // Templated
+                      .umi_out_ready    (umi_req_out_ready),     // Templated
+                      .vdd              (),                      // Templated
+                      .vss              ());                     // Templated
 
-            // Initialize UMI
+   /* umi_mem_agent AUTO_TEMPLATE(
+    .udev_req_data    (umi_req_out_data[ODW-1:0]),
+    .udev_req_\(.*\)  (umi_req_out_\1[]),
+    .udev_resp_data   (umi_resp_in_data[ODW-1:0]),
+    .udev_resp_\(.*\) (umi_resp_in_\1[]),
+    );*/
+
+   umi_mem_agent #(.CW(CW),
+                   .AW(AW),
+                   .DW(ODW))
+   umi_mem_agent_i(/*AUTOINST*/
+                   // Outputs
+                   .udev_req_ready      (umi_req_out_ready),     // Templated
+                   .udev_resp_valid     (umi_resp_in_valid),     // Templated
+                   .udev_resp_cmd       (umi_resp_in_cmd[CW-1:0]), // Templated
+                   .udev_resp_dstaddr   (umi_resp_in_dstaddr[AW-1:0]), // Templated
+                   .udev_resp_srcaddr   (umi_resp_in_srcaddr[AW-1:0]), // Templated
+                   .udev_resp_data      (umi_resp_in_data[ODW-1:0]), // Templated
+                   // Inputs
+                   .clk                 (clk),
+                   .nreset              (nreset),
+                   .udev_req_valid      (umi_req_out_valid),     // Templated
+                   .udev_req_cmd        (umi_req_out_cmd[CW-1:0]), // Templated
+                   .udev_req_dstaddr    (umi_req_out_dstaddr[AW-1:0]), // Templated
+                   .udev_req_srcaddr    (umi_req_out_srcaddr[AW-1:0]), // Templated
+                   .udev_req_data       (umi_req_out_data[ODW-1:0]), // Templated
+                   .udev_resp_ready     (umi_resp_in_ready));    // Templated
+
+   /* umi_fifo_flex AUTO_TEMPLATE(
+    .umi_.*_clk     (clk),
+    .umi_.*_nreset  (nreset),
+    .umi_in_data    (umi_resp_in_data[ODW-1:0]),
+    .umi_in_\(.*\)  (umi_resp_in_\1[]),
+    .umi_out_data   (umi_resp_out_data[IDW-1:0]),
+    .umi_out_\(.*\) (umi_resp_out_\1[]),
+    .v.*            (),
+    .fifo_.*        (),
+    );*/
+   umi_fifo_flex #(.BYPASS(BYPASS),
+                   .SPLIT(SPLIT),
+                   .IDW(ODW),
+                   .ODW(IDW),
+                   .CW(CW),
+                   .AW(AW),
+                   .DEPTH(DEPTH))
+   umi_fifo_flex_tx_i(/*AUTOINST*/
+                      // Outputs
+                      .fifo_full        (),                      // Templated
+                      .fifo_empty       (),                      // Templated
+                      .umi_in_ready     (umi_resp_in_ready),     // Templated
+                      .umi_out_valid    (umi_resp_out_valid),    // Templated
+                      .umi_out_cmd      (umi_resp_out_cmd[CW-1:0]), // Templated
+                      .umi_out_dstaddr  (umi_resp_out_dstaddr[AW-1:0]), // Templated
+                      .umi_out_srcaddr  (umi_resp_out_srcaddr[AW-1:0]), // Templated
+                      .umi_out_data     (umi_resp_out_data[IDW-1:0]), // Templated
+                      // Inputs
+                      .bypass           (bypass),
+                      .chaosmode        (chaosmode),
+                      .umi_in_clk       (clk),                   // Templated
+                      .umi_in_nreset    (nreset),                // Templated
+                      .umi_in_valid     (umi_resp_in_valid),     // Templated
+                      .umi_in_cmd       (umi_resp_in_cmd[CW-1:0]), // Templated
+                      .umi_in_dstaddr   (umi_resp_in_dstaddr[AW-1:0]), // Templated
+                      .umi_in_srcaddr   (umi_resp_in_srcaddr[AW-1:0]), // Templated
+                      .umi_in_data      (umi_resp_in_data[ODW-1:0]), // Templated
+                      .umi_out_clk      (clk),                   // Templated
+                      .umi_out_nreset   (nreset),                // Templated
+                      .umi_out_ready    (umi_resp_out_ready),    // Templated
+                      .vdd              (),                      // Templated
+                      .vss              ());                     // Templated
+
+   // Initialize UMI
    integer valid_mode, ready_mode;
 
    initial begin

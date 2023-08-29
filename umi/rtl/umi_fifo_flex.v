@@ -151,7 +151,7 @@ module umi_fifo_flex
         // Latched command for next split
         assign latch_dstaddr = fifo_dstaddr + ((ODW/8) - fifo_dstaddr[$clog2(ODW/8)-1:0]);
         assign latch_srcaddr = fifo_srcaddr + ((ODW/8) - fifo_dstaddr[$clog2(ODW/8)-1:0]);
-        assign latch_data    = fifo_data >> (ODW - (fifo_dstaddr[$clog2(ODW/8):0] << 3));
+        assign latch_data    = fifo_data >> (ODW - (fifo_dstaddr[$clog2(ODW/8)-1:0] << 3));
         assign latch_len     = cmd_len -
                                (((ODW >> 3) - fifo_dstaddr[$clog2(ODW/8)-1:0]) >> cmd_size);
 
