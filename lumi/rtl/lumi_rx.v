@@ -234,7 +234,7 @@ module lumi_rx
           rxvalid  <= 1'b0;
           rxvalid2 <= 1'b0;
        end
-     else
+     else if (csr_en)
        begin
           rxvalid  <= phy_rxvld;
           rxvalid2 <= rxvalid;
