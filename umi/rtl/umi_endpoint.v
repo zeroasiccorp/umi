@@ -254,7 +254,9 @@ module umi_endpoint
 
    assign loc_data_out[DW-1:0] = loc_resp_vld ? loc_rddata[DW-1:0] : loc_data_keep[DW-1:0];
 
-   assign request_stall = udev_resp_valid & ~udev_resp_ready;
+   assign request_stall = (REG) ?
+                          (vld_pipe | loc_resp_vld) & ~udev_resp_ready :
+                          loc_resp_vld & ~udev_resp_ready;
 
    // Additional pipe stage based on (REG)
    always @(posedge clk or negedge nreset)
