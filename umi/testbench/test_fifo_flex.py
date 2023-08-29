@@ -66,12 +66,22 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
     print("### Statring test ###")
 
     for count in range (100):
-        psize = random.choice([0, 1, 2])
-        paddr = random.randrange(2**(64-psize))
-        umip = random_umi_packet(size=psize,dstaddr=paddr*2**psize)
-        if host.send(umip, blocking=False):
-            print('* TX *')
-            print(str(umip))
+        # length should not cross the DW boundary - umi_mem_agent limitation
+        length = np.random.randint(0,15)
+        dst_addr = 32*random.randrange(2**(10-5)-1) # sb limitation - should align to bus width
+        src_addr = 32*random.randrange(2**(10-5)-1)
+        data8 = np.random.randint(0,255,size=length,dtype=np.uint8)
+        print(f"umi writing {length+1} bytes to addr 0x{dst_addr:08x}")
+        host.write(dst_addr, data8, srcaddr=src_addr)
+        print(f"umi read from addr 0x{dst_addr:08x}")
+        val8 = host.read(dst_addr, length, np.uint8, srcaddr=src_addr)
+        if ~((val8 == data8).all()):
+            print(f"ERROR umi read from addr 0x{dst_addr:08x}")
+            print(f"Expected:")
+            print(f"{data8}")
+            print(f"Actual:")
+            print(f"{val8}")
+            assert (val8 == data8).all()
 
     ret_val.wait()
     print("### TEST PASS ###")
