@@ -24,7 +24,7 @@ module umi_endpoint
     input [AW-1:0]  udev_req_srcaddr,
     input [DW-1:0]  udev_req_data,
     output          udev_req_ready,
-    output reg      udev_resp_valid,
+    output          udev_resp_valid,
     output [CW-1:0] udev_resp_cmd,
     output [AW-1:0] udev_resp_dstaddr,
     output [AW-1:0] udev_resp_srcaddr,
