@@ -5,7 +5,7 @@ module testbench (
                   );
 
    parameter integer RW=32;
-   parameter integer DW=256;
+   parameter integer DW=128;
    parameter integer AW=64;
    parameter integer CW=32;
    parameter integer RAMDEPTH=512;
@@ -123,7 +123,7 @@ module testbench (
      begin
         if ($test$plusargs("trace"))
           begin
-             $dumpfile("testbench_mem_agent.vcd");
+             $dumpfile("testbench.vcd");
              $dumpvars(0, testbench);
           end
      end

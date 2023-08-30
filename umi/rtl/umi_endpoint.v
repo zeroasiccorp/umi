@@ -8,7 +8,7 @@
  *
  ******************************************************************************/
 module umi_endpoint
-  #(parameter REG  = 1,       // 1=insert register on read_data
+  #(parameter REG  = 0,       // 1=insert register on read_data
     parameter TYPE = "LIGHT", // FULL, LIGHT
     // standard parameters
     parameter      CW = 32,
@@ -24,7 +24,7 @@ module umi_endpoint
     input [AW-1:0]  udev_req_srcaddr,
     input [DW-1:0]  udev_req_data,
     output          udev_req_ready,
-    output reg      udev_resp_valid,
+    output          udev_resp_valid,
     output [CW-1:0] udev_resp_cmd,
     output [AW-1:0] udev_resp_dstaddr,
     output [AW-1:0] udev_resp_srcaddr,
@@ -88,14 +88,23 @@ module umi_endpoint
    // End of automatics
 
    // local regs
-   reg [AW-1:0]         dstaddr_out;
-   reg [AW-1:0]         srcaddr_out;
-   reg [CW-1:0]         command_out;
-   reg [DW-1:0]         data_out;
-   reg                  data_out_sample;
+   reg                  loc_resp_vld;
+   wire                 loc_vld_out;
+   reg                  loc_vld_keep;
+   reg [CW-1:0]         loc_cmd_out;
+   reg [AW-1:0]         loc_dstaddr_out;
+   reg [AW-1:0]         loc_srcaddr_out;
+   reg [DW-1:0]         loc_data_keep;
+   wire [DW-1:0]        loc_data_out;
+
+   reg                  vld_pipe;
+   reg [CW-1:0]         cmd_pipe;
+   reg [AW-1:0]         dstaddr_pipe;
+   reg [AW-1:0]         srcaddr_pipe;
+   reg [DW-1:0]         data_pipe;
 
    // local wires
-   wire [DW-1:0]        data_mux;
+   wire                 request_stall;
    wire                 loc_resp;
    wire [4:0]           cmd_opcode;
 
@@ -168,28 +177,17 @@ module umi_endpoint
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
    // TODO - implement atomic
-   assign loc_read  = cmd_read & udev_req_valid & loc_ready;
-   assign loc_write = (cmd_write | cmd_write_posted) & udev_req_valid & loc_ready;
+   assign loc_read  = cmd_read & udev_req_valid;
+   assign loc_write = (cmd_write | cmd_write_posted) & udev_req_valid;
    assign loc_resp  = (cmd_read | cmd_write) & udev_req_valid & loc_ready;
 
    //############################
    //# Outgoing Transaction
    //############################
 
-   //1. Set on incoming valid read
-   //2. Keep high as long as incoming read is set
-   //3. If no incoming read and output is ready, clear
-   always @ (posedge clk or negedge nreset)
-     if(!nreset)
-       udev_resp_valid <= 1'b0;
-     else if (loc_ready & loc_resp & udev_resp_ready)
-       udev_resp_valid <= 1'b1;
-     else if (udev_resp_valid & udev_resp_ready)
-       udev_resp_valid <= 1'b0;
-
    // Propagating wait signal
    // Since this is a pipeline we hold the request if we cannot respond
-   assign udev_req_ready = loc_ready & udev_resp_ready;
+   assign udev_req_ready = loc_ready & ~request_stall;
 
    //#############################
    //# Pipeline Packet
@@ -225,44 +223,86 @@ module umi_endpoint
             .cmd_hostid         (loc_hostid[4:0]),       // Templated
             .cmd_user_extended  (loc_user_extended[23:0])); // Templated
 
+   // Response pipeline
+   // If a request was accepted the local device will respond the next cycle
+   // When response ready is de-asserted need to latch the response and block
+   // additional requests
+   always @(posedge clk or negedge nreset)
+     if (!nreset)
+       loc_resp_vld <= 1'b0;
+     else
+       loc_resp_vld <= loc_resp & loc_ready & ~request_stall;
+
    always @ (posedge clk or negedge nreset)
      if (!nreset)
        begin
-	  dstaddr_out[AW-1:0] <= {AW{1'b0}};
-	  srcaddr_out[AW-1:0] <= {AW{1'b0}};
-	  command_out[CW-1:0] <= {CW{1'b0}};
+          loc_cmd_out[CW-1:0]     <= {CW{1'b0}};
+          loc_dstaddr_out[AW-1:0] <= {AW{1'b0}};
+          loc_srcaddr_out[AW-1:0] <= {AW{1'b0}};
        end
-     else if (loc_ready & udev_resp_ready)
+     else if (loc_resp & loc_ready & ~request_stall)
        begin
-	  dstaddr_out[AW-1:0] <= udev_req_srcaddr[AW-1:0];
-	  srcaddr_out[AW-1:0] <= loc_addr[AW-1:0];
-	  command_out[CW-1:0] <= packet_cmd[CW-1:0];
+          loc_cmd_out[CW-1:0]     <= packet_cmd[CW-1:0];
+          loc_dstaddr_out[AW-1:0] <= udev_req_srcaddr[AW-1:0];
+          loc_srcaddr_out[AW-1:0] <= loc_addr[AW-1:0];
        end
 
-   // selectively add pipestage
-   // In order to delay the data there is also a need to delay the valid
-   // adding the same logic for the loc_valid
+   // Data storage in case ready is low (at the response cycle)
    always @(posedge clk or negedge nreset)
      if (!nreset)
-       data_out_sample <= 1'b0;
-     else
-       data_out_sample <= loc_resp & loc_ready & udev_resp_ready;
+       loc_data_keep[DW-1:0] <= {DW{1'b0}};
+     else if (loc_resp_vld)
+       loc_data_keep[DW-1:0] <= loc_rddata[DW-1:0];
 
+   // Valid set-clear
    always @(posedge clk or negedge nreset)
      if (!nreset)
-       data_out[DW-1:0] <= {DW{1'b0}};
-     else if (data_out_sample)
-       data_out[DW-1:0] <= loc_rddata[DW-1:0];
+       loc_vld_keep <= 1'b0;
+     else if (loc_resp_vld & ~udev_resp_ready)
+       loc_vld_keep <= 1'b1;
+     else if (udev_resp_ready)
+       loc_vld_keep <= 1'b0;
 
-   // If REG is set always take the sampled data
-   // If not then only when the response is stalled
-   assign data_mux[DW-1:0] = ((REG) | ~data_out_sample) ? data_out[DW-1:0] :
-                                                          loc_rddata[DW-1:0];
+   assign loc_vld_out = loc_resp_vld | loc_vld_keep;
+
+   assign loc_data_out[DW-1:0] = loc_resp_vld ? loc_rddata[DW-1:0] : loc_data_keep[DW-1:0];
+
+   assign request_stall = (REG) ?
+                          (vld_pipe | loc_vld_out) & ~udev_resp_ready :
+                          loc_vld_out & ~udev_resp_ready;
+
+   // Additional pipe stage based on (REG)
+   always @(posedge clk or negedge nreset)
+     if (!nreset)
+       begin
+          vld_pipe             <= 1'b0;
+          cmd_pipe[CW-1:0]     <= {CW{1'b0}};
+          dstaddr_pipe[AW-1:0] <= {AW{1'b0}};
+          srcaddr_pipe[AW-1:0] <= {AW{1'b0}};
+          data_pipe[DW-1:0]    <= {DW{1'b0}};
+       end
+     else if (udev_resp_ready)
+       begin
+          vld_pipe             <= loc_vld_out;
+          cmd_pipe[CW-1:0]     <= loc_cmd_out[CW-1:0];
+          dstaddr_pipe[AW-1:0] <= loc_dstaddr_out[AW-1:0];
+          srcaddr_pipe[AW-1:0] <= loc_srcaddr_out[AW-1:0];
+          data_pipe[DW-1:0]    <= loc_data_out[DW-1:0];
+       end
 
    // Final outputs
-   assign udev_resp_cmd[CW-1:0]     = command_out[CW-1:0];
-   assign udev_resp_dstaddr[AW-1:0] = dstaddr_out[AW-1:0];
-   assign udev_resp_srcaddr[AW-1:0] = srcaddr_out[AW-1:0];
-   assign udev_resp_data[DW-1:0]    = data_mux[DW-1:0];
+   assign udev_resp_valid           = (REG) ? vld_pipe     : loc_vld_out;
+   assign udev_resp_cmd[CW-1:0]     = (REG) ? cmd_pipe     : loc_cmd_out;
+   assign udev_resp_dstaddr[AW-1:0] = (REG) ? dstaddr_pipe : loc_dstaddr_out;
+   assign udev_resp_srcaddr[AW-1:0] = (REG) ? srcaddr_pipe : loc_srcaddr_out;
+   assign udev_resp_data[DW-1:0]    = (REG) ? data_pipe    : loc_data_out;
+
+`ifndef SYNTHESIS
+   // Poor man's coverage points
+   wire req_no_rdy = (loc_read | loc_write) & ~request_stall & ~udev_resp_ready;
+   wire resp_no_rdy = loc_resp_vld & ~udev_resp_ready;
+   wire b2b = (loc_read | loc_write) & ~request_stall & loc_resp_vld;
+   wire b2b_stall = (loc_read | loc_write) & request_stall & loc_resp_vld;
+`endif
 
 endmodule // umi_endpoint
