@@ -89,6 +89,8 @@ module umi_endpoint
 
    // local regs
    reg                  loc_resp_vld;
+   wire                 loc_vld_out;
+   reg                  loc_vld_keep;
    reg [CW-1:0]         loc_cmd_out;
    reg [AW-1:0]         loc_dstaddr_out;
    reg [AW-1:0]         loc_srcaddr_out;
@@ -228,8 +230,8 @@ module umi_endpoint
    always @(posedge clk or negedge nreset)
      if (!nreset)
        loc_resp_vld <= 1'b0;
-     else if (~request_stall)
-       loc_resp_vld <= loc_resp & loc_ready;
+     else
+       loc_resp_vld <= loc_resp & loc_ready & ~request_stall;
 
    always @ (posedge clk or negedge nreset)
      if (!nreset)
@@ -249,14 +251,25 @@ module umi_endpoint
    always @(posedge clk or negedge nreset)
      if (!nreset)
        loc_data_keep[DW-1:0] <= {DW{1'b0}};
-     else if (udev_resp_ready)
+     else if (loc_resp_vld)
        loc_data_keep[DW-1:0] <= loc_rddata[DW-1:0];
+
+   // Valid set-clear
+   always @(posedge clk or negedge nreset)
+     if (!nreset)
+       loc_vld_keep <= 1'b0;
+     else if (loc_resp_vld & ~udev_resp_ready)
+       loc_vld_keep <= 1'b1;
+     else if (udev_resp_ready)
+       loc_vld_keep <= 1'b0;
+
+   assign loc_vld_out = loc_resp_vld | loc_vld_keep;
 
    assign loc_data_out[DW-1:0] = loc_resp_vld ? loc_rddata[DW-1:0] : loc_data_keep[DW-1:0];
 
    assign request_stall = (REG) ?
-                          (vld_pipe | loc_resp_vld) & ~udev_resp_ready :
-                          loc_resp_vld & ~udev_resp_ready;
+                          (vld_pipe | loc_vld_out) & ~udev_resp_ready :
+                          loc_vld_out & ~udev_resp_ready;
 
    // Additional pipe stage based on (REG)
    always @(posedge clk or negedge nreset)
@@ -270,7 +283,7 @@ module umi_endpoint
        end
      else if (udev_resp_ready)
        begin
-          vld_pipe             <= loc_resp_vld;
+          vld_pipe             <= loc_vld_out;
           cmd_pipe[CW-1:0]     <= loc_cmd_out[CW-1:0];
           dstaddr_pipe[AW-1:0] <= loc_dstaddr_out[AW-1:0];
           srcaddr_pipe[AW-1:0] <= loc_srcaddr_out[AW-1:0];
@@ -278,10 +291,18 @@ module umi_endpoint
        end
 
    // Final outputs
-   assign udev_resp_valid           = (REG) ? vld_pipe     : loc_resp_vld;
+   assign udev_resp_valid           = (REG) ? vld_pipe     : loc_vld_out;
    assign udev_resp_cmd[CW-1:0]     = (REG) ? cmd_pipe     : loc_cmd_out;
    assign udev_resp_dstaddr[AW-1:0] = (REG) ? dstaddr_pipe : loc_dstaddr_out;
    assign udev_resp_srcaddr[AW-1:0] = (REG) ? srcaddr_pipe : loc_srcaddr_out;
    assign udev_resp_data[DW-1:0]    = (REG) ? data_pipe    : loc_data_out;
+
+`ifndef SYNTHESIS
+   // Poor man's coverage points
+   wire req_no_rdy = (loc_read | loc_write) & ~request_stall & ~udev_resp_ready;
+   wire resp_no_rdy = loc_resp_vld & ~udev_resp_ready;
+   wire b2b = (loc_read | loc_write) & ~request_stall & loc_resp_vld;
+   wire b2b_stall = (loc_read | loc_write) & request_stall & loc_resp_vld;
+`endif
 
 endmodule // umi_endpoint
