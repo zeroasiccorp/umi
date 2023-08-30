@@ -630,7 +630,7 @@ module tl2umi_np #(
                 uhost_req_packet_cmd_opcode <= UMI_REQ_WRITE;
                 uhost_req_packet_cmd_eom <= 1'b0;
 
-                if (uhost_req_packet_ready && uhost_req_packet_valid_r) begin
+                if (tl_a_ready & tl_a_valid) begin
                     uhost_req_packet_dstaddr <= {(uhost_req_packet_dstaddr_m[56:3]), ml_tx_first_one[2:0]};
                     uhost_req_packet_data[63:0] <= ml_tx_data;
                     uhost_req_packet_cmd_len <= ml_tx_len;

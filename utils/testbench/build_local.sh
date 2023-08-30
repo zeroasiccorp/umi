@@ -3,7 +3,7 @@
 MAIN_DIR=$(pwd)/../..
 RTL_DIR=$MAIN_DIR/utils/rtl
 
-iverilog tb_umi_data_aggregator.v \
+iverilog tb_tl2umi_np.v \
     -y . \
     -I . \
     -y $RTL_DIR \
@@ -17,5 +17,5 @@ iverilog tb_umi_data_aggregator.v \
     -y $MAIN_DIR/submodules/lambdalib/ramlib/rtl
 
 #./a.out
-#./a.out +MEMHFILE=./buffer.memh
-./a.out +MEMHFILE=$MAIN_DIR/umi/testbench/buffer.memh
+./a.out +MEMHFILE=./buffer.memh
+#./a.out +MEMHFILE=$MAIN_DIR/umi/testbench/buffer.memh
