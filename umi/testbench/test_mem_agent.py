@@ -65,6 +65,7 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
 
     print("### Statring test ###")
 
+    # un-aligned accesses
     for count in range (1000):
         addr = random.randrange(511)
         src_addr = random.randrange(2**64-1)
@@ -75,6 +76,21 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
         host.write(addr, data8, srcaddr=src_addr)
         print(f"umi read from addr 0x{addr:08x}")
         val8 = host.read(addr, length, np.uint8, srcaddr=src_addr)
+        if ~((val8 == data8).all()):
+            print(f"ERROR umi read from addr 0x{addr:08x} expected {data8} actual {val8}")
+            assert (val8 == data8).all()
+
+    # Aligned accesses, b2b
+    for count in range (1000):
+        addr = 16 * random.randrange(127)
+        src_addr = random.randrange(2**64-1)
+        # lenth should not cross the DW boundary - umi_mem_agent limitation
+        length = np.random.randint(0,63)
+        data8 = np.random.randint(0,255,size=length,dtype=np.uint8)
+        print(f"umi writing {length+1} bytes to addr 0x{addr:08x}")
+        host.write(addr, data8, srcaddr=src_addr, max_bytes=16)
+        print(f"umi read from addr 0x{addr:08x}")
+        val8 = host.read(addr, length, np.uint8, srcaddr=src_addr, max_bytes=16)
         if ~((val8 == data8).all()):
             print(f"ERROR umi read from addr 0x{addr:08x} expected {data8} actual {val8}")
             assert (val8 == data8).all()
