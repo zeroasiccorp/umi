@@ -64,10 +64,8 @@ module lumi_rx
    localparam ASYNCFIFODEPTH = 8;
    localparam NFIFO = IOW/RXFIFOW;
    localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
-
-   localparam [7:0] LOGFIFOWIDTH = $clog2(RXFIFOW/8);
-   localparam [7:0] LOGNFIFO = $clog2(NFIFO);
-
+   localparam LOGFIFOWIDTH = $clog2(RXFIFOW/8);
+   localparam LOGNFIFO = $clog2(NFIFO);
 
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
@@ -460,7 +458,7 @@ module lumi_rx
    // common masks - for both request and response fifos
    //########################################
    assign iow_mask[7:0]      = (IOW >> 3) - 1'b1;
-   assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0] >> LOGFIFOWIDTH;
+   assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0] >> LOGFIFOWIDTH[7:0];
 
    genvar i;
    for(i=0;i<NFIFO;i=i+1)
@@ -474,9 +472,9 @@ module lumi_rx
         // Mask for looking at empty fifo
         assign fifo_dout_mask[i] = (i[7:0] & fifo_mux_mask[7:0]) == fifo_mux_mask[7:0];
         // Shift for input busses
-        assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO - csr_iowidth) : 8'h0;
+        assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO[7:0] - csr_iowidth) : 8'h0;
         // Shift for output busses
-        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 32'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
+        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
      end
 
    // Dummy, just for the equations in the loop below
