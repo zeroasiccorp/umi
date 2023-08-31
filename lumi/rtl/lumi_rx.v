@@ -64,10 +64,10 @@ module lumi_rx
    localparam ASYNCFIFODEPTH = 8;
    localparam NFIFO = IOW/RXFIFOW;
    localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
-   /* verilator lint_off WIDTHTRUNC */
+
    localparam [7:0] LOGFIFOWIDTH = $clog2(RXFIFOW/8);
    localparam [7:0] LOGNFIFO = $clog2(NFIFO);
-   /* verilator lint_off WIDTHTRUNC */
+
 
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
