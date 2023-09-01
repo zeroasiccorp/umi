@@ -365,7 +365,7 @@ module tb_tl2umi_np #(
     end
 
     always @(posedge clk) begin
-        tl_a_data <= {$random, $random};
+        tl_a_data <= {$random, $random, $random, $random};
         // tl_d_ready <= $random % 2;
         tl_d_ready <= 1'b1;
     end
