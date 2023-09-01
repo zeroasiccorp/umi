@@ -474,7 +474,7 @@ module lumi_rx
         // Shift for input busses
         assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO[7:0] - csr_iowidth) : 8'h0;
         // Shift for output busses
-        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
+        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 32'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
      end
 
    // Dummy, just for the equations in the loop below
