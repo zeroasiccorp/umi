@@ -227,7 +227,7 @@ module lumi_rx
 
    // Detect valis signal
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        begin
           rxvalid  <= 1'b0;
           rxvalid2 <= 1'b0;
@@ -243,7 +243,7 @@ module lumi_rx
      rxdata[IOW-1:0] <= phy_rxdata[IOW-1:0];
 
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        rxdata_d[7:0] <= 'h0;
      else
        if (rxvalid)
@@ -355,7 +355,7 @@ module lumi_rx
                          (sopptr == 'h1) & (csr_iowidth == 8'h0);
 
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        rxbytes_keep <= 'h0;
      else
        if (rxhdr_sample & rxvalid)
@@ -367,7 +367,7 @@ module lumi_rx
 
    // Valid register holds one bit per byte to transfer
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        sopptr <= 'b0;
      else if (rxvalid)
        sopptr <= sopptr_next;
@@ -388,7 +388,7 @@ module lumi_rx
 
    // Sample packet type from the RX lines upon SOP
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        rxtype_next[2:0] <= 3'b000;
      else
        if (rxhdr_sample & rxvalid)
@@ -400,7 +400,7 @@ module lumi_rx
 
    // credit counters - to be sent to the remote side
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        begin
           rx_crdt_req[15:0]  <= 'h0;
           rx_crdt_resp[15:0] <= 'h0;
@@ -618,7 +618,7 @@ module lumi_rx
    assign lnk_sop_bit[4:0] = {3'b000,lnk_sop[1:0]};
 
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        begin
           lnk_sop[1:0]               <= 'h0;
           lnk_fifo_dout_mask[CW-1:0] <= 'h0;
@@ -664,7 +664,7 @@ module lumi_rx
    //# "steal" incoming credit update
    //########################################
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        lnk_cmd_vld <= 'h0;
      else
        lnk_cmd_vld <= lnk_fifo_rd &
@@ -677,7 +677,7 @@ module lumi_rx
                              ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
 
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        begin
           rmt_crdt_req  <= 'h0;
           rmt_crdt_resp <= 'h0;
@@ -696,7 +696,7 @@ module lumi_rx
    // lock fifo sel, change only at EOP
 
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        fifo_sel_hold <= 2'b00;
      else
        fifo_sel_hold <= ~sync_fifo_full & |(fifo_sel[1:0] & fifo_eop[1:0]) ? 2'b00             :
