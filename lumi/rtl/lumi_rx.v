@@ -147,9 +147,11 @@ module lumi_rx
 
    wire                             rx_cmd_only;
    wire                             rx_no_data;
-   wire                             cmd_only;
+   wire                             req_cmd_only;
+   wire                             resp_cmd_only;
    wire [1:0]                       fifo_cmd_only;
-   wire                             no_data;
+   wire                             req_no_data;
+   wire                             resp_no_data;
    wire [11:0]                      rxcmd_lenp1;
    wire [11:0]                      rxcmd_bytes;
    wire [11:0]                      req_cmd_lenp1;
@@ -493,7 +495,7 @@ module lumi_rx
         // Shift for input busses
         assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO[7:0] - csr_iowidth) : 8'h0;
         // Shift for output busses
-        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 32'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
+        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
      end
 
    // Dummy, just for the equations in the loop below
@@ -771,7 +773,7 @@ module lumi_rx
 
    // link commands will be consumed before the sync fifo so that they are not blocked
    /*umi_decode AUTO_TEMPLATE(
-    .command       (sync_fifo_dout[IOW-1:0]),
+    .command       (sync_fifo_dout[CW-1:0]),
     .cmd_invalid   (req_fifo_cmd_invalid[]),
     .cmd_.*        (),
     );*/
@@ -807,12 +809,12 @@ module lumi_rx
                .cmd_atomic_minu (),                      // Templated
                .cmd_atomic_swap (),                      // Templated
                // Inputs
-               .command         (sync_fifo_dout[IOW-1:0])); // Templated
+               .command         (sync_fifo_dout[CW-1:0])); // Templated
 
    assign fifo_cmd_only[0]  = req_fifo_cmd_invalid;
 
    /*umi_decode AUTO_TEMPLATE(
-    .command       (sync_fifo_dout[2*IOW-1:IOW]),
+    .command       (sync_fifo_dout[IOW+CW-1:IOW]),
     .cmd_invalid   (resp_fifo_cmd_invalid[]),
     .cmd_.*        (),
     );*/
@@ -848,7 +850,7 @@ module lumi_rx
                 .cmd_atomic_minu(),                      // Templated
                 .cmd_atomic_swap(),                      // Templated
                 // Inputs
-                .command        (sync_fifo_dout[2*IOW-1:IOW])); // Templated
+                .command        (sync_fifo_dout[IOW+CW-1:IOW])); // Templated
 
    assign fifo_cmd_only[1]  = resp_fifo_cmd_invalid;
 
