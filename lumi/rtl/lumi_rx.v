@@ -144,11 +144,6 @@ module lumi_rx
    wire [(DW+AW+AW+CW)-1:0]         resp_writemask;
    reg [IOW-1:0]                    rxdata;
    reg [7:0]                        rxdata_d;
-   wire [CW-1:0]                    umi_out_cmd;
-   wire [AW-1:0]                    umi_out_dstaddr;
-   wire [AW-1:0]                    umi_out_srcaddr;
-   wire [DW-1:0]                    umi_out_data;
-   wire                             umi_out_valid;
 
    wire                             rx_cmd_only;
    wire                             rx_no_data;
@@ -719,7 +714,7 @@ module lumi_rx
    // Async fifo to cross from phy clock to lumi clock
    //########################################
    assign sync_fifo_wr[0] = fifo_rd[0];
-   assign sync_fifo_rd[0] = ~sync_fifo_empty[0] & ~(umi_out_valid & ~umi_req_out_ready);
+   assign sync_fifo_rd[0] = ~sync_fifo_empty[0] & ~(umi_req_out_valid & ~umi_req_out_ready);
 
    la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
                   .DEPTH(ASYNCFIFODEPTH), // FIFO depth
@@ -747,7 +742,7 @@ module lumi_rx
                   .rd_en            (sync_fifo_rd[0]));
 
    assign sync_fifo_wr[1] = fifo_rd[1];
-   assign sync_fifo_rd[1] = ~sync_fifo_empty[1] & ~(umi_out_valid & ~umi_resp_out_ready);
+   assign sync_fifo_rd[1] = ~sync_fifo_empty[1] & ~(umi_resp_out_valid & ~umi_resp_out_ready);
 
    la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
                   .DEPTH(ASYNCFIFODEPTH), // FIFO depth
@@ -1051,7 +1046,7 @@ module lumi_rx
    // non traditional shift register to handle multi modes
    // Need to stall the pipeline, including the shiftreg, when output is stalled
    always @ (posedge clk)
-     if (sync_fifo_rd)
+     if (sync_fifo_rd[0])
        req_shiftreg[(DW+AW+AW+CW)-1:0] <= (req_shiftreg_in[(DW+AW+AW+CW)-1:0] << (req_datashift<<3)) & req_writemask[(DW+AW+AW+CW)-1:0] |
                                           (req_shiftreg[(DW+AW+AW+CW)-1:0] & ~req_writemask[(DW+AW+AW+CW)-1:0]);
 
@@ -1091,9 +1086,9 @@ module lumi_rx
    // Special case - need to check that the fifo data is cmd_only and then hold rxptr
 
    assign resp_rxptr_next = ((|resp_rxptr) & ((resp_rxptr + byterate) >= resp_bytes_to_receive) |
-                            ~(|resp_rxptr) & fifo_cmd_only[0] & (byterate >= CW/8)) ?
-                           0 :
-                           resp_rxptr + byterate;
+                             ~(|resp_rxptr) & fifo_cmd_only[1] & (byterate >= CW/8)) ?
+                            0 :
+                            resp_rxptr + byterate;
 
    // Transfer shift regster data when counter rolls over
    // Need to stall it when the output is not ready
@@ -1124,7 +1119,7 @@ module lumi_rx
    // non traditional shift register to handle multi modes
    // Need to stall the pipeline, including the shiftreg, when output is stalled
    always @ (posedge clk)
-     if (sync_fifo_rd)
+     if (sync_fifo_rd[1])
        resp_shiftreg[(DW+AW+AW+CW)-1:0] <= (resp_shiftreg_in[(DW+AW+AW+CW)-1:0] << (resp_datashift<<3)) & resp_writemask[(DW+AW+AW+CW)-1:0] |
                                            (resp_shiftreg[(DW+AW+AW+CW)-1:0] & ~resp_writemask[(DW+AW+AW+CW)-1:0]);
 
