@@ -352,11 +352,12 @@ module lumi_tx
    assign req_crdt_need[15:0]  = {4'h0,req_packet_lines[11:0]}  + {15'h0,(|req_packet_mod[11:0])};
    assign resp_crdt_need[15:0] = {4'h0,resp_packet_lines[11:0]} + {15'h0,(|resp_packet_mod[11:0])};
 
-   assign req_crdt_avail[15:0]  = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0]);
-   assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]);
+   // The last part account for a credit being consumed this cycle
+   assign req_crdt_avail[15:0]  = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0] - {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[0]});
+   assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]- {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[1]});
 
-   assign rxready[0] = req_crdt_avail[15:0]  > req_crdt_need[15:0];
-   assign rxready[1] = resp_crdt_avail[15:0] > resp_crdt_need[15:0];
+   assign rxready[0] = req_crdt_avail[15:0]  >= req_crdt_need[15:0];
+   assign rxready[1] = resp_crdt_avail[15:0] >= resp_crdt_need[15:0];
 
    assign phy_fifo_wr = |valid[(DW+AW+AW+CW)/8-1:0];
 
