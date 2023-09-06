@@ -334,6 +334,7 @@ module lumi_tx
                    // Inputs
                    .packet_cmd          (umi_resp_in_cmd[CW-1:0])); // Templated
 
+
    assign cmd_resp_lenp1[11:0] = {4'h0,cmd_resp_len[7:0]} + 1'b1;
    assign cmd_req_lenp1[11:0]  = {4'h0,cmd_req_len[7:0]}  + 1'b1;
 
@@ -343,6 +344,7 @@ module lumi_tx
    // Find how many lines of credit are needed
    assign req_packet_lines[11:0]  = req_packet_bytes[11:0]  >> csr_iowidth[7:0];
    assign resp_packet_lines[11:0] = resp_packet_bytes[11:0] >> csr_iowidth[7:0];
+
    // The above calulation is doing round down so need to see if an extra line is needed
    assign req_packet_mod[11:0]  = ~(req_packet_lines[11:0]  << csr_iowidth[7:0]) & req_packet_bytes[11:0];
    assign resp_packet_mod[11:0] = ~(resp_packet_lines[11:0] << csr_iowidth[7:0]) & resp_packet_bytes[11:0];
@@ -353,8 +355,8 @@ module lumi_tx
    assign req_crdt_avail[15:0]  = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0]);
    assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]);
 
-   assign rxready[0] = req_crdt_avail[15:0]  >= req_crdt_need[15:0];
-   assign rxready[1] = resp_crdt_avail[15:0] >= resp_crdt_need[15:0];
+   assign rxready[0] = req_crdt_avail[15:0]  > req_crdt_need[15:0];
+   assign rxready[1] = resp_crdt_avail[15:0] > resp_crdt_need[15:0];
 
    assign phy_fifo_wr = |valid[(DW+AW+AW+CW)/8-1:0];
 
@@ -394,7 +396,7 @@ module lumi_tx
 
    assign sample_packet = lumi_txrdy & csr_en & phy_txrdy & ((|crdt_updt_send) |
                                                              umi_resp_in_gated |
-			                                     umi_req_in_gated  );
+                                                             umi_req_in_gated  );
 
    //########################################
    // UMI bandwidth optimization - send only what is needed
@@ -410,8 +412,7 @@ module lumi_tx
     );*/
 
    umi_decode #(.CW(CW))
-   umi_decode_req (//.command             (umi_muxed_cmd[CW-1:0]),
-                   /*AUTOINST*/
+   umi_decode_req (/*AUTOINST*/
                    // Outputs
                    .cmd_invalid         (req_cmd_invalid),       // Templated
                    .cmd_request         (req_cmd_request),       // Templated
@@ -482,6 +483,7 @@ module lumi_tx
    assign shiftreg_in_new = {umi_out_data,umi_out_srcaddr,umi_out_dstaddr,umi_muxed_cmd};
 
    // Third step - only send the required number of bits
+   // TODO - do not send SA for resonses
    assign req_cmd_only  = req_cmd_invalid    |
                           req_cmd_link       |
                           req_cmd_link_resp  ;
@@ -557,15 +559,15 @@ module lumi_tx
      else if (sample_packet)
        begin
           shiftreg[(DW+AW+AW+CW)-1:0] <= shiftreg_in_new[(DW+AW+AW+CW)-1:0];
-          shift_reg_type[2] <=  (req_cmd_link | resp_cmd_link_resp);
-          shift_reg_type[1] <= ~(req_cmd_link | resp_cmd_link_resp) & umi_resp_in_gated;
-          shift_reg_type[0] <= ~(req_cmd_link | resp_cmd_link_resp) & ~umi_resp_in_gated & umi_req_in_gated;
+          shift_reg_type[2] <=  (|crdt_updt_send);
+          shift_reg_type[1] <= ~(|crdt_updt_send) & umi_resp_in_gated;
+          shift_reg_type[0] <= ~(|crdt_updt_send) & ~umi_resp_in_gated & umi_req_in_gated;
        end
      else if (phy_txrdy)
        shiftreg[(DW+AW+AW+CW)-1:0] <= shiftreg_in[(DW+AW+AW+CW)-1:0];
 
    assign shiftreg_in[(DW+AW+AW+CW)-1:0] = shiftreg[(DW+AW+AW+CW)-1:0] >>
-				           (byterate[$clog2(DW+AW+AW+CW)-1:0] <<3);
+                                           (byterate[$clog2(DW+AW+AW+CW)-1:0] <<3);
 
    //########################################
    //# Output data - no need for masking or by anymore
