@@ -490,7 +490,7 @@ module lumi_rx
                           ~sync_fifo_full;
 
    wire [NFIFO- 1:0] fifo_werror = req_fifo_wr[NFIFO-1:0] & req_fifo_full[NFIFO-1:0] & fifo_mux_sel[NFIFO-1:0];
-   wire [NFIFO- 1:0] fifo_rerror = req_fifo_rd[NFIFO-1:0] & req_fifo_empty[NFIFO-1:0];
+   wire [NFIFO- 1:0] fifo_rerror = req_fifo_rd[NFIFO-1:0] & req_fifo_empty[NFIFO-1:0] & (fifo_mux_sel[NFIFO-1:0]>>1);
 
    genvar j;
    for(j=0;j<NFIFO;j=j+1)
