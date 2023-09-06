@@ -33,8 +33,8 @@ module lumi_rx
     input             vdd,                // core supply
     input             vddio,              // io voltage
     // pad signals
-    input             ioclk,                // clock for sampling input data
-    input             ionreset,             // async active low reset
+    input             ioclk,              // clock for sampling input data
+    input             ionreset,           // async active low reset
     input [IOW-1:0]   phy_rxdata,
     input             phy_rxvld,
     // Write/Response
@@ -60,7 +60,6 @@ module lumi_rx
     output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
     );
 
-   localparam FIFOW = RXFIFOW + 1;
    localparam ASYNCFIFODEPTH = 8;
    localparam NFIFO = IOW/RXFIFOW;
    localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
@@ -69,29 +68,31 @@ module lumi_rx
 
    // local state
    reg [$clog2((DW+AW+AW+CW))-1:0] sopptr;
-   reg [$clog2((DW+AW+AW+CW))-1:0] rxptr;
+   reg [$clog2((DW+AW+AW+CW))-1:0] req_rxptr;
+   reg [$clog2((DW+AW+AW+CW))-1:0] resp_rxptr;
    reg [$clog2((DW+AW+AW+CW))-1:0] rxbytes_raw;
    wire [$clog2((DW+AW+AW+CW))-1:0] full_hdr_size;
    wire [$clog2((DW+AW+AW+CW))-1:0] rxbytes_to_rcv;
    reg [$clog2((DW+AW+AW+CW))-1:0]  rxbytes_keep;
-   reg [$clog2((DW+AW+AW+CW))-1:0]  bytes_to_receive;
+   reg [$clog2((DW+AW+AW+CW))-1:0]  req_bytes_to_receive;
+   reg [$clog2((DW+AW+AW+CW))-1:0]  resp_bytes_to_receive;
    reg                              rxvalid;
    reg                              rxvalid2;
    reg                              rxfec;
-   reg [(DW+AW+AW+CW)-1:0]          shiftreg;
-   wire [(DW+AW+AW+CW)-1:0]         shiftreg_in;
+   reg [(DW+AW+AW+CW)-1:0]          req_shiftreg;
+   reg [(DW+AW+AW+CW)-1:0]          resp_shiftreg;
+   wire [(DW+AW+AW+CW)-1:0]         req_shiftreg_in;
+   wire [(DW+AW+AW+CW)-1:0]         resp_shiftreg_in;
    reg [CW-1:0]                     lnk_shiftreg;
    reg [CW-1:0]                     lnk_fifo_dout_mask;
    reg [1:0]                        lnk_sop;
    wire [4:0]                       lnk_sop_bit;
    wire [1:0]                       lnk_sop_next;
-   reg                              transfer;
+   reg                              req_transfer;
+   reg                              resp_transfer;
    reg [2:0]                        rxtype_next;
    reg [15:0]                       rx_crdt_req;
    reg [15:0]                       rx_crdt_resp;
-   reg [1:0]                        fifo_sel_hold;
-   wire [1:0]                       fifo_sel;
-   wire [1:0]                       fifo_eop;
    wire [1:0]                       fifo_empty;
    wire                             lnk_fifo_empty;
    wire [1:0]                       fifo_wr;
@@ -123,23 +124,24 @@ module lumi_rx
    wire [IOW+NFIFO-1:0]             resp_fifo_dout_muxed;
    wire [CW-1:0]                    lnk_fifo_din;
    wire [CW-1:0]                    lnk_fifo_dout;
-   wire [IOW-1:0]                   fifo_data_muxed;
-   wire [IOW-1:0]                   sync_fifo_dout;
-   wire                             sync_fifo_wr;
-   wire                             sync_fifo_rd;
-   wire                             sync_fifo_empty;
-   wire                             sync_fifo_full;
+   wire [2*IOW-1:0]                 sync_fifo_dout;
+   wire [1:0]                       sync_fifo_wr;
+   wire [1:0]                       sync_fifo_rd;
+   wire [1:0]                       sync_fifo_empty;
+   wire [1:0]                       sync_fifo_full;
 
    // local wires
    wire [2:0]                       rxtype;
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
    wire [$clog2((DW+AW+AW+CW))-1:0] byterate;
    wire [10:0]                      iowidth;
-   //   wire [$clog2(DW/8)-1:0] byterate;
    wire [$clog2((DW+AW+AW+CW))-1:0] sopptr_next;
-   wire [$clog2((DW+AW+AW+CW))-1:0] rxptr_next;
-   wire [$clog2((DW+AW+AW+CW))-1:0] datashift;
-   wire [(DW+AW+AW+CW)-1:0]         writemask;
+   wire [$clog2((DW+AW+AW+CW))-1:0] req_rxptr_next;
+   wire [$clog2((DW+AW+AW+CW))-1:0] resp_rxptr_next;
+   wire [$clog2((DW+AW+AW+CW))-1:0] req_datashift;
+   wire [$clog2((DW+AW+AW+CW))-1:0] resp_datashift;
+   wire [(DW+AW+AW+CW)-1:0]         req_writemask;
+   wire [(DW+AW+AW+CW)-1:0]         resp_writemask;
    reg [IOW-1:0]                    rxdata;
    reg [7:0]                        rxdata_d;
    wire [CW-1:0]                    umi_out_cmd;
@@ -151,12 +153,14 @@ module lumi_rx
    wire                             rx_cmd_only;
    wire                             rx_no_data;
    wire                             cmd_only;
-   wire                             fifo_cmd_only;
+   wire [1:0]                       fifo_cmd_only;
    wire                             no_data;
    wire [11:0]                      rxcmd_lenp1;
    wire [11:0]                      rxcmd_bytes;
-   wire [11:0]                      cmd_lenp1;
-   wire [11:0]                      cmd_bytes;
+   wire [11:0]                      req_cmd_lenp1;
+   wire [11:0]                      resp_cmd_lenp1;
+   wire [11:0]                      req_cmd_bytes;
+   wire [11:0]                      resp_cmd_bytes;
 
    wire [1:0]                       credit_req_in;
 
@@ -167,28 +171,49 @@ module lumi_rx
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire                 cmd_error;
-   wire                 cmd_future0;
-   wire                 cmd_future0_resp;
-   wire                 cmd_future1_resp;
-   wire                 cmd_invalid;
-   wire [7:0]           cmd_len;
-   wire                 cmd_link;
-   wire                 cmd_link_resp;
-   wire                 cmd_rdma;
-   wire                 cmd_read;
-   wire                 cmd_read_resp;
-   wire                 cmd_request;
-   wire                 cmd_response;
-   wire [2:0]           cmd_size;
-   wire                 cmd_user0;
-   wire                 cmd_user0_resp;
-   wire                 cmd_user1_resp;
-   wire                 cmd_write;
-   wire                 cmd_write_posted;
-   wire                 cmd_write_resp;
-   wire                 fifo_cmd_invalid;
    wire [23:0]          lnk_cmd_user;
+   wire                 req_cmd_error;
+   wire                 req_cmd_future0;
+   wire                 req_cmd_future0_resp;
+   wire                 req_cmd_future1_resp;
+   wire                 req_cmd_invalid;
+   wire [7:0]           req_cmd_len;
+   wire                 req_cmd_link;
+   wire                 req_cmd_link_resp;
+   wire                 req_cmd_rdma;
+   wire                 req_cmd_read;
+   wire                 req_cmd_read_resp;
+   wire                 req_cmd_request;
+   wire                 req_cmd_response;
+   wire [2:0]           req_cmd_size;
+   wire                 req_cmd_user0;
+   wire                 req_cmd_user0_resp;
+   wire                 req_cmd_user1_resp;
+   wire                 req_cmd_write;
+   wire                 req_cmd_write_posted;
+   wire                 req_cmd_write_resp;
+   wire                 req_fifo_cmd_invalid;
+   wire                 resp_cmd_error;
+   wire                 resp_cmd_future0;
+   wire                 resp_cmd_future0_resp;
+   wire                 resp_cmd_future1_resp;
+   wire                 resp_cmd_invalid;
+   wire [7:0]           resp_cmd_len;
+   wire                 resp_cmd_link;
+   wire                 resp_cmd_link_resp;
+   wire                 resp_cmd_rdma;
+   wire                 resp_cmd_read;
+   wire                 resp_cmd_read_resp;
+   wire                 resp_cmd_request;
+   wire                 resp_cmd_response;
+   wire [2:0]           resp_cmd_size;
+   wire                 resp_cmd_user0;
+   wire                 resp_cmd_user0_resp;
+   wire                 resp_cmd_user1_resp;
+   wire                 resp_cmd_write;
+   wire                 resp_cmd_write_posted;
+   wire                 resp_cmd_write_resp;
+   wire                 resp_fifo_cmd_invalid;
    wire                 rxcmd_error;
    wire                 rxcmd_future0;
    wire                 rxcmd_future0_resp;
@@ -209,7 +234,6 @@ module lumi_rx
    wire                 rxcmd_write;
    wire                 rxcmd_write_posted;
    wire                 rxcmd_write_resp;
-   wire                 umi_out_ready;
    // End of automatics
 
    //########################################
@@ -485,29 +509,27 @@ module lumi_rx
    //########################################
    assign fifo_wr[0]    = rxvalid & (rxtype[2:0] == 3'b001);
    assign fifo_empty[0] = ~(|(~req_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0]));
-   assign fifo_rd[0]    = ~fifo_empty[0] &
-                          fifo_sel[0] &
-                          ~sync_fifo_full;
+   assign fifo_rd[0]    = ~fifo_empty[0] & ~sync_fifo_full[0];
 
    wire [NFIFO- 1:0] fifo_werror = req_fifo_wr[NFIFO-1:0] & req_fifo_full[NFIFO-1:0] & fifo_mux_sel[NFIFO-1:0];
    wire [NFIFO- 1:0] fifo_rerror = req_fifo_rd[NFIFO-1:0] & req_fifo_empty[NFIFO-1:0] & (fifo_mux_sel[NFIFO-1:0]>>1);
 
-   genvar j;
+   genvar            j;
    for(j=0;j<NFIFO;j=j+1)
      begin
-        assign req_fifo_din[j*FIFOW+:FIFOW] = fifo_mux_sel[j] | (j == 0) ?
-                                              {~(|sopptr_next),rxdata[fifo_wr_shift[j*8+:8]*RXFIFOW+:RXFIFOW]} :
-                                              req_fifo_dout[(j-1)*FIFOW+:FIFOW];
+        assign req_fifo_din[j*RXFIFOW+:RXFIFOW] = fifo_mux_sel[j] | (j == 0) ?
+                                                  rxdata[fifo_wr_shift[j*8+:8]*RXFIFOW+:RXFIFOW] :
+                                                  req_fifo_dout[(j-1)*RXFIFOW+:RXFIFOW];
 
         assign req_fifo_wr[j] = fifo_mux_sel[j] ? fifo_wr[0] : ~req_fifo_empty[j-1];
 
         assign req_fifo_rd[j] = fifo_mux_sel[j+1] ? fifo_rd[0] : ~req_fifo_full[j+1];
 
-        assign req_fifo_dout_muxed[j*FIFOW+:FIFOW] = fifo_dout_sel[j] ?
-                                                     'h0 :
-                                                     req_fifo_dout[fifo_rd_shift[j*8+:8]*FIFOW+:FIFOW];
+        assign req_fifo_dout_muxed[j*RXFIFOW+:RXFIFOW] = fifo_dout_sel[j] ?
+                                                         'h0 :
+                                                         req_fifo_dout[fifo_rd_shift[j*8+:8]*RXFIFOW+:RXFIFOW];
 
-        la_syncfifo #(.DW(FIFOW),  // Memory width
+        la_syncfifo #(.DW(RXFIFOW),  // Memory width
                       .DEPTH(CRDTDEPTH), // FIFO depth
                       .NS(1),            // Number of power supplies
                       .CHAOS(0),         // generates random full logic when set
@@ -516,7 +538,7 @@ module lumi_rx
                       .TYPE("DEFAULT"))  // Pass through variable for hard macro
         req_fifo_i(// Outputs
                    .wr_full          (req_fifo_full[j]),
-                   .rd_dout          (req_fifo_dout[j*FIFOW+:FIFOW]),
+                   .rd_dout          (req_fifo_dout[j*RXFIFOW+:RXFIFOW]),
                    .rd_empty         (req_fifo_empty[j]),
                    // Inputs
                    .clk              (ioclk),
@@ -527,7 +549,7 @@ module lumi_rx
                    .ctrl             (1'b0),
                    .test             (1'b0),
                    .wr_en            (req_fifo_wr[j]),
-                   .wr_din           (req_fifo_din[j*FIFOW+:FIFOW]),
+                   .wr_din           (req_fifo_din[j*RXFIFOW+:RXFIFOW]),
                    .rd_en            (req_fifo_rd[j]));
      end
 
@@ -536,27 +558,25 @@ module lumi_rx
    //########################################
    assign fifo_wr[1]    = rxvalid & (rxtype[2:0] == 3'b010);
    assign fifo_empty[1] = ~(|(~resp_fifo_empty[NFIFO-1:0] & fifo_dout_mask[NFIFO-1:0]));
-   assign fifo_rd[1]    = ~fifo_empty[1] &
-                          fifo_sel[1] &
-                          ~sync_fifo_full;
+   assign fifo_rd[1]    = ~fifo_empty[1] & ~sync_fifo_full[1];
 
    genvar k;
 
    for(k=0;k<NFIFO;k=k+1)
      begin
-        assign resp_fifo_din[k*FIFOW+:FIFOW] = fifo_mux_sel[k]  | (k == 0) ?
-                                               {~(|sopptr_next),rxdata[fifo_wr_shift[k*8+:8]*RXFIFOW+:RXFIFOW]} :
-                                               resp_fifo_dout[(k-1)*FIFOW+:FIFOW];
+        assign resp_fifo_din[k*RXFIFOW+:RXFIFOW] = fifo_mux_sel[k]  | (k == 0) ?
+                                                   rxdata[fifo_wr_shift[k*8+:8]*RXFIFOW+:RXFIFOW] :
+                                                   resp_fifo_dout[(k-1)*RXFIFOW+:RXFIFOW];
 
         assign resp_fifo_wr[k] = fifo_mux_sel[k] ? fifo_wr[1] : ~resp_fifo_empty[k-1];
 
         assign resp_fifo_rd[k] = fifo_mux_sel[k+1] ? fifo_rd[1] : ~resp_fifo_full[k+1];
 
-        assign resp_fifo_dout_muxed[k*FIFOW+:FIFOW] = fifo_dout_sel[k] ?
-                                                      'h0 :
-                                                      resp_fifo_dout[fifo_rd_shift[k*8+:8]*FIFOW+:FIFOW];
+        assign resp_fifo_dout_muxed[k*RXFIFOW+:RXFIFOW] = fifo_dout_sel[k] ?
+                                                          'h0 :
+                                                          resp_fifo_dout[fifo_rd_shift[k*8+:8]*RXFIFOW+:RXFIFOW];
 
-        la_syncfifo #(.DW(FIFOW),  // Memory width
+        la_syncfifo #(.DW(RXFIFOW),  // Memory width
                       .DEPTH(CRDTDEPTH), // FIFO depth
                       .NS(1),            // Number of power supplies
                       .CHAOS(0),         // generates random full logic when set
@@ -565,7 +585,7 @@ module lumi_rx
                       .TYPE("DEFAULT"))  // Pass through variable for hard macro
         resp_fifo_i(// Outputs
                     .wr_full          (resp_fifo_full[k]),
-                    .rd_dout          (resp_fifo_dout[k*FIFOW+:FIFOW]),
+                    .rd_dout          (resp_fifo_dout[k*RXFIFOW+:RXFIFOW]),
                     .rd_empty         (resp_fifo_empty[k]),
                     // Inputs
                     .clk              (ioclk),
@@ -576,7 +596,7 @@ module lumi_rx
                     .ctrl             (1'b0),
                     .test             (1'b0),
                     .wr_en            (resp_fifo_wr[k]),
-                    .wr_din           (resp_fifo_din[k*FIFOW+:FIFOW]),
+                    .wr_din           (resp_fifo_din[k*RXFIFOW+:RXFIFOW]),
                     .rd_en            (resp_fifo_rd[k]));
      end
 
@@ -691,38 +711,15 @@ module lumi_rx
        end
 
    //########################################
-   //# mux between requests and responses (link was already consumed)
+   // Everything from this point on is duplicated
+   // for request and response in order to prever deadlocks
    //########################################
-   // lock fifo sel, change only at EOP
-
-   always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
-       fifo_sel_hold <= 2'b00;
-     else
-       fifo_sel_hold <= ~sync_fifo_full & |(fifo_sel[1:0] & fifo_eop[1:0]) ? 2'b00             :
-                        ~sync_fifo_full & ~(|fifo_sel_hold)                ? fifo_sel[1:0]     :
-                                                                             fifo_sel_hold[1:0];
-
-   assign fifo_eop[1:0] = {resp_fifo_dout_muxed[FIFOW-1],req_fifo_dout_muxed[FIFOW-1]} &
-                          ~fifo_empty[1:0];
-
-   // Cannot change fifo sel when there is already a pending transaction - wait for EOP
-   assign fifo_sel = ~(|fifo_sel_hold) ?
-                     {~fifo_empty[1], fifo_empty[1] & ~fifo_empty[0]} :
-                     fifo_sel_hold;
-
-   genvar l;
-   for(l=0;l<NFIFO;l=l+1)
-     begin
-        assign fifo_data_muxed[l*RXFIFOW+:RXFIFOW] = {RXFIFOW{fifo_sel[1]}} & resp_fifo_dout_muxed[l*FIFOW+:RXFIFOW]  |
-                                                     {RXFIFOW{fifo_sel[0]}} & req_fifo_dout_muxed[l*FIFOW+:RXFIFOW]   ;
-     end
 
    //########################################
    // Async fifo to cross from phy clock to lumi clock
    //########################################
-   assign sync_fifo_wr = |fifo_rd[1:0];
-   assign sync_fifo_rd = ~sync_fifo_empty & ~(umi_out_valid & ~umi_out_ready);
+   assign sync_fifo_wr[0] = fifo_rd[0];
+   assign sync_fifo_rd[0] = ~sync_fifo_empty[0] & ~(umi_out_valid & ~umi_req_out_ready);
 
    la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
                   .DEPTH(ASYNCFIFODEPTH), // FIFO depth
@@ -731,34 +728,103 @@ module lumi_rx
                   .CTRLW(1),              // width of asic ctrl interface
                   .TESTW(1),              // width of asic test interface
                   .TYPE("DEFAULT"))       // Pass through variable for hard macro
-   clock_fifo_i(// Outputs
-              .wr_full          (sync_fifo_full),
-              .rd_dout          (sync_fifo_dout[IOW-1:0]),
-              .rd_empty         (sync_fifo_empty),
-              // Inputs
-              .rd_clk           (clk),
-              .rd_nreset        (nreset),
-              .wr_clk           (ioclk),
-              .wr_nreset        (ionreset),
-              .vss              (1'b0),
-              .vdd              (1'b1),
-              .wr_chaosmode     (1'b0),
-              .ctrl             (1'b0),
-              .test             (1'b0),
-              .wr_en            (sync_fifo_wr),
-              .wr_din           (fifo_data_muxed[IOW-1:0]),
-              .rd_en            (sync_fifo_rd));
+   req_syncfifo_i(// Outputs
+                  .wr_full          (sync_fifo_full[0]),
+                  .rd_dout          (sync_fifo_dout[IOW-1:0]),
+                  .rd_empty         (sync_fifo_empty[0]),
+                  // Inputs
+                  .rd_clk           (clk),
+                  .rd_nreset        (nreset),
+                  .wr_clk           (ioclk),
+                  .wr_nreset        (ionreset),
+                  .vss              (1'b0),
+                  .vdd              (1'b1),
+                  .wr_chaosmode     (1'b0),
+                  .ctrl             (1'b0),
+                  .test             (1'b0),
+                  .wr_en            (sync_fifo_wr[0]),
+                  .wr_din           (req_fifo_dout_muxed[IOW-1:0]),
+                  .rd_en            (sync_fifo_rd[0]));
+
+   assign sync_fifo_wr[1] = fifo_rd[1];
+   assign sync_fifo_rd[1] = ~sync_fifo_empty[1] & ~(umi_out_valid & ~umi_resp_out_ready);
+
+   la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
+                  .DEPTH(ASYNCFIFODEPTH), // FIFO depth
+                  .NS(1),                 // Number of power supplies
+                  .CHAOS(0),              // generates random full logic when set
+                  .CTRLW(1),              // width of asic ctrl interface
+                  .TESTW(1),              // width of asic test interface
+                  .TYPE("DEFAULT"))       // Pass through variable for hard macro
+   resp_syncfifo_i(// Outputs
+                   .wr_full          (sync_fifo_full[1]),
+                   .rd_dout          (sync_fifo_dout[2*IOW-1:IOW]),
+                   .rd_empty         (sync_fifo_empty[1]),
+                   // Inputs
+                   .rd_clk           (clk),
+                   .rd_nreset        (nreset),
+                   .wr_clk           (ioclk),
+                   .wr_nreset        (ionreset),
+                   .vss              (1'b0),
+                   .vdd              (1'b1),
+                   .wr_chaosmode     (1'b0),
+                   .ctrl             (1'b0),
+                   .test             (1'b0),
+                   .wr_en            (sync_fifo_wr[1]),
+                   .wr_din           (resp_fifo_dout_muxed[IOW-1:0]),
+                   .rd_en            (sync_fifo_rd[1]));
 
    // link commands will be consumed before the sync fifo so that they are not blocked
    /*umi_decode AUTO_TEMPLATE(
-    .command       (sync_fifo_dout[]),
-    .cmd_invalid   (fifo_cmd_invalid[]),
+    .command       (sync_fifo_dout[IOW-1:0]),
+    .cmd_invalid   (req_fifo_cmd_invalid[]),
     .cmd_.*        (),
     );*/
    umi_decode #(.CW(CW))
-   fifo_decode (/*AUTOINST*/
+   decode_req (/*AUTOINST*/
+               // Outputs
+               .cmd_invalid     (req_fifo_cmd_invalid),  // Templated
+               .cmd_request     (),                      // Templated
+               .cmd_response    (),                      // Templated
+               .cmd_read        (),                      // Templated
+               .cmd_write       (),                      // Templated
+               .cmd_write_posted(),                      // Templated
+               .cmd_rdma        (),                      // Templated
+               .cmd_atomic      (),                      // Templated
+               .cmd_user0       (),                      // Templated
+               .cmd_future0     (),                      // Templated
+               .cmd_error       (),                      // Templated
+               .cmd_link        (),                      // Templated
+               .cmd_read_resp   (),                      // Templated
+               .cmd_write_resp  (),                      // Templated
+               .cmd_user0_resp  (),                      // Templated
+               .cmd_user1_resp  (),                      // Templated
+               .cmd_future0_resp(),                      // Templated
+               .cmd_future1_resp(),                      // Templated
+               .cmd_link_resp   (),                      // Templated
+               .cmd_atomic_add  (),                      // Templated
+               .cmd_atomic_and  (),                      // Templated
+               .cmd_atomic_or   (),                      // Templated
+               .cmd_atomic_xor  (),                      // Templated
+               .cmd_atomic_max  (),                      // Templated
+               .cmd_atomic_min  (),                      // Templated
+               .cmd_atomic_maxu (),                      // Templated
+               .cmd_atomic_minu (),                      // Templated
+               .cmd_atomic_swap (),                      // Templated
+               // Inputs
+               .command         (sync_fifo_dout[IOW-1:0])); // Templated
+
+   assign fifo_cmd_only[0]  = req_fifo_cmd_invalid;
+
+   /*umi_decode AUTO_TEMPLATE(
+    .command       (sync_fifo_dout[2*IOW-1:IOW]),
+    .cmd_invalid   (resp_fifo_cmd_invalid[]),
+    .cmd_.*        (),
+    );*/
+   umi_decode #(.CW(CW))
+   decode_resp (/*AUTOINST*/
                 // Outputs
-                .cmd_invalid    (fifo_cmd_invalid),      // Templated
+                .cmd_invalid    (resp_fifo_cmd_invalid), // Templated
                 .cmd_request    (),                      // Templated
                 .cmd_response   (),                      // Templated
                 .cmd_read       (),                      // Templated
@@ -787,9 +853,9 @@ module lumi_rx
                 .cmd_atomic_minu(),                      // Templated
                 .cmd_atomic_swap(),                      // Templated
                 // Inputs
-                .command        (sync_fifo_dout[CW-1:0])); // Templated
+                .command        (sync_fifo_dout[2*IOW-1:IOW])); // Templated
 
-   assign fifo_cmd_only  = fifo_cmd_invalid;
+   assign fifo_cmd_only[1]  = resp_fifo_cmd_invalid;
 
    //########################################
    // UMI bandwidth optimization - only what is needed is sent
@@ -797,188 +863,306 @@ module lumi_rx
 
    // First step - decode the packet
    /*umi_unpack AUTO_TEMPLATE(
-    .cmd_len           (cmd_len[]),
-    .cmd_size          (cmd_size[]),
+    .cmd_len           (@"(substring vl-cell-name 11)"_cmd_len[]),
+    .cmd_size          (@"(substring vl-cell-name 11)"_cmd_size[]),
     .cmd.*             (),
-    .packet_cmd        (shiftreg[]),
+    .packet_cmd        (@"(substring vl-cell-name 11)"_shiftreg[]),
     );*/
 
    umi_unpack #(.CW(CW))
-   umi_unpack(/*AUTOINST*/
-              // Outputs
-              .cmd_opcode       (),                      // Templated
-              .cmd_size         (cmd_size[2:0]),         // Templated
-              .cmd_len          (cmd_len[7:0]),          // Templated
-              .cmd_atype        (),                      // Templated
-              .cmd_qos          (),                      // Templated
-              .cmd_prot         (),                      // Templated
-              .cmd_eom          (),                      // Templated
-              .cmd_eof          (),                      // Templated
-              .cmd_ex           (),                      // Templated
-              .cmd_user         (),                      // Templated
-              .cmd_user_extended(),                      // Templated
-              .cmd_err          (),                      // Templated
-              .cmd_hostid       (),                      // Templated
-              // Inputs
-              .packet_cmd       (shiftreg[CW-1:0]));     // Templated
+   umi_unpack_req(/*AUTOINST*/
+                  // Outputs
+                  .cmd_opcode           (),                      // Templated
+                  .cmd_size             (req_cmd_size[2:0]),     // Templated
+                  .cmd_len              (req_cmd_len[7:0]),      // Templated
+                  .cmd_atype            (),                      // Templated
+                  .cmd_qos              (),                      // Templated
+                  .cmd_prot             (),                      // Templated
+                  .cmd_eom              (),                      // Templated
+                  .cmd_eof              (),                      // Templated
+                  .cmd_ex               (),                      // Templated
+                  .cmd_user             (),                      // Templated
+                  .cmd_user_extended    (),                      // Templated
+                  .cmd_err              (),                      // Templated
+                  .cmd_hostid           (),                      // Templated
+                  // Inputs
+                  .packet_cmd           (req_shiftreg[CW-1:0])); // Templated
+
+   umi_unpack #(.CW(CW))
+   umi_unpack_resp(/*AUTOINST*/
+                   // Outputs
+                   .cmd_opcode          (),                      // Templated
+                   .cmd_size            (resp_cmd_size[2:0]),    // Templated
+                   .cmd_len             (resp_cmd_len[7:0]),     // Templated
+                   .cmd_atype           (),                      // Templated
+                   .cmd_qos             (),                      // Templated
+                   .cmd_prot            (),                      // Templated
+                   .cmd_eom             (),                      // Templated
+                   .cmd_eof             (),                      // Templated
+                   .cmd_ex              (),                      // Templated
+                   .cmd_user            (),                      // Templated
+                   .cmd_user_extended   (),                      // Templated
+                   .cmd_err             (),                      // Templated
+                   .cmd_hostid          (),                      // Templated
+                   // Inputs
+                   .packet_cmd          (resp_shiftreg[CW-1:0])); // Templated
 
    /*umi_decode AUTO_TEMPLATE(
-    .command       (shiftreg[]),
+    .command      (@"(substring vl-cell-name 11)"_shiftreg[]),
     .cmd_atomic.* (),
+    .cmd_\(.*\)   (@"(substring vl-cell-name 11)"_cmd_\1[]),
     );*/
    umi_decode #(.CW(CW))
-   umi_decode (/*AUTOINST*/
-               // Outputs
-               .cmd_invalid     (cmd_invalid),
-               .cmd_request     (cmd_request),
-               .cmd_response    (cmd_response),
-               .cmd_read        (cmd_read),
-               .cmd_write       (cmd_write),
-               .cmd_write_posted(cmd_write_posted),
-               .cmd_rdma        (cmd_rdma),
-               .cmd_atomic      (),                      // Templated
-               .cmd_user0       (cmd_user0),
-               .cmd_future0     (cmd_future0),
-               .cmd_error       (cmd_error),
-               .cmd_link        (cmd_link),
-               .cmd_read_resp   (cmd_read_resp),
-               .cmd_write_resp  (cmd_write_resp),
-               .cmd_user0_resp  (cmd_user0_resp),
-               .cmd_user1_resp  (cmd_user1_resp),
-               .cmd_future0_resp(cmd_future0_resp),
-               .cmd_future1_resp(cmd_future1_resp),
-               .cmd_link_resp   (cmd_link_resp),
-               .cmd_atomic_add  (),                      // Templated
-               .cmd_atomic_and  (),                      // Templated
-               .cmd_atomic_or   (),                      // Templated
-               .cmd_atomic_xor  (),                      // Templated
-               .cmd_atomic_max  (),                      // Templated
-               .cmd_atomic_min  (),                      // Templated
-               .cmd_atomic_maxu (),                      // Templated
-               .cmd_atomic_minu (),                      // Templated
-               .cmd_atomic_swap (),                      // Templated
-               // Inputs
-               .command         (shiftreg[CW-1:0]));     // Templated
+   umi_decode_req (/*AUTOINST*/
+                   // Outputs
+                   .cmd_invalid         (req_cmd_invalid),       // Templated
+                   .cmd_request         (req_cmd_request),       // Templated
+                   .cmd_response        (req_cmd_response),      // Templated
+                   .cmd_read            (req_cmd_read),          // Templated
+                   .cmd_write           (req_cmd_write),         // Templated
+                   .cmd_write_posted    (req_cmd_write_posted),  // Templated
+                   .cmd_rdma            (req_cmd_rdma),          // Templated
+                   .cmd_atomic          (),                      // Templated
+                   .cmd_user0           (req_cmd_user0),         // Templated
+                   .cmd_future0         (req_cmd_future0),       // Templated
+                   .cmd_error           (req_cmd_error),         // Templated
+                   .cmd_link            (req_cmd_link),          // Templated
+                   .cmd_read_resp       (req_cmd_read_resp),     // Templated
+                   .cmd_write_resp      (req_cmd_write_resp),    // Templated
+                   .cmd_user0_resp      (req_cmd_user0_resp),    // Templated
+                   .cmd_user1_resp      (req_cmd_user1_resp),    // Templated
+                   .cmd_future0_resp    (req_cmd_future0_resp),  // Templated
+                   .cmd_future1_resp    (req_cmd_future1_resp),  // Templated
+                   .cmd_link_resp       (req_cmd_link_resp),     // Templated
+                   .cmd_atomic_add      (),                      // Templated
+                   .cmd_atomic_and      (),                      // Templated
+                   .cmd_atomic_or       (),                      // Templated
+                   .cmd_atomic_xor      (),                      // Templated
+                   .cmd_atomic_max      (),                      // Templated
+                   .cmd_atomic_min      (),                      // Templated
+                   .cmd_atomic_maxu     (),                      // Templated
+                   .cmd_atomic_minu     (),                      // Templated
+                   .cmd_atomic_swap     (),                      // Templated
+                   // Inputs
+                   .command             (req_shiftreg[CW-1:0])); // Templated
+
+   /*umi_decode AUTO_TEMPLATE(
+    .command      (@"(substring vl-cell-name 11)"_shiftreg[]),
+    .cmd_atomic.* (),
+    .cmd_\(.*\)   (@"(substring vl-cell-name 11)"_cmd_\1[]),
+    );*/
+   umi_decode #(.CW(CW))
+   umi_decode_resp (/*AUTOINST*/
+                    // Outputs
+                    .cmd_invalid        (resp_cmd_invalid),      // Templated
+                    .cmd_request        (resp_cmd_request),      // Templated
+                    .cmd_response       (resp_cmd_response),     // Templated
+                    .cmd_read           (resp_cmd_read),         // Templated
+                    .cmd_write          (resp_cmd_write),        // Templated
+                    .cmd_write_posted   (resp_cmd_write_posted), // Templated
+                    .cmd_rdma           (resp_cmd_rdma),         // Templated
+                    .cmd_atomic         (),                      // Templated
+                    .cmd_user0          (resp_cmd_user0),        // Templated
+                    .cmd_future0        (resp_cmd_future0),      // Templated
+                    .cmd_error          (resp_cmd_error),        // Templated
+                    .cmd_link           (resp_cmd_link),         // Templated
+                    .cmd_read_resp      (resp_cmd_read_resp),    // Templated
+                    .cmd_write_resp     (resp_cmd_write_resp),   // Templated
+                    .cmd_user0_resp     (resp_cmd_user0_resp),   // Templated
+                    .cmd_user1_resp     (resp_cmd_user1_resp),   // Templated
+                    .cmd_future0_resp   (resp_cmd_future0_resp), // Templated
+                    .cmd_future1_resp   (resp_cmd_future1_resp), // Templated
+                    .cmd_link_resp      (resp_cmd_link_resp),    // Templated
+                    .cmd_atomic_add     (),                      // Templated
+                    .cmd_atomic_and     (),                      // Templated
+                    .cmd_atomic_or      (),                      // Templated
+                    .cmd_atomic_xor     (),                      // Templated
+                    .cmd_atomic_max     (),                      // Templated
+                    .cmd_atomic_min     (),                      // Templated
+                    .cmd_atomic_maxu    (),                      // Templated
+                    .cmd_atomic_minu    (),                      // Templated
+                    .cmd_atomic_swap    (),                      // Templated
+                    // Inputs
+                    .command            (resp_shiftreg[CW-1:0])); // Templated
 
    // Second step - decode what format will be received
-   assign cmd_only  = cmd_invalid    |
-                      cmd_link       |
-                      cmd_link_resp  ;
-   assign no_data   = cmd_read       |
-                      cmd_rdma       |
-                      cmd_error      |
-                      cmd_write_resp |
-                      cmd_user0      |
-                      cmd_future0    ;
+   assign req_cmd_only  = req_cmd_invalid    |
+                          req_cmd_link       |
+                          req_cmd_link_resp  ;
+   assign req_no_data   = req_cmd_read       |
+                          req_cmd_rdma       |
+                          req_cmd_error      |
+                          req_cmd_write_resp |
+                          req_cmd_user0      |
+                          req_cmd_future0    ;
 
-   assign cmd_lenp1[11:0] = {4'h0,cmd_len[7:0]} + 1'b1;
-   assign cmd_bytes[11:0] = cmd_lenp1[11:0] << cmd_size[2:0];
+   assign req_cmd_lenp1[11:0] = {4'h0,req_cmd_len[7:0]} + 1'b1;
+   assign req_cmd_bytes[11:0] = req_cmd_lenp1[11:0] << req_cmd_size[2:0];
 
    always @(*)
-     case ({cmd_only,no_data})
-       2'b10: bytes_to_receive = (CW)/8;
-       2'b01: bytes_to_receive = (CW+AW+AW)/8;
-       default: bytes_to_receive = full_hdr_size + cmd_bytes[8:0];
+     case ({req_cmd_only,req_no_data})
+       2'b10: req_bytes_to_receive = (CW)/8;
+       2'b01: req_bytes_to_receive = (CW+AW+AW)/8;
+       default: req_bytes_to_receive = full_hdr_size + req_cmd_bytes[8:0];
      endcase
 
    // Valid register holds one bit per byte to transfer
    always @ (posedge clk or negedge nreset)
      if (~nreset)
-       rxptr <= 'b0;
-     else if (sync_fifo_rd)
-       rxptr <= rxptr_next;
+       req_rxptr <= 'b0;
+     else if (sync_fifo_rd[0])
+       req_rxptr <= req_rxptr_next;
 
    // Count by the number of bytes per cycle transfered
    // When reaching the end of the header need to re-align to the remaining bytes
    // Special case - need to check that the fifo data is cmd_only and then hold rxptr
 
-   assign rxptr_next = ((|rxptr) & ((rxptr + byterate) >= bytes_to_receive) |
-                        ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) ?
-                       0 :
-                       rxptr + byterate;
+   assign req_rxptr_next = ((|req_rxptr) & ((req_rxptr + byterate) >= req_bytes_to_receive) |
+                            ~(|req_rxptr) & fifo_cmd_only[0] & (byterate >= CW/8)) ?
+                           0 :
+                           req_rxptr + byterate;
 
    // Transfer shift regster data when counter rolls over
    // Need to stall it when the output is not ready
    always @ (posedge clk or negedge nreset)
      if (~nreset)
-       transfer <= 'b0;
+       req_transfer <= 'b0;
      else
-       if (~transfer | umi_out_ready)
-         transfer <= ((|rxptr) |
-                      ~(|rxptr) & fifo_cmd_only & (byterate >= CW/8)) &
-                     sync_fifo_rd &
-                     (~|rxptr_next);
+       if (~req_transfer | umi_req_out_ready)
+         req_transfer <= ((|req_rxptr) |
+                          ~(|req_rxptr) & fifo_cmd_only[0] & (byterate >= CW/8)) &
+                         sync_fifo_rd[0] &
+                         (~|req_rxptr_next);
 
    //########################################
    //# DATA SHIFT REGISTER
    //########################################
 
    // extending byte based rxptr for full DW vector
-   assign datashift[$clog2((DW+AW+AW+CW))-1:0] = rxptr;
+   assign req_datashift[$clog2((DW+AW+AW+CW))-1:0] = req_rxptr;
 
    // writemask for writing to shift register
-   assign writemask[(DW+AW+AW+CW)-1:0] = ~({(DW+AW+AW+CW){1'b1}} << (byterate<<3)) <<
-                                         (datashift<<3);
+   assign req_writemask[(DW+AW+AW+CW)-1:0] = ~({(DW+AW+AW+CW){1'b1}} << (byterate<<3)) <<
+                                             (req_datashift<<3);
 
    // The input bus needs to account for the shift output size
-   assign shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},sync_fifo_dout[IOW-1:0]};
+   assign req_shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},sync_fifo_dout[IOW-1:0]};
 
    // non traditional shift register to handle multi modes
    // Need to stall the pipeline, including the shiftreg, when output is stalled
    always @ (posedge clk)
      if (sync_fifo_rd)
-     shiftreg[(DW+AW+AW+CW)-1:0] <= (shiftreg_in[(DW+AW+AW+CW)-1:0] << (datashift<<3)) & writemask[(DW+AW+AW+CW)-1:0] |
-                                    (shiftreg[(DW+AW+AW+CW)-1:0] & ~writemask[(DW+AW+AW+CW)-1:0]);
+       req_shiftreg[(DW+AW+AW+CW)-1:0] <= (req_shiftreg_in[(DW+AW+AW+CW)-1:0] << (req_datashift<<3)) & req_writemask[(DW+AW+AW+CW)-1:0] |
+                                          (req_shiftreg[(DW+AW+AW+CW)-1:0] & ~req_writemask[(DW+AW+AW+CW)-1:0]);
 
    //########################################
-   //# output stage
+   // Response pipe
+   //########################################
+   // Second step - decode what format will be received
+   assign resp_cmd_only  = resp_cmd_invalid    |
+                           resp_cmd_link       |
+                           resp_cmd_link_resp  ;
+   assign resp_no_data   = resp_cmd_read       |
+                           resp_cmd_rdma       |
+                           resp_cmd_error      |
+                           resp_cmd_write_resp |
+                           resp_cmd_user0      |
+                           resp_cmd_future0    ;
+
+   assign resp_cmd_lenp1[11:0] = {4'h0,resp_cmd_len[7:0]} + 1'b1;
+   assign resp_cmd_bytes[11:0] = resp_cmd_lenp1[11:0] << resp_cmd_size[2:0];
+
+   always @(*)
+     case ({resp_cmd_only,resp_no_data})
+       2'b10: resp_bytes_to_receive = (CW)/8;
+       2'b01: resp_bytes_to_receive = (CW+AW+AW)/8;
+       default: resp_bytes_to_receive = full_hdr_size + resp_cmd_bytes[8:0];
+     endcase
+
+   // Valid register holds one bit per byte to transfer
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
+       resp_rxptr <= 'b0;
+     else if (sync_fifo_rd[1])
+       resp_rxptr <= resp_rxptr_next;
+
+   // Count by the number of bytes per cycle transfered
+   // When reaching the end of the header need to re-align to the remaining bytes
+   // Special case - need to check that the fifo data is cmd_only and then hold rxptr
+
+   assign resp_rxptr_next = ((|resp_rxptr) & ((resp_rxptr + byterate) >= resp_bytes_to_receive) |
+                            ~(|resp_rxptr) & fifo_cmd_only[0] & (byterate >= CW/8)) ?
+                           0 :
+                           resp_rxptr + byterate;
+
+   // Transfer shift regster data when counter rolls over
+   // Need to stall it when the output is not ready
+   always @ (posedge clk or negedge nreset)
+     if (~nreset)
+       resp_transfer <= 'b0;
+     else
+       if (~resp_transfer | umi_resp_out_ready)
+         resp_transfer <= ((|resp_rxptr) |
+                           ~(|resp_rxptr) & fifo_cmd_only[1] & (byterate >= CW/8)) &
+                          sync_fifo_rd[1] &
+                          (~|resp_rxptr_next);
+
+   //########################################
+   //# DATA SHIFT REGISTER
    //########################################
 
-   assign umi_out_cmd[CW-1:0] = shiftreg[CW-1:0];
+   // extending byte based rxptr for full DW vector
+   assign resp_datashift[$clog2((DW+AW+AW+CW))-1:0] = resp_rxptr;
 
-   assign umi_out_dstaddr[AW-1:0] = cmd_only ? {AW{1'b0}} :
-                                               shiftreg[CW+:AW];
+   // writemask for writing to shift register
+   assign resp_writemask[(DW+AW+AW+CW)-1:0] = ~({(DW+AW+AW+CW){1'b1}} << (byterate<<3)) <<
+                                              (resp_datashift<<3);
 
-   assign umi_out_srcaddr[AW-1:0] = cmd_only ? {AW{1'b0}} :
-                                               shiftreg[(CW+AW)+:AW];
+   // The input bus needs to account for the shift output size
+   assign resp_shiftreg_in[(DW+AW+AW+CW)-1:0] = {{(DW+AW+AW+CW-IOW){1'b0}},sync_fifo_dout[2*IOW-1:IOW]};
 
-   assign umi_out_data[DW-1:0] = (cmd_only | no_data) ? {DW{1'b0}}              :
-                                                        shiftreg[(CW+AW+AW)+:DW];
+   // non traditional shift register to handle multi modes
+   // Need to stall the pipeline, including the shiftreg, when output is stalled
+   always @ (posedge clk)
+     if (sync_fifo_rd)
+       resp_shiftreg[(DW+AW+AW+CW)-1:0] <= (resp_shiftreg_in[(DW+AW+AW+CW)-1:0] << (resp_datashift<<3)) & resp_writemask[(DW+AW+AW+CW)-1:0] |
+                                           (resp_shiftreg[(DW+AW+AW+CW)-1:0] & ~resp_writemask[(DW+AW+AW+CW)-1:0]);
+
+   //########################################
+   //# output stage - request
+   //########################################
+
+   assign umi_req_out_cmd[CW-1:0] = req_shiftreg[CW-1:0];
+
+   assign umi_req_out_dstaddr[AW-1:0] = req_cmd_only ? {AW{1'b0}} :
+                                        req_shiftreg[CW+:AW];
+
+   assign umi_req_out_srcaddr[AW-1:0] = req_cmd_only ? {AW{1'b0}} :
+                                        req_shiftreg[(CW+AW)+:AW];
+
+   assign umi_req_out_data[DW-1:0] = (req_cmd_only | req_no_data) ? {DW{1'b0}}              :
+                                     req_shiftreg[(CW+AW+AW)+:DW];
 
    // link commands are not passed on to the umi port
-   assign umi_out_valid =  transfer & ~(cmd_link | cmd_link_resp);
+   assign umi_req_out_valid =  req_transfer & ~(req_cmd_link | req_cmd_link_resp);
 
    //########################################
-   //# SPLIT OUT UMI_RESP/UMI_REQ TRAFFIC
+   //# output stage - response
    //########################################
 
-   /*umi_splitter AUTO_TEMPLATE(
-    .umi_in_\(.*\)       (umi_out_\1[]),
-    );*/
-   umi_splitter #(.DW(DW),
-                  .CW(CW),
-                  .AW(AW))
-   umi_splitter(/*AUTOINST*/
-                // Outputs
-                .umi_in_ready   (umi_out_ready),         // Templated
-                .umi_resp_out_valid(umi_resp_out_valid),
-                .umi_resp_out_cmd(umi_resp_out_cmd[CW-1:0]),
-                .umi_resp_out_dstaddr(umi_resp_out_dstaddr[AW-1:0]),
-                .umi_resp_out_srcaddr(umi_resp_out_srcaddr[AW-1:0]),
-                .umi_resp_out_data(umi_resp_out_data[DW-1:0]),
-                .umi_req_out_valid(umi_req_out_valid),
-                .umi_req_out_cmd(umi_req_out_cmd[CW-1:0]),
-                .umi_req_out_dstaddr(umi_req_out_dstaddr[AW-1:0]),
-                .umi_req_out_srcaddr(umi_req_out_srcaddr[AW-1:0]),
-                .umi_req_out_data(umi_req_out_data[DW-1:0]),
-                // Inputs
-                .umi_in_valid   (umi_out_valid),         // Templated
-                .umi_in_cmd     (umi_out_cmd[CW-1:0]),   // Templated
-                .umi_in_dstaddr (umi_out_dstaddr[AW-1:0]), // Templated
-                .umi_in_srcaddr (umi_out_srcaddr[AW-1:0]), // Templated
-                .umi_in_data    (umi_out_data[DW-1:0]),  // Templated
-                .umi_resp_out_ready(umi_resp_out_ready),
-                .umi_req_out_ready(umi_req_out_ready));
+   assign umi_resp_out_cmd[CW-1:0] = resp_shiftreg[CW-1:0];
+
+   assign umi_resp_out_dstaddr[AW-1:0] = resp_cmd_only ? {AW{1'b0}} :
+                                         resp_shiftreg[CW+:AW];
+
+   assign umi_resp_out_srcaddr[AW-1:0] = resp_cmd_only ? {AW{1'b0}} :
+                                         resp_shiftreg[(CW+AW)+:AW];
+
+   assign umi_resp_out_data[DW-1:0] = (resp_cmd_only | resp_no_data) ? {DW{1'b0}}              :
+                                      resp_shiftreg[(CW+AW+AW)+:DW];
+
+   // link commands are not passed on to the umi port
+   assign umi_resp_out_valid =  resp_transfer & ~(resp_cmd_link | resp_cmd_link_resp);
 
 endmodule
 // Local Variables:
