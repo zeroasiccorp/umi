@@ -52,6 +52,7 @@ module umi_mem_agent
    wire [DW-1:0]        loc_wrdata;
    wire                 loc_write;
    // End of automatics
+   reg [AW-1:0]         loc_rdaddr;
    wire [11:0]          loc_lenp1;
    wire [11:0]          loc_bytes;
 
@@ -133,7 +134,13 @@ module umi_mem_agent
               .ctrl             ('h0),
               .test             ('h0));
 
-   assign loc_rddata = mem_rddata >> (8*loc_addr[$clog2(DW/8)-1:0]);
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       loc_rdaddr <= 'h0;
+     else
+       loc_rdaddr <= loc_addr;
+
+   assign loc_rddata = mem_rddata >> (8*loc_rdaddr[$clog2(DW/8)-1:0]);
 
 endmodule // ebrick_core
 // Local Variables:
