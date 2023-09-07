@@ -10,7 +10,7 @@ module testbench (
    parameter integer CW=32;
    parameter integer DEPTH=512;
    parameter integer SPLIT=1;
-   parameter integer BYPASS=1;
+   parameter integer ASYNC=0;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -71,7 +71,7 @@ module testbench (
                   .valid(umi_resp_out_valid)
                   );
 
-   wire bypass = 1'b1;
+   wire bypass = 1'b0;
    wire chaosmode = 0;
 
    // instantiate dut with UMI ports
@@ -83,7 +83,7 @@ module testbench (
     .v.*            (),
     .fifo_.*        (),
     );*/
-   umi_fifo_flex #(.BYPASS(BYPASS),
+   umi_fifo_flex #(.ASYNC(ASYNC),
                    .SPLIT(SPLIT),
                    .IDW(IDW),
                    .ODW(ODW),
@@ -154,7 +154,7 @@ module testbench (
     .v.*            (),
     .fifo_.*        (),
     );*/
-   umi_fifo_flex #(.BYPASS(BYPASS),
+   umi_fifo_flex #(.ASYNC(ASYNC),
                    .SPLIT(SPLIT),
                    .IDW(ODW),
                    .ODW(IDW),

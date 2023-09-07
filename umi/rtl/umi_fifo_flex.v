@@ -70,6 +70,8 @@ module umi_fifo_flex
    wire [AW-1:0]           fifo_srcaddr;
    wire [IDW-1:0]          latch_data;
    wire [IDW-1:0]          fifo_data;
+   wire                    fifo_full_raw;
+   wire                    fifo_empty_raw;
 
    // local wires
    wire                    umi_out_beat;
@@ -199,7 +201,7 @@ module umi_fifo_flex
         assign latch_dstaddr = fifo_dstaddr + (ODW/8);
         assign latch_srcaddr = fifo_srcaddr + (ODW/8);
         assign latch_data    = fifo_data >> ODW;
-        assign latch_len     = cmd_len_plus_one - (ODW >> cmd_size >> 3) - 1'b1;
+        assign latch_len     = cmd_len - (ODW[10:3] >> cmd_size);
 
         // Packet latch
         always @(posedge umi_in_clk or negedge umi_in_nreset)
@@ -299,9 +301,9 @@ module umi_fifo_flex
         la_asyncfifo  #(.DW(CW+AW+AW+ODW),
                         .DEPTH(DEPTH))
         fifo  (// Outputs
-               .wr_full      (fifo_full),
+               .wr_full      (fifo_full_raw),
                .rd_dout      (fifo_dout[ODW+AW+AW+CW-1:0]),
-               .rd_empty     (fifo_empty),
+               .rd_empty     (fifo_empty_raw),
                // Inputs
                .wr_clk       (umi_in_clk),
                .wr_nreset    (umi_in_nreset),
@@ -321,12 +323,14 @@ module umi_fifo_flex
         la_syncfifo  #(.DW(CW+AW+AW+ODW),
                        .DEPTH(DEPTH))
         fifo  (// Outputs
-               .wr_full      (fifo_full),
+               .wr_full      (fifo_full_raw),
                .rd_dout      (fifo_dout[ODW+AW+AW+CW-1:0]),
-               .rd_empty     (fifo_empty),
+               .rd_empty     (fifo_empty_raw),
                // Inputs
                .clk          (umi_in_clk),
                .nreset       (umi_in_nreset),
+               .wr_din       (fifo_din[ODW+AW+AW+CW-1:0]),
+               .wr_en        (fifo_ready[1] & (umi_in_valid | packet_latch_valid)),
                .chaosmode    (chaosmode),
                .rd_en        (fifo_read),
                .vss          (vss),
@@ -345,6 +349,9 @@ module umi_fifo_flex
    //#################################
    // FIFO Bypass
    //#################################
+
+   assign fifo_full               = bypass ? ~umi_out_ready       : fifo_full_raw;
+   assign fifo_empty              = bypass ? 1'b1                 : fifo_empty_raw;
 
    assign umi_out_cmd[CW-1:0]     = bypass ? fifo_cmd[CW-1:0]     : fifo_dout[CW-1:0];
    assign umi_out_dstaddr[AW-1:0] = bypass ? fifo_dstaddr[AW-1:0] : fifo_dout[CW+:AW] & 64'hFFFF_FFFF_FFFF_FFFF;
