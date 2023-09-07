@@ -107,7 +107,8 @@ module umi_mem_agent
 
    always @(*)
      for (i=0;i<DW/8;i=i+1) begin
-        if ((i >= loc_addr[$clog2(DW/8)-1:0]) & (i < (loc_addr[$clog2(DW/8)-1:0] + loc_bytes)))
+        if ((i >= loc_addr[$clog2(DW/8)-1:0]) &
+            (i < ({{32-$clog2(DW/8){1'b0}},loc_addr[$clog2(DW/8)-1:0]} + {20'h0,loc_bytes})))
           wmask[i*8+:8] = 8'hFF;
         else
           wmask[i*8+:8] = 8'h00;

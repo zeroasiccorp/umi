@@ -478,7 +478,7 @@ module lumi_rx
    //########################################
    // common masks - for both request and response fifos
    //########################################
-   assign iow_mask[7:0]      = (IOW >> 3) - 1'b1;
+   assign iow_mask[7:0]      = IOW[10:3] - 1'b1;
    assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0] >> LOGFIFOWIDTH[7:0];
 
    genvar i;
@@ -495,7 +495,7 @@ module lumi_rx
         // Shift for input busses
         assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO[7:0] - csr_iowidth) : 8'h0;
         // Shift for output busses
-        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO >> csr_iowidth)-1;
+        assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO[7:0] >> csr_iowidth)-1'b1;
      end
 
    // Dummy, just for the equations in the loop below
