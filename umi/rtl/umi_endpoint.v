@@ -102,6 +102,7 @@ module umi_endpoint
    reg [AW-1:0]         dstaddr_pipe;
    reg [AW-1:0]         srcaddr_pipe;
    reg [DW-1:0]         data_pipe;
+   wire                 ready_gated;
 
    // local wires
    wire                 request_stall;
@@ -177,9 +178,9 @@ module umi_endpoint
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
    // TODO - implement atomic
-   assign loc_read  = cmd_read & udev_req_valid;
-   assign loc_write = (cmd_write | cmd_write_posted) & udev_req_valid;
-   assign loc_resp  = (cmd_read | cmd_write) & udev_req_valid & loc_ready;
+   assign loc_read  = ready_gated & cmd_read & udev_req_valid;
+   assign loc_write = ready_gated & (cmd_write | cmd_write_posted) & udev_req_valid;
+   assign loc_resp  = ready_gated & (cmd_read | cmd_write) & udev_req_valid & loc_ready;
 
    //############################
    //# Outgoing Transaction
@@ -187,7 +188,11 @@ module umi_endpoint
 
    // Propagating wait signal
    // Since this is a pipeline we hold the request if we cannot respond
-   assign udev_req_ready = loc_ready & ~request_stall;
+   la_rsync la_rsync(.nrst_out          (ready_gated),
+                     .clk               (clk),
+                     .nrst_in           (nreset));
+
+   assign udev_req_ready = ready_gated & loc_ready & ~request_stall;
 
    //#############################
    //# Pipeline Packet
@@ -306,3 +311,6 @@ module umi_endpoint
 `endif
 
 endmodule // umi_endpoint
+// Local Variables:
+// verilog-library-directories:("." "../../submodules/lambdalib/stdlib/rtl")
+// End:

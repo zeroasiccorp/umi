@@ -187,7 +187,7 @@ module umi_regif
 
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       udev_req_ready <= 1'b1;
+       udev_req_ready <= 1'b0;
      else if (udev_req_valid & udev_req_ready)
        udev_req_ready <= 1'b0;
      else
