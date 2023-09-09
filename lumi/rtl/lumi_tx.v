@@ -83,6 +83,7 @@ module lumi_tx
    wire                      phy_fifo_empty;
    wire                      phy_fifo_wr;
    wire                      phy_fifo_full;
+   wire                      ionreset_sync;
 
    // Amir - byterate is used later as shifterd 3 bits to the left so needs 3 more bits than the "pure" value
    wire [$clog2(DW+AW+AW+CW)-1:0] byterate;
@@ -600,9 +601,13 @@ module lumi_tx
               .wr_din           (shiftreg[IOW-1:0]),
               .rd_en            (1'b1));
 
-   assign phy_txvld = ~phy_fifo_empty;
+   la_rsync la_rsync(.clk(ioclk),
+                     .nrst_in(ionreset),
+                     .nrst_out(ionreset_sync));
+
+   assign phy_txvld = ~phy_fifo_empty & ionreset_sync;
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("." "../../umi/rtl/")
+// verilog-library-directories:("." "../../umi/rtl/" "../submodules/lambdalib/stdlib/rtl")
 // End:
