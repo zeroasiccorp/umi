@@ -634,7 +634,7 @@ module lumi_rx
    // For shift left
    assign lnk_sop_bit[4:0] = {3'b000,lnk_sop[1:0]};
 
-   always @(posedge ioclk or negedge ionreset)
+   always @(posedge clk or negedge nreset)
      if (~nreset)
        begin
           lnk_sop[1:0]               <= 'h0;
@@ -680,7 +680,7 @@ module lumi_rx
    //########################################
    //# "steal" incoming credit update
    //########################################
-   always @(posedge ioclk or negedge ionreset)
+   always @(posedge clk or negedge nreset)
      if (~nreset)
        lnk_cmd_vld <= 'h0;
      else
@@ -693,14 +693,14 @@ module lumi_rx
    assign credit_req_in[1] = lnk_cmd_vld &
                              ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
 
-   always @(posedge ioclk or negedge ionreset)
+   always @(posedge clk or negedge nreset)
      if (~nreset)
        begin
           rmt_crdt_req  <= 'h0;
           rmt_crdt_resp <= 'h0;
        end
      else
-       begin //TODO - sync to internal clock
+       begin
           if (credit_req_in[0])
             rmt_crdt_req  <= lnk_cmd_user[23:8];
           if (credit_req_in[1])
