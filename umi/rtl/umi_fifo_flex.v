@@ -296,7 +296,7 @@ module umi_fifo_flex
    //#################################
    // Standard Dual Clock FIFO
    //#################################
-   generate if (ASYNC)
+   generate if (|ASYNC)
      begin
         la_asyncfifo  #(.DW(CW+AW+AW+ODW),
                         .DEPTH(DEPTH))
