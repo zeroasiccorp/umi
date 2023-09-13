@@ -546,7 +546,7 @@ LUMI supports data width of 8, 16, 32, 64 and 128 bits.
 The following diagram show how a host and device is connected over LUMI.
 
 ![Host-Device Connection Diagram. Note that the RX of the device is connected
-to the TX of the host (and vice versa).](docs/_images/swizzle.png)
+to the TX of the host (and vice versa).](docs/_images/swizzle_lumi.png)
 
 ### 5.2 Signal Description
 
