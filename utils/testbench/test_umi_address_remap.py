@@ -67,13 +67,36 @@ def main(topo="2d", rdymode="2", vldmode="2", n=100, client2rtl="client2rtl_0.q"
     print("### Starting random test ###")
 
     n_sent = 0
+    n_recv = 0
+    txq = []
 
-    while (n_sent < n):
-        txp = random_umi_packet()
-        if umi.send(txp, blocking=False):
-            print('* TX *')
-            print(str(txp))
-            n_sent += 1
+    while (n_sent < n) or (n_recv < n):
+        addr = random.randrange(0x0000_0000_0000_0000, 0x0000_07FF_FFFF_FFFF)
+        addr = addr & 0xFFFF_FF00_0000_FFF0 # Allow different devices but reduce address space per device
+        length = random.choice([1, 2, 4, 8])
+        data8 = np.random.randint(0, 255, size=length, dtype=np.uint8)
+
+        txp = random_umi_packet(dstaddr=addr, srcaddr=0x0000110000000000)
+        if n_sent < n:
+            if umi.send(txp, blocking=False):
+                print(f"Transaction sent: {n_sent}")
+                print(str(txp))
+                txq.append(txp)
+                if (addr & 0xFFFF_FF00_0000_0000 != 0x0000_0400_0000_0000):
+                    addr = addr ^ 0x00FF_FF00_0000_0000
+                    txq[-1].dstaddr = addr
+                n_sent += 1
+
+        if n_recv < n:
+            rxp = umi.recv(blocking=False)
+            if rxp is not None:
+                print(f"Transaction received: {n_recv}")
+                print(str(rxp))
+                if rxp != txq[0]:
+                    raise Exception(f'Mismatch! {n_recv}')
+                else:
+                    txq.pop(0)
+                    n_recv += 1
 
     ret_val.wait()
 
