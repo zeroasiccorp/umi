@@ -585,7 +585,7 @@ Optional status indications.
 
 LUMI egress/ingress data bus, active high. Supports 8b, 16b, and 64b modes. The data width is identical between the host and device and needs to be negotiated before the link can be used.
 
-### 5.3 Protocol
+### 5.3 Packet format
 
 The LUMI standard requires the host to fully support UMI protocol.
 
@@ -614,7 +614,22 @@ The following features are implemented in order to optimize the link efficiency:
 * Command (C), Address (A) and Source Address (S) fields will only be transmitted where they are meaningful, per UMI spec.
   e.g. - data will not be sent on read commands
 
-* Data fields will only be sent up to the packet size, e.g, - even if SUMI data width is 64B LUMI will only transmit the bytes up to the specific message length
+* Data fields will only be sent up to the packet size, even if SUMI data width is 64B LUMI will only transmit the bytes up to the specific message length.
+  The following example shows a 4 byte SUMI packet over LUMI:
+
+  SUMI packet:
+  | [511:0]          | [63:0]  | [63:0]  | [31:0] |
+  | ---------------- | ------- | ------- | ------ |
+  | 60B pad, 4B data | srcaddr | dstaddr | cmd    |
+
+  Where the command is write command, SIZE=0, LEN=3.
+  As this command only uses 4 bytes of data it will be transmitted over a 64b LUMI using 3 cycles only. The padding bytes will not be sent.
+
+  | Cycle | 63:32    | 31:0       |
+  | ----- | -------- | ---------- |
+  | 1     | A[31:0]  | C[31:0]    |
+  | 2     | S[31:0]  | A[63:32]   |
+  | 3     | D[31:0]  | S[63:32]   |
 
 * Packet burst (optional) - when ctrl[1] pin is being used lumi can merge continous packets.
 
