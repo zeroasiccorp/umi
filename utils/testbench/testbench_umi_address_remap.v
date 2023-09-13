@@ -17,7 +17,7 @@ module testbench #(
     // Local parameters
     localparam CW       = 32;          // UMI width
     localparam AW       = 64;          // UMI width
-    localparam DW       = 128;
+    localparam DW       = 256;
     localparam IDW      = 16;
     localparam NMAPS    = 8;
 
@@ -95,7 +95,7 @@ module testbench #(
         .cmd        (umi_stim2dut_cmd[CW-1:0]),
         .dstaddr    (umi_stim2dut_dstaddr[AW-1:0]),
         .srcaddr    (umi_stim2dut_srcaddr[AW-1:0]),
-        .data       (umi_stim2dut_data[DW-1:0]),
+        .data       (umi_stim2dut_data),
         .ready      (umi_stim2dut_ready)
     );
 
@@ -108,7 +108,7 @@ module testbench #(
         .cmd        (umi_dut2check_cmd),
         .dstaddr    (umi_dut2check_dstaddr),
         .srcaddr    (umi_dut2check_srcaddr),
-        .data       ({128'd0, umi_dut2check_data[127:0]}),
+        .data       (umi_dut2check_data),
         .ready      (umi_dut2check_ready)
     );
 
@@ -132,7 +132,7 @@ module testbench #(
     end
 
    // auto-stop
-   auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));
+   auto_stop_sim #(.CYCLES(500000)) auto_stop_sim_i (.clk(clk));
 
 endmodule
 
