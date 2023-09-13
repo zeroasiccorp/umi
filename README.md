@@ -557,7 +557,7 @@ Asynchronous active low reset. To prevent power up and initialization issues the
 
 #### clk
 
-Data link clock driven by host (phase1/pos).
+Data link clock driven by host.
 
 #### txctrl[0]/rxctrl[0]
 
@@ -614,7 +614,7 @@ The following features are implemented in order to optimize the link efficiency:
 * Command (C), Address (A) and Source Address (S) fields will only be transmitted where they are meaningful, per UMI spec.
   e.g. - data will not be sent on read commands
 
-* Data fields will only be sent up to the packet size, e.g, - even if SUMI data width is 64B clink will only transmit the bytes up to the specific message length
+* Data fields will only be sent up to the packet size, e.g, - even if SUMI data width is 64B LUMI will only transmit the bytes up to the specific message length
 
 * Packet burst (optional) - when ctrl[1] pin is being used lumi can merge continous packets.
 
@@ -631,7 +631,7 @@ Credit init/update messages will be sent using link-layer UMI command:
 | credit init   | #credit      | 0x0 - req credit<br/>0x1 - resp credit | 0x1 credit init   | link layer CMD |
 | credit update | #credit      | 0x0 - req credit<br/>0x1 - resp credit | 0x2 credit update | link layer CMD |
 
-The credit are in CLINK data width units. One credit represents a single data cycle with valid high.
+The credit are in LUMI data width units. One credit represents a single data cycle with valid high.
 
 ### 5.5 Credit/link initialization
 
@@ -642,68 +642,10 @@ After reset both sides of the link wake up in non-active state and can only acce
 UMI link layer can be transported over several physical layer options.
 The following options are supported and their mapping outlined below:
 
-* CLINK physical layer as defined in CLINK spec
+* CLINK physical layer as defined in CLINK spec [REF](https://github.com/zeroasiccorp/chipio/tree/main/clink/README.md)
 * Bunch of Wires (BoW)
 * Advanced Interface Bus (AIB)
 * Universal Chiplet Interconnect Express (UCIe)
-
-#### 5.6.1 Bunch of Wires mapping
-LUMI over BoW will use BoW physical layer only. BoW physical layer does not have any framing to the data and therefore requires sending LUMI valid signal over a data lane.
-The signal mapping is the following:
-
-| BoW signal   | CLINK signal   | Description                          |
-| ------------ | -------------- | ------------------------------------ |
-| TX Data      | txdata + txvld | Data to transmit over BoW            |
-| RX Data      | rxdata + rxvld | Data received over BoW               |
-| Core clk     | clk[0]         | CLINK clock to be used as BoW clock  |
-
-Other, optional, signals like FEC and AUX will not be used by LUMI.
-
-#### 5.6.2 AIB mapping
-
-AIB uses a simple, no framing data structure. When transporting LUMI over AIB the LUMI interface will connect to the AIB MAC interface.
-The signal mapping for AIB MAC is the following:
-
-| AIB signal   | CLINK signal | Description                          |
-| ------------ | ------------ | ------------------------------------ |
-| data_out     | txdata       | Data to transmit over AIB            |
-| data_in      | rxdata       | Data received over AIB               |
-| m_ns_fwd_clk | clk[0]       | CLINK clock to be used as AIB clock  |
-| m_fw_fwd_clk | ------       | CLINK does not use Rx clock          |
-| ns_mac_rdy   | txctrl[0]    | Valid signal for TX data             |
-| fs_mac_rdy   | rxctrl[0]    | Valid signal for RX data             |
-
-Other optional AIB Plus signals are not required for LUMI-AIB connection and will not be used.
-
-#### 5.6.3 UCIe mapping
-
-LUMI over UCIe will use UCIe Raw Die-to-Die interface (RDI).
-The signal mapping for RDI is the following:
-
-| UCIe signal    | CLINK signal | Description                          |
-| -------------- | ------------ | ------------------------------------ |
-| lclk           | clk[0]       | clock                                |
-| lp_irdy        | txctrl[0]    | data ready signal - same as valid    |
-| lp_valid       | txctrl[0]    | data valid indication                |
-| lp_data        | txdata       | data to be transmitted               |
-| lp_retimer_crd | ------       | Not used (for retimer only)          |
-| pl_trdy        | ------       | Not used (FC handled at CLINK level) |
-| pl_valid       | rxctrl[0]    | data valid from phy                  |
-| pl_data        | rxdata       | data from phy                        |
-| pl_retimer_crd | ------       | Not used (for retimer only)          |
-
-UCIe also requires implementing other phy control logic to maintain the link. The following signals will be handled by the UCIe<->CLINK bridge and not exposed to the CLINK. They should handled and set before the link is declaered active.
-
-- lp_state_req
-- lp_linkerror
-- pl_state_sts
-- pl_inband_pres
-- pl_error
-- pl_cerror
-- pl_nferror
-- pl_trainerror
-- pl_phyinrecenter
-- pl_stallreq
 
 ## Appendix A: UMI Transaction Translation
 
@@ -877,6 +819,68 @@ Restrictions:
  * Data width limited to 128 bits
  * TID limited to 4 bits
  * TDEST, TUSER, TWAKEUP only available in 64bit address mode.
+
+## Appendix B: LUMI mapping to physical layer
+
+The following examples are provided as reference for mapping LUMI over BoW, AIB and UCIe.
+
+### B.1 Bunch of Wires mapping
+LUMI over BoW will use BoW physical layer only. BoW physical layer does not have any framing to the data and therefore requires sending LUMI valid signal over a data lane.
+The signal mapping is the following:
+
+| BoW signal   | CLINK signal   | Description                          |
+| ------------ | -------------- | ------------------------------------ |
+| TX Data      | txdata + txvld | Data to transmit over BoW            |
+| RX Data      | rxdata + rxvld | Data received over BoW               |
+| Core clk     | clk[0]         | CLINK clock to be used as BoW clock  |
+
+Other, optional, signals like FEC and AUX will not be used by LUMI.
+
+### B.2 AIB mapping
+
+AIB uses a simple, no framing data structure. When transporting LUMI over AIB the LUMI interface will connect to the AIB MAC interface.
+The signal mapping for AIB MAC is the following:
+
+| AIB signal   | CLINK signal | Description                          |
+| ------------ | ------------ | ------------------------------------ |
+| data_out     | txdata       | Data to transmit over AIB            |
+| data_in      | rxdata       | Data received over AIB               |
+| m_ns_fwd_clk | clk[0]       | CLINK clock to be used as AIB clock  |
+| m_fw_fwd_clk | ------       | CLINK does not use Rx clock          |
+| ns_mac_rdy   | txctrl[0]    | Valid signal for TX data             |
+| fs_mac_rdy   | rxctrl[0]    | Valid signal for RX data             |
+
+Other optional AIB Plus signals are not required for LUMI-AIB connection and will not be used.
+
+### B.3 UCIe mapping
+
+LUMI over UCIe will use UCIe Raw Die-to-Die interface (RDI).
+The signal mapping for RDI is the following:
+
+| UCIe signal    | CLINK signal | Description                          |
+| -------------- | ------------ | ------------------------------------ |
+| lclk           | clk[0]       | clock                                |
+| lp_irdy        | txctrl[0]    | data ready signal - same as valid    |
+| lp_valid       | txctrl[0]    | data valid indication                |
+| lp_data        | txdata       | data to be transmitted               |
+| lp_retimer_crd | ------       | Not used (for retimer only)          |
+| pl_trdy        | ------       | Not used (FC handled at CLINK level) |
+| pl_valid       | rxctrl[0]    | data valid from phy                  |
+| pl_data        | rxdata       | data from phy                        |
+| pl_retimer_crd | ------       | Not used (for retimer only)          |
+
+UCIe also requires implementing other phy control logic to maintain the link. The following signals will be handled by the UCIe<->CLINK bridge and not exposed to the CLINK. They should handled and set before the link is declaered active.
+
+- lp_state_req
+- lp_linkerror
+- pl_state_sts
+- pl_inband_pres
+- pl_error
+- pl_cerror
+- pl_nferror
+- pl_trainerror
+- pl_phyinrecenter
+- pl_stallreq
 
 ----
 ## References
