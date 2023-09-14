@@ -53,10 +53,10 @@ UMI transactions are request-response memory exchanges between Hosts and Devices
 
 ![UMI](docs/_images/tumi_connections.png)
 
-Basic UMI read/write transaction involves the transfer of LEN+1 words of data of width 2^SIZE bytes between a device and a host. 
+Basic UMI read/write transaction involves the transfer of LEN+1 words of data of width 2^SIZE bytes between a device and a host.
 
 **Summary:**
-* UMI transaction type, word size (SIZE), transfer count (LEN), and other options are encoded in a 32bit transaction command header (CMD). 
+* UMI transaction type, word size (SIZE), transfer count (LEN), and other options are encoded in a 32bit transaction command header (CMD).
 * Device memory access is communicated through a destination address (DA) field.
 * The host source address is communicated through the source address (SA) field.
 * The destination address indicates the memory address of the first byte in the transaction.
@@ -195,7 +195,7 @@ The EOM bit is reserved for UMI signal layer and is used to track the transfer o
 
 ### 3.3.7 End of Frame (EOF)
 
-The EOF bit can be used to indicate the last message in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific. 
+The EOF bit can be used to indicate the last message in a sequence of related UMI transactions. Use of the EOF bit at an endpoint is optional and implementation specific.
 
 ### 3.3.8 Exclusive Access (EX)
 
@@ -252,7 +252,7 @@ The HOSTID field indicates the ID of the host making a transaction request. All 
 
 ### 3.3.11 User Field (U)
 
-Message bit designated with a U are available for use by application and signal layer implementations. Any undefined user bits shall be set to zero.  
+Message bit designated with a U are available for use by application and signal layer implementations. Any undefined user bits shall be set to zero.
 
 ### 3.3.12 Reserved Field (R)
 
@@ -520,14 +520,148 @@ output [AW-1:0] udev_resp_dstaddr;
 output [AW-1:0] udev_resp_srcaddr;
 output [DW-1:0] udev_resp_data;
 ```
-----
+
 ## 5. UMI Link Layer (LUMI)
 
-(Place Holder)
+UMI link layer interface converts the parallel SUMI interface into packetized, framed interface. The packets over LUMI will be sent by sending cmd, dstaddr, srcaddr and data on the same lines.
 
-* Serialization
-* Flow control
-----
+### 5.1 Signals
+
+The following table provides the LUMI interface signals presented from a device side perspective. All signals are single ended and unidirectional. All unidirectional signals must be deterministically driven at all
+times.
+
+| SIGNAL        | DRIVER | DESCRIPTION                           |
+| ------------- | ------ | ------------------------------------- |
+| nreset        | host   | Asynchronous active low reset         |
+| clk           | host   | LUMI clock                            |
+| rxctrl[3:0]   | host   | RX link control signals(eg. valid,..) |
+| rxstatus[3:0] | device | RX link status signals(optional)      |
+| rxdata[N-1:0] | host   | RX link data signals                  |
+| txctrl[3:0]   | device | TX link control signals(eg. valid,..) |
+| txstatus[3:0] | host   | TX link status signals(optional)      |
+| txdata[N-1:0] | device | TX link data signals                  |
+
+LUMI supports data width of 8, 16, 32, 64 and 128 bits.
+
+The following diagram show how a host and device is connected over LUMI.
+
+![Host-Device Connection Diagram. Note that the RX of the device is connected
+to the TX of the host (and vice versa).](docs/_images/swizzle_lumi.png)
+
+### 5.2 Signal Description
+
+#### nreset
+
+Asynchronous active low reset. To prevent power up and initialization issues the device 'nreset' pin must be sampled by a synchronizer with asynchronous assert and synchronous deassert logic.
+[REF](https://github.com/siliconcompiler/lambdalib/blob/main/stdlib/rtl/la_rsync.v)
+
+#### clk
+
+Data link clock driven by host.
+
+#### txctrl[0]/rxctrl[0]
+
+Valid signal for the Rx (host -> device) or Tx (device -> host) packet. A HIGH value indicates valid data and valid data is transmitted on every cycle with valid high.
+Unlike UMI SUMI layer LUMI does not require a ready signal in order to transmit data. The interface uses credit flow control as described in section 5.4 below.
+This signal is mandatory in all implementations.
+
+#### txctrl[1]/rxctrl[1]
+
+Optional signal indicating burst trafic. When high this signal indicates that the current packet is continous to the previous one and therefore does not carry the header. It can only be asserted when the packet is continous to the previous one and has the same SUMI header.
+
+#### txctrl[2]/rxctrl[2]
+
+Optional forward error correction (fec) signal to handle soft errors in rxdata.
+
+#### txctrl[3]/rxctrl[3]
+
+Optional redundancy "aux" signal to handle manufacturing errors or persistent in the field error of one of the rxdata pins.
+
+#### txstat[3:0]/rxstat[3:0]
+
+Optional status indications.
+
+#### txdata[N-1:0]/rxdata[N-1:0]
+
+LUMI egress/ingress data bus, active high. Supports 8b, 16b, and 64b modes. The data width is identical between the host and device and needs to be negotiated before the link can be used.
+
+### 5.3 Packet format
+
+The LUMI standard requires the host to fully support UMI protocol.
+
+* [Universal Memory Interface (UMI)](https://github.com/zeroasiccorp/umi)
+
+LUMI packet format follows the UMI one and serializes the UMI cmd, dstaddr, srcaddr and data fields into one serial bit stream.
+
+| [511:0] | [63:0]  | [63:0]  | [31:0] |
+| ------- | ------- | ------- | ------ |
+| data    | srcaddr | dstaddr | cmd    |
+
+LUMI packets are transmitted over the Tx/Rx pins with reduces interface size and are sent LSB first.
+The following example shows packet transmittion over 64b interface:
+
+| Cycle | 63:32    | 31:0       |
+| ----- | -------- | ---------- |
+| 1     | A[31:0]  | C[31:0]    |
+| 2     | S[31:0]  | A[63:32]   |
+| 3     | D[31:0]  | S[63:32]   |
+| 4     | D[95:64] | D[63:32]   |
+| ...   |          |            |
+| 11    | NA       | D[511:480] |
+
+The following features are implemented in order to optimize the link efficiency:
+
+* Command (C), Address (A) and Source Address (S) fields will only be transmitted where they are meaningful, per UMI spec.
+  e.g. - data will not be sent on read commands
+
+* Data fields will only be sent up to the packet size, even if SUMI data width is 64B LUMI will only transmit the bytes up to the specific message length.
+  The following example shows a 4 byte SUMI packet over LUMI:
+
+  SUMI packet:
+  | [511:0]          | [63:0]  | [63:0]  | [31:0] |
+  | ---------------- | ------- | ------- | ------ |
+  | 60B pad, 4B data | srcaddr | dstaddr | cmd    |
+
+  Where the command is write command, SIZE=0, LEN=3.
+  As this command only uses 4 bytes of data it will be transmitted over a 64b LUMI using 3 cycles only. The padding bytes will not be sent.
+
+  | Cycle | 63:32    | 31:0       |
+  | ----- | -------- | ---------- |
+  | 1     | A[31:0]  | C[31:0]    |
+  | 2     | S[31:0]  | A[63:32]   |
+  | 3     | D[31:0]  | S[63:32]   |
+
+* Packet burst (optional) - when ctrl[1] pin is being used lumi can merge continous packets.
+
+### 5.4 Flow control
+
+LUMI is using credit based flow control. The credit init/update messages will be sent over the link using LUMI link-layer commands and are controlled by the reciever side. The transmitter side of each link is responsible for not exceeding published credits. If the transmitter does exceed published credits, subsequent behavior of the receiver is undefined.
+Credit update messages are using command only in order to reduce the overhead.
+
+Credit init/update messages will be sent using link-layer UMI command:
+
+| Message       | [31:16] data | [15:12] addr                           | [11:8] LNK CMD    | [7:0] UMI CMD  |
+| ------------- | ------------ | -------------------------------------- | ----------------- | -------------- |
+| Invalid       | NA           | NA                                     | 0x0 invalid       | link layer CMD |
+| credit init   | #credit      | 0x0 - req credit<br/>0x1 - resp credit | 0x1 credit init   | link layer CMD |
+| credit update | #credit      | 0x0 - req credit<br/>0x1 - resp credit | 0x2 credit update | link layer CMD |
+
+The credit are in LUMI data width units. One credit represents a single data cycle with valid high.
+
+### 5.5 Credit/link initialization
+
+After reset both sides of the link wake up in non-active state and can only accept credit-init transactions. Once a credit init message is received the transmitter may start sending packets up to the provided credit.
+
+### 5.6 Physical layer mapping
+
+UMI link layer can be transported over several physical layer options.
+The following options are supported and their mapping outlined below:
+
+* CLINK physical layer as defined in CLINK spec [REF](https://github.com/zeroasiccorp/chipio/tree/main/clink/README.md)
+* Bunch of Wires (BoW)
+* Advanced Interface Bus (AIB)
+* Universal Chiplet Interconnect Express (UCIe)
+
 ## Appendix A: UMI Transaction Translation
 
 ### A.1 RISC-V
@@ -573,7 +707,7 @@ This section outlines the recommended mapping between UMI transaction and the Ti
 | BMASK  | Mask (2^SIZE)/8 (strobe)  | {a,b,c,d,e}_mask    |
 | HOSTID | Source ID                 | {a,b,c,d,e}_source  |
 
-The following table shows the mapping between TileLink and UMI transactions, with TL-UL and TL-UH TileLink support. TL-C conformance is left for future development. 
+The following table shows the mapping between TileLink and UMI transactions, with TL-UL and TL-UH TileLink support. TL-C conformance is left for future development.
 
 | TileLink Message| UMI Transaction |CMD[26:25]|
 |-----------------|-----------------|----------|
@@ -642,16 +776,16 @@ The table below maps AXI terminology to UMI terminology.
 
 | AXI             | UMI         |
 |-----------------|-------------|
-| Manager         | Host        | 
-| Subordinate     | Device      | 
+| Manager         | Host        |
+| Subordinate     | Device      |
 | Transaction     | Transaction |
 
 The table below shows the mapping between the five AXI channels and UMI messages.
 
 | AXI Channel     | UMI Message |
 |-----------------|-------------|
-| Write request   | REQ_WR      | 
-| Write data      | REQ_WR      | 
+| Write request   | REQ_WR      |
+| Write data      | REQ_WR      |
 | Write response  | RESP_WR     |
 | Read request    | REQ_RD      |
 | Read data       | RESP_RD     |
@@ -681,13 +815,13 @@ The mapping between AXI stream and UMI is shown int he following tables.
 
 | AXI             | SUMI signal|
 |-----------------|------------|
-| tvalid          | valid      | 
-| tready          | ready      | 
+| tvalid          | valid      |
+| tready          | ready      |
 | tdata           | DATA       |
 | tlast           | EOF        |
 | tid             | HOSTID     |
 | tuser           | SA         |
-| tkeep           | SA         |     
+| tkeep           | SA         |
 | tstrb           | SA         |
 | twakeup         | SA
 
@@ -700,7 +834,69 @@ Restrictions:
  * Data width limited to 128 bits
  * TID limited to 4 bits
  * TDEST, TUSER, TWAKEUP only available in 64bit address mode.
-  
+
+## Appendix B: LUMI mapping to physical layer
+
+The following examples are provided as reference for mapping LUMI over BoW, AIB and UCIe.
+
+### B.1 Bunch of Wires mapping
+LUMI over BoW will use BoW physical layer only. BoW physical layer does not have any framing to the data and therefore requires sending LUMI valid signal over a data lane.
+The signal mapping is the following:
+
+| BoW signal   | CLINK signal   | Description                          |
+| ------------ | -------------- | ------------------------------------ |
+| TX Data      | txdata + txvld | Data to transmit over BoW            |
+| RX Data      | rxdata + rxvld | Data received over BoW               |
+| Core clk     | clk[0]         | CLINK clock to be used as BoW clock  |
+
+Other, optional, signals like FEC and AUX will not be used by LUMI.
+
+### B.2 AIB mapping
+
+AIB uses a simple, no framing data structure. When transporting LUMI over AIB the LUMI interface will connect to the AIB MAC interface.
+The signal mapping for AIB MAC is the following:
+
+| AIB signal   | CLINK signal | Description                          |
+| ------------ | ------------ | ------------------------------------ |
+| data_out     | txdata       | Data to transmit over AIB            |
+| data_in      | rxdata       | Data received over AIB               |
+| m_ns_fwd_clk | clk[0]       | CLINK clock to be used as AIB clock  |
+| m_fw_fwd_clk | ------       | CLINK does not use Rx clock          |
+| ns_mac_rdy   | txctrl[0]    | Valid signal for TX data             |
+| fs_mac_rdy   | rxctrl[0]    | Valid signal for RX data             |
+
+Other optional AIB Plus signals are not required for LUMI-AIB connection and will not be used.
+
+### B.3 UCIe mapping
+
+LUMI over UCIe will use UCIe Raw Die-to-Die interface (RDI).
+The signal mapping for RDI is the following:
+
+| UCIe signal    | CLINK signal | Description                          |
+| -------------- | ------------ | ------------------------------------ |
+| lclk           | clk[0]       | clock                                |
+| lp_irdy        | txctrl[0]    | data ready signal - same as valid    |
+| lp_valid       | txctrl[0]    | data valid indication                |
+| lp_data        | txdata       | data to be transmitted               |
+| lp_retimer_crd | ------       | Not used (for retimer only)          |
+| pl_trdy        | ------       | Not used (FC handled at CLINK level) |
+| pl_valid       | rxctrl[0]    | data valid from phy                  |
+| pl_data        | rxdata       | data from phy                        |
+| pl_retimer_crd | ------       | Not used (for retimer only)          |
+
+UCIe also requires implementing other phy control logic to maintain the link. The following signals will be handled by the UCIe<->CLINK bridge and not exposed to the CLINK. They should handled and set before the link is declaered active.
+
+- lp_state_req
+- lp_linkerror
+- pl_state_sts
+- pl_inband_pres
+- pl_error
+- pl_cerror
+- pl_nferror
+- pl_trainerror
+- pl_phyinrecenter
+- pl_stallreq
+
 ----
 ## References
 
@@ -711,7 +907,3 @@ Restrictions:
 [3] [AMBA4 AXI Stream Protocol Specification (09 April 2021, Version A)](https://developer.arm.com/documentation/ihi0051/a)
 
 [4] [AMBA4 APB Protocol Specification (13 April 2010, Version C)](https://developer.arm.com/documentation/ihi0024/c)
-
-
-
-
