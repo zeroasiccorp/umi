@@ -16,6 +16,11 @@
  * resides between IDSB + IDW - 1 to IDSB i.e. bits 55:40. Additionally, one
  * can also infer that the addresses within a clink/umi connected device is
  * 40 bits wide i.e. a memory space of 1 TiB.
+
+ * Limitation:
+ * NMAPS parameterization is incomplete
+ * Currently NMAPS < 8 will fail and NMAPS > 8 will not have the desired effect
+ * beyond 8 remappings.
  *****************************************************************************/
 
 `timescale 1ns / 1ps
