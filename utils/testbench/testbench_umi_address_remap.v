@@ -19,6 +19,7 @@ module testbench #(
     localparam AW       = 64;          // UMI width
     localparam DW       = 256;
     localparam IDW      = 16;
+    localparam IDSB     = 40;
     localparam NMAPS    = 8;
 
     // control block
@@ -60,6 +61,7 @@ module testbench #(
         .AW         (AW),
         .DW         (DW),
         .IDW        (IDW),
+        .IDSB       (IDSB),
         .NMAPS      (NMAPS)
     ) dut (
         .chipid                 (16'h0004),
