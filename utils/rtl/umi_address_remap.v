@@ -74,23 +74,18 @@ module umi_address_remap #(
     reg  [IDW-1:0]  dstaddr_upper;
 
     always @(*) begin
-        if (umi_in_dstaddr[(IDSB+IDW-1):IDSB] == chipid) begin
-            dstaddr_upper = chipid;
-        end
-        else begin
-            // FIXME: Parameterize this
-            case (umi_in_dstaddr[(IDSB+IDW-1):IDSB])
-                old_row_col_address_unpack[0] : dstaddr_upper = new_row_col_address_unpack[0];
-                old_row_col_address_unpack[1] : dstaddr_upper = new_row_col_address_unpack[1];
-                old_row_col_address_unpack[2] : dstaddr_upper = new_row_col_address_unpack[2];
-                old_row_col_address_unpack[3] : dstaddr_upper = new_row_col_address_unpack[3];
-                old_row_col_address_unpack[4] : dstaddr_upper = new_row_col_address_unpack[4];
-                old_row_col_address_unpack[5] : dstaddr_upper = new_row_col_address_unpack[5];
-                old_row_col_address_unpack[6] : dstaddr_upper = new_row_col_address_unpack[6];
-                old_row_col_address_unpack[7] : dstaddr_upper = new_row_col_address_unpack[7];
-                default                       : dstaddr_upper = umi_in_dstaddr[(IDSB+IDW-1):IDSB];
-            endcase
-        end
+        // FIXME: Parameterize this
+        case (umi_in_dstaddr[(IDSB+IDW-1):IDSB])
+            old_row_col_address_unpack[0] : dstaddr_upper = new_row_col_address_unpack[0];
+            old_row_col_address_unpack[1] : dstaddr_upper = new_row_col_address_unpack[1];
+            old_row_col_address_unpack[2] : dstaddr_upper = new_row_col_address_unpack[2];
+            old_row_col_address_unpack[3] : dstaddr_upper = new_row_col_address_unpack[3];
+            old_row_col_address_unpack[4] : dstaddr_upper = new_row_col_address_unpack[4];
+            old_row_col_address_unpack[5] : dstaddr_upper = new_row_col_address_unpack[5];
+            old_row_col_address_unpack[6] : dstaddr_upper = new_row_col_address_unpack[6];
+            old_row_col_address_unpack[7] : dstaddr_upper = new_row_col_address_unpack[7];
+            default                       : dstaddr_upper = umi_in_dstaddr[(IDSB+IDW-1):IDSB];
+        endcase
     end
 
     wire [AW-1:0]   dstaddr_with_remap;
@@ -115,7 +110,11 @@ module umi_address_remap #(
 
     assign umi_out_valid    = umi_in_valid;
     assign umi_out_cmd      = umi_in_cmd;
-    assign umi_out_dstaddr  = dstaddr_offset_en ? dstaddr_with_offset : dstaddr_with_remap;
+    assign umi_out_dstaddr  = (umi_in_dstaddr[(IDSB+IDW-1):IDSB] == chipid) ?
+                              umi_in_dstaddr :
+                              (dstaddr_offset_en ?
+                              dstaddr_with_offset :
+                              dstaddr_with_remap);
     assign umi_out_srcaddr  = umi_in_srcaddr;
     assign umi_out_data     = umi_in_data;
     assign umi_in_ready     = umi_out_ready;
