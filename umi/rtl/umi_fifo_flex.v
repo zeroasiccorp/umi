@@ -318,7 +318,7 @@ module umi_fifo_flex
                .ctrl         (1'b0),
                .test         (1'b0));
      end
-   else
+   else if (|DEPTH)
      begin
         la_syncfifo  #(.DW(CW+AW+AW+ODW),
                        .DEPTH(DEPTH))
@@ -350,24 +350,24 @@ module umi_fifo_flex
    // FIFO Bypass
    //#################################
 
-   assign fifo_full               = bypass ? ~umi_out_ready       : fifo_full_raw;
-   assign fifo_empty              = bypass ? 1'b1                 : fifo_empty_raw;
+   assign fifo_full               = (bypass | ~(|DEPTH)) ? ~umi_out_ready       : fifo_full_raw;
+   assign fifo_empty              = (bypass | ~(|DEPTH)) ? 1'b1                 : fifo_empty_raw;
 
-   assign umi_out_cmd[CW-1:0]     = bypass ? fifo_cmd[CW-1:0]     : fifo_dout[CW-1:0];
-   assign umi_out_dstaddr[AW-1:0] = bypass ? fifo_dstaddr[AW-1:0] : fifo_dout[CW+:AW] & 64'hFFFF_FFFF_FFFF_FFFF;
-   assign umi_out_srcaddr[AW-1:0] = bypass ? fifo_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
+   assign umi_out_cmd[CW-1:0]     = (bypass | ~(|DEPTH)) ? fifo_cmd[CW-1:0]     : fifo_dout[CW-1:0];
+   assign umi_out_dstaddr[AW-1:0] = (bypass | ~(|DEPTH)) ? fifo_dstaddr[AW-1:0] : fifo_dout[CW+:AW] & 64'hFFFF_FFFF_FFFF_FFFF;
+   assign umi_out_srcaddr[AW-1:0] = (bypass | ~(|DEPTH)) ? fifo_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
 
    generate
       if (ODW>IDW) //TODO - expand transactions
-        assign umi_out_data[ODW-1:0]   = bypass ? {{ODW-IDW{1'b0}},fifo_data[IDW-1:0]} : fifo_dout[CW+AW+AW+:ODW];
+        assign umi_out_data[ODW-1:0]   = (bypass | ~(|DEPTH)) ? {{ODW-IDW{1'b0}},fifo_data[IDW-1:0]} : fifo_dout[CW+AW+AW+:ODW];
       else
-        assign umi_out_data[ODW-1:0]   = bypass ? fifo_data[ODW-1:0] : fifo_dout[CW+AW+AW+:ODW];
+        assign umi_out_data[ODW-1:0]   = (bypass | ~(|DEPTH)) ? fifo_data[ODW-1:0] : fifo_dout[CW+AW+AW+:ODW];
    endgenerate
 
    assign umi_out_valid           = ~fifo_ready[1] ? 1'b0 :
-                                    bypass ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
+                                    (bypass | ~(|DEPTH)) ? (umi_in_valid | packet_latch_valid) : ~fifo_empty;
    assign umi_in_ready            = ~fifo_ready[1] ? 1'b0 :
-                                    bypass ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
+                                    (bypass | ~(|DEPTH)) ? ~packet_latch_valid & umi_out_ready : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;
