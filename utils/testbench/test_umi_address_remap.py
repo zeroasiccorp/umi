@@ -82,14 +82,14 @@ def main(topo="2d", rdymode="2", vldmode="2", n=100, client2rtl="client2rtl_0.q"
                 print(f"Transaction sent: {n_sent}")
                 print(str(txp))
                 txq.append(txp)
-                # Remap
-                if ((addr & 0xFFFF_FF00_0000_0000) != 0x0000_0400_0000_0000):
-                    addr = addr ^ 0x00FF_FF00_0000_0000
-                    txq[-1].dstaddr = addr
                 # Offset
-                if (((addr & 0x0000_00FF_FFFF_FFFF) >= 0x0000_0000_0000_0080) & \
-                    ((addr & 0x0000_00FF_FFFF_FFFF) <= 0x0000_00FF_FFFF_FFFF)):
+                if ((addr >= 0x0000_0600_0000_0080) & \
+                    (addr <= 0x0000_06FF_FFFF_FFFF)):
                     addr = addr - 0x0000_0000_0000_0080
+                    txq[-1].dstaddr = addr
+                # Remap
+                elif ((addr & 0xFFFF_FF00_0000_0000) != 0x0000_0400_0000_0000):
+                    addr = addr ^ 0x00FF_FF00_0000_0000
                     txq[-1].dstaddr = addr
                 n_sent += 1
 

@@ -40,9 +40,9 @@ module umi_address_remap #(
     input  [IDW*NMAPS-1:0]  old_row_col_address,
     input  [IDW*NMAPS-1:0]  new_row_col_address,
 
-    input  [IDSB-1:0]       set_dstaddress_offset,
-    input  [IDSB-1:0]       set_dstaddress_high,
-    input  [IDSB-1:0]       set_dstaddress_low,
+    input  [AW-1:0]         set_dstaddress_low,
+    input  [AW-1:0]         set_dstaddress_high,
+    input  [AW-1:0]         set_dstaddress_offset,
 
     input                   umi_in_valid,
     input  [CW-1:0]         umi_in_cmd,
@@ -59,6 +59,7 @@ module umi_address_remap #(
     input                   umi_out_ready
 );
 
+    // Address remapping
     wire [IDW-1:0]  old_row_col_address_unpack [0:NMAPS-1];
     wire [IDW-1:0]  new_row_col_address_unpack [0:NMAPS-1];
 
@@ -70,7 +71,7 @@ module umi_address_remap #(
         end
     endgenerate
 
-    reg [IDW-1:0] dstaddr_upper;
+    reg  [IDW-1:0]  dstaddr_upper;
 
     always @(*) begin
         if (umi_in_dstaddr[(IDSB+IDW-1):IDSB] == chipid) begin
@@ -92,21 +93,29 @@ module umi_address_remap #(
         end
     end
 
-    reg [IDSB-1:0]  dstaddr_lower;
+    wire [AW-1:0]   dstaddr_with_remap;
+    generate
+        if ((IDSB+IDW) < AW) begin : REMAP_ADDR_WITH_MSB
+            assign dstaddr_with_remap = {umi_in_dstaddr[AW-1:IDSB+IDW],
+                                         dstaddr_upper,
+                                         umi_in_dstaddr[IDSB-1:0]};
+        end
+        else begin : REMAP_ADDR_WO_MSB
+            assign dstaddr_with_remap = {dstaddr_upper, umi_in_dstaddr[IDSB-1:0]};
+        end
+    endgenerate
 
-    always @(*) begin
-        if ((umi_in_dstaddr[IDSB-1:0] >= set_dstaddress_low) &
-            (umi_in_dstaddr[IDSB-1:0] <= set_dstaddress_high))
-            dstaddr_lower = umi_in_dstaddr[IDSB-1:0] - set_dstaddress_offset;
-        else
-            dstaddr_lower = umi_in_dstaddr[IDSB-1:0];
-    end
+    // Address offsetting
+    wire            dstaddr_offset_en;
+    wire [AW-1:0]   dstaddr_with_offset;
+
+    assign dstaddr_offset_en = (umi_in_dstaddr >= set_dstaddress_low) &
+                               (umi_in_dstaddr <= set_dstaddress_high);
+    assign dstaddr_with_offset = umi_in_dstaddr - set_dstaddress_offset;
 
     assign umi_out_valid    = umi_in_valid;
     assign umi_out_cmd      = umi_in_cmd;
-    assign umi_out_dstaddr  = ((IDSB+IDW) < AW) ?
-                              {umi_in_dstaddr[AW-1:IDSB+IDW], dstaddr_upper, dstaddr_lower} :
-                              {dstaddr_upper, dstaddr_lower};
+    assign umi_out_dstaddr  = dstaddr_offset_en ? dstaddr_with_offset : dstaddr_with_remap;
     assign umi_out_srcaddr  = umi_in_srcaddr;
     assign umi_out_data     = umi_in_data;
     assign umi_in_ready     = umi_out_ready;

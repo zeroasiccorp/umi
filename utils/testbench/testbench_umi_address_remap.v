@@ -69,9 +69,9 @@ module testbench #(
         .old_row_col_address    (old_row_col_address),
         .new_row_col_address    (new_row_col_address),
 
-        .set_dstaddress_offset  (40'h0000000080),
-        .set_dstaddress_high    (40'hFFFFFFFFFF),
-        .set_dstaddress_low     (40'h0000000080),
+        .set_dstaddress_low     (64'h0000_0600_0000_0080),
+        .set_dstaddress_high    (64'h0000_06FF_FFFF_FFFF),
+        .set_dstaddress_offset  (64'h0000_0000_0000_0080),
 
         .umi_in_valid           (umi_stim2dut_valid),
         .umi_in_cmd             (umi_stim2dut_cmd),
