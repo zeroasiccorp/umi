@@ -227,6 +227,9 @@ module tl2umi_np #(
 
     reg [2:0]   resp_state;
 
+    reg         get_ack_req;
+    reg         get_ack_resp;
+
     reg         put_ack_req;
     reg         put_ack_resp;
     reg [7:0]   put_bytes_req;
@@ -254,6 +257,7 @@ module tl2umi_np #(
             tl_d_data <= 64'b0;
             put_ack_resp <= 1'b0;
             put_bytes_resp <= 8'b0;
+            get_ack_resp <= 1'b0;
         end
         else begin
             case (resp_state)
@@ -267,6 +271,7 @@ module tl2umi_np #(
                 tl_d_data <= 64'b0;
                 put_ack_resp <= 1'b0;
                 put_bytes_resp <= 8'b0;
+                get_ack_resp <= 1'b0;
                 if (dataag_out_resp_ready && dataag_out_resp_valid) begin
                     if (dataag_out_resp_cmd_read_resp) begin
                         if (dataag_out_resp_cmd_eom == 1'b1) begin
@@ -288,7 +293,6 @@ module tl2umi_np #(
                             resp_state <= RESP_WR_LAST;
                             dataag_out_resp_ready_assert <= 1'b0;
                             tl_d_valid <= 1'b1;
-                            put_ack_resp <= 1'b1;
                         end
                         else begin
                             // Discard all UMI Write Responses except the last one
@@ -333,6 +337,7 @@ module tl2umi_np #(
                     resp_state <= RESP_IDLE;
                     dataag_out_resp_ready_assert <= 1'b1;
                     tl_d_valid <= 1'b0;
+                    get_ack_resp <= 1'b1;
                 end
             end
             RESP_WR_BRST: begin
@@ -340,14 +345,12 @@ module tl2umi_np #(
                     resp_state <= RESP_WR_LAST;
                     dataag_out_resp_ready_assert <= 1'b0;
                     tl_d_valid <= 1'b1;
-                    put_ack_resp <= 1'b1;
                 end
                 else begin
                     // Discard all UMI Write Responses except the last one
                     resp_state <= RESP_WR_BRST;
                     dataag_out_resp_ready_assert <= 1'b1;
                     tl_d_valid <= 1'b0;
-                    put_ack_resp <= 1'b0;
                 end
                 tl_d_opcode <= `TL_OP_AccessAck;
                 tl_d_size <= dataag_out_resp_dstaddr[26:24];
@@ -357,12 +360,12 @@ module tl2umi_np #(
                 end
             end
             RESP_WR_LAST: begin
-                put_ack_resp <= 1'b0;
                 if (tl_d_ready) begin
                     resp_state <= RESP_IDLE;
                     dataag_out_resp_ready_assert <= 1'b1;
                     tl_d_valid <= 1'b0;
                     put_bytes_resp <= 8'b0;
+                    put_ack_resp <= 1'b1;
                 end
             end
             default: begin
@@ -500,10 +503,11 @@ module tl2umi_np #(
     reg         tl_a_ready_assert;
 
     localparam REQ_IDLE     = 3'd0;
-    localparam REQ_GET_ACK  = 3'd1;
-    localparam REQ_PUT_BRST = 3'd2;
-    localparam REQ_PUT_LAST = 3'd3;
-    localparam REQ_PUT_ACK  = 3'd4;
+    localparam REQ_GET_LAST = 3'd1;
+    localparam REQ_GET_ACK  = 3'd2;
+    localparam REQ_PUT_BRST = 3'd3;
+    localparam REQ_PUT_LAST = 3'd4;
+    localparam REQ_PUT_ACK  = 3'd5;
 
     assign tl_a_ready = uhost_req_packet_ready && tl_a_ready_assert;
 
@@ -542,7 +546,7 @@ module tl2umi_np #(
                 if (tl_a_valid && tl_a_ready) begin
                     case (tl_a_opcode)
                     `TL_OP_Get: begin
-                        req_state <= REQ_GET_ACK;
+                        req_state <= REQ_GET_LAST;
                         tl_a_ready_assert <= 1'b0;
                         uhost_req_packet_cmd_opcode <= UMI_REQ_READ;
                         uhost_req_packet_cmd_size <= 'b0;
@@ -552,6 +556,7 @@ module tl2umi_np #(
                         uhost_req_packet_srcaddr <= local_address;
                         uhost_req_packet_valid_r <= 1'b1;
                         ml_tx_non_zero_mask_r <= ml_tx_non_zero_mask;
+                        get_ack_req <= 1'b1;
                     end
                     `TL_OP_PutFullData, `TL_OP_PutPartialData: begin
                         if (tl_a_size > 3'd3) begin
@@ -616,13 +621,19 @@ module tl2umi_np #(
                     endcase
                 end
             end
-            REQ_GET_ACK: begin
+            REQ_GET_LAST: begin
                 if (uhost_req_packet_ready) begin
-                    req_state <= REQ_IDLE;
-                    tl_a_ready_assert <= 1'b1;
+                    req_state <= REQ_GET_ACK;
                     uhost_req_packet_cmd_eom <= 1'b0;
                     uhost_req_packet_valid_r <= 1'b0;
                     ml_tx_non_zero_mask_r <= 1'b0;
+                end
+            end
+            REQ_GET_ACK: begin
+                if (get_ack_resp) begin
+                    req_state <= REQ_IDLE;
+                    tl_a_ready_assert <= 1'b1;
+                    get_ack_req <= 1'b0;
                 end
             end
             REQ_PUT_BRST: begin

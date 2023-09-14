@@ -248,7 +248,7 @@ module lumi_rx
 
    // Detect valis signal
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        begin
           rxvalid  <= 1'b0;
           rxvalid2 <= 1'b0;
@@ -264,7 +264,7 @@ module lumi_rx
      rxdata[IOW-1:0] <= phy_rxdata[IOW-1:0];
 
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        rxdata_d[7:0] <= 'h0;
      else
        if (rxvalid)
@@ -376,7 +376,7 @@ module lumi_rx
                          (sopptr == 'h1) & (csr_iowidth == 8'h0);
 
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        rxbytes_keep <= 'h0;
      else
        if (rxhdr_sample & rxvalid)
@@ -388,7 +388,7 @@ module lumi_rx
 
    // Valid register holds one bit per byte to transfer
    always @ (posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        sopptr <= 'b0;
      else if (rxvalid)
        sopptr <= sopptr_next;
@@ -409,7 +409,7 @@ module lumi_rx
 
    // Sample packet type from the RX lines upon SOP
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        rxtype_next[2:0] <= 3'b000;
      else
        if (rxhdr_sample & rxvalid)
@@ -421,7 +421,7 @@ module lumi_rx
 
    // credit counters - to be sent to the remote side
    always @(posedge ioclk or negedge ionreset)
-     if (~nreset)
+     if (~ionreset)
        begin
           rx_crdt_req[15:0]  <= 'h0;
           rx_crdt_resp[15:0] <= 'h0;
@@ -478,6 +478,7 @@ module lumi_rx
    //########################################
    // common masks - for both request and response fifos
    //########################################
+
    assign iow_mask[7:0]      = IOW[10:3] - 1'b1;
    assign fifo_mux_mask[7:0] = iow_mask[7:0] >> csr_iowidth[7:0] >> LOGFIFOWIDTH[7:0];
 
