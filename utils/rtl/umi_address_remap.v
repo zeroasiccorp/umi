@@ -106,7 +106,7 @@ module umi_address_remap #(
 
     assign dstaddr_offset_en = (umi_in_dstaddr >= set_dstaddress_low) &
                                (umi_in_dstaddr <= set_dstaddress_high);
-    assign dstaddr_with_offset = umi_in_dstaddr - set_dstaddress_offset;
+    assign dstaddr_with_offset = umi_in_dstaddr + set_dstaddress_offset;
 
     assign umi_out_valid    = umi_in_valid;
     assign umi_out_cmd      = umi_in_cmd;
