@@ -7,7 +7,7 @@ The module performs 2 functions. It allows remapping UMI transactions going to a
 
 In order to accomplish the remapping, it accepts NMAPS input mappings from one device address to another. In the mapping, the bits being remapped are denoted by old_row_col_address and the bits being mapped to are denoted by new_row_col_address. The ID bits of dstaddr of an incoming transaction on the input UMI port are compared to the NMAPS different old_row_col_address and if a match is found, bits [55:40] of the dstaddr are replaced by the corresponding new_row_col_address.
 
-The offset is accomplished by comparing the dstaddr of an incoming UMI packet to a lower and upper bound. If the dstaddr lies within the bounds (inclusive), then an offset is subtracted from the dstaddr of the incoming UMI packet before it is sent out. Currently, only a single offset is permitted.
+The offset is accomplished by comparing the dstaddr of an incoming UMI packet to a lower and upper bound. If the dstaddr lies within the bounds (inclusive), then an offset is added to the dstaddr of the incoming UMI packet before it is sent out. Currently, only a single offset is permitted.
 
 The offset mechanism gets priority over remapping. So if an incoming UMI packet contains a dstaddr that can be both offsetted and remapped, only the offsetted address will be sent out.
 
