@@ -321,7 +321,7 @@ module umi_packet_merge_greedy #(
 
     reg [$clog2(ODW/8):0]   byte_counter;
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             byte_counter <= 'b0;
         end
@@ -340,7 +340,7 @@ module umi_packet_merge_greedy #(
 
     assign umi_in_data_masked = umi_in_data_r & ((1 << (umi_in_bytes_r*8))-1);
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             umi_out_data_r <= 'b0;
         end

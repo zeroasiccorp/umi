@@ -158,7 +158,7 @@ module umi_data_aggregator #(
 
     // For flits except the last flit in a message, first is set to 0
     // Last flit in message sets first to 1
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             first <= 1'b1;
         end
@@ -173,7 +173,7 @@ module umi_data_aggregator #(
 
     reg [$clog2(DW/8)+1:0]  byte_counter;
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             umi_in_cmd_opcode_r         <= 'b0;
             umi_in_cmd_size_r           <= 'b0;
@@ -232,7 +232,7 @@ module umi_data_aggregator #(
     assign umi_out_cmd_commit = umi_out_ready && umi_out_valid;
     assign umi_in_bytes = (1 << umi_in_cmd_size)*(umi_in_cmd_len + 1);
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             byte_counter <= 'b0;
         end
@@ -263,7 +263,7 @@ module umi_data_aggregator #(
 
     assign umi_in_data_masked = umi_in_data & ((1 << (umi_in_bytes*8))-1);
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             umi_in_data_r <= 'b0;
         end
