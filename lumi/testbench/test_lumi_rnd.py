@@ -82,8 +82,10 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
 
     if topo=='2d':
         width = np.uint32(0x00010000)
+        crdt  = np.uint32(0x001A001A)
     if topo=='3d':
         width = np.uint32(0x00030000)
+        crdt  = np.uint32(0x00070007)
 
     print("### configure loc Rx width ###")
     sb.write(0x70000010, width, posted=True)
@@ -98,10 +100,10 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
     sb.write(0x60000014, width, posted=True)
 
     print("### Tx init credit ###")
-    sb.write(0x60000020, np.uint32(0x001A001A), posted=True)
+    sb.write(0x60000020, crdt, posted=True)
 
     print("### Tx init credit ###")
-    sb.write(0x70000020, np.uint32(0x001A001A), posted=True)
+    sb.write(0x70000020, crdt, posted=True)
 
     print("### Rx enable local ###")
     sb.write(0x70000014, np.uint32(0x1) + width, posted=True)
