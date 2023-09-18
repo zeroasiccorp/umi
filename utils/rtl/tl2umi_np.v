@@ -246,7 +246,7 @@ module tl2umi_np #(
     assign dataag_out_resp_ready = tl_d_ready && dataag_out_resp_ready_assert;
     assign dataag_out_resp_bytes = (1 << dataag_out_resp_cmd_size)*(dataag_out_resp_cmd_len + 1);
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             resp_state <= RESP_IDLE;
             dataag_out_resp_ready_assert <= 1'b1;
@@ -511,7 +511,7 @@ module tl2umi_np #(
 
     assign tl_a_ready = uhost_req_packet_ready && tl_a_ready_assert;
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             req_state <= 'b0;
             tl_a_ready_assert <= 1'b1;
