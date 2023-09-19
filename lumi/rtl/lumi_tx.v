@@ -27,7 +27,6 @@ module lumi_tx
     input [7:0]       csr_iowidth, // bus width
     input             vss,         // common ground
     input             vdd,         // core supply
-    input             vddio,       // io voltage
     // Request (read/write)
     input             umi_req_in_valid,
     input [CW-1:0]    umi_req_in_cmd,

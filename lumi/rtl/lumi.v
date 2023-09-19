@@ -99,8 +99,7 @@ module lumi
     output           host_linkactive, // link is locked/ready
     // supplies
     input            vss,             // common ground
-    input            vdd,             // core supply
-    input            vddio            // io voltage
+    input            vdd              // core supply
     /*AUTOINPUT*/
     /*AUTOOUTPUT*/
     );
@@ -295,7 +294,6 @@ module lumi
            .csr_iowidth         (csr_rxiowidth[7:0]),    // Templated
            .vss                 (vss),
            .vdd                 (vdd),
-           .vddio               (vddio),
            .ioclk               (rxclk),                 // Templated
            .ionreset            (rxnreset),              // Templated
            .phy_rxdata          (phy_rxdata[IOW-1:0]),
@@ -338,7 +336,6 @@ module lumi
            .csr_iowidth         (csr_txiowidth[7:0]),    // Templated
            .vss                 (vss),
            .vdd                 (vdd),
-           .vddio               (vddio),
            .umi_req_in_valid    (udev_req_valid),        // Templated
            .umi_req_in_cmd      (udev_req_cmd[CW-1:0]),  // Templated
            .umi_req_in_dstaddr  (udev_req_dstaddr[AW-1:0]), // Templated
