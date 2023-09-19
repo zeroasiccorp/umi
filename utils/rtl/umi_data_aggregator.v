@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 `default_nettype wire
 
 module umi_data_aggregator #(
