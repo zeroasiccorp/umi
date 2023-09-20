@@ -252,7 +252,7 @@ module tl2umi_np #(
             tl_d_valid <= 1'b0;
             tl_d_opcode <= 3'b0;
             tl_d_size <= 3'b0;
-            tl_d_source <= 8'b0;
+            tl_d_source <= 5'b0;
             tl_d_data <= 64'b0;
             put_ack_resp <= 1'b0;
             put_bytes_resp <= 8'b0;
@@ -266,7 +266,7 @@ module tl2umi_np #(
                 tl_d_valid <= 1'b0;
                 tl_d_opcode <= 3'b0;
                 tl_d_size <= 3'b0;
-                tl_d_source <= 8'b0;
+                tl_d_source <= 5'b0;
                 tl_d_data <= 64'b0;
                 put_ack_resp <= 1'b0;
                 put_bytes_resp <= 8'b0;
@@ -463,12 +463,14 @@ module tl2umi_np #(
     assign uhost_req_packet_valid = uhost_req_packet_valid_r && ml_tx_non_zero_mask_r;
 
 
-    assign ml_tx_addr = {tl_a_address[55:3], ml_tx_first_one[2:0]};
+    assign ml_tx_addr = {8'b0, tl_a_address[55:3], ml_tx_first_one[2:0]};
     assign ml_tx_data = tl_a_data >> (ml_tx_first_one*8);
+    /* verilator lint_off WIDTHEXPAND */
     assign ml_tx_len = tl_a_mask[0] + tl_a_mask[1] +
                        tl_a_mask[2] + tl_a_mask[3] +
                        tl_a_mask[4] + tl_a_mask[5] +
                        tl_a_mask[6] + tl_a_mask[7] - 1;
+    /* verilator lint_on WIDTHEXPAND */
 
     always @(*) begin
         if (tl_a_mask[0])
@@ -494,7 +496,7 @@ module tl2umi_np #(
     wire [23:0] umi_src_addr_user_defined = {{4'b0, ml_tx_first_one},
                                              {5'b0, tl_a_size},
                                              {3'b0, tl_a_source}};
-    wire [23:0] chip_address = chipid;
+    wire [23:0] chip_address = {{(24-IDW){1'b0}}, chipid};
     wire [63:0] local_address = {chip_address, umi_src_addr_user_defined, 16'b0};
 
     reg [2:0]   req_state;
@@ -610,7 +612,7 @@ module tl2umi_np #(
                                 uhost_req_packet_cmd_atype <= UMI_REQ_ATOMICAND;
                         {`TL_OP_LogicalData, `TL_PL_SWAP}:
                                 uhost_req_packet_cmd_atype <= UMI_REQ_ATOMICSWAP;
-                        default: uhost_req_packet_cmd_opcode <= UMI_REQ_ERROR;
+                        default: uhost_req_packet_cmd_opcode <= UMI_REQ_ERROR[4:0];
                         endcase
                     end
                     default: begin
@@ -641,7 +643,7 @@ module tl2umi_np #(
                 uhost_req_packet_cmd_eom <= 1'b0;
 
                 if (tl_a_ready & tl_a_valid) begin
-                    uhost_req_packet_dstaddr <= {(uhost_req_packet_dstaddr_m[56:3]), ml_tx_first_one[2:0]};
+                    uhost_req_packet_dstaddr <= {uhost_req_packet_dstaddr_m[AW-1:3], ml_tx_first_one[2:0]};
                     uhost_req_packet_data[63:0] <= ml_tx_data;
                     uhost_req_packet_cmd_len <= ml_tx_len;
                     ml_tx_non_zero_mask_r <= ml_tx_non_zero_mask;
