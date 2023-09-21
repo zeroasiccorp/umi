@@ -141,27 +141,27 @@ module umi_data_aggregator #(
     wire            umi_in_field_match;
     wire            umi_in_mergeable;
 
-    assign umi_in_cmd_commit = umi_in_ready && umi_in_valid;
+    assign umi_in_cmd_commit = umi_in_ready & umi_in_valid;
 
-    assign umi_in_opcode_check = umi_in_cmd_read ||
-                                 umi_in_cmd_write ||
-                                 umi_in_cmd_write_posted ||
-                                 umi_in_cmd_rdma ||
+    assign umi_in_opcode_check = umi_in_cmd_read |
+                                 umi_in_cmd_write |
+                                 umi_in_cmd_write_posted |
+                                 umi_in_cmd_rdma |
                                  umi_in_cmd_read_resp;
 
-    assign umi_in_field_match = first ||
-                               ((umi_in_cmd_opcode == umi_in_cmd_opcode_r) &&
-                                (umi_in_cmd_size   == umi_in_cmd_size_r  ) &&
-                                (umi_in_cmd_qos    == umi_in_cmd_qos_r   ) &&
-                                (umi_in_cmd_prot   == umi_in_cmd_prot_r  ) &&
-                                (umi_in_cmd_eof    == umi_in_cmd_eof_r   ) &&
-                                (umi_in_cmd_user   == umi_in_cmd_user_r  ) &&
-                                (umi_in_cmd_err    == umi_in_cmd_err_r   ) &&
-                                (umi_in_cmd_hostid == umi_in_cmd_hostid_r) &&
-                                !umi_in_cmd_ex);
+    assign umi_in_field_match = first |
+                               ((umi_in_cmd_opcode == umi_in_cmd_opcode_r) &
+                                (umi_in_cmd_size   == umi_in_cmd_size_r  ) &
+                                (umi_in_cmd_qos    == umi_in_cmd_qos_r   ) &
+                                (umi_in_cmd_prot   == umi_in_cmd_prot_r  ) &
+                                (umi_in_cmd_eof    == umi_in_cmd_eof_r   ) &
+                                (umi_in_cmd_user   == umi_in_cmd_user_r  ) &
+                                (umi_in_cmd_err    == umi_in_cmd_err_r   ) &
+                                (umi_in_cmd_hostid == umi_in_cmd_hostid_r) &
+                                ~umi_in_cmd_ex);
 
-    assign umi_in_mergeable = umi_in_cmd_commit &&
-                              umi_in_opcode_check &&
+    assign umi_in_mergeable = umi_in_cmd_commit &
+                              umi_in_opcode_check &
                               umi_in_field_match;
 
     // For flits except the last flit in a message, first is set to 0
@@ -172,7 +172,7 @@ module umi_data_aggregator #(
         end
         else begin
             if (umi_in_cmd_commit)
-                first <= (umi_in_cmd_eom || umi_in_cmd_write_resp);
+                first <= (umi_in_cmd_eom | umi_in_cmd_write_resp);
         end
     end
 
@@ -203,7 +203,7 @@ module umi_data_aggregator #(
         end
         else begin
 
-            if (first && umi_in_cmd_commit) begin
+            if (first & umi_in_cmd_commit) begin
                 umi_in_cmd_opcode_r         <= umi_in_cmd_opcode;
                 umi_in_cmd_size_r           <= umi_in_cmd_size;
                 umi_in_cmd_atype_r          <= umi_in_cmd_atype;
@@ -219,14 +219,14 @@ module umi_data_aggregator #(
                 umi_in_srcaddr_r            <= umi_in_srcaddr;
             end
 
-            if (umi_in_cmd_eom && umi_in_cmd_commit) begin
+            if (umi_in_cmd_eom & umi_in_cmd_commit) begin
                 umi_in_cmd_eom_r <= 1'b1;
             end
             else if (byte_counter == 0) begin
                 umi_in_cmd_eom_r <= 1'b0;
             end
 
-            if ((umi_in_cmd_eom || !umi_in_mergeable) && umi_in_cmd_commit) begin
+            if ((umi_in_cmd_eom | ~umi_in_mergeable) & umi_in_cmd_commit) begin
                 umi_in_cmd_passthrough <= 1'b1;
             end
             else if (byte_counter == 0) begin
@@ -238,9 +238,9 @@ module umi_data_aggregator #(
     wire                    umi_out_cmd_commit;
     wire [$clog2(DW/8):0]   umi_in_bytes;
 
-    assign umi_in_ready = reset_done[1] & (umi_out_ready || (byte_counter <= DW_BYTES)) && !umi_in_cmd_passthrough;
-    assign umi_out_valid = (umi_in_cmd_passthrough && |byte_counter) || (byte_counter >= DW_BYTES);
-    assign umi_out_cmd_commit = umi_out_ready && umi_out_valid;
+    assign umi_in_ready = reset_done[1] & (umi_out_ready | (byte_counter <= DW_BYTES)) & ~umi_in_cmd_passthrough;
+    assign umi_out_valid = (umi_in_cmd_passthrough & |byte_counter) | (byte_counter >= DW_BYTES);
+    assign umi_out_cmd_commit = umi_out_ready & umi_out_valid;
     /* verilator lint_off WIDTHTRUNC */
     assign umi_in_bytes = (1 << umi_in_cmd_size)*(umi_in_cmd_len + 1);
     /* verilator lint_on WIDTHTRUNC */
@@ -250,7 +250,7 @@ module umi_data_aggregator #(
             byte_counter <= 'b0;
         end
         else begin
-            if (umi_in_cmd_commit && umi_out_cmd_commit) begin
+            if (umi_in_cmd_commit & umi_out_cmd_commit) begin
                 if (byte_counter < DW_BYTES) begin
                     byte_counter <= {1'b0, umi_in_bytes};
                 end
@@ -281,10 +281,10 @@ module umi_data_aggregator #(
             umi_in_data_r <= 'b0;
         end
         else begin
-            if (first && umi_in_cmd_commit) begin
+            if (first & umi_in_cmd_commit) begin
                 umi_in_data_r <= {{DW{1'b0}}, umi_in_data_masked};
             end
-            else if (umi_in_cmd_commit && umi_out_cmd_commit) begin
+            else if (umi_in_cmd_commit & umi_out_cmd_commit) begin
                 /* verilator lint_off WIDTHEXPAND */
                 umi_in_data_r <= (umi_in_data_r >> DW) | (umi_in_data_masked << ((byte_counter - DW_BYTES)*8));
                 /* verilator lint_on WIDTHEXPAND */
@@ -316,7 +316,7 @@ module umi_data_aggregator #(
         .cmd_atype          (umi_in_cmd_atype_r),
         .cmd_qos            (umi_in_cmd_qos_r),
         .cmd_prot           (umi_in_cmd_prot_r),
-        .cmd_eom            (umi_in_cmd_eom_r && (byte_counter <= DW_BYTES)),
+        .cmd_eom            (umi_in_cmd_eom_r & (byte_counter <= DW_BYTES)),
         .cmd_eof            (umi_in_cmd_eof_r),
         .cmd_ex             (umi_in_cmd_ex_r),
         .cmd_user           (umi_in_cmd_user_r),

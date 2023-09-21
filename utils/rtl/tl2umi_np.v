@@ -251,7 +251,7 @@ module tl2umi_np #(
     localparam RESP_WR_BRST = 3'd3;
     localparam RESP_WR_LAST = 3'd4;
 
-    assign dataag_out_resp_ready = reset_done[1] & tl_d_ready && dataag_out_resp_ready_assert;
+    assign dataag_out_resp_ready = reset_done[1] & tl_d_ready & dataag_out_resp_ready_assert;
     assign dataag_out_resp_bytes = (1 << dataag_out_resp_cmd_size)*(dataag_out_resp_cmd_len + 1);
 
     always @(posedge clk or negedge nreset) begin
@@ -280,7 +280,7 @@ module tl2umi_np #(
                 put_ack_resp <= 1'b0;
                 put_bytes_resp <= 8'b0;
                 get_ack_resp <= 1'b0;
-                if (dataag_out_resp_ready && dataag_out_resp_valid) begin
+                if (dataag_out_resp_ready & dataag_out_resp_valid) begin
                     if (dataag_out_resp_cmd_read_resp) begin
                         if (dataag_out_resp_cmd_eom == 1'b1) begin
                             resp_state <= RESP_RD_LAST;
@@ -321,16 +321,16 @@ module tl2umi_np #(
             end
             RESP_RD_BRST: begin
                 dataag_out_resp_ready_assert <= 1'b1;
-                if (tl_d_ready && tl_d_valid) begin
+                if (tl_d_ready & tl_d_valid) begin
                     if (dataag_out_resp_cmd_eom == 1'b1) begin
                         resp_state <= RESP_RD_LAST;
                         dataag_out_resp_ready_assert <= 1'b0;
                     end
                 end
-                if (dataag_out_resp_ready && dataag_out_resp_valid) begin
+                if (dataag_out_resp_ready & dataag_out_resp_valid) begin
                     tl_d_data <= dataag_out_resp_data << (dataag_out_resp_dstaddr[35:32]*8);
                 end
-                if (dataag_out_resp_ready && dataag_out_resp_valid) begin
+                if (dataag_out_resp_ready & dataag_out_resp_valid) begin
                     tl_d_valid <= 1'b1;
                 end
                 else if (tl_d_ready) begin
@@ -363,7 +363,7 @@ module tl2umi_np #(
                 tl_d_opcode <= `TL_OP_AccessAck;
                 tl_d_size <= dataag_out_resp_dstaddr[26:24];
                 tl_d_source <= dataag_out_resp_dstaddr[20:16];
-                if (dataag_out_resp_ready && dataag_out_resp_valid) begin
+                if (dataag_out_resp_ready & dataag_out_resp_valid) begin
                     put_bytes_resp <= put_bytes_resp + dataag_out_resp_bytes;
                 end
             end
@@ -450,8 +450,8 @@ module tl2umi_np #(
         .rd_empty   (tl2umi_req_fifo_rd_empty)
     );
 
-    assign uhost_req_packet_ready = !tl2umi_req_fifo_wr_full;
-    assign uhost_req_valid = !tl2umi_req_fifo_rd_empty;
+    assign uhost_req_packet_ready = ~tl2umi_req_fifo_wr_full;
+    assign uhost_req_valid = ~tl2umi_req_fifo_rd_empty;
 
     // Add mask to the source address, user defined bits. This will allow us
     // to shift the response for GET/READ and ATOMIC operations
@@ -469,7 +469,7 @@ module tl2umi_np #(
     reg  [3:0]  ml_tx_first_one;
 
     assign ml_tx_non_zero_mask = |tl_a_mask;
-    assign uhost_req_packet_valid = uhost_req_packet_valid_r && ml_tx_non_zero_mask_r;
+    assign uhost_req_packet_valid = uhost_req_packet_valid_r & ml_tx_non_zero_mask_r;
 
 
     assign ml_tx_addr = {8'b0, tl_a_address[55:3], ml_tx_first_one[2:0]};
@@ -519,7 +519,7 @@ module tl2umi_np #(
     localparam REQ_PUT_LAST = 3'd4;
     localparam REQ_PUT_ACK  = 3'd5;
 
-    assign tl_a_ready = reset_done[1] & uhost_req_packet_ready && tl_a_ready_assert;
+    assign tl_a_ready = reset_done[1] & uhost_req_packet_ready & tl_a_ready_assert;
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
@@ -553,7 +553,7 @@ module tl2umi_np #(
                 uhost_req_packet_valid_r <= 1'b0;
                 ml_tx_non_zero_mask_r <= 1'b0;
                 put_bytes_req <= 8'b0;
-                if (tl_a_valid && tl_a_ready) begin
+                if (tl_a_valid & tl_a_ready) begin
                     case (tl_a_opcode)
                     `TL_OP_Get: begin
                         req_state <= REQ_GET_LAST;
@@ -665,7 +665,7 @@ module tl2umi_np #(
                     end
                 end
 
-                if (tl_a_ready && tl_a_valid) begin
+                if (tl_a_ready & tl_a_valid) begin
                     uhost_req_packet_valid_r <= 1'b1;
                 end
                 else if (uhost_req_packet_ready) begin

@@ -127,7 +127,7 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_cmd_commit_r;
 
     assign umi_in_cmd_commit_r = umi_in_ready_r & umi_in_valid_r;
-    assign umi_in_ready = reset_done[1] & (!umi_in_valid_r | umi_in_ready_r);
+    assign umi_in_ready = reset_done[1] & (~umi_in_valid_r | umi_in_ready_r);
     assign umi_in_ready_r = umi_out_cmd_commit |
                             (umi_in_mergeable_r & ((byte_counter + umi_in_bytes_r) <= (ODW/8))) |
                             (byte_counter == 0);
@@ -234,7 +234,7 @@ module umi_packet_merge_greedy #(
                                 (umi_in_cmd_hostid == umi_in_cmd_hostid_r) &
                                 (umi_in_dstaddr    == umi_in_dstaddr_nx  ) &
                                 (umi_in_srcaddr    == umi_in_srcaddr_nx  ) &
-                                !umi_in_cmd_ex;
+                                ~umi_in_cmd_ex;
 
     assign umi_in_mergeable = umi_in_cmd_commit &
                               umi_in_opcode_check &
@@ -324,7 +324,7 @@ module umi_packet_merge_greedy #(
 
     assign umi_out_dstaddr  = umi_out_dstaddr_r;
     assign umi_out_srcaddr  = umi_out_srcaddr_r;
-    assign umi_out_valid = ((!umi_in_mergeable_r | umi_out_cmd_eom_r) & |byte_counter) |
+    assign umi_out_valid = ((~umi_in_mergeable_r | umi_out_cmd_eom_r) & |byte_counter) |
                            ((byte_counter + umi_in_bytes_r) > (ODW/8));
 
     reg [$clog2(ODW/8):0]   byte_counter;
