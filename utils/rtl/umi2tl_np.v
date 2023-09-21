@@ -414,7 +414,7 @@ module umi2tl_np #(
     );
 
     assign tl_d_ready = reset_done[1] &
-                        (!udev_resp_valid | udev_resp_ready);
+                        (~udev_resp_valid | udev_resp_ready);
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
