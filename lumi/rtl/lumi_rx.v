@@ -31,7 +31,6 @@ module lumi_rx
     input [7:0]       csr_iowidth,        // pad bus width
     input             vss,                // common ground
     input             vdd,                // core supply
-    input             vddio,              // io voltage
     // pad signals
     input             ioclk,              // clock for sampling input data
     input             ionreset,           // async active low reset
