@@ -25,6 +25,15 @@ module umi_packet_merge_greedy #(
     input               umi_out_ready
 );
 
+    reg [1:0]   reset_done;
+
+    always @(posedge clk or negedge nreset) begin
+        if (~nreset)
+            reset_done <= 2'b00;
+        else
+            reset_done <= {reset_done[0], 1'b1};
+    end
+
     wire                    umi_in_cmd_commit;
     wire                    umi_out_cmd_commit;
 
@@ -118,7 +127,7 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_cmd_commit_r;
 
     assign umi_in_cmd_commit_r = umi_in_ready_r & umi_in_valid_r;
-    assign umi_in_ready = !umi_in_valid_r | umi_in_ready_r;
+    assign umi_in_ready = reset_done[1] & (!umi_in_valid_r | umi_in_ready_r);
     assign umi_in_ready_r = umi_out_cmd_commit |
                             (umi_in_mergeable_r & ((byte_counter + umi_in_bytes_r) <= (ODW/8))) |
                             (byte_counter == 0);

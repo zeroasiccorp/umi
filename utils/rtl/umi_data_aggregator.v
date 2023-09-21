@@ -24,6 +24,15 @@ module umi_data_aggregator #(
     input               umi_out_ready
 );
 
+    reg [1:0]   reset_done;
+
+    always @(posedge clk or negedge nreset) begin
+        if (~nreset)
+            reset_done <= 2'b00;
+        else
+            reset_done <= {reset_done[0], 1'b1};
+    end
+
     wire [4:0]  umi_in_cmd_opcode;
     wire [2:0]  umi_in_cmd_size;
     wire [7:0]  umi_in_cmd_len;
@@ -229,7 +238,7 @@ module umi_data_aggregator #(
     wire                    umi_out_cmd_commit;
     wire [$clog2(DW/8):0]   umi_in_bytes;
 
-    assign umi_in_ready = (umi_out_ready || (byte_counter <= DW_BYTES)) && !umi_in_cmd_passthrough;
+    assign umi_in_ready = reset_done[1] & (umi_out_ready || (byte_counter <= DW_BYTES)) && !umi_in_cmd_passthrough;
     assign umi_out_valid = (umi_in_cmd_passthrough && |byte_counter) || (byte_counter >= DW_BYTES);
     assign umi_out_cmd_commit = umi_out_ready && umi_out_valid;
     /* verilator lint_off WIDTHTRUNC */

@@ -312,7 +312,7 @@ module umi2tl_np #(
     reg                     tl_transaction_in_flight;
     reg                     tl_transaction_done;
 
-    assign fifoflex_out_req_ready = ~tl_transaction_in_flight;
+    assign fifoflex_out_req_ready = reset_done[1] & ~tl_transaction_in_flight;
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
@@ -413,7 +413,7 @@ module umi2tl_np #(
         .packet_cmd         (udev_resp_cmd)
     );
 
-    assign tl_d_ready = ~reset_done[1] ? 1'b0 :
+    assign tl_d_ready = reset_done[1] &
                         (!udev_resp_valid | udev_resp_ready);
 
     always @(posedge clk or negedge nreset) begin
