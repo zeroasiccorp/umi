@@ -74,6 +74,15 @@ module tl2umi_np #(
 
     `include "umi_messages.vh"
 
+    reg [1:0]   reset_done;
+
+    always @(posedge clk or negedge nreset) begin
+        if (~nreset)
+            reset_done <= 2'b00;
+        else
+            reset_done <= {reset_done[0], 1'b1};
+    end
+
     wire            fifoflex2dataag_resp_valid;
     wire [CW-1:0]   fifoflex2dataag_resp_cmd;
     wire [AW-1:0]   fifoflex2dataag_resp_dstaddr;
@@ -242,7 +251,7 @@ module tl2umi_np #(
     localparam RESP_WR_BRST = 3'd3;
     localparam RESP_WR_LAST = 3'd4;
 
-    assign dataag_out_resp_ready = tl_d_ready && dataag_out_resp_ready_assert;
+    assign dataag_out_resp_ready = reset_done[1] & tl_d_ready && dataag_out_resp_ready_assert;
     assign dataag_out_resp_bytes = (1 << dataag_out_resp_cmd_size)*(dataag_out_resp_cmd_len + 1);
 
     always @(posedge clk or negedge nreset) begin
@@ -510,7 +519,7 @@ module tl2umi_np #(
     localparam REQ_PUT_LAST = 3'd4;
     localparam REQ_PUT_ACK  = 3'd5;
 
-    assign tl_a_ready = uhost_req_packet_ready && tl_a_ready_assert;
+    assign tl_a_ready = reset_done[1] & uhost_req_packet_ready && tl_a_ready_assert;
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
