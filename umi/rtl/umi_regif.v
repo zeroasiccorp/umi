@@ -166,7 +166,12 @@ module umi_regif
               // Inputs
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
-   assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
+   generate
+     if (GRPAW != 0)
+       assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
+     else
+       assign group_match = 1'b1;
+   endgenerate
 
    // TODO - implement atomic
    assign reg_read  = cmd_read & udev_req_valid & udev_req_ready & group_match;
