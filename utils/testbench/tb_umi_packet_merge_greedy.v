@@ -30,8 +30,8 @@ module testbench #(
         nreset_vec <= {nreset_vec[15:0], 1'b1};
     end
 
-    assign nreset = nreset_vec[0];
-    assign go = nreset_vec[0];
+    assign nreset = nreset_vec[14];
+    assign go = nreset_vec[15];
 
     // control block
     initial begin
