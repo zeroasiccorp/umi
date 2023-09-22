@@ -9,6 +9,11 @@
  * Read data is returned as UMI response packets. Reads requests can occur
  * at a maximum rate of one transaction every two cycles.
  *
+ * This module can also check if the incoming access is within the designated
+ * address range by setting the GRPOFFSET, GRPAW, and GRPID parameter.
+ * The address range [GRPOFFSET+:GRPAW] is checked against GRPID for a match.
+ * To disable the check, set the GRPAW to 0.
+ *
  * Only read/writes <= DW is supported.
  *
  ******************************************************************************/
@@ -166,7 +171,12 @@ module umi_regif
               // Inputs
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
-   assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
+   generate
+     if (GRPAW != 0)
+       assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
+     else
+       assign group_match = 1'b1;
+   endgenerate
 
    // TODO - implement atomic
    assign reg_read  = cmd_read & udev_req_valid & udev_req_ready & group_match;
