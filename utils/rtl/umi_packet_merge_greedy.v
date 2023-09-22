@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 `default_nettype wire
 
 module umi_packet_merge_greedy #(
@@ -25,6 +24,15 @@ module umi_packet_merge_greedy #(
     output [ODW-1:0]    umi_out_data,
     input               umi_out_ready
 );
+
+    reg [1:0]   reset_done;
+
+    always @(posedge clk or negedge nreset) begin
+        if (~nreset)
+            reset_done <= 2'b00;
+        else
+            reset_done <= {reset_done[0], 1'b1};
+    end
 
     wire                    umi_in_cmd_commit;
     wire                    umi_out_cmd_commit;
@@ -119,7 +127,7 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_cmd_commit_r;
 
     assign umi_in_cmd_commit_r = umi_in_ready_r & umi_in_valid_r;
-    assign umi_in_ready = !umi_in_valid_r | umi_in_ready_r;
+    assign umi_in_ready = reset_done[1] & (~umi_in_valid_r | umi_in_ready_r);
     assign umi_in_ready_r = umi_out_cmd_commit |
                             (umi_in_mergeable_r & ((byte_counter + umi_in_bytes_r) <= (ODW/8))) |
                             (byte_counter == 0);
@@ -226,7 +234,7 @@ module umi_packet_merge_greedy #(
                                 (umi_in_cmd_hostid == umi_in_cmd_hostid_r) &
                                 (umi_in_dstaddr    == umi_in_dstaddr_nx  ) &
                                 (umi_in_srcaddr    == umi_in_srcaddr_nx  ) &
-                                !umi_in_cmd_ex;
+                                ~umi_in_cmd_ex;
 
     assign umi_in_mergeable = umi_in_cmd_commit &
                               umi_in_opcode_check &
@@ -316,12 +324,12 @@ module umi_packet_merge_greedy #(
 
     assign umi_out_dstaddr  = umi_out_dstaddr_r;
     assign umi_out_srcaddr  = umi_out_srcaddr_r;
-    assign umi_out_valid = ((!umi_in_mergeable_r | umi_out_cmd_eom_r) & |byte_counter) |
+    assign umi_out_valid = ((~umi_in_mergeable_r | umi_out_cmd_eom_r) & |byte_counter) |
                            ((byte_counter + umi_in_bytes_r) > (ODW/8));
 
     reg [$clog2(ODW/8):0]   byte_counter;
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             byte_counter <= 'b0;
         end
@@ -340,7 +348,7 @@ module umi_packet_merge_greedy #(
 
     assign umi_in_data_masked = umi_in_data_r & ((1 << (umi_in_bytes_r*8))-1);
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             umi_out_data_r <= 'b0;
         end
