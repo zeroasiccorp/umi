@@ -9,6 +9,11 @@
  * Read data is returned as UMI response packets. Reads requests can occur
  * at a maximum rate of one transaction every two cycles.
  *
+ * This module can also check if the incoming access is within the designated
+ * address range by setting the GRPOFFSET, GRPAW, and GRPID parameter.
+ * The address range [GRPOFFSET+:GRPAW] is checked against GRPID for a match.
+ * To disable the check, set the GRPAW to 0.
+ *
  * Only read/writes <= DW is supported.
  *
  ******************************************************************************/
