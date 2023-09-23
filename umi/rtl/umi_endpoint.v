@@ -179,7 +179,7 @@ module umi_endpoint
 
    // TODO - implement atomic
    assign loc_read  = ready_gated & cmd_read & udev_req_valid & udev_req_ready;
-   assign loc_write = ready_gated & (cmd_write | cmd_write_posted) & udev_req_valid & udev_rea_ready;
+   assign loc_write = ready_gated & (cmd_write | cmd_write_posted) & udev_req_valid & udev_req_ready;
    assign loc_resp  = ready_gated & (cmd_read | cmd_write) & udev_req_valid & loc_ready;
 
    //############################
