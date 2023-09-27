@@ -126,10 +126,16 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_ready_r;
     wire                    umi_in_cmd_commit_r;
 
+    reg [$clog2(ODW/8):0]   byte_counter;
+    /* verilator lint_off WIDTHTRUNC */
+    localparam [$clog2(ODW/8):0]    ODW_BYTES = ODW/8;
+    localparam                      ADDR_PAD_BYTES = AW - 1 - $clog2(ODW/8);
+    /* verilator lint_on WIDTHTRUNC */
+
     assign umi_in_cmd_commit_r = umi_in_ready_r & umi_in_valid_r;
     assign umi_in_ready = reset_done[1] & (~umi_in_valid_r | umi_in_ready_r);
     assign umi_in_ready_r = umi_out_cmd_commit |
-                            (umi_in_mergeable_r & ((byte_counter + umi_in_bytes_r) <= (ODW/8))) |
+                            (umi_in_mergeable_r & ((byte_counter + umi_in_bytes_r) <= ODW_BYTES)) |
                             (byte_counter == 0);
 
     always @(posedge clk or negedge nreset) begin
@@ -253,7 +259,7 @@ module umi_packet_merge_greedy #(
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset)
-            umi_in_bytes_r <= 1'b0;
+            umi_in_bytes_r <= 'b0;
         else if (umi_in_cmd_commit)
             umi_in_bytes_r <= umi_in_bytes;
     end
@@ -325,9 +331,7 @@ module umi_packet_merge_greedy #(
     assign umi_out_dstaddr  = umi_out_dstaddr_r;
     assign umi_out_srcaddr  = umi_out_srcaddr_r;
     assign umi_out_valid = ((~umi_in_mergeable_r | umi_out_cmd_eom_r) & |byte_counter) |
-                           ((byte_counter + umi_in_bytes_r) > (ODW/8));
-
-    reg [$clog2(ODW/8):0]   byte_counter;
+                           ((byte_counter + umi_in_bytes_r) > ODW_BYTES);
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
@@ -346,7 +350,7 @@ module umi_packet_merge_greedy #(
     wire [ODW-1:0]  umi_in_data_masked;
     reg  [ODW-1:0]  umi_out_data_r;
 
-    assign umi_in_data_masked = umi_in_data_r & ((1 << (umi_in_bytes_r*8))-1);
+    assign umi_in_data_masked = {{(ODW-IDW){1'b0}},umi_in_data_r} & ((1 << (umi_in_bytes_r*8))-1);
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
