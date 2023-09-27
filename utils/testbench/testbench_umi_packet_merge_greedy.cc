@@ -10,9 +10,6 @@
 // Include model header, generated from Verilating "top.v"
 #include "Vtestbench.h"
 
-#include "config.h"
-#include "tlmemsim.h"
-
 // Legacy function required only so linking works on Cygwin and MSVC++
 double sc_time_stamp() {
     return 0;
@@ -46,9 +43,6 @@ int main(int argc, char** argv, char** env) {
     // Using unique_ptr is similar to "Vtop* top = new Vtop" then deleting at end.
     // "TOP" will be the hierarchical name of the module.
     const std::unique_ptr<Vtestbench> top{new Vtestbench{contextp.get(), "TOP"}};
-    TLMemsim *ram{new TLMemsim(RAM_BASE, RAM_SIZE)};
-
-    ram->reset();
 
     // Set Vtestbench's input signals
     top->clk = 0;
@@ -66,79 +60,20 @@ int main(int argc, char** argv, char** env) {
         // being used (per thread).  It's faster and clearer to use the
         // newer contextp-> versions.
 
+        contextp->timeInc(1); // 1 timeprecision period passes...
         // Historical note, before Verilator 4.200 a sc_time_stamp()
         // function was required instead of using timeInc.  Once timeInc()
         // is called (with non-zero), the Verilated libraries assume the
         // new API, and sc_time_stamp() will no longer work.
 
-        uint8_t tl_a_ready = top->tl_a_ready;
-        uint8_t tl_d_valid = top->tl_d_valid;
-        uint8_t tl_d_opcode = top->tl_d_opcode;
-        uint8_t tl_d_param = top->tl_d_param;
-        uint8_t tl_d_size = top->tl_d_size;
-        uint8_t tl_d_source = top->tl_d_source;
-        uint8_t tl_d_sink = top->tl_d_sink;
-        uint8_t tl_d_denied = top->tl_d_denied;
-        uint8_t tl_d_corrupt = top->tl_d_corrupt;
-        uint64_t tl_d_data = top->tl_d_data;
-
-        ram->apply(
-            tl_a_ready,
-            top->tl_a_valid,
-            top->tl_a_opcode,
-            top->tl_a_param,
-            top->tl_a_size,
-            top->tl_a_source,
-            top->tl_a_address,
-            top->tl_a_mask,
-            top->tl_a_data,
-            top->tl_a_corrupt,
-            top->tl_d_ready,
-            tl_d_valid,
-            tl_d_opcode,
-            tl_d_param,
-            tl_d_size,
-            tl_d_source,
-            tl_d_sink,
-            tl_d_denied,
-            tl_d_data,
-            tl_d_corrupt
-        );
-
         // Toggle a fast (time/2 period) clock
-        top->clk = 1;
+        top->clk = !top->clk;
 
         // Evaluate model
         // (If you have multiple models being simulated in the same
         // timestep then instead of eval(), call eval_step() on each, then
         // eval_end_step() on each. See the manual.)
         top->eval();
-
-        contextp->timeInc(1); // 1 timeprecision period passes...
-
-        // Apply changed input signals after clock edge
-        top->tl_a_ready = tl_a_ready;
-        top->tl_d_valid = tl_d_valid;
-        top->tl_d_opcode = tl_d_opcode;
-        top->tl_d_param = tl_d_param;
-        top->tl_d_size = tl_d_size;
-        top->tl_d_source = tl_d_source;
-        top->tl_d_sink = tl_d_sink;
-        top->tl_d_denied = tl_d_denied;
-        top->tl_d_corrupt = tl_d_corrupt;
-        top->tl_d_data = tl_d_data;
-
-        top->eval();
-
-        contextp->timeInc(9); // 1 timeprecision period passes...
-
-        top->clk = 0;
-        top->eval();
-        contextp->timeInc(1); // 1 timeprecision period passes...
-
-        // If you have C++ model logic that changes after the negative edge it goes here
-        top->eval();
-        contextp->timeInc(9); // 1 timeprecision period passes...
     }
 
     if (VM_COVERAGE) {

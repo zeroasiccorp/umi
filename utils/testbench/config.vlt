@@ -1,12 +1,10 @@
 `verilator_config
-lint_off -file "*umi/umi/rtl/*"
-lint_off -file "*lambdalib/ramlib/*"
-lint_off -file "*lambdalib/stdlib/*"
-lint_off -file "*verilog-axi/rtl/*"
-lint_off -rule LATCH
-lint_off -rule UNOPTFLAT
 lint_off -rule WIDTHTRUNC
-lint_off -rule SELRANGE
-lint_off -rule IMPLICIT
 lint_off -rule WIDTHEXPAND
 lint_off -rule TIMESCALEMOD
+coverage_off -file "/home/ali/workspace/ebrick-ml-092523/submodules/ebrick/ebrick/submodules/umi/utils/testbench/testbench_umi2tl_np.v"
+coverage_off -file "/home/ali/workspace/Tools/switchboard/switchboard/verilog/sim/auto_stop_sim.sv"
+coverage_off -file "/home/ali/workspace/Tools/switchboard/switchboard/verilog/sim/umi_rx_sim.sv"
+coverage_off -file "/home/ali/workspace/Tools/switchboard/switchboard/verilog/sim/sb_rx_sim.sv"
+coverage_off -file "/home/ali/workspace/Tools/switchboard/switchboard/verilog/sim/umi_tx_sim.sv"
+coverage_off -file "/home/ali/workspace/Tools/switchboard/switchboard/verilog/sim/sb_tx_sim.sv"
