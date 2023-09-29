@@ -4,7 +4,9 @@
  * License:
  *
  * Documentation:
- *
+ * The endpoint is meant to allow communication with a register like interface
+ * over UMI. Hence, it can only receive UMI requests that require a single
+ * response beat i.e. (udev_req_cmd.len + 1)*(1 << udev_req_cmd.size) <= DW/8.
  *
  ******************************************************************************/
 module umi_endpoint
@@ -34,9 +36,11 @@ module umi_endpoint
     output [AW-1:0] loc_addr,   // memory address
     output          loc_write,  // write enable
     output          loc_read,   // read request
+    output          loc_atomic, // atomic request
     output [7:0]    loc_opcode, // opcode
     output [2:0]    loc_size,   // size
     output [7:0]    loc_len,    // len
+    output [7:0]    loc_atype, // atomic type
     output [DW-1:0] loc_wrdata, // data to write
     input [DW-1:0]  loc_rddata, // data response
     input           loc_ready   // device is ready
@@ -74,7 +78,6 @@ module umi_endpoint
    wire                 cmd_write;
    wire                 cmd_write_posted;
    wire                 cmd_write_resp;
-   wire [7:0]           loc_atype;
    wire                 loc_eof;
    wire                 loc_eom;
    wire [1:0]           loc_err;
@@ -178,9 +181,10 @@ module umi_endpoint
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
    // TODO - implement atomic
-   assign loc_read  = ready_gated & cmd_read & udev_req_valid & ~request_stall;
-   assign loc_write = ready_gated & (cmd_write | cmd_write_posted) & udev_req_valid & ~request_stall;
-   assign loc_resp  = ready_gated & (cmd_read | cmd_write) & udev_req_valid & loc_ready;
+   assign loc_read   = ready_gated & cmd_read & udev_req_valid & ~request_stall;
+   assign loc_write  = ready_gated & (cmd_write | cmd_write_posted) & udev_req_valid & ~request_stall;
+   assign loc_atomic = ready_gated & cmd_atomic & udev_req_valid & ~request_stall;
+   assign loc_resp   = ready_gated & (cmd_read | cmd_write | cmd_atomic) & udev_req_valid & loc_ready & ~request_stall;
 
    //############################
    //# Outgoing Transaction
@@ -200,7 +204,7 @@ module umi_endpoint
    // Amir - outputs should be sampled when the read command is accepted
    // Read data only arrives one cycle after the read is accepted
 
-   assign cmd_opcode[4:0] = cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE;
+   assign cmd_opcode[4:0] = (cmd_read | cmd_atomic) ? UMI_RESP_READ : UMI_RESP_WRITE;
 
    /* umi_pack AUTO_TEMPLATE(
     .cmd_\(.*\) (loc_\1[]),
@@ -236,7 +240,7 @@ module umi_endpoint
      if (!nreset)
        loc_resp_vld <= 1'b0;
      else
-       loc_resp_vld <= loc_resp & loc_ready & ~request_stall;
+       loc_resp_vld <= loc_resp;
 
    always @ (posedge clk or negedge nreset)
      if (!nreset)
@@ -245,7 +249,7 @@ module umi_endpoint
           loc_dstaddr_out[AW-1:0] <= {AW{1'b0}};
           loc_srcaddr_out[AW-1:0] <= {AW{1'b0}};
        end
-     else if (loc_resp & loc_ready & ~request_stall)
+     else if (loc_resp)
        begin
           loc_cmd_out[CW-1:0]     <= packet_cmd[CW-1:0];
           loc_dstaddr_out[AW-1:0] <= udev_req_srcaddr[AW-1:0];
