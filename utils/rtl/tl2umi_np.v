@@ -11,12 +11,11 @@
  * The umi_srcaddr for requests uses User Defined Bits. It format is as
  * follows:
  * [63:56]  : Reserved
- * [55:48]  : Reserved
- * [47:40]  : Reserved
- * [39:32]  : ml_tx_first_one (Left Shift for resp data < TileLink data (64b))
- * [31:24]  : tl_a_size (TileLink Size)
- * [23:16]  : tl_a_source (TileLink Source)
- * [15:8]   : 0000_0000b
+ * [55:40]  : Chip ID
+ * [39:24]  : Local routing address
+ * [23:20]  : ml_tx_first_one (Left Shift for resp data < TileLink data (64b))
+ * [19:16]  : tl_a_size (TileLink Size)
+ * [15:8]   : tl_a_source (TileLink Source)
  * [7:0]    : 0000_0000b
  *****************************************************************************/
 
@@ -33,6 +32,7 @@ module tl2umi_np #(
     input               clk,
     input               nreset,
     input  [IDW-1:0]    chipid,
+    input  [15:0]       local_routing,
 
     output              tl_a_ready,
     input               tl_a_valid,
@@ -254,6 +254,10 @@ module tl2umi_np #(
     assign dataag_out_resp_ready = reset_done[1] & tl_d_ready & dataag_out_resp_ready_assert;
     assign dataag_out_resp_bytes = (1 << dataag_out_resp_cmd_size)*(dataag_out_resp_cmd_len + 1);
 
+    wire [2:0] dataag_out_resp_size = dataag_out_resp_dstaddr[18:16];
+    wire [4:0] dataag_out_resp_source = dataag_out_resp_dstaddr[12:8];
+    wire [3:0] dataag_out_ml_tx_first_one = dataag_out_resp_dstaddr[23:20];
+
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             resp_state <= RESP_IDLE;
@@ -292,9 +296,9 @@ module tl2umi_np #(
                         end
                         tl_d_valid <= 1'b1;
                         tl_d_opcode <= `TL_OP_AccessAckData;
-                        tl_d_size <= dataag_out_resp_dstaddr[26:24];
-                        tl_d_source <= dataag_out_resp_dstaddr[20:16];
-                        tl_d_data <= dataag_out_resp_data << (dataag_out_resp_dstaddr[35:32]*8);
+                        tl_d_size <= dataag_out_resp_size;
+                        tl_d_source <= dataag_out_resp_source;
+                        tl_d_data <= dataag_out_resp_data << (dataag_out_ml_tx_first_one*8);
                     end
                     else if (dataag_out_resp_cmd_write_resp) begin
                         if (dataag_out_resp_bytes == put_bytes_req) begin
@@ -309,8 +313,8 @@ module tl2umi_np #(
                             tl_d_valid <= 1'b0;
                         end
                         tl_d_opcode <= `TL_OP_AccessAck;
-                        tl_d_size <= dataag_out_resp_dstaddr[26:24];
-                        tl_d_source <= dataag_out_resp_dstaddr[20:16];
+                        tl_d_size <= dataag_out_resp_size;
+                        tl_d_source <= dataag_out_resp_source;
                         put_bytes_resp <= dataag_out_resp_bytes;
                     end
                     else begin
@@ -328,7 +332,7 @@ module tl2umi_np #(
                     end
                 end
                 if (dataag_out_resp_ready & dataag_out_resp_valid) begin
-                    tl_d_data <= dataag_out_resp_data << (dataag_out_resp_dstaddr[35:32]*8);
+                    tl_d_data <= dataag_out_resp_data << (dataag_out_ml_tx_first_one*8);
                 end
                 if (dataag_out_resp_ready & dataag_out_resp_valid) begin
                     tl_d_valid <= 1'b1;
@@ -337,8 +341,8 @@ module tl2umi_np #(
                     tl_d_valid <= 1'b0;
                 end
                 tl_d_opcode <= `TL_OP_AccessAckData;
-                tl_d_size <= dataag_out_resp_dstaddr[26:24];
-                tl_d_source <= dataag_out_resp_dstaddr[20:16];
+                tl_d_size <= dataag_out_resp_size;
+                tl_d_source <= dataag_out_resp_source;
             end
             RESP_RD_LAST: begin
                 if (tl_d_ready) begin
@@ -361,8 +365,8 @@ module tl2umi_np #(
                     tl_d_valid <= 1'b0;
                 end
                 tl_d_opcode <= `TL_OP_AccessAck;
-                tl_d_size <= dataag_out_resp_dstaddr[26:24];
-                tl_d_source <= dataag_out_resp_dstaddr[20:16];
+                tl_d_size <= dataag_out_resp_size;
+                tl_d_source <= dataag_out_resp_source;
                 if (dataag_out_resp_ready & dataag_out_resp_valid) begin
                     put_bytes_resp <= put_bytes_resp + dataag_out_resp_bytes;
                 end
@@ -502,11 +506,10 @@ module tl2umi_np #(
             ml_tx_first_one = 4'd8;
     end
 
-    wire [23:0] umi_src_addr_user_defined = {{4'b0, ml_tx_first_one},
-                                             {5'b0, tl_a_size},
+    wire [15:0] umi_src_addr_user_defined = {{ml_tx_first_one, 1'b0, tl_a_size},
                                              {3'b0, tl_a_source}};
     wire [23:0] chip_address = {{(24-IDW){1'b0}}, chipid};
-    wire [63:0] local_address = {chip_address, umi_src_addr_user_defined, 16'b0};
+    wire [63:0] local_address = {chip_address, local_routing, umi_src_addr_user_defined, 8'b0};
 
     reg [2:0]   req_state;
     reg [7:0]   req_put_byte_counter;
