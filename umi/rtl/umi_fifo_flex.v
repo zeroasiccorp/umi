@@ -183,7 +183,7 @@ module umi_fifo_flex
      end
    else
      begin // split only based on (LEN-1)*(2^SIZE) > DW
-        assign packet_latch_en = cmd_len_plus_one > (ODW >> cmd_size >> 3);
+        assign packet_latch_en = cmd_len_plus_one > (ODW[11:3] >> cmd_size);
 
         assign packet_cmd[CW-1:0] = packet_latch_valid ?
                                     packet_cmd_latch[CW-1:0] :
@@ -195,7 +195,7 @@ module umi_fifo_flex
         assign fifo_data    = packet_latch_valid ? packet_data_latch    : umi_in_data;
         // cmd manipulation - at each cycle need to remove the bytes sent out
         assign fifo_eom     = packet_latch_en    ? 1'b0                            : cmd_eom;
-        assign fifo_len     = packet_latch_en    ? ((ODW >> cmd_size >> 3) - 1'b1) : cmd_len;
+        assign fifo_len     = packet_latch_en    ? ((ODW[10:3] >> cmd_size) - 1'b1) : cmd_len;
 
         // Latched command for next split
         assign latch_dstaddr = fifo_dstaddr + (ODW/8);
