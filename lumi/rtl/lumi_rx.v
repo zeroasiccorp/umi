@@ -73,8 +73,10 @@ module lumi_rx
    wire [$clog2((DW+AW+AW+CW))-1:0] full_hdr_size;
    wire [$clog2((DW+AW+AW+CW))-1:0] rxbytes_to_rcv;
    reg [$clog2((DW+AW+AW+CW))-1:0]  rxbytes_keep;
-   reg [$clog2((DW+AW+AW+CW))-1:0]  req_bytes_to_receive;
-   reg [$clog2((DW+AW+AW+CW))-1:0]  resp_bytes_to_receive;
+   reg [$clog2((DW+AW+AW+CW))-1:0]  req_hdr_bytes;
+   reg [$clog2((DW+AW+AW+CW))-1:0]  resp_hdr_bytes;
+   wire [$clog2((DW+AW+AW+CW))-1:0] req_bytes_to_receive;
+   wire [$clog2((DW+AW+AW+CW))-1:0] resp_bytes_to_receive;
    reg                              rxvalid;
    reg                              rxvalid2;
    reg                              rxfec;
@@ -998,10 +1000,15 @@ module lumi_rx
 
    always @(*)
      case ({req_cmd_only,req_no_data})
-       2'b10: req_bytes_to_receive = (CW)/8;
-       2'b01: req_bytes_to_receive = (CW+AW+AW)/8;
-       default: req_bytes_to_receive = full_hdr_size + req_cmd_bytes[8:0];
+       2'b10: req_hdr_bytes = (CW)/8;
+       2'b01: req_hdr_bytes = (CW+AW+AW)/8;
+       default: req_hdr_bytes = full_hdr_size + req_cmd_bytes[8:0];
      endcase
+
+   // Before we get 2B of the header we do not know the size
+   assign req_bytes_to_receive = (req_rxptr == 1) & (byterate == 1) ?
+                                 (CW)/8 :
+                                 req_hdr_bytes;
 
    // Valid register holds one bit per byte to transfer
    always @ (posedge clk or negedge nreset)
@@ -1071,10 +1078,15 @@ module lumi_rx
 
    always @(*)
      case ({resp_cmd_only,resp_no_data})
-       2'b10: resp_bytes_to_receive = (CW)/8;
-       2'b01: resp_bytes_to_receive = (CW+AW+AW)/8;
-       default: resp_bytes_to_receive = full_hdr_size + resp_cmd_bytes[8:0];
+       2'b10: resp_hdr_bytes = (CW)/8;
+       2'b01: resp_hdr_bytes = (CW+AW+AW)/8;
+       default: resp_hdr_bytes = full_hdr_size + resp_cmd_bytes[8:0];
      endcase
+
+   // Before we get 2B of the header we do not know the size
+   assign resp_bytes_to_receive = (resp_rxptr == 0) & (byterate == 1) ?
+                                  (CW)/8 :
+                                  resp_hdr_bytes;
 
    // Valid register holds one bit per byte to transfer
    always @ (posedge clk or negedge nreset)
