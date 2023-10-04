@@ -23,11 +23,11 @@ module testbench #(
     // SIM Ctrl signals
     wire            nreset;
     wire            go;
-    reg  [15:0]     nreset_vec = 16'h00;
+    reg  [15:0]     nreset_vec = 16'h0000;
 
     // Reset initialization
     always @(posedge clk) begin
-        nreset_vec <= {nreset_vec[15:0], 1'b1};
+        nreset_vec <= {nreset_vec[14:0], 1'b1};
     end
 
     assign nreset = nreset_vec[14];
@@ -76,7 +76,7 @@ module testbench #(
         .umi_in_cmd         (umi_stim2dut_cmd),
         .umi_in_dstaddr     (umi_stim2dut_dstaddr),
         .umi_in_srcaddr     (umi_stim2dut_srcaddr),
-        .umi_in_data        ({128'd0, umi_stim2dut_data}),
+        .umi_in_data        (umi_stim2dut_data),
         .umi_in_ready       (umi_stim2dut_ready),
 
         .umi_out_valid      (umi_dut2check_valid),
