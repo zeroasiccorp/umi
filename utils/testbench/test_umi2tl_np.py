@@ -38,6 +38,7 @@ def build_testbench(topo="2d"):
         dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'vectorlib' / 'rtl')
 
     # Verilator configuration
+    dut.add('tool', 'verilator', 'task', 'compile', 'option', '--coverage')
     vlt_config = EX_DIR / 'utils' / 'testbench' / 'config.vlt'
     header_files_dir = EX_DIR / 'utils' / 'testbench'
     dut.set('tool', 'verilator', 'task', 'compile', 'var', 'cflags', f'-I{header_files_dir}')

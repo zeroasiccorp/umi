@@ -17,7 +17,7 @@ def build_testbench(topo="2d"):
 
     # Set up inputs
     if topo=='2d':
-        dut.input('tb_umi_packet_merge_greedy.v')
+        dut.input('testbench_umi_packet_merge_greedy.v')
         print("### Running 2D topology ###")
     # elif topo=='3d':
     #     dut.input('testbench_3d.sv')
@@ -26,7 +26,7 @@ def build_testbench(topo="2d"):
     else:
         raise ValueError('Invalid topology')
 
-    dut.input(EX_DIR / 'submodules' / 'switchboard' / 'examples' / 'common' / 'verilator' / 'testbench.cc')
+    dut.input('testbench_umi_packet_merge_greedy.cc')
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'umi' / 'rtl')
         dut.add('option', option, EX_DIR / 'utils' / 'rtl')
@@ -38,6 +38,7 @@ def build_testbench(topo="2d"):
     # Verilator configuration
     vlt_config = EX_DIR / 'utils' / 'testbench' / 'config.vlt'
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
+    dut.add('tool', 'verilator', 'task', 'compile', 'option', '--coverage')
 
     # Settings
     dut.set('option', 'trace', True)  # enable VCD (TODO: FST option)
