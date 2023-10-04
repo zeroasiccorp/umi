@@ -180,9 +180,9 @@ module umi_data_aggregator #(
     assign umi_out_srcaddr  = umi_in_srcaddr_r;
 
     reg [$clog2(DW/8)+1:0]  byte_counter;
-    /* verilator lint_off WIDTHTRUNC */
+    /* verilator lint_off WIDTH */
     localparam [$clog2(DW/8)+1:0]   DW_BYTES = DW/8;
-    /* verilator lint_on WIDTHTRUNC */
+    /* verilator lint_on WIDTH */
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
@@ -241,9 +241,9 @@ module umi_data_aggregator #(
     assign umi_in_ready = reset_done[1] & (umi_out_ready | (byte_counter <= DW_BYTES)) & ~umi_in_cmd_passthrough;
     assign umi_out_valid = (umi_in_cmd_passthrough & |byte_counter) | (byte_counter >= DW_BYTES);
     assign umi_out_cmd_commit = umi_out_ready & umi_out_valid;
-    /* verilator lint_off WIDTHTRUNC */
+    /* verilator lint_off WIDTH */
     assign umi_in_bytes = (1 << umi_in_cmd_size)*(umi_in_cmd_len + 1);
-    /* verilator lint_on WIDTHTRUNC */
+    /* verilator lint_on WIDTH */
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
@@ -285,14 +285,14 @@ module umi_data_aggregator #(
                 umi_in_data_r <= {{DW{1'b0}}, umi_in_data_masked};
             end
             else if (umi_in_cmd_commit & umi_out_cmd_commit) begin
-                /* verilator lint_off WIDTHEXPAND */
+                /* verilator lint_off WIDTH */
                 umi_in_data_r <= (umi_in_data_r >> DW) | (umi_in_data_masked << ((byte_counter - DW_BYTES)*8));
-                /* verilator lint_on WIDTHEXPAND */
+                /* verilator lint_on WIDTH */
             end
             else if (umi_in_cmd_commit) begin
-                /* verilator lint_off WIDTHEXPAND */
+                /* verilator lint_off WIDTH */
                 umi_in_data_r <= umi_in_data_r | (umi_in_data_masked << (byte_counter*8));
-                /* verilator lint_on WIDTHEXPAND */
+                /* verilator lint_on WIDTH */
             end
             else if (umi_out_cmd_commit) begin
                 umi_in_data_r <= umi_in_data_r >> DW;
@@ -300,11 +300,11 @@ module umi_data_aggregator #(
         end
     end
 
-    /* verilator lint_off WIDTHEXPAND */
+    /* verilator lint_off WIDTH */
     assign umi_in_cmd_len_m = (byte_counter > DW_BYTES) ?
                               ((DW_BYTES >> umi_in_cmd_size_r) - 1) :
                               ((byte_counter >> umi_in_cmd_size_r) - 1);
-    /* verilator lint_on WIDTHEXPAND */
+    /* verilator lint_on WIDTH */
 
     umi_pack #(
         .CW                 (CW)
