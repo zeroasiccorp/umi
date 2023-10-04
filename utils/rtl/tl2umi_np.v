@@ -478,12 +478,12 @@ module tl2umi_np #(
 
     assign ml_tx_addr = {8'b0, tl_a_address[55:3], ml_tx_first_one[2:0]};
     assign ml_tx_data = tl_a_data >> (ml_tx_first_one*8);
-    /* verilator lint_off WIDTHEXPAND */
+    /* verilator lint_off WIDTH */
     assign ml_tx_len = tl_a_mask[0] + tl_a_mask[1] +
                        tl_a_mask[2] + tl_a_mask[3] +
                        tl_a_mask[4] + tl_a_mask[5] +
                        tl_a_mask[6] + tl_a_mask[7] - 1;
-    /* verilator lint_on WIDTHEXPAND */
+    /* verilator lint_on WIDTH */
 
     always @(*) begin
         if (tl_a_mask[0])
