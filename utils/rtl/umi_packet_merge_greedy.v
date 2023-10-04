@@ -127,10 +127,8 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_cmd_commit_r;
 
     reg [$clog2(ODW/8):0]   byte_counter;
-    /* verilator lint_off WIDTH */
-    localparam [$clog2(ODW/8):0]    ODW_BYTES = ODW/8;
+    localparam [$clog2(ODW/8):0]    ODW_BYTES = ODW[3+$clog2(ODW/8):3];
     localparam                      ADDR_PAD_BYTES = AW - 1 - $clog2(ODW/8);
-    /* verilator lint_on WIDTH */
 
     assign umi_in_cmd_commit_r = umi_in_ready_r & umi_in_valid_r;
     assign umi_in_ready = reset_done[1] & (~umi_in_valid_r | umi_in_ready_r);
