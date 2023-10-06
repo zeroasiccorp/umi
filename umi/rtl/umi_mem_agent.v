@@ -90,8 +90,6 @@ module umi_mem_agent
         .vss                ()
     );
 
-   /*AUTOREG*/
-
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire [AW-1:0]        loc_addr;
@@ -126,7 +124,7 @@ module umi_mem_agent
    umi_endpoint(.loc_ready      (loc_ready),
                 /*AUTOINST*/
                 // Outputs
-                .udev_req_ready (ff2ep_req_ready),
+                .udev_req_ready (ff2ep_req_ready),       // Templated
                 .udev_resp_valid(udev_resp_valid),
                 .udev_resp_cmd  (udev_resp_cmd[CW-1:0]),
                 .udev_resp_dstaddr(udev_resp_dstaddr[AW-1:0]),
@@ -144,11 +142,11 @@ module umi_mem_agent
                 // Inputs
                 .nreset         (nreset),
                 .clk            (clk),
-                .udev_req_valid (ff2ep_req_valid),
-                .udev_req_cmd   (ff2ep_req_cmd[CW-1:0]),
-                .udev_req_dstaddr(ff2ep_req_dstaddr[AW-1:0]),
-                .udev_req_srcaddr(ff2ep_req_srcaddr[AW-1:0]),
-                .udev_req_data  (ff2ep_req_data[DW-1:0]),
+                .udev_req_valid (ff2ep_req_valid),       // Templated
+                .udev_req_cmd   (ff2ep_req_cmd[CW-1:0]), // Templated
+                .udev_req_dstaddr(ff2ep_req_dstaddr[AW-1:0]), // Templated
+                .udev_req_srcaddr(ff2ep_req_srcaddr[AW-1:0]), // Templated
+                .udev_req_data  (ff2ep_req_data[DW-1:0]), // Templated
                 .udev_resp_ready(udev_resp_ready),
                 .loc_rddata     (loc_rddata[DW-1:0]));
 
@@ -273,7 +271,7 @@ module umi_mem_agent
               .vdd              (1'b1),
               .vddio            (1'b1),
               .ctrl             (sram_ctrl),
-              .test             ('h0));
+              .test             (128'h0));
 
    assign loc_rddata = mem_rddata >> (8*loc_addr_r[$clog2(DW/8)-1:0]);
 
