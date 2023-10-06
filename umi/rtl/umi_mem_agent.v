@@ -18,24 +18,27 @@ module umi_mem_agent
   #(parameter DW = 256,           // umi packet width
     parameter AW = 64,            // address width
     parameter CW = 32,            // command width
-    parameter RAMDEPTH = 512
+    parameter RAMDEPTH = 512,
+    parameter CTRLW = 8,
+    parameter SRAMTYPE = "DEFAULT"
     )
    (// global ebrick controls (from clink0/ebrick_regs/bus)
-    input           clk,    // clock signals
-    input           nreset, // async active low reset
+    input             clk,    // clock signals
+    input             nreset, // async active low reset
+    input [CTRLW-1:0] sram_ctrl, // Control signal for SRAM
     // Device port (per clink)
-    input           udev_req_valid,
-    input [CW-1:0]  udev_req_cmd,
-    input [AW-1:0]  udev_req_dstaddr,
-    input [AW-1:0]  udev_req_srcaddr,
-    input [DW-1:0]  udev_req_data,
-    output          udev_req_ready,
-    output          udev_resp_valid,
-    output [CW-1:0] udev_resp_cmd,
-    output [AW-1:0] udev_resp_dstaddr,
-    output [AW-1:0] udev_resp_srcaddr,
-    output [DW-1:0] udev_resp_data,
-    input           udev_resp_ready
+    input             udev_req_valid,
+    input [CW-1:0]    udev_req_cmd,
+    input [AW-1:0]    udev_req_dstaddr,
+    input [AW-1:0]    udev_req_srcaddr,
+    input [DW-1:0]    udev_req_data,
+    output            udev_req_ready,
+    output            udev_resp_valid,
+    output [CW-1:0]   udev_resp_cmd,
+    output [AW-1:0]   udev_resp_dstaddr,
+    output [AW-1:0]   udev_resp_srcaddr,
+    output [DW-1:0]   udev_resp_data,
+    input             udev_resp_ready
     /*AUTOINPUT*/
     ///*AUTOOUTPUT*/
     );
@@ -253,8 +256,8 @@ module umi_mem_agent
 
    la_spram #(.DW    (DW),               // Memory width
               .AW    ($clog2(RAMDEPTH)), // Address width (derived)
-              .TYPE  ("DEFAULT"),        // Pass through variable for hard macro
-              .CTRLW (8),                // Width of asic ctrl interface
+              .TYPE  (SRAMTYPE),         // Pass through variable for hard macro
+              .CTRLW (CTRLW),            // Width of asic ctrl interface
               .TESTW (128)               // Width of asic test interface
               )
    la_spram_i(// Outputs
@@ -269,7 +272,7 @@ module umi_mem_agent
               .vss              (1'b0),
               .vdd              (1'b1),
               .vddio            (1'b1),
-              .ctrl             ('h0),
+              .ctrl             (sram_ctrl),
               .test             ('h0));
 
    assign loc_rddata = mem_rddata >> (8*loc_addr_r[$clog2(DW/8)-1:0]);
