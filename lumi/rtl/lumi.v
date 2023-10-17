@@ -13,7 +13,7 @@
  * 1. convert from CLINK
  *
  *****************************************************************************/
-module lumi_async
+module lumi
   #(parameter TARGET = "DEFAULT", // compiler target
     parameter IDOFFSET = 24,      // chip ID address offset
     parameter GRPOFFSET = 24,     // group address offset
