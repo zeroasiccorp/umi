@@ -13,7 +13,7 @@
  * 1. convert from CLINK
  *
  *****************************************************************************/
-module lumi
+module lumi_async
   #(parameter TARGET = "DEFAULT", // compiler target
     parameter IDOFFSET = 24,      // chip ID address offset
     parameter GRPOFFSET = 24,     // group address offset
@@ -69,6 +69,8 @@ module lumi
     output [RW-1:0]  sb_out_data,
     input            sb_out_ready,
     // phy sideband interface - paththrough based on address
+    input            phy_clk,
+    input            phy_nreset,
     input            phy_in_valid,    // host-response, device-request
     input [CW-1:0]   phy_in_cmd,
     input [AW-1:0]   phy_in_dstaddr,
@@ -108,6 +110,12 @@ module lumi
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   wire [CW-1:0]        cb2fifo_cmd;
+   wire [RW-1:0]        cb2fifo_data;
+   wire [AW-1:0]        cb2fifo_dstaddr;
+   wire                 cb2fifo_ready;
+   wire [AW-1:0]        cb2fifo_srcaddr;
+   wire                 cb2fifo_valid;
    wire [CW-1:0]        cb2regs_cmd;
    wire [RW-1:0]        cb2regs_data;
    wire [AW-1:0]        cb2regs_dstaddr;
@@ -123,6 +131,12 @@ module lumi
    wire [31:0]          csr_txcrdt_status;
    wire                 csr_txen;
    wire [7:0]           csr_txiowidth;
+   wire [CW-1:0]        fifo2cb_cmd;
+   wire [RW-1:0]        fifo2cb_data;
+   wire [AW-1:0]        fifo2cb_dstaddr;
+   wire                 fifo2cb_ready;
+   wire [AW-1:0]        fifo2cb_srcaddr;
+   wire                 fifo2cb_valid;
    wire [15:0]          loc_crdt_req;
    wire [15:0]          loc_crdt_resp;
    wire [CW-1:0]        regs2cb_cmd;
@@ -193,11 +207,107 @@ module lumi
    // Register Crossbar
    //###########################
 
+   // synchronization fifo
+   // The clink/phy works on a different clock so need a fifo
+   /* umi_fifo_flex AUTO_TEMPLATE(
+    .umi_in_clk     (phy_clk),
+    .umi_in_nreset  (phy_nreset),
+    .umi_out_clk    (clk),
+    .umi_out_nreset (nreset),
+    .umi_in_data    (phy_in_data[RW-1:0]),
+    .umi_in_\(.*\)  (phy_in_\1[]),
+    .umi_out_data   (fifo2cb_data[RW-1:0]),
+    .umi_out_\(.*\) (fifo2cb_\1[]),
+    .fifo_.*        (),
+    .bypass         (1'b0),
+    .chaosmode      (1'b0),
+    );*/
+   umi_fifo_flex #(.ASYNC(1),
+                   .DEPTH(4),
+                   .SPLIT(0),
+                   .CW(CW),
+                   .AW(AW),
+                   .IDW(RW),
+                   .ODW(RW))
+   fifo_phy2lumi(/*AUTOINST*/
+                 // Outputs
+                 .fifo_full             (),                      // Templated
+                 .fifo_empty            (),                      // Templated
+                 .umi_in_ready          (phy_in_ready),          // Templated
+                 .umi_out_valid         (fifo2cb_valid),         // Templated
+                 .umi_out_cmd           (fifo2cb_cmd[CW-1:0]),   // Templated
+                 .umi_out_dstaddr       (fifo2cb_dstaddr[AW-1:0]), // Templated
+                 .umi_out_srcaddr       (fifo2cb_srcaddr[AW-1:0]), // Templated
+                 .umi_out_data          (fifo2cb_data[RW-1:0]),  // Templated
+                 // Inputs
+                 .bypass                (1'b0),                  // Templated
+                 .chaosmode             (1'b0),                  // Templated
+                 .umi_in_clk            (phy_clk),               // Templated
+                 .umi_in_nreset         (phy_nreset),            // Templated
+                 .umi_in_valid          (phy_in_valid),          // Templated
+                 .umi_in_cmd            (phy_in_cmd[CW-1:0]),    // Templated
+                 .umi_in_dstaddr        (phy_in_dstaddr[AW-1:0]), // Templated
+                 .umi_in_srcaddr        (phy_in_srcaddr[AW-1:0]), // Templated
+                 .umi_in_data           (phy_in_data[RW-1:0]),   // Templated
+                 .umi_out_clk           (clk),                   // Templated
+                 .umi_out_nreset        (nreset),                // Templated
+                 .umi_out_ready         (fifo2cb_ready),         // Templated
+                 .vdd                   (vdd),
+                 .vss                   (vss));
+
+   /* umi_fifo_flex AUTO_TEMPLATE(
+    .umi_in_clk     (clk),
+    .umi_in_nreset  (nreset),
+    .umi_out_clk    (phy_clk),
+    .umi_out_nreset (phy_nreset),
+    .umi_in_data    (cb2fifo_data[RW-1:0]),
+    .umi_in_\(.*\)  (cb2fifo_\1[]),
+    .umi_out_data   (phy_out_data[RW-1:0]),
+    .umi_out_\(.*\) (phy_out_\1[]),
+    .fifo_.*        (),
+    .bypass         (1'b0),
+    .chaosmode      (1'b0),
+    );*/
+   umi_fifo_flex #(.ASYNC(1),
+                   .DEPTH(4),
+                   .SPLIT(0),
+                   .CW(CW),
+                   .AW(AW),
+                   .IDW(RW),
+                   .ODW(RW))
+   fifo_lumi2phy(/*AUTOINST*/
+                 // Outputs
+                 .fifo_full             (),                      // Templated
+                 .fifo_empty            (),                      // Templated
+                 .umi_in_ready          (cb2fifo_ready),         // Templated
+                 .umi_out_valid         (phy_out_valid),         // Templated
+                 .umi_out_cmd           (phy_out_cmd[CW-1:0]),   // Templated
+                 .umi_out_dstaddr       (phy_out_dstaddr[AW-1:0]), // Templated
+                 .umi_out_srcaddr       (phy_out_srcaddr[AW-1:0]), // Templated
+                 .umi_out_data          (phy_out_data[RW-1:0]),  // Templated
+                 // Inputs
+                 .bypass                (1'b0),                  // Templated
+                 .chaosmode             (1'b0),                  // Templated
+                 .umi_in_clk            (clk),                   // Templated
+                 .umi_in_nreset         (nreset),                // Templated
+                 .umi_in_valid          (cb2fifo_valid),         // Templated
+                 .umi_in_cmd            (cb2fifo_cmd[CW-1:0]),   // Templated
+                 .umi_in_dstaddr        (cb2fifo_dstaddr[AW-1:0]), // Templated
+                 .umi_in_srcaddr        (cb2fifo_srcaddr[AW-1:0]), // Templated
+                 .umi_in_data           (cb2fifo_data[RW-1:0]),  // Templated
+                 .umi_out_clk           (phy_clk),               // Templated
+                 .umi_out_nreset        (phy_nreset),            // Templated
+                 .umi_out_ready         (phy_out_ready),         // Templated
+                 .vdd                   (vdd),
+                 .vss                   (vss));
+
    /*lumi_crossbar  AUTO_TEMPLATE (
     .regs_out_\(.*\)    (cb2regs_\1[]),
     .regs_in_\(.*\)     (regs2cb_\1[]),
     .core_out_\(.*\)    (sb_out_\1[]),
     .core_in_\(.*\)     (sb_in_\1[]),
+    .phy_in_\(.*\)      (fifo2cb_\1[]),
+    .phy_out_\(.*\)     (cb2fifo_\1[]),
     )
     */
 
@@ -216,12 +326,12 @@ module lumi
                  .core_out_dstaddr      (sb_out_dstaddr[AW-1:0]), // Templated
                  .core_out_srcaddr      (sb_out_srcaddr[AW-1:0]), // Templated
                  .core_out_data         (sb_out_data[RW-1:0]),   // Templated
-                 .phy_in_ready          (phy_in_ready),
-                 .phy_out_valid         (phy_out_valid),
-                 .phy_out_cmd           (phy_out_cmd[CW-1:0]),
-                 .phy_out_dstaddr       (phy_out_dstaddr[AW-1:0]),
-                 .phy_out_srcaddr       (phy_out_srcaddr[AW-1:0]),
-                 .phy_out_data          (phy_out_data[RW-1:0]),
+                 .phy_in_ready          (fifo2cb_ready),         // Templated
+                 .phy_out_valid         (cb2fifo_valid),         // Templated
+                 .phy_out_cmd           (cb2fifo_cmd[CW-1:0]),   // Templated
+                 .phy_out_dstaddr       (cb2fifo_dstaddr[AW-1:0]), // Templated
+                 .phy_out_srcaddr       (cb2fifo_srcaddr[AW-1:0]), // Templated
+                 .phy_out_data          (cb2fifo_data[RW-1:0]),  // Templated
                  .regs_in_ready         (regs2cb_ready),         // Templated
                  .regs_out_valid        (cb2regs_valid),         // Templated
                  .regs_out_cmd          (cb2regs_cmd[CW-1:0]),   // Templated
@@ -238,12 +348,12 @@ module lumi
                  .core_in_srcaddr       (sb_in_srcaddr[AW-1:0]), // Templated
                  .core_in_data          (sb_in_data[RW-1:0]),    // Templated
                  .core_out_ready        (sb_out_ready),          // Templated
-                 .phy_in_valid          (phy_in_valid),
-                 .phy_in_cmd            (phy_in_cmd[CW-1:0]),
-                 .phy_in_dstaddr        (phy_in_dstaddr[AW-1:0]),
-                 .phy_in_srcaddr        (phy_in_srcaddr[AW-1:0]),
-                 .phy_in_data           (phy_in_data[RW-1:0]),
-                 .phy_out_ready         (phy_out_ready),
+                 .phy_in_valid          (fifo2cb_valid),         // Templated
+                 .phy_in_cmd            (fifo2cb_cmd[CW-1:0]),   // Templated
+                 .phy_in_dstaddr        (fifo2cb_dstaddr[AW-1:0]), // Templated
+                 .phy_in_srcaddr        (fifo2cb_srcaddr[AW-1:0]), // Templated
+                 .phy_in_data           (fifo2cb_data[RW-1:0]),  // Templated
+                 .phy_out_ready         (cb2fifo_ready),         // Templated
                  .regs_in_valid         (regs2cb_valid),         // Templated
                  .regs_in_cmd           (regs2cb_cmd[CW-1:0]),   // Templated
                  .regs_in_dstaddr       (regs2cb_dstaddr[AW-1:0]), // Templated
@@ -356,5 +466,5 @@ module lumi
 
 endmodule // clink
 // Local Variables:
-// verilog-library-directories:("." "../../../oh/stdlib/rtl" "../../umi/umi/rtl")
+// verilog-library-directories:("." "../../submodules/oh/stdlib/rtl" "../../../umi/umi/rtl" )
 // End:
