@@ -7,6 +7,8 @@
  *
  * - Selects between N inputs
  * - Assumes one-hot selects
+ * - NOTE: The input ready is combinatorially connected to the output ready.
+ *   Please make sure your surrounding logic does not create a timing loop.
  *
  ******************************************************************************/
 module umi_mux
@@ -34,7 +36,6 @@ module umi_mux
    // valid output
    assign umi_out_valid = |umi_in_valid[N-1:0];
 
-   // TODO - check if it does not creates a timing loop.
    // ready pusback
    assign umi_in_ready[N-1:0] = {N{umi_out_ready}};
 
@@ -65,7 +66,5 @@ module umi_mux
    la_data_vmux(.out (umi_out_data[DW-1:0]),
 	        .sel (umi_in_valid[N-1:0]),
 	        .in  (umi_in_data[N*DW-1:0]));
-
-   //TODO: add checker for one hot!
 
 endmodule
