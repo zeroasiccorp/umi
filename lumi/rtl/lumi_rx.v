@@ -240,7 +240,7 @@ module lumi_rx
    assign iowidth[10:0] = 11'h1 << csr_iowidth[7:0];
 
    // bytes per clock cycle
-   // Updating to 128b DW. TODO: this will need to change later
+   // Updating to 128b DW
    assign byterate[$clog2((DW+AW+AW+CW))-1:0] = {{($clog2(DW+AW+AW+CW)-8){1'b0}},iowidth[7:0]};
 
    //########################################
@@ -434,7 +434,7 @@ module lumi_rx
             rx_crdt_resp[15:0] <= csr_crdt_resp_init[15:0];
          end
        else
-         begin // TODO - sync between io clock (read signals) and register (clk)
+         begin
             if (fifo_rd[0])
               rx_crdt_req[15:0]  <= rx_crdt_req[15:0]  + 1;
             if (fifo_rd[1])

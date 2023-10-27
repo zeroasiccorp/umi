@@ -52,7 +52,6 @@ module umi_decode #(parameter CW = 32)
 
 `include "umi_messages.vh"
 
-   // Invalid - TODO - should we qualify other bits?
    assign cmd_invalid          = (command[7:0]==UMI_INVALID);
 
    // request/response/link

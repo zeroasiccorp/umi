@@ -80,7 +80,6 @@ module umi_crossbar
      end // for (i=0;i<N;i=i+1)
 
    // masking final select to help synthesis pruning
-   // TODO: check in syn if this is strictly needed
 
    assign umi_out_sel[N*N-1:0] = grants[N*N-1:0] & ~mask[N*N-1:0];
 
