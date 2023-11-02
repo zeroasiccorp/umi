@@ -337,6 +337,12 @@ module umi_fifo_flex
                .ctrl         (1'b0),
                .test         (1'b0));
      end
+   else
+     begin
+        assign fifo_full_raw  = 'b0;
+        assign fifo_empty_raw = 'b0;
+        assign fifo_dout      = 'b0;
+     end
    endgenerate
 
    always @(posedge umi_in_clk or negedge umi_in_nreset)
