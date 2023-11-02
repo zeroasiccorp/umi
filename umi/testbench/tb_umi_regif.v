@@ -57,7 +57,7 @@ module testbench();
             begin
                #100;
                if (error)
-                 $display("Test faild :-(");
+                 $display("Test failed :-(");
                else
                  $display("Test passed :-)");
                $finish;

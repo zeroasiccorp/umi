@@ -10,7 +10,7 @@
  *
  * This file describes the standard opcodes for umi transactions.
  *
- * opcode[3:0] dicates transaction types
+ * opcode[3:0] dictates transaction types
  * opcode[7:4] is used for hints and transaction options.
  *
  ******************************************************************************/
