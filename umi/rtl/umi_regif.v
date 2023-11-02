@@ -184,7 +184,7 @@ module umi_regif
    assign reg_resp  = (cmd_read | cmd_write) & udev_req_valid & udev_req_ready & group_match;
 
    // single cycle stall on every ready
-   // Amir - BUG - there is no garantee that in the next cycle after the
+   // Amir - BUG - there is no guarantee that in the next cycle after the
    // read req the ready will be high, need to hold the data in that case
 
 //   always @ (posedge clk or negedge nreset)

@@ -130,7 +130,7 @@ while($bytes<$n){
 
     #randomize destination address
     if($mode eq "random"){
-	$dstaddr    = $addrid + ((int(rand(hex("0xFFFFFFFF"))) + 0) & $addrmask); #filter "D/F group" and illegal alings
+	$dstaddr    = $addrid + ((int(rand(hex("0xFFFFFFFF"))) + 0) & $addrmask); #filter "D/F group" and illegal aligns
 	$returnaddr = $returnid+((int(rand(hex("0xFFFFFFFF")))) & $addrmask);
     }
     #create a burst of transactions

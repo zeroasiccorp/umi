@@ -65,7 +65,7 @@ module umi_arbiter
                                   ~thermometer[N-1:0] &
                                    requests[N-1:0];
 
-        // Priority Slection Using Masked Inputs
+        // Priority Selection Using Masked Inputs
         umi_priority #(.N(N))
         umi_prioroty(// Outputs
                      .grants   (spec_grants[i][N-1:0]),

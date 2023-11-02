@@ -4,7 +4,7 @@
  * License:   (c) 2023 Zero ASIC Corporation
  *
  * Documentation:
- * This block converts UMI transations between diffent width options
+ * This block converts UMI transactions between different width options
  * Ver 1 - only split large width to small, no merge small->large
  *
  * TODO Future enhancements:

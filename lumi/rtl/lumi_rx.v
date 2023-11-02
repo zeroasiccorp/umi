@@ -12,7 +12,7 @@
  * - converts UMI signaling layer (cmd, addr, data) to multiplexed LUMI i/f
  *
  * Version history:
- * Version 1 - conver from CLINK to LUMI
+ * Version 1 - convert from CLINK to LUMI
  * Version 2 - reduce fifo sizes by diving into multiple fifo's
  *****************************************************************************/
 module lumi_rx
@@ -394,7 +394,7 @@ module lumi_rx
      else if (rxvalid)
        sopptr <= sopptr_next;
 
-   // Count by the number of bytes per cycle transfered
+   // Count by the number of bytes per cycle transferred
    // When reaching the end of the header need to re-align to the remaining bytes
    assign sopptr_next = ((sopptr + byterate) >= rxbytes_to_rcv) ?
                         0 :
@@ -494,9 +494,9 @@ module lumi_rx
         /* verilator lint_off UNSIGNED */
         // Mask for looking at empty fifo
         assign fifo_dout_mask[i] = (i[7:0] & fifo_mux_mask[7:0]) == fifo_mux_mask[7:0];
-        // Shift for input busses
+        // Shift for input buses
         assign fifo_wr_shift[i*8+:8] = fifo_mux_sel[i]  ? i >> (LOGNFIFO[7:0] - csr_iowidth) : 8'h0;
-        // Shift for output busses
+        // Shift for output buses
         assign fifo_rd_shift[i*8+:8] = fifo_dout_sel[i] ? 8'h0 : (i+1)*(NFIFO[7:0] >> csr_iowidth)-1'b1;
      end
 
@@ -1017,7 +1017,7 @@ module lumi_rx
      else if (sync_fifo_rd[0])
        req_rxptr <= req_rxptr_next;
 
-   // Count by the number of bytes per cycle transfered
+   // Count by the number of bytes per cycle transferred
    // When reaching the end of the header need to re-align to the remaining bytes
    // Special case - need to check that the fifo data is cmd_only and then hold rxptr
 
@@ -1026,7 +1026,7 @@ module lumi_rx
                            0 :
                            req_rxptr + byterate;
 
-   // Transfer shift regster data when counter rolls over
+   // Transfer shift register data when counter rolls over
    // Need to stall it when the output is not ready
    always @ (posedge clk or negedge nreset)
      if (~nreset)
@@ -1095,7 +1095,7 @@ module lumi_rx
      else if (sync_fifo_rd[1])
        resp_rxptr <= resp_rxptr_next;
 
-   // Count by the number of bytes per cycle transfered
+   // Count by the number of bytes per cycle transferred
    // When reaching the end of the header need to re-align to the remaining bytes
    // Special case - need to check that the fifo data is cmd_only and then hold rxptr
 
@@ -1104,7 +1104,7 @@ module lumi_rx
                             0 :
                             resp_rxptr + byterate;
 
-   // Transfer shift regster data when counter rolls over
+   // Transfer shift register data when counter rolls over
    // Need to stall it when the output is not ready
    always @ (posedge clk or negedge nreset)
      if (~nreset)
