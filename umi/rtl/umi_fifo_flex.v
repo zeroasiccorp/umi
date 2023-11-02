@@ -10,7 +10,6 @@
  * TODO Future enhancements:
  * 1. merge small->large transactions (adds latency)
  * 2. do not split large->small transactions in case they carry no data
- * 3. manipulate EOM for splits to allow higher level optimization
  *
  * Known limitation/bugs:
  * 1. does not handle cases where SIZE>ODW (does not manipulate SIZE)

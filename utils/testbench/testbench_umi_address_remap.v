@@ -25,7 +25,7 @@ module testbench #(
     // control block
     initial begin
         if ($test$plusargs("trace")) begin
-            $dumpfile("waveform.vcd");
+            $dumpfile("waveform.fst");
             $dumpvars();
         end
     end

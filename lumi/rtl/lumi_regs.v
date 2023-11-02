@@ -245,7 +245,6 @@ module lumi_regs
               .udev_resp_ready  (udev_resp_ready),
               .reg_rddata       (reg_rddata[RW-1:0]));
 
-   // TODO - implement write size
    // Write Decode
    assign write_ctrl       = reg_write & (reg_addr[7:2]==LUMI_CTRL[7:2]);
    assign write_status     = reg_write & (reg_addr[7:2]==LUMI_STATUS[7:2]);

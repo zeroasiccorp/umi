@@ -8,6 +8,7 @@ module testbench (
    parameter integer DW=256;
    parameter integer AW=64;
    parameter integer CW=32;
+   parameter integer CTRLW=8;
    parameter integer RAMDEPTH=512;
 
 
@@ -28,6 +29,8 @@ module testbench (
    wire [AW-1:0]        udev_req_dstaddr;
    wire [AW-1:0]        udev_req_srcaddr;
    wire                 udev_req_valid;
+
+   wire [CTRLW-1:0]  sram_ctrl = 8'b0;
 
    ///////////////////////////////////////////
    // Host side umi agents
@@ -63,6 +66,7 @@ module testbench (
    umi_mem_agent #(.CW(CW),
                    .AW(AW),
                    .DW(DW),
+                   .CTRLW(CTRLW),
                    .RAMDEPTH(RAMDEPTH))
    umi_mem_agent_i(/*AUTOINST*/
                    // Outputs
@@ -75,6 +79,7 @@ module testbench (
                    // Inputs
                    .clk                 (clk),
                    .nreset              (nreset),
+                   .sram_ctrl           (sram_ctrl[CTRLW-1:0]),
                    .udev_req_valid      (udev_req_valid),
                    .udev_req_cmd        (udev_req_cmd[CW-1:0]),
                    .udev_req_dstaddr    (udev_req_dstaddr[AW-1:0]),
@@ -123,7 +128,7 @@ module testbench (
      begin
         if ($test$plusargs("trace"))
           begin
-             $dumpfile("testbench.vcd");
+             $dumpfile("testbench.fst");
              $dumpvars(0, testbench);
           end
      end

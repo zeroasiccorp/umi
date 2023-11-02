@@ -39,8 +39,9 @@ def build_testbench(topo="2d"):
     vlt_config = EX_DIR / 'utils' / 'testbench' / 'config.vlt'
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
 
-    # Settings
-    dut.set('option', 'trace', True)  # enable VCD (TODO: FST option)
+    # Settings - enable tracing
+    dut.set('option', 'trace', True)
+    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
 
     # Build simulator
     dut.run()

@@ -180,7 +180,6 @@ module umi_endpoint
               // Inputs
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
-   // TODO - implement atomic
    assign loc_read   = ready_gated & cmd_read & udev_req_valid & ~request_stall;
    assign loc_write  = ready_gated & (cmd_write | cmd_write_posted) & udev_req_valid & ~request_stall;
    assign loc_atomic = ready_gated & cmd_atomic & udev_req_valid & ~request_stall;
