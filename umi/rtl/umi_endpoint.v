@@ -143,6 +143,8 @@ module umi_endpoint
               // Inputs
               .packet_cmd       (udev_req_cmd[CW-1:0])); // Templated
 
+   assign loc_opcode[7:5] = 'b0;
+
    /* umi_decode AUTO_TEMPLATE(
     .command (udev_req_cmd[]),
     );*/
