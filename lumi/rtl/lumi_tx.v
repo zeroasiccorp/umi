@@ -88,7 +88,6 @@ module lumi_tx
    wire [$clog2(DW+AW+AW+CW)-1:0] byterate;
    //   wire [$clog2(DW/8)-1:0] byterate;
    wire [(DW+AW+AW+CW)/8-1:0]     bytemask;
-   wire [IOW-1:0]                 bitmask;
    wire [(DW+AW+AW+CW)/8-1:0]     valid_next;
 
    wire [1:0]                     rxready;
@@ -368,11 +367,7 @@ module lumi_tx
    assign iowidth[10:0] = 11'h1 << csr_iowidth[7:0];
 
    // Bytes transferred per cycle
-   // TODO - this will need to change based on DW
    assign byterate[$clog2(DW+AW+AW+CW)-1:0] = {{($clog2(DW+AW+AW+CW)-8){1'b0}},iowidth[7:0]};
-
-   // Enabling IO pins - TODO?
-   assign bitmask[IOW-1:0] = ~({(IOW){1'b1}} << (iowidth<<3));
 
    //########################################
    //# FLOW CONTROL - currently not affected by CLINK RX ready.

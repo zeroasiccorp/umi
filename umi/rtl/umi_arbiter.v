@@ -13,6 +13,9 @@
  * -     10 = reserved
  * -     11 = reserved
  *
+ * TODO: Support a round robin arbiter. Current scheme has bugs that can cause
+ * deadlock.
+ *
  ******************************************************************************/
 module umi_arbiter
   #(parameter N      = 4,         // number of inputs
@@ -81,5 +84,9 @@ module umi_arbiter
 
    // Detect collision on pushback
    assign collision = |(requests[N-1:0] & ~grants[N-1:0]);
+
+`ifdef VERILATOR
+   assert property (@(posedge clk) $onehot0(grants));
+`endif
 
 endmodule
