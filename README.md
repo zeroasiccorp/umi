@@ -422,7 +422,7 @@ Rules:
 2. Copy HOSTID, ERR, EOF, PROT, QOS, SIZE, OPCODE, and any USER or RESERVED fields into each split output.
 3. LEN_out\[i\] may be different for each split output as long as sum(LEN_out[0:N-1])+N == LEN_in+1.
 4. DA_out\[i\] := DA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  DA_out\[0\] := DA_in.
-5. SA_out\[i\] := SA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  SA_out\[0\] := SA_in.  Applies only to split requests, because reponses do not have the SA field.
+5. SA_out\[i\] := SA_out\[i-1\] + (2^SIZE)*(LEN_out\[i-1\]+1), 1<=i<=(N-1).  SA_out\[0\] := SA_in.  Applies only to split requests, because responses do not have the SA field.
 6. EOM_out\[i\] := EOM_in & (i == (N-1)).
 
 ### 4.1.2 Merging Rules
@@ -567,7 +567,7 @@ This signal is mandatory in all implementations.
 
 #### txctrl[1]/rxctrl[1]
 
-Optional signal indicating burst trafic. When high this signal indicates that the current packet is continous to the previous one and therefore does not carry the header. It can only be asserted when the packet is continous to the previous one and has the same SUMI header.
+Optional signal indicating burst traffic. When high this signal indicates that the current packet is continuous to the previous one and therefore does not carry the header. It can only be asserted when the packet is continuous to the previous one and has the same SUMI header.
 
 #### txctrl[2]/rxctrl[2]
 
@@ -598,7 +598,7 @@ LUMI packet format follows the UMI one and serializes the UMI cmd, dstaddr, srca
 | data    | srcaddr | dstaddr | cmd    |
 
 LUMI packets are transmitted over the Tx/Rx pins with reduces interface size and are sent LSB first.
-The following example shows packet transmittion over 64b interface:
+The following example shows packet transmission over 64b interface:
 
 | Cycle | 63:32    | 31:0       |
 | ----- | -------- | ---------- |
@@ -631,11 +631,11 @@ The following features are implemented in order to optimize the link efficiency:
   | 2     | S[31:0]  | A[63:32]   |
   | 3     | D[31:0]  | S[63:32]   |
 
-* Packet burst (optional) - when ctrl[1] pin is being used lumi can merge continous packets.
+* Packet burst (optional) - when ctrl[1] pin is being used lumi can merge continuous packets.
 
 ### 5.4 Flow control
 
-LUMI is using credit based flow control. The credit init/update messages will be sent over the link using LUMI link-layer commands and are controlled by the reciever side. The transmitter side of each link is responsible for not exceeding published credits. If the transmitter does exceed published credits, subsequent behavior of the receiver is undefined.
+LUMI is using credit based flow control. The credit init/update messages will be sent over the link using LUMI link-layer commands and are controlled by the receiver side. The transmitter side of each link is responsible for not exceeding published credits. If the transmitter does exceed published credits, subsequent behavior of the receiver is undefined.
 Credit update messages are using command only in order to reduce the overhead.
 
 Credit init/update messages will be sent using link-layer UMI command:
