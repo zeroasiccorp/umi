@@ -6,7 +6,7 @@
  * Documentation:
  *
  * The crossbar is pipelined and non-blocking, allowing for any-to-any
- * simulataneous input to output connections.
+ * simultaneous input to output connections.
  *
  * The input request vector is a concatenated vectors of inputs
  * requesting outputs ports per the order below.

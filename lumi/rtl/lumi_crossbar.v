@@ -10,7 +10,7 @@
  *
  * Documentation:
  *
- * 1. Note assymetry, only host can initiate register access
+ * 1. Note asymmetry, only host can initiate register access
  * 2. Pipelined interface avoids lockup/complexity.
  *
  * ## HOST/CONTROLLER SIDE

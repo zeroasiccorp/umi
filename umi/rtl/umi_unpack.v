@@ -96,7 +96,7 @@ module umi_unpack
               // Inputs
               .command          (packet_cmd[CW-1:0]));   // Templated
 
-   // Command fiels - TODO: should we qualify these with the command type?
+   // Command fields - TODO: should we qualify these with the command type?
    assign cmd_opcode[4:0] = packet_cmd[4:0];
    assign cmd_size[2:0]   = packet_cmd[7:5];  // Ignore for error and link
    assign cmd_len[7:0]    = cmd_atomic ? 8'd0 : packet_cmd[15:8]; // Ignore for error and link

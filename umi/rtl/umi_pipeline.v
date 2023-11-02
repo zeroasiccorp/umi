@@ -7,7 +7,7 @@
  *
  * -This module create a single cycle umi pipeline.
  *
- * -The "umi_in_ready" output is ommitted to amke it clear that the ready signal
+ * -The "umi_in_ready" output is omitted to make it clear that the ready signal
  * must be broadcasted externally.
  *
  * -We don't reset the packet

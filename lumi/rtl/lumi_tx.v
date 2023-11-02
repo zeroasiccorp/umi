@@ -9,7 +9,7 @@
  * reproduction, or distribution of this software is strictly prohibited.
  *
  * Version history:
- * Version 1 - conver from CLINK to LUMI
+ * Version 1 - convert from CLINK to LUMI
  *****************************************************************************/
 module lumi_tx
   #(parameter TARGET = "DEFAULT", // implementation target
@@ -273,7 +273,7 @@ module lumi_tx
                           umi_out_cmd;
 
    // response takes precedence over request
-   // Ready to the UMI input is set upon packet acception for tranmission (lumi_txrdy)
+   // Ready to the UMI input is set upon packet acception for transmission (lumi_txrdy)
    // credit update is highest priority so it blocks both ready signals
    // Add phy_txrdy to allow for backpressure (local) from the phy
    assign umi_req_in_gated  = umi_req_in_valid  & phy_txrdy & rxready[0] & ~(|crdt_updt_send);
@@ -345,7 +345,7 @@ module lumi_tx
    assign req_packet_lines[11:0]  = req_packet_bytes[11:0]  >> csr_iowidth[7:0];
    assign resp_packet_lines[11:0] = resp_packet_bytes[11:0] >> csr_iowidth[7:0];
 
-   // The above calulation is doing round down so need to see if an extra line is needed
+   // The above calculation is doing round down so need to see if an extra line is needed
    assign req_packet_mod[11:0]  = ~(req_packet_lines[11:0]  << csr_iowidth[7:0]) & req_packet_bytes[11:0];
    assign resp_packet_mod[11:0] = ~(resp_packet_lines[11:0] << csr_iowidth[7:0]) & resp_packet_bytes[11:0];
 
@@ -484,7 +484,7 @@ module lumi_tx
    assign shiftreg_in_new = {umi_out_data,umi_out_srcaddr,umi_out_dstaddr,umi_muxed_cmd};
 
    // Third step - only send the required number of bits
-   // TODO - do not send SA for resonses
+   // TODO - do not send SA for responses
    assign req_cmd_only  = req_cmd_invalid    |
                           req_cmd_link       |
                           req_cmd_link_resp  ;
