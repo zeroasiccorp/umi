@@ -115,7 +115,7 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
     for count in range (n):
         addr = np.random.randint(0, 512)
         src_addr = random.randrange(2**64-1)
-        # lenth should not cross the DW boundary - umi_mem_agent limitation
+        # length should not cross the DW boundary - umi_mem_agent limitation
         length = np.random.randint(0, 256)
         wordindexer = np.random.choice([0,1,2])
         maxrange = 2**(8*(2**wordindexer))
