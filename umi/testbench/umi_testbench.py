@@ -74,7 +74,7 @@ def run_tb(chip, job):
         chip.run()
     except SiliconCompilerError:
         # If step fails, it's probably cause of test failure - no need to print
-        # out stacktrace. If in quiet mode, print out conents of umidriver log.
+        # out stacktrace. If in quiet mode, print out contents of umidriver log.
         if chip.get('option', 'quiet'):
             workdir = chip._getworkdir(step='execute', index='0')
             log = f'{workdir}/execute.log'
