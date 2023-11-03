@@ -2,6 +2,21 @@
 
 # Universal Memory Interface (UMI)
 
+# License
+
+[Apache License 2.0](LICENSE)
+
+# Contributing
+
+UMI is an open-source project and welcomes contributions. To find out
+how to contribute to the project, see our
+[Contributing Guidelines.](./CONTRIBUTING.md)
+
+# Issues / Bugs
+
+We use [GitHub Issues](https://github.com/zeroasiccorp/umi/issues)
+for tracking requests and bugs.
+
 ## 1. Introduction
 
 ### 1.1 Architecture
