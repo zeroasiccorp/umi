@@ -7,7 +7,7 @@ Thank you for considering contributing to the UMI project!
 - Start small, relationships need time to grow
 - All new features must come with tests
 - Keep PRs short to simplify review
-- Large PRs should be preceeded by discussions
+- Large PRs should be preceded by discussions
 - Discuss with core team before proposing core changes
 - PRs should include changes only to files related to change
 - Comply with coding guidelines/style of project
@@ -87,7 +87,7 @@ $ git checkout -b your-branch-name origin/main
 $ git push --set-upstream fork your-branch-name
 ```
 
-- Push your commits to your SiliCompiler branch on GitHub (team contributors)
+- Push your commits to your umi branch on GitHub (team contributors)
 ```sh
 $ git push -u origin your-branch-name
 ```
@@ -95,34 +95,13 @@ $ git push -u origin your-branch-name
 
 ## Running the tests
 
-- Run the basic test suite with pytest.
-```sh
-$ pytest -m "not eda"
-```
-- This runs the tests for the current environment, without invoking any tools.
-
-- Run the entire test suite with pytest. Note that this will require all tools to be installed for the tests to pass.
-```sh
-$ pytest
-```
-
-- For more information on the test suite, see [tests/README.md](tests/README.md).
+Testbench and run scripts are provided for some of the modules in <module>/testbench
+Where applicable the testbench and test suite need to be updated for contributing to this project and committed together with the code changes.
 
 ## Create a Pull Request
 
 - Create a [pull request](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request) through github.
 
-## Building the docs
-
-- Build the docs in the ``docs`` directory using [Sphinx](https://www.sphinx-doc.org/en/stable/).
-
-```sh
-$ cd docs
-$ make html
-```
-- Open ``_build/html/index.html`` in your browser to view the docs.
-
-
 ## Resources ###
 
-Original version based on [Flask contribution guidelines](https://flask.palletsprojects.com/en/2.0.x/contributing/)
+Original version based on [Flask contribution guidelines](https://flask.palletsprjects.com/en/2.0.x/contributing/)
