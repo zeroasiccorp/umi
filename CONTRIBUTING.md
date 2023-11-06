@@ -69,26 +69,6 @@ $ cd umi
 $ git remote add fork https://github.com/{username}/umi
 ```
 
-
-
-## Install Python Requirements
-
--  Create a virtualenv.
-```sh
-$ python3 -m venv env
-$ . env/bin/activate
-```
-
-- Upgrade pip and setuptools.
-```sh
-$ python3 -m pip install --upgrade pip setuptools
-```
-
-- Install the development dependencies
-```sh
-$ python3 -m pip install -e .[test,docs]
-```
-
 ## Start coding
 
 -  Create a branch to identify the issue you would like to work on.
