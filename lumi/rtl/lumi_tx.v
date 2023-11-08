@@ -112,14 +112,14 @@ module lumi_tx
    wire [11:0]                    cmd_req_bytes;
    reg [11:0]                     req_packet_bytes;
    reg [11:0]                     resp_packet_bytes;
-   reg [11:0]                     req_packet_lines;
-   reg [11:0]                     resp_packet_lines;
-   reg [11:0]                     req_packet_mod;
-   reg [11:0]                     resp_packet_mod;
-   reg [15:0]                     req_crdt_need;
-   reg [15:0]                     resp_crdt_need;
-   reg [15:0]                     req_crdt_avail;
-   reg [15:0]                     resp_crdt_avail;
+   wire [11:0]                    req_packet_lines;
+   wire [11:0]                    resp_packet_lines;
+   wire [11:0]                    req_packet_mod;
+   wire [11:0]                    resp_packet_mod;
+   wire [15:0]                    req_crdt_need;
+   wire [15:0]                    resp_crdt_need;
+   wire [15:0]                    req_crdt_avail;
+   wire [15:0]                    resp_crdt_avail;
    reg [15:0]                     crdt_updt_cntr;
    reg [1:0]                      crdt_updt_send;
 
