@@ -317,10 +317,12 @@ module tl2umi_np #(
                         tl_d_source <= dataag_out_resp_source;
                         put_bytes_resp <= dataag_out_resp_bytes;
                     end
+                `ifndef SYNTHESIS
                     else begin
                         // Not supported request, ignore
                         $display("Unsupported response on UMI side %d", dataag_out_resp_cmd_opcode);
                     end
+                `endif
                 end
             end
             RESP_RD_BRST: begin
@@ -381,8 +383,10 @@ module tl2umi_np #(
                 end
             end
             default: begin
+            `ifndef SYNTHESIS
                 // Entered wrong state
                 $display("Entered Invalid State in Response State Machine");
+            `endif
             end
 
             endcase
@@ -628,8 +632,10 @@ module tl2umi_np #(
                         endcase
                     end
                     default: begin
+                    `ifndef SYNTHESIS
                         // Not supported request, ignore
                         $display("Unsupported request on TL side %d", tl_a_opcode);
+                    `endif
                     end
                     endcase
                 end
@@ -693,8 +699,10 @@ module tl2umi_np #(
                 end
             end
             default: begin
+            `ifndef SYNTHESIS
                 // Entered wrong state
                 $display("Entered Invalid State in Request State Machine");
+            `endif
             end
 
             endcase
