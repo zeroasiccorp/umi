@@ -615,6 +615,7 @@ module lumi_rx
           lnk_sop[1:0]            <= 'h0;
           lnk_rxdata_mask[CW-1:0] <= 'h0;
           lnk_shiftreg[CW-1:0]    <= 'h0;
+          lnk_fifo_wr             <= 'b0;
        end
      else if (rxvalid & (rxtype[2:0] == 3'b100))
        begin
