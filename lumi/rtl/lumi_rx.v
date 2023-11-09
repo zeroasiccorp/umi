@@ -97,10 +97,9 @@ module lumi_rx
    wire [1:0]                       fifo_empty;
    wire                             lnk_fifo_empty;
    wire [1:0]                       fifo_wr;
-   wire                             lnk_fifo_wr;
+   reg                              lnk_fifo_wr;
    wire [1:0]                       fifo_rd;
    wire                             lnk_fifo_rd;
-   reg                              lnk_cmd_vld;
    wire [NFIFO:0]                   fifo_mux_sel;
    wire [NFIFO-1:0]                 fifo_dout_sel;
    wire [NFIFO-1:0]                 fifo_dout_mask;
@@ -602,9 +601,36 @@ module lumi_rx
    //########################################
    // link cmd Fifo - no FC
    //########################################
-   assign lnk_fifo_wr = rxvalid & (rxtype[2:0] == 3'b100);
-   assign lnk_fifo_rd = ~lnk_fifo_empty;
-   assign lnk_fifo_din[CW-1:0] = rxdata[CW-1:0];
+   // Shift register to align full command is done in front of the async
+   // fifo. This is done to handle a case of overflow so losing a full
+   // command does not get you out of framing.
+   assign lnk_sop_next[1:0] = lnk_sop[1:0] + iowidth[1:0];
+
+   // For shift left
+   assign lnk_sop_bit[4:0] = {3'b000,lnk_sop[1:0]};
+
+   always @(posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       begin
+          lnk_sop[1:0]               <= 'h0;
+          lnk_fifo_dout_mask[CW-1:0] <= 'h0;
+          lnk_shiftreg[CW-1:0]       <= 'h0;
+       end
+     else if (rxvalid & (rxtype[2:0] == 3'b100))
+       begin
+          lnk_sop[1:0]               <= lnk_sop_next[1:0];
+          lnk_fifo_dout_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
+                                        ~({CW{1'b1}}<<(iowidth<<3))  :
+                                        lnk_fifo_dout_mask[CW-1:0] << (iowidth*8);
+          lnk_shiftreg[CW-1:0]       <= (lnk_sop[1:0] == 2'b00) ?
+                                        rxdata[CW-1:0] :
+                                        (rxdata[CW-1:0] << (lnk_sop_bit<<3)) & lnk_fifo_dout_mask[CW-1:0] |
+                                        lnk_shiftreg[CW-1:0] & ~lnk_fifo_dout_mask[CW-1:0];
+          lnk_fifo_wr                <= rxvalid & (rxtype[2:0] == 3'b100) & (lnk_sop_next[1:0] == 2'b00);
+       end
+
+   assign lnk_fifo_rd          = ~lnk_fifo_empty;
+   assign lnk_fifo_din[CW-1:0] = lnk_shiftreg[CW-1:0];
 
    la_asyncfifo #(.DW(CW)  ,  // Link commands are only 32b
                   .DEPTH(8),  // FIFO depth
@@ -631,32 +657,8 @@ module lumi_rx
               .wr_din           (lnk_fifo_din[CW-1:0]),
               .rd_en            (lnk_fifo_rd));
 
-   assign lnk_sop_next[1:0] = lnk_sop[1:0] + iowidth[1:0];
-
-   // For shift left
-   assign lnk_sop_bit[4:0] = {3'b000,lnk_sop[1:0]};
-
-   always @(posedge clk or negedge nreset)
-     if (~nreset)
-       begin
-          lnk_sop[1:0]               <= 'h0;
-          lnk_fifo_dout_mask[CW-1:0] <= 'h0;
-          lnk_shiftreg[CW-1:0]       <= 'h0;
-       end
-     else if (lnk_fifo_rd)
-       begin
-          lnk_sop[1:0]               <= lnk_sop_next[1:0];
-          lnk_fifo_dout_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
-                                        ~({CW{1'b1}}<<(iowidth<<3))  :
-                                        lnk_fifo_dout_mask[CW-1:0] << (iowidth*8);
-          lnk_shiftreg[CW-1:0]       <= (lnk_sop[1:0] == 2'b00) ?
-                                        lnk_fifo_dout[CW-1:0] :
-                                        (lnk_fifo_dout[CW-1:0] << (lnk_sop_bit<<3)) & lnk_fifo_dout_mask[CW-1:0] |
-                                        lnk_shiftreg[CW-1:0] & ~lnk_fifo_dout_mask[CW-1:0];
-       end
-
    /*umi_unpack AUTO_TEMPLATE(
-    .packet_cmd        (lnk_shiftreg[]),
+    .packet_cmd        (lnk_fifo_dout[]),
     .cmd_user_extended (lnk_cmd_user[]),
     .cmd_.*            (),
     );*/
@@ -677,22 +679,15 @@ module lumi_rx
                .cmd_err         (),                      // Templated
                .cmd_hostid      (),                      // Templated
                // Inputs
-               .packet_cmd      (lnk_shiftreg[CW-1:0])); // Templated
+               .packet_cmd      (lnk_fifo_dout[CW-1:0])); // Templated
 
    //########################################
-   //# "steal" incoming credit update
+   //# Incoming credit update
    //########################################
-   always @(posedge clk or negedge nreset)
-     if (~nreset)
-       lnk_cmd_vld <= 'h0;
-     else
-       lnk_cmd_vld <= lnk_fifo_rd &
-                      (lnk_sop_next[1:0] == 2'b00);
-
-   assign credit_req_in[0] = lnk_cmd_vld &
+   assign credit_req_in[0] = lnk_fifo_rd &
                              ((lnk_cmd_user[7:0] == 8'h01) | (lnk_cmd_user[7:0] == 8'h02));
 
-   assign credit_req_in[1] = lnk_cmd_vld &
+   assign credit_req_in[1] = lnk_fifo_rd &
                              ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
 
    always @(posedge clk or negedge nreset)
