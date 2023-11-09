@@ -85,7 +85,7 @@ module lumi_rx
    wire [(DW+AW+AW+CW)-1:0]         req_shiftreg_in;
    wire [(DW+AW+AW+CW)-1:0]         resp_shiftreg_in;
    reg [CW-1:0]                     lnk_shiftreg;
-   reg [CW-1:0]                     lnk_fifo_dout_mask;
+   reg [CW-1:0]                     lnk_rxdata_mask;
    reg [1:0]                        lnk_sop;
    wire [4:0]                       lnk_sop_bit;
    wire [1:0]                       lnk_sop_next;
@@ -612,21 +612,21 @@ module lumi_rx
    always @(posedge ioclk or negedge ionreset)
      if (~ionreset)
        begin
-          lnk_sop[1:0]               <= 'h0;
-          lnk_fifo_dout_mask[CW-1:0] <= 'h0;
-          lnk_shiftreg[CW-1:0]       <= 'h0;
+          lnk_sop[1:0]            <= 'h0;
+          lnk_rxdata_mask[CW-1:0] <= 'h0;
+          lnk_shiftreg[CW-1:0]    <= 'h0;
        end
      else if (rxvalid & (rxtype[2:0] == 3'b100))
        begin
-          lnk_sop[1:0]               <= lnk_sop_next[1:0];
-          lnk_fifo_dout_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
-                                        ~({CW{1'b1}}<<(iowidth<<3))  :
-                                        lnk_fifo_dout_mask[CW-1:0] << (iowidth*8);
-          lnk_shiftreg[CW-1:0]       <= (lnk_sop[1:0] == 2'b00) ?
-                                        rxdata[CW-1:0] :
-                                        (rxdata[CW-1:0] << (lnk_sop_bit<<3)) & lnk_fifo_dout_mask[CW-1:0] |
-                                        lnk_shiftreg[CW-1:0] & ~lnk_fifo_dout_mask[CW-1:0];
-          lnk_fifo_wr                <= rxvalid & (rxtype[2:0] == 3'b100) & (lnk_sop_next[1:0] == 2'b00);
+          lnk_sop[1:0]            <= lnk_sop_next[1:0];
+          lnk_rxdata_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
+                                     ~({CW{1'b1}}<<(iowidth<<3))  :
+                                     lnk_rxdata_mask[CW-1:0] << (iowidth*8);
+          lnk_shiftreg[CW-1:0]    <= (lnk_sop[1:0] == 2'b00) ?
+                                     rxdata[CW-1:0] :
+                                     (rxdata[CW-1:0] << (lnk_sop_bit<<3)) & lnk_rxdata_mask[CW-1:0] |
+                                     lnk_shiftreg[CW-1:0] & ~lnk_rxdata_mask[CW-1:0];
+          lnk_fifo_wr             <= rxvalid & (rxtype[2:0] == 3'b100) & (lnk_sop_next[1:0] == 2'b00);
        end
 
    assign lnk_fifo_rd          = ~lnk_fifo_empty;
