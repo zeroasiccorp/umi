@@ -2,21 +2,6 @@
 
 # Universal Memory Interface (UMI)
 
-## License
-
-[Apache License 2.0](LICENSE)
-
-## Contributing
-
-UMI is an open-source project and welcomes contributions. To find out
-how to contribute to the project, see our
-[Contributing Guidelines.](./CONTRIBUTING.md)
-
-## Issues / Bugs
-
-We use [GitHub Issues](https://github.com/zeroasiccorp/umi/issues)
-for tracking requests and bugs.
-
 ## 1. Introduction
 
 ### 1.1 Architecture
@@ -922,3 +907,18 @@ UCIe also requires implementing other phy control logic to maintain the link. Th
 [3] [AMBA4 AXI Stream Protocol Specification (09 April 2021, Version A)](https://developer.arm.com/documentation/ihi0051/a)
 
 [4] [AMBA4 APB Protocol Specification (13 April 2010, Version C)](https://developer.arm.com/documentation/ihi0024/c)
+
+## License
+
+[Apache License 2.0](LICENSE)
+
+## Contributing
+
+UMI is an open-source project and welcomes contributions. To find out
+how to contribute to the project, see our
+[Contributing Guidelines.](./CONTRIBUTING.md)
+
+## Issues / Bugs
+
+We use [GitHub Issues](https://github.com/zeroasiccorp/umi/issues)
+for tracking requests and bugs.
