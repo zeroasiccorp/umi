@@ -318,8 +318,20 @@ module tl2umi_np #(
                         put_bytes_resp <= dataag_out_resp_bytes;
                     end
                     else begin
-                        // Not supported request, ignore
+                        // Not supported response type. Ignore and stay in idle.
+                        resp_state <= RESP_IDLE;
+                        dataag_out_resp_ready_assert <= 1'b1;
+                        tl_d_valid <= 1'b0;
+                        tl_d_opcode <= 3'b0;
+                        tl_d_size <= 3'b0;
+                        tl_d_source <= 5'b0;
+                        tl_d_data <= 64'b0;
+                        put_ack_resp <= 1'b0;
+                        put_bytes_resp <= 8'b0;
+                        get_ack_resp <= 1'b0;
+                    `ifndef SYNTHESIS
                         $display("Unsupported response on UMI side %d", dataag_out_resp_cmd_opcode);
+                    `endif
                     end
                 end
             end
@@ -381,8 +393,20 @@ module tl2umi_np #(
                 end
             end
             default: begin
-                // Entered wrong state
+                // Entered wrong state. Return to idle.
+                resp_state <= RESP_IDLE;
+                dataag_out_resp_ready_assert <= 1'b1;
+                tl_d_valid <= 1'b0;
+                tl_d_opcode <= 3'b0;
+                tl_d_size <= 3'b0;
+                tl_d_source <= 5'b0;
+                tl_d_data <= 64'b0;
+                put_ack_resp <= 1'b0;
+                put_bytes_resp <= 8'b0;
+                get_ack_resp <= 1'b0;
+            `ifndef SYNTHESIS
                 $display("Entered Invalid State in Response State Machine");
+            `endif
             end
 
             endcase
@@ -526,7 +550,7 @@ module tl2umi_np #(
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
-            req_state <= 'b0;
+            req_state <= REQ_IDLE;
             tl_a_ready_assert <= 1'b1;
             uhost_req_packet_cmd_opcode <= 'b0;
             uhost_req_packet_cmd_len <= 'b0;
@@ -538,6 +562,7 @@ module tl2umi_np #(
             uhost_req_packet_data <= 'b0;
             uhost_req_packet_valid_r <= 1'b0;
             ml_tx_non_zero_mask_r <= 1'b0;
+            put_ack_req <= 1'b0;
             put_bytes_req <= 8'b0;
         end
         else begin
@@ -628,8 +653,23 @@ module tl2umi_np #(
                         endcase
                     end
                     default: begin
-                        // Not supported request, ignore
+                        // Not supported request type. Ignore and stay in idle.
+                        req_state <= REQ_IDLE;
+                        tl_a_ready_assert <= 1'b1;
+                        uhost_req_packet_cmd_opcode <= 'b0;
+                        uhost_req_packet_cmd_len <= 'b0;
+                        uhost_req_packet_cmd_size <= 'b0;
+                        uhost_req_packet_cmd_atype <= 'b0;
+                        uhost_req_packet_cmd_eom <= 'b0;
+                        uhost_req_packet_dstaddr <= 'b0;
+                        uhost_req_packet_srcaddr <= 'b0;
+                        uhost_req_packet_data <= 'b0;
+                        uhost_req_packet_valid_r <= 1'b0;
+                        ml_tx_non_zero_mask_r <= 1'b0;
+                        put_bytes_req <= 8'b0;
+                    `ifndef SYNTHESIS
                         $display("Unsupported request on TL side %d", tl_a_opcode);
+                    `endif
                     end
                     endcase
                 end
@@ -693,8 +733,24 @@ module tl2umi_np #(
                 end
             end
             default: begin
-                // Entered wrong state
+                // Entered wrong state. Return to idle.
+                req_state <= REQ_IDLE;
+                tl_a_ready_assert <= 1'b1;
+                uhost_req_packet_cmd_opcode <= 'b0;
+                uhost_req_packet_cmd_len <= 'b0;
+                uhost_req_packet_cmd_size <= 'b0;
+                uhost_req_packet_cmd_atype <= 'b0;
+                uhost_req_packet_cmd_eom <= 'b0;
+                uhost_req_packet_dstaddr <= 'b0;
+                uhost_req_packet_srcaddr <= 'b0;
+                uhost_req_packet_data <= 'b0;
+                uhost_req_packet_valid_r <= 1'b0;
+                ml_tx_non_zero_mask_r <= 1'b0;
+                put_ack_req <= 1'b0;
+                put_bytes_req <= 8'b0;
+            `ifndef SYNTHESIS
                 $display("Entered Invalid State in Request State Machine");
+            `endif
             end
 
             endcase
