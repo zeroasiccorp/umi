@@ -270,7 +270,11 @@ module umi2tl_np #(
                             tl_a_opcode_r <= `TL_OP_LogicalData;
                         end
                     end
-                    default: $display("[UMI2TL]: Unsupported UMI Request");
+                `ifndef SYNTHESIS
+                    default: begin
+                        $display("[UMI2TL]: Unsupported UMI Request");
+                    end
+                `endif
                 endcase
             end
         end
@@ -293,7 +297,11 @@ module umi2tl_np #(
                         UMI_REQ_ATOMICMAXU: tl_a_param_r <= `TL_PA_MAXU;
                         UMI_REQ_ATOMICMINU: tl_a_param_r <= `TL_PA_MINU;
                         UMI_REQ_ATOMICSWAP: tl_a_param_r <= `TL_PL_SWAP;
-                        default: $display("[UMI2TL]: Unsupported UMI Atomic");
+                    `ifndef SYNTHESIS
+                        default: begin
+                            $display("[UMI2TL]: Unsupported UMI Atomic");
+                        end
+                    `endif
                     endcase
                 end
                 else begin
@@ -458,7 +466,11 @@ module umi2tl_np #(
             case (tl_d_opcode)
                 `TL_OP_AccessAck:       udev_resp_cmd_opcode_r <= UMI_RESP_WRITE;
                 `TL_OP_AccessAckData:   udev_resp_cmd_opcode_r <= UMI_RESP_READ;
-                default: $display("[UMI2TL]: Unsupported TileLink Response");
+            `ifndef SYNTHESIS
+                default: begin
+                    $display("[UMI2TL]: Unsupported TileLink Response");
+                end
+            `endif
             endcase
         end
     end
