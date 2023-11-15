@@ -103,13 +103,36 @@ module umi_regif
    wire                 cmd_resp;
    wire                 group_match;
    wire                 reg_resp;
+   reg                  atomic_wr;
+   reg [AW-1:0]         atomic_addr;
+   reg [RW-1:0]         atomic_data;
+   wire [RW-1:0]        atomic_wrdata;
+   reg                  atomic_add;
+   reg                  atomic_and;
+   reg                  atomic_or;
+   reg                  atomic_xor;
+   reg                  atomic_max;
+   reg                  atomic_min;
+   reg                  atomic_maxu;
+   reg                  atomic_minu;
+   reg                  atomic_swap;
 
    //########################
    // UMI INPUT
    //########################
 
-   assign reg_addr[AW-1:0]   = udev_req_dstaddr[AW-1:0];
-   assign reg_wrdata[RW-1:0] = udev_req_data[RW-1:0];
+   assign reg_addr[AW-1:0]   = atomic_wr ? atomic_addr[AW-1:0] : udev_req_dstaddr[AW-1:0];
+   assign reg_wrdata[RW-1:0] = atomic_wr ? atomic_wrdata[RW-1:0] : udev_req_data[RW-1:0];
+
+   assign atomic_wrdata[RW-1:0] = atomic_add  ? atomic_data[RW-1:0] + reg_rddata[RW-1:0] :
+                                  atomic_and  ? atomic_data[RW-1:0] & reg_rddata[RW-1:0] :
+                                  atomic_or   ? atomic_data[RW-1:0] | reg_rddata[RW-1:0] :
+                                  atomic_xor  ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
+                                  atomic_max  ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
+                                  atomic_min  ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
+                                  atomic_maxu ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
+                                  atomic_minu ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
+                                  atomic_data[RW-1:0];
 
    /* umi_unpack AUTO_TEMPLATE(
     .cmd_\(.*\)     (reg_\1[]),
@@ -179,26 +202,49 @@ module umi_regif
    endgenerate
 
    // TODO - implement atomic
-   assign reg_read  = cmd_read & udev_req_valid & udev_req_ready & group_match;
-   assign reg_write = (cmd_write | cmd_write_posted) & udev_req_valid & udev_req_ready & group_match;
-   assign reg_resp  = (cmd_read | cmd_write) & udev_req_valid & udev_req_ready & group_match;
-
-   // single cycle stall on every ready
-   // Amir - BUG - there is no guarantee that in the next cycle after the
-   // read req the ready will be high, need to hold the data in that case
-
-//   always @ (posedge clk or negedge nreset)
-//     if(!nreset)
-//       udev_req_ready <= 1'b0;
-//     else if (udev_req_valid & udev_resp_ready)
-//       udev_req_ready <= ~udev_req_ready;
-//     else
-//       udev_req_ready <= 1'b0;
+   assign reg_read  = (cmd_read | cmd_atomic) & udev_req_valid & udev_req_ready & group_match;
+   assign reg_write = (cmd_write | cmd_write_posted) & udev_req_valid & udev_req_ready & group_match |
+                      atomic_wr;
+   assign reg_resp  = (cmd_read | cmd_write) & udev_req_valid & udev_req_ready & group_match |
+                      atomic_wr;
 
    always @ (posedge clk or negedge nreset)
      if(!nreset)
+       begin
+          atomic_wr   <= 'b0;
+          atomic_addr <= 'b0;
+          atomic_data <= 'b0;
+          atomic_add  <= 'b0;
+          atomic_and  <= 'b0;
+          atomic_or   <= 'b0;
+          atomic_xor  <= 'b0;
+          atomic_max  <= 'b0;
+          atomic_min  <= 'b0;
+          atomic_maxu <= 'b0;
+          atomic_minu <= 'b0;
+          atomic_swap <= 'b0;
+       end
+     else
+       begin
+          atomic_wr   <= cmd_atomic & udev_req_valid & udev_req_ready & group_match;
+          atomic_addr <= udev_req_dstaddr;
+          atomic_data <= udev_req_data;
+          atomic_add  <= cmd_atomic_add;
+          atomic_and  <= cmd_atomic_and;
+          atomic_or   <= cmd_atomic_or;
+          atomic_xor  <= cmd_atomic_xor;
+          atomic_max  <= cmd_atomic_max;
+          atomic_min  <= cmd_atomic_min;
+          atomic_maxu <= cmd_atomic_maxu;
+          atomic_minu <= cmd_atomic_minu;
+          atomic_swap <= cmd_atomic_swap;
+       end
+
+   // single cycle stall on every ready
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
        udev_req_ready <= 1'b0;
-     else if (udev_req_valid & udev_req_ready)
+     else if (udev_req_valid & udev_req_ready | atomic_wr)
        udev_req_ready <= 1'b0;
      else
        udev_req_ready <= 1'b1;
@@ -213,7 +259,7 @@ module umi_regif
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if (reg_resp & udev_req_ready)
+     else if (reg_resp & udev_req_ready | atomic_wr)
        udev_resp_valid <= 1'b1;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
