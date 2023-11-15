@@ -116,7 +116,6 @@ module testbench();
                                 (udev_req_cmd[4:0] == UMI_REQ_WRITE) & (atomic <= 8) ? {16'h0,atomic,3'h2,UMI_REQ_ATOMIC} : // size=2, len=0
                                                                                        {16'h0,8'h3,3'h0,UMI_REQ_WRITE};
             atomic           <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? $random%255  : 0;
-            udev_req_cmd     <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? UMI_REQ_READ : UMI_REQ_WRITE;
             ram_addr         <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? ram_addr : ram_addr + 1'b1;
             udev_req_dstaddr <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? udev_req_dstaddr : $random%16777215;//reg addr has 24 bits
          end
