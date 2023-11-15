@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# Example illustrating how UMI packets handled in the Switchboard Python binding
 # Copyright (C) 2023 Zero ASIC
+# This code is licensed under Apache License 2.0 (see LICENSE for details)
 
 import random
 import numpy as np

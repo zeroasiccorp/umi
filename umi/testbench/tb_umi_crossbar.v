@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Function:  umi arbiter testbench
+ * Author:    Andreas Olofsson
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ *
+ * Documentation:
+ *
+ ******************************************************************************/
 
 module testbench();
 
@@ -13,21 +23,21 @@ module testbench();
    reg [N*DW-1:0] umi_in_data;
    reg [N*N-1:0]  umi_in_request;
    reg [N*N-1:0]  mask;
-   reg [N-1:0] 	  umi_out_ready;
-   reg 		  nreset;
-   reg 		  clk;
+   reg [N-1:0]    umi_out_ready;
+   reg            nreset;
+   reg            clk;
 
   // reset initialization
    initial
      begin
-	#(1)
-	nreset   = 1'b0;
-	clk      = 1'b0;
-	#(PERIOD_CLK * 10)
-	nreset   = 1'b1;
+        #(1)
+        nreset   = 1'b0;
+        clk      = 1'b0;
+        #(PERIOD_CLK * 10)
+        nreset   = 1'b1;
         mask = {N*N{1'b0}};
         umi_in_data[0*DW+:DW] = {(DW/4){4'hA}};
-	umi_in_data[1*DW+:DW] = {(DW/4){4'hB}};
+        umi_in_data[1*DW+:DW] = {(DW/4){4'hB}};
         umi_in_cmd[CW-1:0] = 'b0;
         umi_in_dstaddr[AW-1:0] = 'b0;
         umi_in_srcaddr[AW-1:0] = 'b0;
@@ -43,19 +53,19 @@ module testbench();
    always @ (posedge clk or negedge nreset)
      if(~nreset)
        begin
-	  umi_out_ready  <='b0;
-	  umi_in_request <='b0;
+          umi_out_ready  <='b0;
+          umi_in_request <='b0;
        end
      else
        begin
-	  umi_out_ready  <= umi_out_ready+1'b1;
-	  umi_in_request <= umi_in_request+1'b1;
+          umi_out_ready  <= umi_out_ready+1'b1;
+          umi_in_request <= umi_in_request+1'b1;
        end
      initial
        begin
           $dumpfile("waveform.vcd");
           $dumpvars();
-	  #500
+          #500
           $finish;
        end
 
@@ -72,9 +82,9 @@ module testbench();
    umi_crossbar #(.N(N),
                   .CW(CW),
                   .AW(AW),
-		  .DW(DW))
-   umi_crossbar  (.mode			(2'b00),
-		  /*AUTOINST*/
+                  .DW(DW))
+   umi_crossbar  (.mode                 (2'b00),
+                  /*AUTOINST*/
                   // Outputs
                   .umi_in_ready         (umi_in_ready[N-1:0]),
                   .umi_out_valid        (umi_out_valid[N-1:0]),
