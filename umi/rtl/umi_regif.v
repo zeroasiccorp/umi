@@ -116,6 +116,8 @@ module umi_regif
    reg                  atomic_maxu;
    reg                  atomic_minu;
    reg                  atomic_swap;
+   wire                 signed_max;
+   wire                 unsigned_max;
 
    //########################
    // UMI INPUT
@@ -124,15 +126,18 @@ module umi_regif
    assign reg_addr[AW-1:0]   = atomic_wr ? atomic_addr[AW-1:0] : udev_req_dstaddr[AW-1:0];
    assign reg_wrdata[RW-1:0] = atomic_wr ? atomic_wrdata[RW-1:0] : udev_req_data[RW-1:0];
 
+   assign signed_max = $signed(atomic_data[RW-1:0]) > $signed(reg_rddata[RW-1:0]);
+   assign unsigned_max = $unsigned(atomic_data[RW-1:0]) > $unsigned(reg_rddata[RW-1:0]);
+
    assign atomic_wrdata[RW-1:0] = atomic_add  ? atomic_data[RW-1:0] + reg_rddata[RW-1:0] :
                                   atomic_and  ? atomic_data[RW-1:0] & reg_rddata[RW-1:0] :
                                   atomic_or   ? atomic_data[RW-1:0] | reg_rddata[RW-1:0] :
                                   atomic_xor  ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
-                                  atomic_max  ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
-                                  atomic_min  ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
-                                  atomic_maxu ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
-                                  atomic_minu ? atomic_data[RW-1:0] ^ reg_rddata[RW-1:0] :
-                                  atomic_data[RW-1:0];
+                                  (atomic_max  & ~signed_max   |
+                                   atomic_maxu & ~unsigned_max |
+                                   atomic_min  & signed_max    |
+                                   atomic_minu & unsigned_max  ) ?    reg_rddata[RW-1:0] :
+                                  atomic_data[RW-1:0]; // inlcd. swap
 
    /* umi_unpack AUTO_TEMPLATE(
     .cmd_\(.*\)     (reg_\1[]),
@@ -205,8 +210,7 @@ module umi_regif
    assign reg_read  = (cmd_read | cmd_atomic) & udev_req_valid & udev_req_ready & group_match;
    assign reg_write = (cmd_write | cmd_write_posted) & udev_req_valid & udev_req_ready & group_match |
                       atomic_wr;
-   assign reg_resp  = (cmd_read | cmd_write) & udev_req_valid & udev_req_ready & group_match |
-                      atomic_wr;
+   assign reg_resp  = (cmd_read | cmd_write | cmd_atomic) & udev_req_valid & udev_req_ready & group_match;
 
    always @ (posedge clk or negedge nreset)
      if(!nreset)
@@ -244,7 +248,7 @@ module umi_regif
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_req_ready <= 1'b0;
-     else if (udev_req_valid & udev_req_ready | atomic_wr)
+     else if (udev_req_valid & udev_req_ready)
        udev_req_ready <= 1'b0;
      else
        udev_req_ready <= 1'b1;
@@ -259,7 +263,7 @@ module umi_regif
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        udev_resp_valid <= 1'b0;
-     else if (reg_resp & udev_req_ready | atomic_wr)
+     else if (reg_resp & udev_req_ready)
        udev_resp_valid <= 1'b1;
      else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
@@ -307,7 +311,6 @@ module umi_regif
           udev_resp_srcaddr[AW-1:0] <= udev_req_dstaddr[AW-1:0];
        end
 
-//   assign udev_resp_srcaddr[AW-1:0] = {(AW){1'b0}};
    assign udev_resp_data[DW-1:0]    = {(DW/RW){reg_rddata[RW-1:0]}};
 
 endmodule // umi_regif
