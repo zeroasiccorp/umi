@@ -1,7 +1,9 @@
 /*******************************************************************************
  * Function:  UMI Simple Endpoint
  * Author:    Andreas Olofsson
- * License:
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  * The endpoint is meant to allow communication with a register like interface

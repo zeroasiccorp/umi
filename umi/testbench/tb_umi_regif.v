@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Function:  umi reg interface testbench
+ * Author:    Amir Volk
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ *
+ * Documentation:
+ *
+ ******************************************************************************/
 
 module testbench();
 
@@ -11,12 +21,12 @@ module testbench();
    localparam PERIOD_CLK = 10;
    localparam RAMDEPTH   = 1024;
 
-   reg [N-1:0] 	 udev_req_valid;
+   reg [N-1:0]   udev_req_valid;
    reg [CW-1:0]  udev_req_cmd;
    reg [AW-1:0]  udev_req_dstaddr;
-   reg [N-1:0] 	 udev_resp_ready;
-   reg 		 nreset;
-   reg 		 clk;
+   reg [N-1:0]   udev_resp_ready;
+   reg           nreset;
+   reg           clk;
 
    reg [RW-1:0]  ram [1023:0];
    reg [RW-1:0]  reg_rddata;
@@ -67,13 +77,13 @@ module testbench();
   // Reset/init
    initial
      begin
-	#(1)
+        #(1)
         addr_latch = 'b0;
         error    = 1'b0;
         nreset   = 1'b0;
-	clk      = 1'b0;
-	#(PERIOD_CLK * 10)
-	nreset        = 1'b1;
+        clk      = 1'b0;
+        #(PERIOD_CLK * 10)
+        nreset        = 1'b1;
      end // initial begin
 
    // clocks
@@ -87,9 +97,9 @@ module testbench();
        begin
           ram_addr         <= 0;
           udev_req_valid   <= 1'b0;
-	  udev_req_dstaddr <= 'b0;
-	  udev_req_cmd     <= 'b0;
-	  udev_resp_ready  <= 1'b1;
+          udev_req_dstaddr <= 'b0;
+          udev_req_cmd     <= 'b0;
+          udev_resp_ready  <= 1'b1;
        end
      else if(udev_req_ready)
        if ((&ram_addr) & (udev_req_cmd[4:0] == UMI_REQ_READ)) // end of stimuli
@@ -100,7 +110,7 @@ module testbench();
          begin
             udev_req_valid   <= (&ram_addr) ? 1'b0 : 1'b1;
             udev_req_cmd     <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? UMI_REQ_READ : UMI_REQ_WRITE;
-	    ram_addr         <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? ram_addr : ram_addr + 1'b1;
+            ram_addr         <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? ram_addr : ram_addr + 1'b1;
             udev_req_dstaddr <= (udev_req_cmd[4:0] == UMI_REQ_WRITE) ? udev_req_dstaddr : $random%16777215;//reg addr has 24 bits
          end
 

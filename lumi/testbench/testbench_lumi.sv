@@ -1,3 +1,14 @@
+/******************************************************************************
+ * Function:  Link UMI (LUMI) testbench
+ * Author:    Amir Volk
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation. All rights reserved.
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ *
+ * Documentation:
+ *
+ * Version history:
+ *****************************************************************************/
 `default_nettype none
 
 module testbench (
@@ -217,6 +228,8 @@ module testbench (
                .sb_in_srcaddr   (host_sb_req_srcaddr[AW-1:0]), // Templated
                .sb_in_data      (host_sb_req_data[RW-1:0]), // Templated
                .sb_out_ready    (host_sb_resp_ready),    // Templated
+               .phy_clk         (phy_clk),
+               .phy_nreset      (phy_nreset),
                .phy_in_valid    (phy_out_valid),         // Templated
                .phy_in_cmd      (phy_out_cmd[CW-1:0]),   // Templated
                .phy_in_dstaddr  (phy_out_dstaddr[AW-1:0]), // Templated
@@ -234,8 +247,7 @@ module testbench (
                .clk             (clk),
                .deviceready     (1'b1),                  // Templated
                .vss             (),                      // Templated
-               .vdd             (),                      // Templated
-               .vddio           ());                     // Templated
+               .vdd             ());                     // Templated
 
    /* lumi AUTO_TEMPLATE(
     .uhost_req_\(.*\)  (udev_req_\1[]),
@@ -310,6 +322,8 @@ module testbench (
               .sb_in_srcaddr    ('h0),                   // Templated
               .sb_in_data       ('h0),                   // Templated
               .sb_out_ready     (1'b0),                  // Templated
+              .phy_clk          (phy_clk),
+              .phy_nreset       (phy_nreset),
               .phy_in_valid     (phy_in_valid),
               .phy_in_cmd       (phy_in_cmd[CW-1:0]),
               .phy_in_dstaddr   (phy_in_dstaddr[AW-1:0]),
@@ -327,8 +341,7 @@ module testbench (
               .clk              (clk),
               .deviceready      (1'b1),                  // Templated
               .vss              (),                      // Templated
-              .vdd              (),                      // Templated
-              .vddio            ());                     // Templated
+              .vdd              ());                     // Templated
 
    umiram #(.ADDR_WIDTH(10),
             .DATA_WIDTH(DW),
