@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Function:  umi arbiter testbench
+ * Author:    Andreas Olofsson
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ *
+ * Documentation:
+ *
+ ******************************************************************************/
 
 module testbench();
 
@@ -5,17 +15,17 @@ module testbench();
    localparam PERIOD_CLK = 10;
 
    reg [N-1:0] requests;
-   reg 	       nreset;
-   reg 	       clk;
+   reg         nreset;
+   reg         clk;
 
   // reset initialization
    initial
      begin
-	#(1)
-	nreset   = 1'b0;
-	clk      = 1'b0;
-	#(PERIOD_CLK * 10)
-	nreset   = 1'b1;
+        #(1)
+        nreset   = 1'b0;
+        clk      = 1'b0;
+        #(PERIOD_CLK * 10)
+        nreset   = 1'b1;
      end // initial begin
 
    // clocks
@@ -33,7 +43,7 @@ module testbench();
        begin
           $dumpfile("waveform.vcd");
           $dumpvars();
-	  #500
+          #500
           $finish;
        end
 
@@ -43,9 +53,9 @@ module testbench();
    // End of automatics
 
    umi_arbiter #(.N(N))
-   umi_arbiter  (.mode			(2'b00),
-		 .mask			({(N){1'b0}}),
-		 /*AUTOINST*/
+   umi_arbiter  (.mode                  (2'b00),
+                 .mask                  ({(N){1'b0}}),
+                 /*AUTOINST*/
                  // Outputs
                  .grants                (grants[N-1:0]),
                  // Inputs

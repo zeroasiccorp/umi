@@ -1,3 +1,12 @@
+/******************************************************************************
+ * Function:  UMI data aggregator
+ * Author:    Aliasger Zaidy
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation. All rights reserved.
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ *
+ * Documentation:
+ *****************************************************************************/
 `default_nettype wire
 
 module umi_data_aggregator #(

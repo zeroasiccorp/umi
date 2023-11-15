@@ -1,8 +1,8 @@
 /******************************************************************************
  * Function:  TileLink Uncached Heavyweight (TL-UH) definitions
  * Author:    Wenting Zhang
- * Copyright: 2022 Zero ASIC Corporation. All rights reserved.
- * License:
+ * Copyright (c) 2022 Zero ASIC Corporation. All rights reserved.
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  *

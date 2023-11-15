@@ -2,8 +2,8 @@
 /******************************************************************************
  * Function:  UMI FIFO Device Under Test "DUT"
  * Author:    Andreas Olofsson
- * Copyright: 2022 Zero ASIC Corporation. All rights reserved.
- * License:
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  *
@@ -23,36 +23,36 @@ module dut_umi_fifo
     parameter DEPTH    = 4          // fifo depth
     )
    (// generic control interface
-    input 		 nreset, // common async active low reset
-    input [NCLK-1:0] 	 clk, //  generic set of clocks
-    input 		 go, // go dut, go!
-    output 		 error, //dut  error
-    output 		 done, // dut done
-    input [NCTRL-1:0] 	 ctrl, // generic control vector (optional)
+    input                nreset, // common async active low reset
+    input [NCLK-1:0]     clk, //  generic set of clocks
+    input                go, // go dut, go!
+    output               error, //dut  error
+    output               done, // dut done
+    input [NCTRL-1:0]    ctrl, // generic control vector (optional)
     output [NSTATUS-1:0] status, // generic status vector (optional)
     // umi interfaces
-    input [NUMI-1:0] 	 umi_in_clk,
-    input [NUMI-1:0] 	 umi_in_nreset,
-    input [NUMI-1:0] 	 umi_in_valid,
+    input [NUMI-1:0]     umi_in_clk,
+    input [NUMI-1:0]     umi_in_nreset,
+    input [NUMI-1:0]     umi_in_valid,
     input [NUMI*CW-1:0]  umi_in_cmd,
     input [NUMI*AW-1:0]  umi_in_dstaddr,
     input [NUMI*AW-1:0]  umi_in_srcaddr,
     input [NUMI*DW-1:0]  umi_in_data,
-    output [NUMI-1:0] 	 umi_in_ready,
-    input [NUMI-1:0] 	 umi_out_clk,
-    input [NUMI-1:0] 	 umi_out_nreset,
-    output [NUMI-1:0] 	 umi_out_valid,
+    output [NUMI-1:0]    umi_in_ready,
+    input [NUMI-1:0]     umi_out_clk,
+    input [NUMI-1:0]     umi_out_nreset,
+    output [NUMI-1:0]    umi_out_valid,
     output [NUMI*CW-1:0] umi_out_cmd,
     output [NUMI*AW-1:0] umi_out_dstaddr,
     output [NUMI*AW-1:0] umi_out_srcaddr,
     output [NUMI*DW-1:0] umi_out_data,
-    input [NUMI-1:0] 	 umi_out_ready
+    input [NUMI-1:0]     umi_out_ready
     );
 
    // Local wires
-   reg 		slowclk;
-   wire 	fifo_empty;
-   wire 	fifo_full;
+   reg          slowclk;
+   wire         fifo_empty;
+   wire         fifo_full;
 
    /*AUTOINPUT*/
    /*AUTOWIRE*/
@@ -65,14 +65,14 @@ module dut_umi_fifo
     .chaosmode (1'b0),
     );*/
    umi_fifo  #(.CW(CW),
-	       .AW(AW),
-	       .DW(DW),
-	       .DEPTH(DEPTH),
-	       .TARGET(TARGET))
-   umi_fifo (.bypass			(1'b0),
-	     .vdd			(1'b1),
-	     .vss			(1'b0),
-	     /*AUTOINST*/
+               .AW(AW),
+               .DW(DW),
+               .DEPTH(DEPTH),
+               .TARGET(TARGET))
+   umi_fifo (.bypass                    (1'b0),
+             .vdd                       (1'b1),
+             .vss                       (1'b0),
+             /*AUTOINST*/
              // Outputs
              .fifo_full         (fifo_full),
              .fifo_empty        (fifo_empty),

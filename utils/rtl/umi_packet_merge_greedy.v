@@ -1,3 +1,12 @@
+/******************************************************************************
+ * Function:  UMI packet merge
+ * Author:    Aliasger Zaidy
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation. All rights reserved.
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ *
+ * Documentation:
+ *****************************************************************************/
 `default_nettype wire
 
 module umi_packet_merge_greedy #(
