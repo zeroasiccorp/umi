@@ -1,11 +1,8 @@
 /******************************************************************************
  * Function:  UMI address remap
- * Author:    Aliasger Zaidy
- * Copyright: 2023 Zero ASIC Corporation. All rights reserved.
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation. All rights reserved.
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  * This module remaps UMI transactions across different memory regions.
