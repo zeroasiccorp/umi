@@ -1,7 +1,9 @@
 /*******************************************************************************
  * Function:  UMI Traffic Splitter
  * Author:    Andreas Olofsson
- * License:
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  *
@@ -16,26 +18,26 @@ module umi_splitter
     parameter CW   = 32,
     parameter DW   = 256)
    (// UMI Input
-    input 	    umi_in_valid,
+    input           umi_in_valid,
     input [CW-1:0]  umi_in_cmd,
     input [AW-1:0]  umi_in_dstaddr,
     input [AW-1:0]  umi_in_srcaddr,
     input [DW-1:0]  umi_in_data,
-    output 	    umi_in_ready,
+    output          umi_in_ready,
     // UMI Output
-    output 	    umi_resp_out_valid,
+    output          umi_resp_out_valid,
     output [CW-1:0] umi_resp_out_cmd,
     output [AW-1:0] umi_resp_out_dstaddr,
     output [AW-1:0] umi_resp_out_srcaddr,
     output [DW-1:0] umi_resp_out_data,
-    input 	    umi_resp_out_ready,
+    input           umi_resp_out_ready,
     // UMI Output
-    output 	    umi_req_out_valid,
+    output          umi_req_out_valid,
     output [CW-1:0] umi_req_out_cmd,
     output [AW-1:0] umi_req_out_dstaddr,
     output [AW-1:0] umi_req_out_srcaddr,
     output [DW-1:0] umi_req_out_data,
-    input 	    umi_req_out_ready
+    input           umi_req_out_ready
     );
 
    /*AUTOWIRE*/
@@ -106,6 +108,6 @@ module umi_splitter
 
    // Globally blocking ready implementation
    assign umi_in_ready = ~(umi_resp_out_valid & ~umi_resp_out_ready) &
-			 ~(umi_req_out_valid & ~umi_req_out_ready);
+                         ~(umi_req_out_valid & ~umi_req_out_ready);
 
 endmodule // umi_splitter
