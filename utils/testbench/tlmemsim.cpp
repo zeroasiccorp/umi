@@ -1,13 +1,25 @@
-/******************************************************************************
- * Function:  TileLink memory simulator
- * Author:    Wenting Zhang
- * Copyright: 2022 Zero ASIC Corporation. All rights reserved.
- * License:
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- *   Single-cycle access TL-UH memory model.
+ * - Single-cycle access TL-UH memory model
  *
- *****************************************************************************/
+ ******************************************************************************/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -225,7 +237,7 @@ void TLMemsim::apply(uint8_t &a_ready, uint8_t a_valid, uint8_t a_opcode,
             assert(req_param == 0);
             #endif
             if (req_bubble) {
-                if (d_ready) { 
+                if (d_ready) {
                     // Accepted
                     a_ready = 1;
                     req_beatcount = 0;
@@ -314,7 +326,7 @@ void TLMemsim::apply(uint8_t &a_ready, uint8_t a_valid, uint8_t a_opcode,
         case OP_Intent:
             // Ignore
             #ifdef VERBOSE
-            fprintf(stderr, "MEM: INTENT %s (%d) address %08lx size %d...\n", 
+            fprintf(stderr, "MEM: INTENT %s (%d) address %08lx size %d...\n",
                     (req_param == 0) ? "PrefetchRead" :
                     (req_param == 1) ? "PrefetchWrite" : "Unknown",
                     req_param, req_addr, req_size);
@@ -324,7 +336,7 @@ void TLMemsim::apply(uint8_t &a_ready, uint8_t a_valid, uint8_t a_opcode,
             }
             else {
                 // Check if data is accepted last cycle
-                if (d_ready) { 
+                if (d_ready) {
                     // Accepted
                     a_ready = 1;
                     req_beatcount = 0;

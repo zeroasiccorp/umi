@@ -1,17 +1,26 @@
-/******************************************************************************
- * Function:  Link UMI (LUMI) Rx block
- * Author:    Amir Volk
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
  *
- * Copyright (c) 2023 Zero ASIC Corporation. All rights reserved.
- * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- * - converts UMI signaling layer (cmd, addr, data) to multiplexed LUMI i/f
+ * - LUMI Receiver
+ * - Converts PHY side interface to SUMI (cmd, addr, data)
  *
- * Version history:
- * Version 1 - convert from CLINK to LUMI
- * Version 2 - reduce fifo sizes by diving into multiple fifo's
- *****************************************************************************/
+ ******************************************************************************/
+
 module lumi_rx
   #(parameter TARGET = "DEFAULT", // implementation target
     // for development only (fixed )
