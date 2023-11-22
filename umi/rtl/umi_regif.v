@@ -245,7 +245,7 @@ module umi_regif
        begin
           atomic_wr   <= cmd_atomic & udev_req_valid & udev_req_ready & group_match;
           atomic_addr <= udev_req_dstaddr;
-          atomic_data <= udev_req_data;
+          atomic_data <= udev_req_data[RW-1:0];
           atomic_add  <= cmd_atomic_add;
           atomic_and  <= cmd_atomic_and;
           atomic_or   <= cmd_atomic_or;
