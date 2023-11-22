@@ -1,19 +1,28 @@
 /*******************************************************************************
- * Function:  UMI Traffic Combiner (2:1 Mux)
- * Author:    Andreas Olofsson
+ * Copyright 2020 Zero ASIC Corporation
  *
- * Copyright (c) 2023 Zero ASIC Corporation
- * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- *
- * - Splits up traffic based on type.
- * - UMI 0 carries high priority traffic ("writes")
- * - UMI 1 carries low priority traffic ("read requests")
+ * - Combines request and response inputs.
  * - No cycles allowed since this would deadlock
  * - Traffic source must be self throttling
+ * - Input valids must be mutuall exclusive
  *
  ******************************************************************************/
+
 module umi_combiner
   #(// standard parameters
     parameter AW   = 64,

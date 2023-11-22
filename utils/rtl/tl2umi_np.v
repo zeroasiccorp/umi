@@ -1,13 +1,24 @@
-/******************************************************************************
- * Function:  TL-UH to UMI converter
- * Author:    Aliasger Zaidy
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
  *
- * Copyright (c) 2023 Zero ASIC Corporation. All rights reserved.
- * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- * The umi_srcaddr for requests uses User Defined Bits. It format is as
- * follows:
+ * -TL-UH to UMI converter
+ *
+ * The umi_srcaddr for requests uses User Defined Bits as follows:
  * [63:56]  : Reserved
  * [55:40]  : Chip ID
  * [39:24]  : Local routing address
@@ -15,7 +26,9 @@
  * [19:16]  : tl_a_size (TileLink Size)
  * [15:8]   : tl_a_source (TileLink Source)
  * [7:0]    : 0000_0000b
- *****************************************************************************/
+ *
+ ******************************************************************************/
+
 
 `default_nettype wire
 `include "tl-uh.vh"
