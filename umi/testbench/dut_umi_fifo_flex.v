@@ -1,14 +1,3 @@
-
-/******************************************************************************
- * Function:  UMI FIFO Device Under Test "DUT"
- * Author:    Andreas Olofsson
- * Copyright (c) 2023 Zero ASIC Corporation
- * This code is licensed under Apache License 2.0 (see LICENSE for details)
- *
- * Documentation:
- *
- *****************************************************************************/
-
 module dut_umi_fifo_flex
   #(parameter TARGET = "DEFAULT", // synthesis target
     parameter BYPASS = 0,
