@@ -1,10 +1,11 @@
 /*******************************************************************************
  * Function:  UMI Synthesizable Stimulus Driver
  * Author:    Andreas Olofsson
- * License:
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
- *
  *
  ******************************************************************************/
 
@@ -60,9 +61,9 @@ module umi_stimulus
    wire [MAW-1:0]            rd_addr_nxt;
    wire [TCW-2:0]             rd_delay_nxt;
 
-   wire 		      beat;
-   wire 		      pause;
-   
+   wire                       beat;
+   wire                       pause;
+
    //#################################
    // Memory write port state machine
    //#################################
@@ -100,20 +101,20 @@ module umi_stimulus
        rd_state[1:0]  <= STIM_IDLE;
      else
        case (rd_state[1:0])
-	 STIM_IDLE :
-	   rd_state[1:0] <= (dut_start & data_valid)  ? STIM_ACTIVE :
-			    (dut_start & ~data_valid) ? STIM_DONE :
+         STIM_IDLE :
+           rd_state[1:0] <= (dut_start & data_valid)  ? STIM_ACTIVE :
+                            (dut_start & ~data_valid) ? STIM_DONE :
                             STIM_IDLE;
-	 STIM_ACTIVE :
-	   rd_state[1:0] <= pause      ? STIM_PAUSE :
-			    data_valid ? STIM_ACTIVE :
-			    STIM_DONE;
-	 STIM_PAUSE :
-	   rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
-			    data_valid  ? STIM_ACTIVE :
-			    STIM_DONE;
-	 STIM_DONE  :
-	   rd_state[1:0] <= STIM_DONE;
+         STIM_ACTIVE :
+           rd_state[1:0] <= pause      ? STIM_PAUSE :
+                            data_valid ? STIM_ACTIVE :
+                            STIM_DONE;
+         STIM_PAUSE :
+           rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
+                            data_valid  ? STIM_ACTIVE :
+                            STIM_DONE;
+         STIM_DONE  :
+           rd_state[1:0] <= STIM_DONE;
 
        endcase // case (rd_state[1:0])
 
@@ -125,7 +126,7 @@ module umi_stimulus
    /* verilator lint_off WIDTH */
    assign rd_addr_nxt = rd_addr[MAW-1:0] + beat;
    /* verilator lint_on WIDTH */
-   
+
    always @ (posedge dut_clk or negedge nreset)
      if(!nreset)
        rd_addr[MAW-1:0] <= 'b0;

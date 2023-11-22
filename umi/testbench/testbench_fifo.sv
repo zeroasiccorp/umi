@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Function:  umi fifo testbench
+ * Author:    Amir Volk
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
+ *
+ * Documentation:
+ *
+ ******************************************************************************/
 `default_nettype none
 
 module testbench (

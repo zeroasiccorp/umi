@@ -1,7 +1,9 @@
 /*******************************************************************************
  * Function:  UMI Priority Selector
  * Author:    Andreas Olofsson
- * License:
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  *
@@ -16,13 +18,13 @@ module umi_priority
     );
 
    wire [N-1:0]   mask;
-   genvar 	  j;
+   genvar         j;
 
    // priority maskx
    assign mask[0] = 1'b0;
    for (j=N-1; j>=1; j=j-1)
      begin : ipri
-	assign mask[j] = |requests[j-1:0];
+        assign mask[j] = |requests[j-1:0];
      end
 
    // priority grant circuit
