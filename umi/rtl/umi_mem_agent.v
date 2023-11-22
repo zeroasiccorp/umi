@@ -1,12 +1,9 @@
 /******************************************************************************
  * Function:  UMI memory agent
  * Author:    Amir Volk
- * Copyright: (c) 2023 Zero ASIC. All rights reserved.
  *
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * This block is implementing a simple memory array for use in simulation
  *

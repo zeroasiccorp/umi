@@ -2,8 +2,8 @@
 /******************************************************************************
  * Function:  UMI FIFO Device Under Test "DUT"
  * Author:    Andreas Olofsson
- * Copyright: 2022 Zero ASIC Corporation. All rights reserved.
- * License:
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  *
@@ -53,8 +53,8 @@ module dut_umi_fifo_flex
     );
 
    // Local wires
-   wire 	fifo_empty;
-   wire 	fifo_full;
+   wire         fifo_empty;
+   wire         fifo_full;
 
    /*AUTOINPUT*/
    /*AUTOWIRE*/
@@ -67,16 +67,16 @@ module dut_umi_fifo_flex
     .chaosmode (1'b0),
     );*/
    umi_fifo_flex  #(.CW(CW),
-	            .AW(AW),
-	            .IDW(IDW),
-	            .ODW(ODW),
-	            .DEPTH(DEPTH),
-	            .TARGET(TARGET),
+                    .AW(AW),
+                    .IDW(IDW),
+                    .ODW(ODW),
+                    .DEPTH(DEPTH),
+                    .TARGET(TARGET),
                     .BYPASS(BYPASS))
-   umi_fifo_flex (.bypass		(bypass),
-	          .vdd			(1'b1),
-	          .vss			(1'b0),
-	           /*AUTOINST*/
+   umi_fifo_flex (.bypass               (bypass),
+                  .vdd                  (1'b1),
+                  .vss                  (1'b0),
+                   /*AUTOINST*/
                   // Outputs
                   .fifo_full            (fifo_full),
                   .fifo_empty           (fifo_empty),

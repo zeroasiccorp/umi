@@ -1,7 +1,9 @@
 /*******************************************************************************
  * Function:  UMI FIFO with width change
  * Author:    Amir Volk
- * License:   (c) 2023 Zero ASIC Corporation
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  * This block converts UMI transactions between different width options

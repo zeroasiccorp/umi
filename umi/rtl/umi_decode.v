@@ -1,10 +1,11 @@
 /*******************************************************************************
  * Function:  Universal Memory Interface (UMI) Command Decoder
  * Author:    Andreas Olofsson
- * License:
+ *
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
- *
  *
  ******************************************************************************/
 module umi_decode #(parameter CW = 32)

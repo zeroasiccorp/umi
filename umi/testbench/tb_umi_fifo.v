@@ -1,8 +1,8 @@
 /******************************************************************************
  * Function:  UMI FIFO Testbench
  * Author:    Andreas Olofsson
- * Copyright: 2022 Zero ASIC Corporation. All rights reserved.
- * License:
+ * Copyright (c) 2023 Zero ASIC Corporation
+ * This code is licensed under Apache License 2.0 (see LICENSE for details)
  *
  * Documentation:
  *
@@ -34,30 +34,30 @@ module tb_umi_fifo
    reg umi_dut2check_ready;
 
    reg [128*8-1:0] memhfile;
-   reg 		   slowclk;
-   reg 		   clk;
-   reg 		   load;
-   reg 		   nreset;
-   reg 		   dut_nreset;
-   reg 		   go;
-   integer 	   r;
+   reg             slowclk;
+   reg             clk;
+   reg             load;
+   reg             nreset;
+   reg             dut_nreset;
+   reg             go;
+   integer         r;
 
    // reset initialization
    initial
      begin
-	#(1)
-	nreset   = 1'b0;
-	dut_nreset = 1'b0;
-	clk      = 1'b0;
-	load     = 1'b0;
-	go       = 1'b0;
-	#(PERIOD_CLK)
-	go       = 1'b1;
+        #(1)
+        nreset   = 1'b0;
+        dut_nreset = 1'b0;
+        clk      = 1'b0;
+        load     = 1'b0;
+        go       = 1'b0;
+        #(PERIOD_CLK)
+        go       = 1'b1;
         nreset   = 1'b1;
-	#(PERIOD_CLK * 10)
-	dut_nreset   = 1'b1;
-//	#(PERIOD_CLK * 10)
-//	go       = 1'b1;
+        #(PERIOD_CLK * 10)
+        dut_nreset   = 1'b1;
+//      #(PERIOD_CLK * 10)
+//      go       = 1'b1;
      end // initial begin
 
    // clocks
@@ -67,12 +67,12 @@ module tb_umi_fifo
    // control block
    initial
      begin
-	r = $value$plusargs("MEMHFILE=%s", memhfile);
-	$readmemh(memhfile, umi_stimulus.ram);
+        r = $value$plusargs("MEMHFILE=%s", memhfile);
+        $readmemh(memhfile, umi_stimulus.ram);
         $timeformat(-9, 0, " ns", 20);
         $dumpfile("waveform.vcd");
         $dumpvars();
-	#(TIMEOUT)
+        #(TIMEOUT)
         $finish;
      end
 
@@ -90,10 +90,10 @@ module tb_umi_fifo
        slowclk <= ~slowclk;
 
    la_rsync la_rsync (// Outputs
-		      .nrst_out		(slownreset),
-		      // Inputs
-		      .clk		(slowclk),
-		      .nrst_in		(nreset));
+                      .nrst_out         (slownreset),
+                      // Inputs
+                      .clk              (slowclk),
+                      .nrst_in          (nreset));
 
 
    /*AUTOWIRE*/
@@ -122,23 +122,23 @@ module tb_umi_fifo
     .clk                (clk),
     .ctrl               (1'b0),
     .status             (),
-    .umi_out_clk	(slowclk),
+    .umi_out_clk        (slowclk),
     .umi_out_nreset     (slownreset),
-    .umi_out_ready	(1'b1),
-    .umi_out_\(.*\)	(umi_dut2check_\1[]),
-    .umi_in_clk	        (clk),
+    .umi_out_ready      (1'b1),
+    .umi_out_\(.*\)     (umi_dut2check_\1[]),
+    .umi_in_clk         (clk),
     .umi_in_nreset      (nreset),
     .umi_in_valid       (umi_stim2dut_valid),
-    .umi_in_\(.*\)	(umi_stim2dut_\1[]),
+    .umi_in_\(.*\)      (umi_stim2dut_\1[]),
     );
     */
 
    dut_umi_fifo #(.CW(CW),
-		  .AW(AW),
-		  .DW(DW),
-		  .DEPTH(FIFODEPTH))
-   dut_umi_fifo (.umi_out_ready		(umi_dut2check_ready),
-		 /*AUTOINST*/
+                  .AW(AW),
+                  .DW(DW),
+                  .DEPTH(FIFODEPTH))
+   dut_umi_fifo (.umi_out_ready         (umi_dut2check_ready),
+                 /*AUTOINST*/
                  // Outputs
                  .error                 (error),
                  .done                  (done),
@@ -170,20 +170,20 @@ module tb_umi_fifo
 
    /*umi_stimulus AUTO_TEMPLATE (
     // Outputs
-    .stim_\(.*\)	(umi_stim2dut_\1[]),
+    .stim_\(.*\)        (umi_stim2dut_\1[]),
     .dut_ready          (umi_stim2dut_ready),
-    .ext_valid		(1'b0),
-    .ext_packet		({(DW+AW+AW+CW+TCW){1'b0}}),
+    .ext_valid          (1'b0),
+    .ext_packet         ({(DW+AW+AW+CW+TCW){1'b0}}),
     .\(.*\)_clk         (clk),
     );
     */
 
    umi_stimulus #(.DEPTH(STIMDEPTH),
-		  .TARGET(TARGET),
-		  .CW(CW),
-		  .AW(AW),
-		  .DW(DW),
-		  .TCW(TCW))
+                  .TARGET(TARGET),
+                  .CW(CW),
+                  .AW(AW),
+                  .DW(DW),
+                  .TCW(TCW))
    umi_stimulus (/*AUTOINST*/
                  // Outputs
                  .stim_valid            (umi_stim2dut_valid),    // Templated
