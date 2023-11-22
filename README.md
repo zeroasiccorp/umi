@@ -1,10 +1,13 @@
-![UMI](docs/_images/hokusai.jpg)
-
 # Universal Memory Interface (UMI)
 
 ## 1. Introduction
 
-### 1.1 Architecture
+### 1.1 Design Philosophy
+
+* Make everything addressable
+* Keep it simple
+
+### 1.2 Architecture
 
 The Universal Memory Interface (UMI) is a transaction based standard for accessing memory through request-response message exchange patterns. UMI includes five distinct abstraction layers:
 
@@ -16,7 +19,7 @@ The Universal Memory Interface (UMI) is a transaction based standard for accessi
 
 ![UMI](docs/_images/umi_stack.svg)
 
-### 1.2 Key Features
+### 1.3 Key Features
 
   * independent request and response channels
   * word sizes up to 1024 bits
@@ -26,7 +29,7 @@ The Universal Memory Interface (UMI) is a transaction based standard for accessi
   * protection and security support
   * reserved opcodes for users and future expansion
 
-### 1.3 Key Terms
+### 1.4 Key Terms
 
 * **Transaction**: Complete request-response memory operation.
 * **Message**: Unidirectional request or response, consisting of a command header, address fields, and an optional data payload.
