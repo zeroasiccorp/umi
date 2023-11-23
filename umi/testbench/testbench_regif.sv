@@ -16,7 +16,7 @@
  * ----
  *
  * Documentation:
- * - Simple mem_agent testbench
+ * - Simple register interface testbench
  *
  ******************************************************************************/
 
