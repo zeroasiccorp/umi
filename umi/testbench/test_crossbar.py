@@ -57,11 +57,11 @@ def umi_send(x,n,ports):
     tee = UmiTxRx(f'tee_{x}.q', '')
 
     for count in range (n):
-        dstport = random.randint(0,ports)
+        dstport = random.randint(0,ports-1)
         dstaddr = (2**8)*random.randint(0,(2**32)-1) + dstport*(2**40)
-        srcaddr = (2**8)*random.randint(0,(2**32)-1) + x*(2 ** 40)
+        srcaddr = (2**8)*random.randint(0,(2**32)-1) + x*(2**40)
         txp = random_umi_packet(dstaddr=dstaddr,srcaddr=srcaddr)
-        print(f"port {x} sending cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} dstaddr: 0x{dstaddr:08x} to port {dstport}")
+        print(f"port {x} sending #{count} cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} dstaddr: 0x{dstaddr:08x} to port {dstport}")
         # send the packet to both simulation and local queues
         umi.send(txp)
         tee.send(txp)
@@ -73,7 +73,6 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
         delete_queue(f'tee_{x}.q')
 
     verilator_bin = build_testbench()
-    verilator_run(verilator_bin, plusargs=['trace', ('valid_mode', vldmode), ('ready_mode', rdymode)])
 
     # launch the simulation
     verilator_run(verilator_bin, plusargs=['trace', ('PORTS', ports), ('valid_mode', vldmode), ('ready_mode', rdymode)])
@@ -102,14 +101,14 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
         for i in range(ports):
             rxp = umi[i].recv(blocking=False)
             if rxp is not None:
-                #if nrecv >= ports*n:
-                    #print(f'Unexpected packet received {nrecv}')
-                    #raise Exception(f'Unexpected packet received {nrecv}')
-                #else:
-                recv_src = (rxp.srcaddr >> 40)
-                print(f"port {i} receiving srcaddr: 0x{rxp.srcaddr:08x} dstaddr: 0x{rxp.dstaddr:08x} src: {recv_src} #{nrecv}")
-                recv_queue[recv_src][i].append(rxp)
-                nrecv += 1
+                if nrecv >= ports*n:
+                    print(f'Unexpected packet received {nrecv}')
+                    raise Exception(f'Unexpected packet received {nrecv}')
+                else:
+                    recv_src = (rxp.srcaddr >> 40)
+                    print(f"port {i} receiving srcaddr: 0x{rxp.srcaddr:08x} dstaddr: 0x{rxp.dstaddr:08x} src: {recv_src} #{nrecv}")
+                    recv_queue[recv_src][i].append(rxp)
+                    nrecv += 1
 
         for i in range(ports):
             txp = tee[i].recv(blocking=False)
@@ -118,7 +117,7 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
                     raise Exception('Unexpected packet sent')
                 else:
                     send_dst = (txp.dstaddr >> 40)
-                    print(f"Tee port {i} dst: {send_dst}")
+                    #print(f"Tee port {i} dst: {send_dst} #{nsend}")
                     send_queue[i][send_dst].append(txp)
                     nsend += 1
 
