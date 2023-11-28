@@ -72,7 +72,7 @@ module testbench
 
            for (j=0;j<N;j=j+1)
              begin: request
-                assign umi_in_request[i*N + j] = umi_in_valid[i] &
+                assign umi_in_request[j*N + i] = umi_in_valid[i] &
                                                  (umi_in_dstaddr[55:40] == j);
              end
 
