@@ -89,30 +89,6 @@ module testbench
         end
    endgenerate
 
-   // This should be made into a loop in order to support any number of ports but
-   // that currently does not work in Verilator
-   initial
-     begin
-        portif[0].umi_rx_i.init("client2rtl_0.q");
-        //portif[0].umi_rx_i.set_valid_mode(valid_mode);
-        portif[0].umi_tx_i.init("rtl2client_0.q");
-        //portif[0].umi_tx_i.set_ready_mode(ready_mode);
-
-        portif[1].umi_rx_i.init("client2rtl_1.q");
-        //portif[1].umi_rx_i.set_valid_mode(valid_mode);
-        portif[1].umi_tx_i.init("rtl2client_1.q");
-        //portif[1].umi_tx_i.set_ready_mode(ready_mode);
-
-        portif[2].umi_rx_i.init("client2rtl_2.q");
-        //portif[2].umi_rx_i.set_valid_mode(valid_mode);
-        portif[2].umi_tx_i.init("rtl2client_2.q");
-        //portif[2].umi_tx_i.set_ready_mode(ready_mode);
-
-        portif[3].umi_rx_i.init("client2rtl_3.q");
-        //portif[3].umi_rx_i.set_valid_mode(valid_mode);
-        portif[3].umi_tx_i.init("rtl2client_3.q");
-        //portif[3].umi_tx_i.set_ready_mode(ready_mode);
-     end
    // instantiate dut with UMI ports
    /* umi_crossbar AUTO_TEMPLATE(
     .mode (2'b10),
@@ -156,6 +132,31 @@ module testbench
       end
       /* verilator lint_on IGNOREDRETURN */
    end
+
+   // This should be made into a loop in order to support any number of ports but
+   // that currently does not work in Verilator
+   initial
+     begin
+        portif[0].umi_rx_i.init("client2rtl_0.q");
+        portif[0].umi_rx_i.set_valid_mode(valid_mode);
+        portif[0].umi_tx_i.init("rtl2client_0.q");
+        portif[0].umi_tx_i.set_ready_mode(ready_mode);
+
+        portif[1].umi_rx_i.init("client2rtl_1.q");
+        portif[1].umi_rx_i.set_valid_mode(valid_mode);
+        portif[1].umi_tx_i.init("rtl2client_1.q");
+        portif[1].umi_tx_i.set_ready_mode(ready_mode);
+
+        portif[2].umi_rx_i.init("client2rtl_2.q");
+        portif[2].umi_rx_i.set_valid_mode(valid_mode);
+        portif[2].umi_tx_i.init("rtl2client_2.q");
+        portif[2].umi_tx_i.set_ready_mode(ready_mode);
+
+        portif[3].umi_rx_i.init("client2rtl_3.q");
+        portif[3].umi_rx_i.set_valid_mode(valid_mode);
+        portif[3].umi_tx_i.init("rtl2client_3.q");
+        portif[3].umi_tx_i.set_ready_mode(ready_mode);
+     end
 
    // VCD
 
