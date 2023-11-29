@@ -84,7 +84,7 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
     umi = [UmiTxRx('', f'rtl2client_{x}.q') for x in range(ports)]
     tee = [UmiTxRx('', f'tee_{x}.q') for x in range(ports)]
 
-    print("### Statring test ###")
+    print("### Starting test ###")
     recv_queue = [[[] for i in range(n)] for j in range(ports)]
     send_queue = [[[] for i in range(n)] for j in range(ports)]
 
@@ -133,10 +133,7 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
             assert len(send_queue[i][j]) == len(recv_queue[i][j])
             for txp, rxp in zip(send_queue[i][j],recv_queue[i][j]):
                 #print(f"{rxp} {txp}")
-                assert txp.cmd == rxp.cmd
-                assert txp.dstaddr == rxp.dstaddr
-                assert txp.srcaddr == rxp.srcaddr
-                assert (txp.data == rxp.data).all()
+                assert txp == rxp
             print(f"compared {len(recv_queue[i][j])} packets from port {i} to port {j}")
     print("TEST PASS")
 

@@ -108,7 +108,7 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
 
     host = UmiTxRx(host2dut, dut2host)
 
-    print("### Statring test ###")
+    print("### Starting test ###")
 
     # regif accesses are all 32b wide and aligned
     for count in range (n):
