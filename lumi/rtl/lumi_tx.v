@@ -364,7 +364,7 @@ module lumi_tx
    assign req_crdt_avail[15:0]  = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0] - {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[0]});
    assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]- {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[1]});
 
-   // If credit mechanis is not enabled Tx works in infinite credit mode
+   // If credit mechanism is not enabled Tx works in infinite credit mode
    assign rxready[0] = ~(csr_crdt_en) | (req_crdt_avail[15:0]  >= req_crdt_need[15:0]);
    assign rxready[1] = ~(csr_crdt_en) | (resp_crdt_avail[15:0] >= resp_crdt_need[15:0]);
 
