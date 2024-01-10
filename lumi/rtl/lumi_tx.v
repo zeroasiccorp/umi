@@ -228,7 +228,7 @@ module lumi_tx
      if (~nreset)
        crdt_updt_send <= 2'b00;
      else
-       if (crdt_updt_cntr == csr_crdt_intrvl)
+       if (csr_crdt_en & (crdt_updt_cntr == csr_crdt_intrvl))
          crdt_updt_send <= 2'b01;
        else
          crdt_updt_send <= (|crdt_updt_send) & sample_packet ?
@@ -287,7 +287,7 @@ module lumi_tx
    assign umi_req_in_gated  = umi_req_in_valid  & phy_txrdy & rxready[0] & ~(|crdt_updt_send);
    assign umi_resp_in_gated = umi_resp_in_valid & phy_txrdy & rxready[1] & ~(|crdt_updt_send);
 
-   assign lumi_txrdy        = ((~|valid[(DW+AW+AW+CW)/8-1:0]) | (~|valid_next[(DW+AW+AW+CW)/8-1:0]));
+   assign lumi_txrdy        = csr_en & ((~|valid[(DW+AW+AW+CW)/8-1:0]) | (~|valid_next[(DW+AW+AW+CW)/8-1:0]));
    assign umi_req_in_ready  = umi_req_ready  & umi_req_in_gated & ~umi_resp_in_gated;
    assign umi_resp_in_ready = umi_resp_ready & umi_resp_in_gated;
 
@@ -364,8 +364,9 @@ module lumi_tx
    assign req_crdt_avail[15:0]  = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0] - {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[0]});
    assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]- {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[1]});
 
-   assign rxready[0] = req_crdt_avail[15:0]  >= req_crdt_need[15:0];
-   assign rxready[1] = resp_crdt_avail[15:0] >= resp_crdt_need[15:0];
+   // If credit mechanism is not enabled Tx works in infinite credit mode
+   assign rxready[0] = ~(csr_crdt_en) | (req_crdt_avail[15:0]  >= req_crdt_need[15:0]);
+   assign rxready[1] = ~(csr_crdt_en) | (resp_crdt_avail[15:0] >= resp_crdt_need[15:0]);
 
    assign phy_fifo_wr = |valid[(DW+AW+AW+CW)/8-1:0];
 
@@ -586,7 +587,7 @@ module lumi_tx
                   .CTRLW(1),         // width of asic ctrl interface
                   .TESTW(1),         // width of asic test interface
                   .TYPE("DEFAULT"))  // Pass through variable for hard macro
-   req_fifo_i(// Outputs
+   phy_fifo_i(// Outputs
               .wr_full          (phy_fifo_full),
               .rd_dout          (phy_txdata[IOW-1:0]),
               .rd_empty         (phy_fifo_empty),
