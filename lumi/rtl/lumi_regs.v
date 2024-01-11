@@ -25,7 +25,7 @@ module lumi_regs
     parameter GRPOFFSET = 24,     // group address offset
     parameter GRPAW = 8,          // group address width
     parameter GRPID = 0,          // group ID
-    parameter INITIOW = ,         // Default interface width (in power of 2 bytes)
+    parameter INITIOW = 0,        // Default interface width (in power of 2 bytes)
     // for development only (fixed )
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
