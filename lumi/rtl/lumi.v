@@ -17,6 +17,8 @@
  *
  * Documentation:
  * - Link UMI ("LUMI") Top Level Module
+ * - Wakes up in 1B, infinite credit mode. Chaging width must be done before
+ *   enabling credit mechanism or sending traffic
  *
  ******************************************************************************/
 
@@ -26,6 +28,7 @@ module lumi
     parameter GRPOFFSET = 24,     // group address offset
     parameter GRPAW = 8,          // group address width
     parameter GRPID = 0,          // group ID
+    parameter INITIOW = 0,        // Default interface width (in power of 2 bytes)
     // for development
     parameter DW = 128,           // umi packet width
     parameter CW = 32,            // umi packet width
@@ -177,7 +180,9 @@ module lumi
                .DW(DW),
                .CW(CW),
                .AW(AW),
-               .RXFIFOW(RXFIFOW))
+               .RXFIFOW(RXFIFOW),
+               .INITIOW(INITIOW)
+               )
    lumi_regs(/*AUTOINST*/
              // Outputs
              .udev_req_ready    (cb2regs_ready),         // Templated
