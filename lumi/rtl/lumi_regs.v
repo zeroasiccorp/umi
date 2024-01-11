@@ -25,6 +25,7 @@ module lumi_regs
     parameter GRPOFFSET = 24,     // group address offset
     parameter GRPAW = 8,          // group address width
     parameter GRPID = 0,          // group ID
+    parameter INITIOW = ,         // Default interface width (in power of 2 bytes)
     // for development only (fixed )
     parameter CW = 32,            // umi data width
     parameter AW = 64,            // address width
@@ -153,7 +154,7 @@ module lumi_regs
    // the link parameters first.
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       txmode_reg[RW-1:0] <= 'b0;
+       txmode_reg[RW-1:0] <= {{(RW-24){1'b0}},INITIOW[7:0],15'h0000,1'b1};
      else if(write_txmode)
        txmode_reg[RW-1:0] <= reg_wrdata[RW-1:0];
 
@@ -174,7 +175,7 @@ module lumi_regs
 
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       rxmode_reg[RW-1:0] <= 'b0;
+       rxmode_reg[RW-1:0] <= {{(RW-24){1'b0}},INITIOW[7:0],15'h0000,1'b1};
      else if(write_rxmode)
        rxmode_reg[RW-1:0] <= reg_wrdata[RW-1:0];
 
