@@ -53,7 +53,6 @@ def build_testbench(topo="2d"):
 
     return dut.find_result('vexe', step='compile')
 
-
 def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0.q", sb2dut="sb2dut_0.q", dut2sb="dut2sb_0.q"):
     # clean up old queues if present
     for q in [host2dut, dut2host, sb2dut, dut2sb]:
@@ -83,47 +82,51 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
     assert val32 == 0x00000000
 
     if topo=='2d':
-        width = np.uint32(0x00010000)
+        width = np.uint32(0x00000000)
         crdt  = np.uint32(0x001A001A)
     if topo=='3d':
         width = np.uint32(0x00030000)
         crdt  = np.uint32(0x00070007)
 
-    print("### configure loc Rx width ###")
-    sb.write(0x70000010, width, posted=True)
+        print("### disable Rx and Tx ###")
+        sb.write(0x70000010, np.uint32(0x0), posted=True)
+        sb.write(0x70000014, np.uint32(0x0), posted=True)
 
-    print("### configure rmt Rx 2B width ###")
-    sb.write(0x60000010, width, posted=True)
+        print("### configure loc Rx width ###")
+        sb.write(0x70000010, width, posted=True)
 
-    print("### configure loc Tx 2B width ###")
-    sb.write(0x70000014, width, posted=True)
+        print("### configure rmt Rx 2B width ###")
+        sb.write(0x60000010, width, posted=True)
 
-    print("### configure rmt Tx 2B width ###")
-    sb.write(0x60000014, width, posted=True)
+        print("### configure loc Tx 2B width ###")
+        sb.write(0x70000014, width, posted=True)
 
-    print("### Tx init credit ###")
-    sb.write(0x60000020, crdt, posted=True)
+        print("### configure rmt Tx 2B width ###")
+        sb.write(0x60000014, width, posted=True)
 
-    print("### Tx init credit ###")
-    sb.write(0x70000020, crdt, posted=True)
+        print("### Tx init credit ###")
+        sb.write(0x60000020, crdt, posted=True)
 
-    print("### Rx enable local ###")
-    sb.write(0x70000014, np.uint32(0x1) + width, posted=True)
+        print("### Tx init credit ###")
+        sb.write(0x70000020, crdt, posted=True)
 
-    print("### Rx enable remote ###")
-    sb.write(0x60000014, np.uint32(0x1) + width, posted=True)
+        print("### Rx enable local ###")
+        sb.write(0x70000014, np.uint32(0x1) + width, posted=True)
 
-    print("### Tx enable remote ###")
-    sb.write(0x60000010, np.uint32(0x1) + width, posted=True)
+        print("### Rx enable remote ###")
+        sb.write(0x60000014, np.uint32(0x1) + width, posted=True)
 
-    print("### Tx enable local ###")
-    sb.write(0x70000010, np.uint32(0x1) + width, posted=True)
+        print("### Tx enable remote ###")
+        sb.write(0x60000010, np.uint32(0x1) + width, posted=True)
 
-    print("### Tx enable credit ###")
-    sb.write(0x60000010, np.uint32(0x11) + width, posted=True)
+        print("### Tx enable local ###")
+        sb.write(0x70000010, np.uint32(0x1) + width, posted=True)
 
-    print("### Tx enable credit ###")
-    sb.write(0x70000010, np.uint32(0x11) + width, posted=True)
+        print("### Tx enable credit ###")
+        sb.write(0x60000010, np.uint32(0x11) + width, posted=True)
+
+        print("### Tx enable credit ###")
+        sb.write(0x70000010, np.uint32(0x11) + width, posted=True)
 
     print("### Read loc Rx ctrl ###")
     val32 = sb.read(0x70000014, np.uint32)
@@ -144,7 +147,6 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
     val32 = sb.read(0x60000010, np.uint32)
     print(f"Read: 0x{val32:08x}")
     assert val32 == np.uint32(0x11) + width
-
 
     print("### UMI WRITE/READ ###")
 
