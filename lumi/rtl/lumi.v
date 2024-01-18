@@ -23,19 +23,22 @@
  ******************************************************************************/
 
 module lumi
-  #(parameter TARGET = "DEFAULT", // compiler target
-    parameter IDOFFSET = 24,      // chip ID address offset
-    parameter GRPOFFSET = 24,     // group address offset
-    parameter GRPAW = 8,          // group address width
-    parameter GRPID = 0,          // group ID
-    parameter INITIOW = 0,        // Default interface width (in power of 2 bytes)
+  #(parameter TARGET = "DEFAULT",                         // compiler target
+    parameter IDOFFSET = 24,                              // chip ID address offset
+    parameter GRPOFFSET = 24,                             // group address offset
+    parameter GRPAW = 8,                                  // group address width
+    parameter GRPID = 0,                                  // group ID
+    parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
+    parameter RXFIFOW = 8,                                // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter NFIFO = IOW/RXFIFOW,                        // number of parallel fifo's
+    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO // total fifo depth, eq is minimum
     // for development
-    parameter DW = 128,           // umi packet width
-    parameter CW = 32,            // umi packet width
-    parameter AW = 64,            // address width
-    parameter RW = 64,            // register width
-    parameter IDW = 16,           // chipid width
-    parameter IOW = 64            // phy IO width
+    parameter DW = 128,                                   // umi packet width
+    parameter CW = 32,                                    // umi packet width
+    parameter AW = 64,                                    // address width
+    parameter RW = 64,                                    // register width
+    parameter IDW = 16,                                   // chipid width
+    parameter IOW = 64                                    // phy IO width
     )
    (// host/device selector
     input            devicemode,      // 1=device, 0=host
@@ -111,12 +114,13 @@ module lumi
     output           host_linkactive, // link is locked/ready
     // supplies
     input            vss,             // common ground
-    input            vdd              // core supply
+    input            vdd,              // core supply
     /*AUTOINPUT*/
+    // Beginning of automatic inputs (from unused autoinst inputs)
+    input [7:0]         phy_iow
+    // End of automatics
     /*AUTOOUTPUT*/
     );
-
-   localparam RXFIFOW = 8;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -180,8 +184,10 @@ module lumi
                .DW(DW),
                .CW(CW),
                .AW(AW),
+               .ASYNCFIFODEPTH(ASYNCFIFODEPTH),
                .RXFIFOW(RXFIFOW),
-               .INITIOW(INITIOW)
+               .NFIFO(NFIFO),
+               .CRDTDEPTH(CRDTDEPTH)
                )
    lumi_regs(/*AUTOINST*/
              // Outputs
@@ -213,6 +219,7 @@ module lumi
              .udev_req_data     (cb2regs_data[RW-1:0]),  // Templated
              .udev_resp_ready   (regs2cb_ready),         // Templated
              .phy_linkactive    (phy_linkactive),
+             .phy_iow           (phy_iow[7:0]),
              .csr_txcrdt_status (csr_txcrdt_status[31:0]));
 
    //###########################
@@ -392,7 +399,11 @@ module lumi
              .CW(CW),
              .AW(AW),
              .DW(DW),
-             .RXFIFOW(RXFIFOW))
+             .ASYNCFIFODEPTH(ASYNCFIFODEPTH),
+             .RXFIFOW(RXFIFOW),
+             .NFIFO(NFIFO),
+             .CRDTDEPTH(CRDTDEPTH)
+             )
    lumi_rx(/*AUTOINST*/
            // Outputs
            .umi_resp_out_cmd    (udev_resp_cmd[CW-1:0]), // Templated
