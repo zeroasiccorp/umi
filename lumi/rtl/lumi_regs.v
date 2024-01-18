@@ -31,6 +31,7 @@ module lumi_regs
     parameter DW = 128,                                   // register width
     parameter RW = 32,                                    // register width
     parameter IDW = 16,                                   // chipid width
+    parameter IOW = 64,                                   // phy-lumi IO width
     parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
     parameter RXFIFOW = 8,                                // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
     parameter NFIFO = IOW/RXFIFOW,                        // number of parallel fifo's
@@ -174,7 +175,7 @@ module lumi_regs
      if(!nreset)
        txmode_reg[RW-1:0] <= 'h0;
      else if (linkactive_rise)
-       txmode_req[RW-1:0] <= {{(RW-24){1'b0}}, // Unused
+       txmode_reg[RW-1:0] <= {{(RW-24){1'b0}}, // Unused
                               phy_iow[7:0],    // IOW
                               8'h00,           // Unused
                               4'b0001,         // 3 unused, credit enable
@@ -200,7 +201,7 @@ module lumi_regs
      if(!nreset)
        rxmode_reg[RW-1:0] <= 'h0;
      else if (linkactive_rise)
-       rxmode_req[RW-1:0] <= {{(RW-24){1'b0}}, // Unused
+       rxmode_reg[RW-1:0] <= {{(RW-24){1'b0}}, // Unused
                               phy_iow[7:0],    // IOW
                               12'h000,         // Unused
                               4'b0001};        // 3 unused, rx enable
