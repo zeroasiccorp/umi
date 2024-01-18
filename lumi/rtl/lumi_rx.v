@@ -65,7 +65,8 @@ module lumi_rx
     output [15:0]     loc_crdt_req,       // Realtime rx credits to be sent to the remote side
     output [15:0]     loc_crdt_resp,      // Realtime rx credits to be sent to the remote side
     output reg [15:0] rmt_crdt_req,       // Credit value from remote side (for Tx)
-    output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
+    output reg [15:0] rmt_crdt_resp,      // Credit value from remote side (for Tx)
+    output [1:0]      crdt_init_send
     );
 
    localparam LOGFIFOWIDTH = $clog2(RXFIFOW/8);
@@ -166,6 +167,7 @@ module lumi_rx
    wire [11:0]                      resp_cmd_bytes;
 
    wire [1:0]                       credit_req_in;
+   reg [1:0]                        credit_init_recv;
 
    wire [15:0]                      rxhdr;
    wire                             rxhdr_sample;
@@ -710,6 +712,27 @@ module lumi_rx
           if (credit_req_in[1])
             rmt_crdt_resp <= lnk_cmd_user[23:8];
        end
+
+   //########################################
+   // Credit init receive
+   //########################################
+   // Starting at link up each Tx will send credit init messages
+   // This will indicate to the other side that lumi framing is in progress
+   // Once the first valid credit init message is received lumi is locked
+   // and credit updates will be sent
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       credit_init_recv[1:0] <= 2'b00;
+     else
+       begin
+          if (credit_req_in[0])
+            credit_init_recv[0] <= 1'b1;
+          if (credit_req_in[1])
+            credit_init_recv[1] <= 1'b1;
+       end
+
+   assign crdt_init_send[1:0] = ~credit_init_recv[1:0];
 
    //########################################
    // Everything from this point on is duplicated
