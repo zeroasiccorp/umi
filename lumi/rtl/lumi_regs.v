@@ -78,6 +78,8 @@ module lumi_regs
 
 `include "lumi_regmap.vh"
 
+   localparam TOTCRDT = CRDTDEPTH * NFIFO;
+
    genvar     i;
 
    /*AUTOWIRE*/
@@ -224,8 +226,8 @@ module lumi_regs
      if(!nreset)
        rxcrdt_init_reg[31:0] <= 'h0;
      else if (linkactive_rise)
-       rxcrdt_init_reg[31:0] <= {CRDTDEPTH[15:0] << phy_iow,
-                                 CRDTDEPTH[15:0] << phy_iow};
+       rxcrdt_init_reg[31:0] <= {TOTCRDT[15:0] << phy_iow,
+                                 TOTCRDT[15:0] << phy_iow};
      else if(write_crdt_init)
        rxcrdt_init_reg[31:0] <= reg_wrdata[31:0];
 
