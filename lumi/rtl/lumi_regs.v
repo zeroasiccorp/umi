@@ -21,18 +21,20 @@
  ******************************************************************************/
 
 module lumi_regs
-  #(parameter TARGET = "DEFAULT", // LUMI type
-    parameter GRPOFFSET = 24,     // group address offset
-    parameter GRPAW = 8,          // group address width
-    parameter GRPID = 0,          // group ID
-    parameter INITIOW = 0,        // Default interface width (in power of 2 bytes)
+  #(parameter TARGET = "DEFAULT",                         // LUMI type
+    parameter GRPOFFSET = 24,                             // group address offset
+    parameter GRPAW = 8,                                  // group address width
+    parameter GRPID = 0,                                  // group ID
     // for development only (fixed )
-    parameter CW = 32,            // umi data width
-    parameter AW = 64,            // address width
-    parameter DW = 128,           // register width
-    parameter RW = 32,            // register width
-    parameter IDW = 16,           // chipid width
-    parameter RXFIFOW =8
+    parameter CW = 32,                                    // umi data width
+    parameter AW = 64,                                    // address width
+    parameter DW = 128,                                   // register width
+    parameter RW = 32,                                    // register width
+    parameter IDW = 16,                                   // chipid width
+    parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
+    parameter RXFIFOW = 8,                                // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter NFIFO = IOW/RXFIFOW,                        // number of parallel fifo's
+    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO // total fifo depth, eq is minimum
     )
    (// common controls
     input           devicemode,    // 1=host, 0=device
@@ -54,6 +56,7 @@ module lumi_regs
     input           udev_resp_ready,
     // phy control signals
     input           phy_linkactive,
+    input [7:0]     phy_iow,
     // host side signals
     output          host_linkactive,
     // crossbar settings
@@ -73,7 +76,6 @@ module lumi_regs
     );
 
 `include "lumi_regmap.vh"
-   localparam CRDTDEPTH = 1+(DW+AW+AW+CW)/RXFIFOW;
 
    genvar     i;
 
@@ -94,6 +96,8 @@ module lumi_regs
    reg [RW-1:0]  rxcrdt_init_reg;
 
    reg           linkactive;
+   reg           linkactive_d;
+   reg           linkactive_rise;
 
    // sb interface
    wire [AW-1:0] reg_addr;
@@ -120,6 +124,18 @@ module lumi_regs
        linkactive <= 1'b0;
      else if (deviceready & devicemode | ~devicemode)
        linkactive <= phy_linkactive;
+
+   always @ (posedge clk or negedge nreset)
+     if (!nreset)
+       begin
+          linkactive_d <= 1'b0;
+          linkactive_rise <= 1'b0;
+       end
+     else
+       begin
+          linkactive_d <= linkactive;
+          linkactive_rise <= linkactive & ~linkactive_d;
+       end
 
    assign host_linkactive = linkactive;
 
@@ -150,17 +166,24 @@ module lumi_regs
    //######################################
    // TXMODE Register
    //######################################
-   // Amir - tx enable should not be set out of reset since you need to configure (from the host)
-   // the link parameters first.
+   // In order to enable lumi to work without a SW sequenece it
+   // will enable and sample the parameters from the phy once linkactive
+   // goes high
+
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       txmode_reg[RW-1:0] <= {{(RW-24){1'b0}},INITIOW[7:0],15'h0000,1'b1};
+       txmode_reg[RW-1:0] <= 'h0;
+     else if (linkactive_rise)
+       txmode_req[RW-1:0] <= {{(RW-24){1'b0}}, // Unused
+                              phy_iow[7:0],    // IOW
+                              8'h00,           // Unused
+                              4'b0001,         // 3 unused, credit enable
+                              4'b0001};        // 3 unused, tx enable
      else if(write_txmode)
        txmode_reg[RW-1:0] <= reg_wrdata[RW-1:0];
 
-   assign csr_txen        = linkactive & txmode_reg[0]; // tx enable
-   assign csr_txcrdt_en   = txmode_reg[4];   // Enable sending credit updates
-
+   assign csr_txen           = linkactive & txmode_reg[0]; // tx enable
+   assign csr_txcrdt_en      = txmode_reg[4];   // Enable sending credit updates
    assign csr_txiowidth[7:0] = txmode_reg[23:16];
    // 00000000 = 1 bytes
    // 00000001 = 2 bytes
@@ -175,13 +198,17 @@ module lumi_regs
 
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       rxmode_reg[RW-1:0] <= {{(RW-24){1'b0}},INITIOW[7:0],15'h0000,1'b1};
+       rxmode_reg[RW-1:0] <= 'h0;
+     else if (linkactive_rise)
+       rxmode_req[RW-1:0] <= {{(RW-24){1'b0}}, // Unused
+                              phy_iow[7:0],    // IOW
+                              12'h000,         // Unused
+                              4'b0001};        // 3 unused, rx enable
      else if(write_rxmode)
        rxmode_reg[RW-1:0] <= reg_wrdata[RW-1:0];
 
-   assign csr_rxen      = linkactive & rxmode_reg[0]; // rx enable
-
-   assign csr_rxiowidth[7:0]  = rxmode_reg[23:16];
+   assign csr_rxen           = linkactive & rxmode_reg[0]; // rx enable
+   assign csr_rxiowidth[7:0] = rxmode_reg[23:16];
    // 00000000 = 1 bytes
    // 00000001 = 2 bytes
    // 00000010 = 4 bytes
@@ -194,7 +221,10 @@ module lumi_regs
    //######################################
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       rxcrdt_init_reg[31:0] <= {CRDTDEPTH[15:0],CRDTDEPTH[15:0]};
+       rxcrdt_init_reg[31:0] <= 'h0;
+     else if (linkactive_rise)
+       rxcrdt_init_reg[31:0] <= {CRDTDEPTH[15:0] << phy_iow,
+                                 CRDTDEPTH[15:0] << phy_iow};
      else if(write_crdt_init)
        rxcrdt_init_reg[31:0] <= reg_wrdata[31:0];
 

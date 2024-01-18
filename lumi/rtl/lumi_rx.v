@@ -22,13 +22,16 @@
  ******************************************************************************/
 
 module lumi_rx
-  #(parameter TARGET = "DEFAULT", // implementation target
+  #(parameter TARGET = "DEFAULT",                         // implementation target
     // for development only (fixed )
-    parameter IOW = 64,           // clink rx/tx width
-    parameter DW = 256,           // umi data width
-    parameter CW = 32,            // umi data width
-    parameter AW = 64,            // address width
-    parameter RXFIFOW = 8         // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter IOW = 64,                                   // clink rx/tx width
+    parameter DW = 256,                                   // umi data width
+    parameter CW = 32,                                    // umi data width
+    parameter AW = 64,                                    // address width
+    parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
+    parameter RXFIFOW = 8,                                // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter NFIFO = IOW/RXFIFOW,                        // number of parallel fifo's
+    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO // total fifo depth, eq is minimum
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -65,9 +68,6 @@ module lumi_rx
     output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
     );
 
-   localparam ASYNCFIFODEPTH = 8;
-   localparam NFIFO = IOW/RXFIFOW;
-   localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
    localparam LOGFIFOWIDTH = $clog2(RXFIFOW/8);
    localparam LOGNFIFO = $clog2(NFIFO);
 
