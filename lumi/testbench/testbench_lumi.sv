@@ -156,8 +156,10 @@ module testbench (
    // No clink so driving all clock from the tb
    wire rxclk = clk;
    wire txclk = clk;
+   wire phy_clk = clk;
    wire rxnreset = nreset;
    wire txnreset = nreset;
+   wire phy_nreset = nreset;
 
    // instantiate dut with UMI ports
    /* lumi AUTO_TEMPLATE(
@@ -175,6 +177,7 @@ module testbench (
     .devicemode       (1'b0),
     .deviceready      (1'b1),
     .phy_linkactive   (1'b1),
+    .phy_iow          (8'h0),
     .host_linkactive  (),
     .vss              (),
     .vdd.*            (),
@@ -253,7 +256,8 @@ module testbench (
                .clk             (clk),
                .deviceready     (1'b1),                  // Templated
                .vss             (),                      // Templated
-               .vdd             ());                     // Templated
+               .vdd             (),                      // Templated
+               .phy_iow         (8'h0));                 // Templated
 
    /* lumi AUTO_TEMPLATE(
     .uhost_req_\(.*\)  (udev_req_\1[]),
@@ -269,6 +273,7 @@ module testbench (
     .devicemode        (1'b1),
     .deviceready       (1'b1),
     .phy_linkactive    (1'b1),
+    .phy_iow           (8'h0),
     .host_linkactive   (),
     .vss               (),
     .vdd.*             (),
@@ -347,7 +352,8 @@ module testbench (
               .clk              (clk),
               .deviceready      (1'b1),                  // Templated
               .vss              (),                      // Templated
-              .vdd              ());                     // Templated
+              .vdd              (),                      // Templated
+              .phy_iow          (8'h0));                 // Templated
 
    umiram #(.ADDR_WIDTH(10),
             .DATA_WIDTH(DW),
