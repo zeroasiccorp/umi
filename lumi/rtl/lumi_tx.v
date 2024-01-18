@@ -61,7 +61,8 @@ module lumi_tx
     input [15:0]      rmt_crdt_req,
     input [15:0]      rmt_crdt_resp,
     input [15:0]      loc_crdt_req,
-    input [15:0]      loc_crdt_resp
+    input [15:0]      loc_crdt_resp,
+    input [1:0]       crdt_init_send
     );
 
    // local state
@@ -274,10 +275,14 @@ module lumi_tx
    // Muxing the umi_mux output with sending credit updates
    // Change the order to send resp credits first so in case both are pending
    // response will get credits first
+   wire [3:0] req_crdt_msg, resp_crdt_msg;
+   assign req_crdt_msg  = crdt_init_send[1] ? 4'h1 : 4'h2;
+   assign resp_crdt_msg = crdt_init_send[0] ? 4'h1 : 4'h2;
+
    assign umi_muxed_cmd = crdt_updt_send[1] ?
-                          {loc_crdt_req[15:0],4'h0,4'h2,8'h2F}  :
+                          {loc_crdt_req[15:0],4'h0,req_crdt_msg[3:0],8'h2F}  :
                           crdt_updt_send[0] ?
-                          {loc_crdt_resp[15:0],4'h1,4'h2,8'h2F} :
+                          {loc_crdt_resp[15:0],4'h1,resp_crdt_msg[3:0],8'h2F} :
                           umi_out_cmd;
 
    // response takes precedence over request
