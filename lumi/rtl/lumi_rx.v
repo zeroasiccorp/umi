@@ -66,7 +66,8 @@ module lumi_rx
     output [15:0]     loc_crdt_resp,      // Realtime rx credits to be sent to the remote side
     output reg [15:0] rmt_crdt_req,       // Credit value from remote side (for Tx)
     output reg [15:0] rmt_crdt_resp,      // Credit value from remote side (for Tx)
-    output [1:0]      crdt_init_send
+    output reg [1:0]  loc_crdt_init,
+    output reg [1:0]  rmt_crdt_init
     );
 
    localparam LOGFIFOWIDTH = $clog2(RXFIFOW/8);
@@ -165,9 +166,7 @@ module lumi_rx
    wire [11:0]                      resp_cmd_lenp1;
    wire [11:0]                      req_cmd_bytes;
    wire [11:0]                      resp_cmd_bytes;
-
    wire [1:0]                       credit_req_in;
-   reg [1:0]                        credit_init_recv;
 
    wire [15:0]                      rxhdr;
    wire                             rxhdr_sample;
@@ -407,7 +406,7 @@ module lumi_rx
    // the command is a link command. This is done in order to align the lumi framing
    // in case rxen is set in the middle of a packet
    assign sopptr_next = (((sopptr + byterate) >= rxbytes_to_rcv) |
-                         (sopptr == 0) & (|crdt_init_send) & ~rxcmd_link) ?
+                         (sopptr == 0) & (|loc_crdt_init) & ~rxcmd_link) ?
                         0 :
                         sopptr + byterate;
 
@@ -427,13 +426,13 @@ module lumi_rx
      else
        if (rxhdr_sample & rxvalid)
          rxtype_next[2:0] <= {rxcmd_link,
-                              rxcmd_response & ~rxcmd_link & ~(|crdt_init_send),
-                              rxcmd_request  & ~rxcmd_link & ~(|crdt_init_send)};
+                              rxcmd_response & ~rxcmd_link & ~(|loc_crdt_init),
+                              rxcmd_request  & ~rxcmd_link & ~(|loc_crdt_init)};
 
    assign rxtype = rxhdr_sample & rxvalid ?
                    {rxcmd_link,
-                    rxcmd_response & ~rxcmd_link & ~(|crdt_init_send),
-                    rxcmd_request  & ~rxcmd_link & ~(|crdt_init_send)} :
+                    rxcmd_response & ~rxcmd_link & ~(|loc_crdt_init),
+                    rxcmd_request  & ~rxcmd_link & ~(|loc_crdt_init)} :
                    rxtype_next;
 
    // credit counters - to be sent to the remote side
@@ -732,18 +731,26 @@ module lumi_rx
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       credit_init_recv[1:0] <= 2'b00;
+       begin
+          loc_crdt_init[1:0] <= 2'b11;
+          rmt_crdt_init[1:0] <= 2'b11;
+       end
      else if (~csr_en)
-       credit_init_recv[1:0] <= 2'b00;
+       begin
+          loc_crdt_init[1:0] <= 2'b11;
+          rmt_crdt_init[1:0] <= 2'b11;
+       end
      else
        begin
-          if (credit_req_in[0])
-            credit_init_recv[0] <= 1'b1;
-          if (credit_req_in[1])
-            credit_init_recv[1] <= 1'b1;
+          if (credit_req_in[0]) // init or update
+            loc_crdt_init[0] <= 1'b0;
+          if (credit_req_in[1]) // init or update
+            loc_crdt_init[1] <= 1'b0;
+          if (credit_req_in[0] & (lnk_cmd_user[7:0] == 8'h02)) // update only
+            rmt_crdt_init[0] <= 1'b0;
+          if (credit_req_in[1] & (lnk_cmd_user[7:0] == 8'h12)) // update only
+            rmt_crdt_init[1] <= 1'b0;
        end
-
-   assign crdt_init_send[1:0] = ~credit_init_recv[1:0];
 
    //########################################
    // Everything from this point on is duplicated
