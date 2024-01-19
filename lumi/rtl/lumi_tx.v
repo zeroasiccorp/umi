@@ -190,12 +190,16 @@ module lumi_tx
           tx_crdt_req[15:0]  <= 'h0;
           tx_crdt_resp[15:0] <= 'h0;
        end
-     else
-       if (phy_fifo_wr & phy_txrdy)
-         begin
-            tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
-            tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
-         end
+     else if (~csr_en)
+       begin
+          tx_crdt_req[15:0]  <= 'h0;
+          tx_crdt_resp[15:0] <= 'h0;
+          end
+     else if (phy_fifo_wr & phy_txrdy)
+       begin
+          tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
+          tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
+       end
 
    // Credit status - count cycles of no-credit
 
@@ -276,8 +280,8 @@ module lumi_tx
    // Change the order to send resp credits first so in case both are pending
    // response will get credits first
    wire [3:0] req_crdt_msg, resp_crdt_msg;
-   assign req_crdt_msg  = crdt_init_send[1] ? 4'h1 : 4'h2;
-   assign resp_crdt_msg = crdt_init_send[0] ? 4'h1 : 4'h2;
+   assign req_crdt_msg  = crdt_init_send[0] ? 4'h1 : 4'h2;
+   assign resp_crdt_msg = crdt_init_send[1] ? 4'h1 : 4'h2;
 
    assign umi_muxed_cmd = crdt_updt_send[1] ?
                           {loc_crdt_req[15:0],4'h0,req_crdt_msg[3:0],8'h2F}  :
@@ -370,8 +374,9 @@ module lumi_tx
    assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]- {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[1]});
 
    // If credit mechanism is not enabled Tx works in infinite credit mode
-   assign rxready[0] = ~(csr_crdt_en) | (req_crdt_avail[15:0]  >= req_crdt_need[15:0]);
-   assign rxready[1] = ~(csr_crdt_en) | (resp_crdt_avail[15:0] >= resp_crdt_need[15:0]);
+   // Do not start sending packets until remote side finished credit init
+   assign rxready[0] = ~(csr_crdt_en) | ~crdt_init_send[0] & (req_crdt_avail[15:0]  >= req_crdt_need[15:0]);
+   assign rxready[1] = ~(csr_crdt_en) | ~crdt_init_send[1] & (resp_crdt_avail[15:0] >= resp_crdt_need[15:0]);
 
    assign phy_fifo_wr = |valid[(DW+AW+AW+CW)/8-1:0];
 
