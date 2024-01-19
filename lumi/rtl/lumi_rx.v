@@ -403,7 +403,11 @@ module lumi_rx
 
    // Count by the number of bytes per cycle transferred
    // When reaching the end of the header need to re-align to the remaining bytes
-   assign sopptr_next = ((sopptr + byterate) >= rxbytes_to_rcv) ?
+   // When we are still waiting for credit init the sop will not progress unless
+   // the command is a link command. This is done in order to align the lumi framing
+   // in case rxen is set in the middle of a packet
+   assign sopptr_next = (((sopptr + byterate) >= rxbytes_to_rcv) |
+                         (sopptr == 0) & (|crdt_init_send) & ~rxcmd_link) ?
                         0 :
                         sopptr + byterate;
 
@@ -416,15 +420,20 @@ module lumi_rx
    // Since the data might come on a narror interface will only use the first byte
 
    // Sample packet type from the RX lines upon SOP
+   // All packets but link will be blocked until credit init is done
    always @(posedge ioclk or negedge ionreset)
      if (~ionreset)
        rxtype_next[2:0] <= 3'b000;
      else
        if (rxhdr_sample & rxvalid)
-         rxtype_next[2:0] <= {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link};
+         rxtype_next[2:0] <= {rxcmd_link,
+                              rxcmd_response & ~rxcmd_link & ~(|crdt_init_send),
+                              rxcmd_request  & ~rxcmd_link & ~(|crdt_init_send)};
 
    assign rxtype = rxhdr_sample & rxvalid ?
-                   {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link} :
+                   {rxcmd_link,
+                    rxcmd_response & ~rxcmd_link & ~(|crdt_init_send),
+                    rxcmd_request  & ~rxcmd_link & ~(|crdt_init_send)} :
                    rxtype_next;
 
    // credit counters - to be sent to the remote side
