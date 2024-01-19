@@ -173,8 +173,10 @@ module testbench (
        delay_cnt <= delay_cnt + 1;
    initial
      begin
-        host_delay = $urandom%1000;
-        device_delay = $urandom%1000;
+        if (!$value$plusargs("hostdly=%d",host_delay))
+          host_delay = $urandom%500;
+        if (!$value$plusargs("devdly=%d",device_delay))
+          device_delay = $urandom%500;
      end
 
    always @(posedge clk or negedge nreset)
