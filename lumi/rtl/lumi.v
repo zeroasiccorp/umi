@@ -107,7 +107,7 @@ module lumi
     input            txnreset,
     // phy control interface
     input            phy_linkactive,
-    input [7:0]      phy_iow
+    input [7:0]      phy_iow,
     // Host control interface
     input            nreset,          // host driven reset
     input            clk,             // host driven clock
