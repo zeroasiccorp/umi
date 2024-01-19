@@ -128,3 +128,27 @@ The following is the LUMI block interface. All signals are synchronous, active o
 | txnreset           |           | input  | phy lumi tx reset (low)   |
 | phy_linkactive     |           | input  | phy link active           |
 | phy_iow            | [7:0]     | input  | phy IO width              |
+
+----
+## 4. Operation and configuration
+
+The LUMI block is designed to work without any configuration based on the parameters used.
+In this mode it will enable the receiver, transmitter and credit mechanism at the rise of linkactive indication from the phy. This allows the phy to initialize and train (if applicable) before lumi is enabled.
+
+### 4.1 Autonomous Flow
+
+In this mode lumi is self-configuring based on the parameters and phy width.
+
+1. nreset deassertion
+2. phy layer sets phy_iow
+3. phy_linkactive is asserted
+
+### 4.2 Re-configuration Flow
+
+As lumi is self-configured based on the phy width there might be cases where parameters need to be changed. In order to override the configuration the following flow should be followed:
+1. Pull on remote and local side link active indication in LUMI_STATUS register and wait for the link to be active on both sides
+2. Disable Tx on both sides of the link
+3. Disable Rx on both sides of the link
+4. Configure required lumi configurations over side band
+5. Enable Rx on both sides
+6. Enable Tx (and credits if needed) on both sides
