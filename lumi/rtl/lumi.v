@@ -24,7 +24,7 @@
 
 module lumi
   #(parameter TARGET = "DEFAULT",                          // compiler target
-    parameter IDOFFSET = 24,                               // chip ID address offset
+    parameter IDOFFSET = 40,                               // chip ID address offset
     parameter GRPOFFSET = 24,                              // group address offset
     parameter GRPAW = 8,                                   // group address width
     parameter GRPID = 0,                                   // group ID
@@ -107,6 +107,7 @@ module lumi
     input            txnreset,
     // phy control interface
     input            phy_linkactive,
+    input [7:0]      phy_iow
     // Host control interface
     input            nreset,          // host driven reset
     input            clk,             // host driven clock
@@ -114,11 +115,8 @@ module lumi
     output           host_linkactive, // link is locked/ready
     // supplies
     input            vss,             // common ground
-    input            vdd,              // core supply
+    input            vdd             // core supply
     /*AUTOINPUT*/
-    // Beginning of automatic inputs (from unused autoinst inputs)
-    input [7:0]         phy_iow
-    // End of automatics
     /*AUTOOUTPUT*/
     );
 
