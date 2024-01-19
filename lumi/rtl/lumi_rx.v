@@ -261,9 +261,9 @@ module lumi_rx
           rxvalid  <= 1'b0;
           rxvalid2 <= 1'b0;
        end
-     else if (csr_en)
+     else
        begin
-          rxvalid  <= phy_rxvld;
+          rxvalid  <= phy_rxvld & csr_en;
           rxvalid2 <= rxvalid;
        end
 
@@ -732,6 +732,8 @@ module lumi_rx
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
+       credit_init_recv[1:0] <= 2'b00;
+     else if (~csr_en)
        credit_init_recv[1:0] <= 2'b00;
      else
        begin
