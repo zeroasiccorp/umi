@@ -14,7 +14,7 @@ THIS_DIR = Path(__file__).resolve().parent
 
 
 def build_testbench(topo="2d", trace=False):
-    dut = SbDut('testbench', trace=trace, trace_type='fst', default_main=True)
+    dut = SbDut('testbench', trace=True, trace_type='fst', default_main=True)
 
     EX_DIR = Path('..')
 
