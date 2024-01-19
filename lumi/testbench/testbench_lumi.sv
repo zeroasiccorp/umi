@@ -284,12 +284,12 @@ module testbench (
                .txclk           (txclk),
                .txnreset        (txnreset),
                .phy_linkactive  (linkactive_host),       // Templated
+               .phy_iow         (8'h0),                  // Templated
                .nreset          (nreset),
                .clk             (clk),
                .deviceready     (1'b1),                  // Templated
                .vss             (),                      // Templated
-               .vdd             (),                      // Templated
-               .phy_iow         (8'h0));                 // Templated
+               .vdd             ());                     // Templated
 
    /* lumi AUTO_TEMPLATE(
     .uhost_req_\(.*\)  (udev_req_\1[]),
@@ -380,12 +380,12 @@ module testbench (
               .txclk            (txclk),
               .txnreset         (txnreset),
               .phy_linkactive   (linkactive_device),     // Templated
+              .phy_iow          (8'h0),                  // Templated
               .nreset           (nreset),
               .clk              (clk),
               .deviceready      (1'b1),                  // Templated
               .vss              (),                      // Templated
-              .vdd              (),                      // Templated
-              .phy_iow          (8'h0));                 // Templated
+              .vdd              ());                     // Templated
 
    umiram #(.ADDR_WIDTH(10),
             .DATA_WIDTH(DW),
