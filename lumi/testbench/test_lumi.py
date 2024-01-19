@@ -4,6 +4,7 @@
 # Copyright (C) 2023 Zero ASIC
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
+import random
 import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
@@ -60,14 +61,19 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
 
     dut = build_testbench(topo,trace)
 
+    hostdly = random.randrange(500)
+    devdly = random.randrange(500)
+
     # launch the simulation
     dut.simulate(
         plusargs=[
             ('valid_mode', vldmode),
-            ('ready_mode', rdymode)
+            ('ready_mode', rdymode),
+            ('hostdly', hostdly),
+            ('devdly', devdly)
         ],
         trace=trace,
-        args=['+verilator+seed+0']
+        args=['+verilator+seed+100']
     )
 
     # instantiate TX and RX queues.  note that these can be instantiated without
@@ -104,24 +110,27 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
             linkactive = sb.read(0x60000004, np.uint32)
             print(f"Read: 0x{val32:08x}")
 
-        print("### disable Rx and Tx ###")
-        sb.write(0x70000010, np.uint32(0x0), posted=True)
-        sb.write(0x70000014, np.uint32(0x0), posted=True)
-
-        print("### disable Rx and Tx ###")
+        print("### disable Tx ###")
         sb.write(0x60000010, np.uint32(0x0), posted=True)
+        sb.write(0x70000010, np.uint32(0x0), posted=True)
+
+        import time
+        time.sleep (0.1)
+
+        print("### disable Rx ###")
+        sb.write(0x70000014, np.uint32(0x0), posted=True)
         sb.write(0x60000014, np.uint32(0x0), posted=True)
 
         print("### configure loc Rx width ###")
         sb.write(0x70000010, width, posted=True)
 
-        print("### configure rmt Rx 2B width ###")
+        print("### configure rmt Rx width ###")
         sb.write(0x60000010, width, posted=True)
 
-        print("### configure loc Tx 2B width ###")
+        print("### configure loc Tx width ###")
         sb.write(0x70000014, width, posted=True)
 
-        print("### configure rmt Tx 2B width ###")
+        print("### configure rmt Tx width ###")
         sb.write(0x60000014, width, posted=True)
 
         print("### Rx enable local ###")
