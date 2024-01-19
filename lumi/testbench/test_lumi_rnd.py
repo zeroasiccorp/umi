@@ -8,13 +8,13 @@ import random
 import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, binary_run
+from switchboard import SbDut, UmiTxRx, delete_queue
 
 THIS_DIR = Path(__file__).resolve().parent
 
 
-def build_testbench(topo="2d"):
-    dut = SbDut('testbench')
+def build_testbench(topo="2d", trace=False):
+    dut = SbDut('testbench', trace=trace, trace_type='fst', default_main=True)
 
     EX_DIR = Path('..')
 
@@ -44,25 +44,27 @@ def build_testbench(topo="2d"):
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
 
-    # Settings - enable tracing
-    dut.set('option', 'trace', True)
-    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
-
     # Build simulator
-    dut.run()
+    dut.build()
 
-    return dut.find_result('vexe', step='compile')
+    return dut
 
-def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0.q", sb2dut="sb2dut_0.q", dut2sb="dut2sb_0.q"):
+def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.q", dut2host="dut2host_0.q", sb2dut="sb2dut_0.q", dut2sb="dut2sb_0.q"):
     # clean up old queues if present
     for q in [host2dut, dut2host, sb2dut, dut2sb]:
         delete_queue(q)
 
-    verilator_bin = build_testbench(topo)
+    dut = build_testbench(topo,trace)
 
     # launch the simulation
-    #verilator_run(verilator_bin, plusargs=['trace'])
-    verilator_run(verilator_bin, plusargs=['trace', ('valid_mode', vldmode), ('ready_mode', rdymode)])
+    dut.simulate(
+        plusargs=[
+            ('valid_mode', vldmode),
+            ('ready_mode', rdymode)
+        ],
+        trace=trace,
+        args=['+verilator+seed+0']
+    )
 
     # instantiate TX and RX queues.  note that these can be instantiated without
     # specifying a URI, in which case the URI can be specified later via the
@@ -188,9 +190,11 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
 
 if __name__ == '__main__':
     parser = ArgumentParser()
+    parser.add_argument('--trace', action='store_true', default=False,
+                        help="Enable waveform tracing")
     parser.add_argument('--topo', default='2d')
     parser.add_argument('--vldmode', default='2')
     parser.add_argument('--rdymode', default='2')
     args = parser.parse_args()
 
-    main(topo=args.topo,vldmode=args.vldmode,rdymode=args.rdymode)
+    main(topo=args.topo,vldmode=args.vldmode,rdymode=args.rdymode,trace=args.trace)
