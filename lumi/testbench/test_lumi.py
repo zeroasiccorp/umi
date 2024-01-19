@@ -86,9 +86,25 @@ def main(topo="2d", vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host=
     if topo=='3d':
         width = np.uint32(0x00030000)
 
+        linkactive = 0
+        while (linkactive == 0):
+            print("### Wait for linkactive ###")
+            linkactive = sb.read(0x70000004, np.uint32)
+            print(f"Read: 0x{val32:08x}")
+
+        linkactive = 0
+        while (linkactive == 0):
+            print("### Wait for linkactive ###")
+            linkactive = sb.read(0x60000004, np.uint32)
+            print(f"Read: 0x{val32:08x}")
+
         print("### disable Rx and Tx ###")
         sb.write(0x70000010, np.uint32(0x0), posted=True)
         sb.write(0x70000014, np.uint32(0x0), posted=True)
+
+        print("### disable Rx and Tx ###")
+        sb.write(0x60000010, np.uint32(0x0), posted=True)
+        sb.write(0x60000014, np.uint32(0x0), posted=True)
 
         print("### configure loc Rx width ###")
         sb.write(0x70000010, width, posted=True)
