@@ -239,7 +239,7 @@ module lumi_regs
    //######################################
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       txcrdt_intrvl_reg[15:0] <= 16'h00FF;
+       txcrdt_intrvl_reg[15:0] <= 16'h0010;
      else if(write_crdt_intrvl)
        txcrdt_intrvl_reg[15:0] <= reg_wrdata[15:0];
 
