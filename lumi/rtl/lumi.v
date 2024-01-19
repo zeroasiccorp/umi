@@ -134,7 +134,6 @@ module lumi
    wire                 cb2regs_ready;
    wire [AW-1:0]        cb2regs_srcaddr;
    wire                 cb2regs_valid;
-   wire [1:0]           crdt_init_send;
    wire [15:0]          csr_rxcrdt_req_init;
    wire [15:0]          csr_rxcrdt_resp_init;
    wire                 csr_rxen;
@@ -150,6 +149,7 @@ module lumi
    wire                 fifo2cb_ready;
    wire [AW-1:0]        fifo2cb_srcaddr;
    wire                 fifo2cb_valid;
+   wire [1:0]           loc_crdt_init;
    wire [15:0]          loc_crdt_req;
    wire [15:0]          loc_crdt_resp;
    wire [CW-1:0]        regs2cb_cmd;
@@ -158,6 +158,7 @@ module lumi
    wire                 regs2cb_ready;
    wire [AW-1:0]        regs2cb_srcaddr;
    wire                 regs2cb_valid;
+   wire [1:0]           rmt_crdt_init;
    wire [15:0]          rmt_crdt_req;
    wire [15:0]          rmt_crdt_resp;
    // End of automatics
@@ -420,7 +421,8 @@ module lumi
            .loc_crdt_resp       (loc_crdt_resp[15:0]),
            .rmt_crdt_req        (rmt_crdt_req[15:0]),
            .rmt_crdt_resp       (rmt_crdt_resp[15:0]),
-           .crdt_init_send      (crdt_init_send[1:0]),
+           .loc_crdt_init       (loc_crdt_init[1:0]),
+           .rmt_crdt_init       (rmt_crdt_init[1:0]),
            // Inputs
            .clk                 (clk),
            .nreset              (nreset),
@@ -487,7 +489,8 @@ module lumi
            .rmt_crdt_resp       (rmt_crdt_resp[15:0]),
            .loc_crdt_req        (loc_crdt_req[15:0]),
            .loc_crdt_resp       (loc_crdt_resp[15:0]),
-           .crdt_init_send      (crdt_init_send[1:0]));
+           .loc_crdt_init       (loc_crdt_init[1:0]),
+           .rmt_crdt_init       (rmt_crdt_init[1:0]));
 
 endmodule // clink
 // Local Variables:
