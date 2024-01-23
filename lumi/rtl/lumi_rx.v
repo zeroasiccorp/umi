@@ -22,13 +22,16 @@
  ******************************************************************************/
 
 module lumi_rx
-  #(parameter TARGET = "DEFAULT", // implementation target
+  #(parameter TARGET = "DEFAULT",                         // implementation target
     // for development only (fixed )
-    parameter IOW = 64,           // clink rx/tx width
-    parameter DW = 256,           // umi data width
-    parameter CW = 32,            // umi data width
-    parameter AW = 64,            // address width
-    parameter RXFIFOW = 8         // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter IOW = 64,                                   // clink rx/tx width
+    parameter DW = 256,                                   // umi data width
+    parameter CW = 32,                                    // umi data width
+    parameter AW = 64,                                    // address width
+    parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
+    parameter RXFIFOW = 8,                                // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter NFIFO = IOW/RXFIFOW,                        // number of parallel fifo's
+    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO // total fifo depth, eq is minimum
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -62,12 +65,11 @@ module lumi_rx
     output [15:0]     loc_crdt_req,       // Realtime rx credits to be sent to the remote side
     output [15:0]     loc_crdt_resp,      // Realtime rx credits to be sent to the remote side
     output reg [15:0] rmt_crdt_req,       // Credit value from remote side (for Tx)
-    output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
+    output reg [15:0] rmt_crdt_resp,      // Credit value from remote side (for Tx)
+    output reg [1:0]  loc_crdt_init,
+    output reg [1:0]  rmt_crdt_init
     );
 
-   localparam ASYNCFIFODEPTH = 8;
-   localparam NFIFO = IOW/RXFIFOW;
-   localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
    localparam LOGFIFOWIDTH = $clog2(RXFIFOW/8);
    localparam LOGNFIFO = $clog2(NFIFO);
 
@@ -164,7 +166,6 @@ module lumi_rx
    wire [11:0]                      resp_cmd_lenp1;
    wire [11:0]                      req_cmd_bytes;
    wire [11:0]                      resp_cmd_bytes;
-
    wire [1:0]                       credit_req_in;
 
    wire [15:0]                      rxhdr;
@@ -259,9 +260,9 @@ module lumi_rx
           rxvalid  <= 1'b0;
           rxvalid2 <= 1'b0;
        end
-     else if (csr_en)
+     else
        begin
-          rxvalid  <= phy_rxvld;
+          rxvalid  <= phy_rxvld & csr_en;
           rxvalid2 <= rxvalid;
        end
 
@@ -401,7 +402,11 @@ module lumi_rx
 
    // Count by the number of bytes per cycle transferred
    // When reaching the end of the header need to re-align to the remaining bytes
-   assign sopptr_next = ((sopptr + byterate) >= rxbytes_to_rcv) ?
+   // When we are still waiting for credit init the sop will not progress unless
+   // the command is a link command. This is done in order to align the lumi framing
+   // in case rxen is set in the middle of a packet
+   assign sopptr_next = (((sopptr + byterate) >= rxbytes_to_rcv) |
+                         (sopptr == 0) & (|loc_crdt_init) & ~rxcmd_link) ?
                         0 :
                         sopptr + byterate;
 
@@ -414,15 +419,20 @@ module lumi_rx
    // Since the data might come on a narror interface will only use the first byte
 
    // Sample packet type from the RX lines upon SOP
+   // All packets but link will be blocked until credit init is done
    always @(posedge ioclk or negedge ionreset)
      if (~ionreset)
        rxtype_next[2:0] <= 3'b000;
      else
        if (rxhdr_sample & rxvalid)
-         rxtype_next[2:0] <= {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link};
+         rxtype_next[2:0] <= {rxcmd_link,
+                              rxcmd_response & ~rxcmd_link & ~(|loc_crdt_init),
+                              rxcmd_request  & ~rxcmd_link & ~(|loc_crdt_init)};
 
    assign rxtype = rxhdr_sample & rxvalid ?
-                   {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link} :
+                   {rxcmd_link,
+                    rxcmd_response & ~rxcmd_link & ~(|loc_crdt_init),
+                    rxcmd_request  & ~rxcmd_link & ~(|loc_crdt_init)} :
                    rxtype_next;
 
    // credit counters - to be sent to the remote side
@@ -709,6 +719,37 @@ module lumi_rx
             rmt_crdt_req  <= lnk_cmd_user[23:8];
           if (credit_req_in[1])
             rmt_crdt_resp <= lnk_cmd_user[23:8];
+       end
+
+   //########################################
+   // Credit init receive
+   //########################################
+   // Starting at link up each Tx will send credit init messages
+   // This will indicate to the other side that lumi framing is in progress
+   // Once the first valid credit init message is received lumi is locked
+   // and credit updates will be sent
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          loc_crdt_init[1:0] <= 2'b11;
+          rmt_crdt_init[1:0] <= 2'b11;
+       end
+     else if (~csr_en)
+       begin
+          loc_crdt_init[1:0] <= 2'b11;
+          rmt_crdt_init[1:0] <= 2'b11;
+       end
+     else
+       begin
+          if (credit_req_in[0]) // init or update
+            loc_crdt_init[0] <= 1'b0;
+          if (credit_req_in[1]) // init or update
+            loc_crdt_init[1] <= 1'b0;
+          if (credit_req_in[0] & (lnk_cmd_user[7:0] == 8'h02)) // update only
+            rmt_crdt_init[0] <= 1'b0;
+          if (credit_req_in[1] & (lnk_cmd_user[7:0] == 8'h12)) // update only
+            rmt_crdt_init[1] <= 1'b0;
        end
 
    //########################################

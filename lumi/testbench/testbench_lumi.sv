@@ -156,8 +156,42 @@ module testbench (
    // No clink so driving all clock from the tb
    wire rxclk = clk;
    wire txclk = clk;
+   wire phy_clk = clk;
    wire rxnreset = nreset;
    wire txnreset = nreset;
+   wire phy_nreset = nreset;
+   reg  linkactive_host;
+   reg  linkactive_device;
+   integer host_delay;
+   integer device_delay;
+   reg [31:0] delay_cnt;
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       delay_cnt <= 'd0;
+     else
+       delay_cnt <= delay_cnt + 1;
+   initial
+     begin
+        if (!$value$plusargs("hostdly=%d",host_delay))
+          host_delay = $urandom%500;
+        if (!$value$plusargs("devdly=%d",device_delay))
+          device_delay = $urandom%500;
+     end
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          linkactive_host <= 1'b0;
+          linkactive_device <= 1'b0;
+       end
+     else
+       begin
+          if (delay_cnt == host_delay)
+            linkactive_host <= 1'b1;
+          if (delay_cnt == device_delay)
+            linkactive_device <= 1'b1;
+       end
 
    // instantiate dut with UMI ports
    /* lumi AUTO_TEMPLATE(
@@ -174,7 +208,8 @@ module testbench (
     .phy_tx\(.*\)     (phy_rx\1[]),
     .devicemode       (1'b0),
     .deviceready      (1'b1),
-    .phy_linkactive   (1'b1),
+    .phy_linkactive   (linkactive_host),
+    .phy_iow          (8'h0),
     .host_linkactive  (),
     .vss              (),
     .vdd.*            (),
@@ -248,7 +283,8 @@ module testbench (
                .rxnreset        (rxnreset),
                .txclk           (txclk),
                .txnreset        (txnreset),
-               .phy_linkactive  (1'b1),                  // Templated
+               .phy_linkactive  (linkactive_host),       // Templated
+               .phy_iow         (8'h0),                  // Templated
                .nreset          (nreset),
                .clk             (clk),
                .deviceready     (1'b1),                  // Templated
@@ -268,7 +304,8 @@ module testbench (
     .sb_out.*          (),
     .devicemode        (1'b1),
     .deviceready       (1'b1),
-    .phy_linkactive    (1'b1),
+    .phy_linkactive    (linkactive_device),
+    .phy_iow           (8'h0),
     .host_linkactive   (),
     .vss               (),
     .vdd.*             (),
@@ -342,7 +379,8 @@ module testbench (
               .rxnreset         (rxnreset),
               .txclk            (txclk),
               .txnreset         (txnreset),
-              .phy_linkactive   (1'b1),                  // Templated
+              .phy_linkactive   (linkactive_device),     // Templated
+              .phy_iow          (8'h0),                  // Templated
               .nreset           (nreset),
               .clk              (clk),
               .deviceready      (1'b1),                  // Templated
