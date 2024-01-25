@@ -1,17 +1,24 @@
-/*****************************************************************************
- * Function:  LUMI Register Map
- * Author:    Amir Volk
- * Copyright: 2023 Zero ASIC Corporation
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
  *
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Version history:
- * Ver 1 - convert from CLINK register
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *****************************************************************************/
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
+ *
+ * Documentation:
+ * - LUMI Register Map
+ *
+ ******************************************************************************/
 
 // registers (addr[7:0]), 32bit aligned
 localparam LUMI_CTRL        = 8'h00; // device configuration

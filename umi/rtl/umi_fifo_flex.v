@@ -1,20 +1,33 @@
 /*******************************************************************************
- * Function:  UMI FIFO with width change
- * Author:    Amir Volk
- * License:   (c) 2023 Zero ASIC Corporation
+ * Copyright 2020 Zero ASIC Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- * This block converts UMI transactions between different width options
- * Ver 1 - only split large width to small, no merge small->large
+ * - Converts UMI transactions between different width options.
+ * - Currently does not support merge small -> large
  *
- * TODO Future enhancements:
+ * Future enhancements:
  * 1. merge small->large transactions (adds latency)
  * 2. do not split large->small transactions in case they carry no data
  *
  * Known limitation/bugs:
- * 1. does not handle cases where SIZE>ODW (does not manipulate SIZE)
+ * - Does not handle cases where SIZE>ODW (does not manipulate SIZE)
  *
  ******************************************************************************/
+
 module umi_fifo_flex
   #(parameter TARGET = "DEFAULT", // implementation target
     parameter ASYNC = 0,

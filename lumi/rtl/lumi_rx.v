@@ -1,28 +1,37 @@
-/******************************************************************************
- * Function:  Link UMI (LUMI) Rx block
- * Author:    Amir Volk
- * Copyright: 2023 Zero ASIC Corporation
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
  *
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- * - converts UMI signaling layer (cmd, addr, data) to multiplexed LUMI i/f
+ * - LUMI Receiver
+ * - Converts PHY side interface to SUMI (cmd, addr, data)
  *
- * Version history:
- * Version 1 - convert from CLINK to LUMI
- * Version 2 - reduce fifo sizes by diving into multiple fifo's
- *****************************************************************************/
+ ******************************************************************************/
+
 module lumi_rx
-  #(parameter TARGET = "DEFAULT", // implementation target
+  #(parameter TARGET = "DEFAULT",                         // implementation target
     // for development only (fixed )
-    parameter IOW = 64,           // clink rx/tx width
-    parameter DW = 256,           // umi data width
-    parameter CW = 32,            // umi data width
-    parameter AW = 64,            // address width
-    parameter RXFIFOW = 8         // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter IOW = 64,                                   // clink rx/tx width
+    parameter DW = 256,                                   // umi data width
+    parameter CW = 32,                                    // umi data width
+    parameter AW = 64,                                    // address width
+    parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
+    parameter RXFIFOW = 8,                                // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter NFIFO = IOW/RXFIFOW,                        // number of parallel fifo's
+    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO // total fifo depth, eq is minimum
     )
    (// local control
     input             clk,                // clock for sampling input data
@@ -56,12 +65,11 @@ module lumi_rx
     output [15:0]     loc_crdt_req,       // Realtime rx credits to be sent to the remote side
     output [15:0]     loc_crdt_resp,      // Realtime rx credits to be sent to the remote side
     output reg [15:0] rmt_crdt_req,       // Credit value from remote side (for Tx)
-    output reg [15:0] rmt_crdt_resp       // Credit value from remote side (for Tx)
+    output reg [15:0] rmt_crdt_resp,      // Credit value from remote side (for Tx)
+    output reg [1:0]  loc_crdt_init,
+    output reg [1:0]  rmt_crdt_init
     );
 
-   localparam ASYNCFIFODEPTH = 8;
-   localparam NFIFO = IOW/RXFIFOW;
-   localparam CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO;
    localparam LOGFIFOWIDTH = $clog2(RXFIFOW/8);
    localparam LOGNFIFO = $clog2(NFIFO);
 
@@ -85,7 +93,7 @@ module lumi_rx
    wire [(DW+AW+AW+CW)-1:0]         req_shiftreg_in;
    wire [(DW+AW+AW+CW)-1:0]         resp_shiftreg_in;
    reg [CW-1:0]                     lnk_shiftreg;
-   reg [CW-1:0]                     lnk_fifo_dout_mask;
+   reg [CW-1:0]                     lnk_rxdata_mask;
    reg [1:0]                        lnk_sop;
    wire [4:0]                       lnk_sop_bit;
    wire [1:0]                       lnk_sop_next;
@@ -97,10 +105,9 @@ module lumi_rx
    wire [1:0]                       fifo_empty;
    wire                             lnk_fifo_empty;
    wire [1:0]                       fifo_wr;
-   wire                             lnk_fifo_wr;
+   reg                              lnk_fifo_wr;
    wire [1:0]                       fifo_rd;
    wire                             lnk_fifo_rd;
-   reg                              lnk_cmd_vld;
    wire [NFIFO:0]                   fifo_mux_sel;
    wire [NFIFO-1:0]                 fifo_dout_sel;
    wire [NFIFO-1:0]                 fifo_dout_mask;
@@ -159,7 +166,6 @@ module lumi_rx
    wire [11:0]                      resp_cmd_lenp1;
    wire [11:0]                      req_cmd_bytes;
    wire [11:0]                      resp_cmd_bytes;
-
    wire [1:0]                       credit_req_in;
 
    wire [15:0]                      rxhdr;
@@ -254,9 +260,9 @@ module lumi_rx
           rxvalid  <= 1'b0;
           rxvalid2 <= 1'b0;
        end
-     else if (csr_en)
+     else
        begin
-          rxvalid  <= phy_rxvld;
+          rxvalid  <= phy_rxvld & csr_en;
           rxvalid2 <= rxvalid;
        end
 
@@ -396,7 +402,11 @@ module lumi_rx
 
    // Count by the number of bytes per cycle transferred
    // When reaching the end of the header need to re-align to the remaining bytes
-   assign sopptr_next = ((sopptr + byterate) >= rxbytes_to_rcv) ?
+   // When we are still waiting for credit init the sop will not progress unless
+   // the command is a link command. This is done in order to align the lumi framing
+   // in case rxen is set in the middle of a packet
+   assign sopptr_next = (((sopptr + byterate) >= rxbytes_to_rcv) |
+                         (sopptr == 0) & (|loc_crdt_init) & ~rxcmd_link) ?
                         0 :
                         sopptr + byterate;
 
@@ -409,15 +419,20 @@ module lumi_rx
    // Since the data might come on a narror interface will only use the first byte
 
    // Sample packet type from the RX lines upon SOP
+   // All packets but link will be blocked until credit init is done
    always @(posedge ioclk or negedge ionreset)
      if (~ionreset)
        rxtype_next[2:0] <= 3'b000;
      else
        if (rxhdr_sample & rxvalid)
-         rxtype_next[2:0] <= {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link};
+         rxtype_next[2:0] <= {rxcmd_link,
+                              rxcmd_response & ~rxcmd_link & ~(|loc_crdt_init),
+                              rxcmd_request  & ~rxcmd_link & ~(|loc_crdt_init)};
 
    assign rxtype = rxhdr_sample & rxvalid ?
-                   {rxcmd_link, rxcmd_response & ~rxcmd_link, rxcmd_request & ~rxcmd_link} :
+                   {rxcmd_link,
+                    rxcmd_response & ~rxcmd_link & ~(|loc_crdt_init),
+                    rxcmd_request  & ~rxcmd_link & ~(|loc_crdt_init)} :
                    rxtype_next;
 
    // credit counters - to be sent to the remote side
@@ -602,9 +617,37 @@ module lumi_rx
    //########################################
    // link cmd Fifo - no FC
    //########################################
-   assign lnk_fifo_wr = rxvalid & (rxtype[2:0] == 3'b100);
-   assign lnk_fifo_rd = ~lnk_fifo_empty;
-   assign lnk_fifo_din[CW-1:0] = rxdata[CW-1:0];
+   // Shift register to align full command is done in front of the async
+   // fifo. This is done to handle a case of overflow so losing a full
+   // command does not get you out of framing.
+   assign lnk_sop_next[1:0] = lnk_sop[1:0] + iowidth[1:0];
+
+   // For shift left
+   assign lnk_sop_bit[4:0] = {3'b000,lnk_sop[1:0]};
+
+   always @(posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       begin
+          lnk_sop[1:0]            <= 'h0;
+          lnk_rxdata_mask[CW-1:0] <= 'h0;
+          lnk_shiftreg[CW-1:0]    <= 'h0;
+          lnk_fifo_wr             <= 'b0;
+       end
+     else if (rxvalid & (rxtype[2:0] == 3'b100))
+       begin
+          lnk_sop[1:0]            <= lnk_sop_next[1:0];
+          lnk_rxdata_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
+                                     ~({CW{1'b1}}<<(iowidth<<3))  :
+                                     lnk_rxdata_mask[CW-1:0] << (iowidth*8);
+          lnk_shiftreg[CW-1:0]    <= (lnk_sop[1:0] == 2'b00) ?
+                                     rxdata[CW-1:0] :
+                                     (rxdata[CW-1:0] << (lnk_sop_bit<<3)) & lnk_rxdata_mask[CW-1:0] |
+                                     lnk_shiftreg[CW-1:0] & ~lnk_rxdata_mask[CW-1:0];
+          lnk_fifo_wr             <= rxvalid & (rxtype[2:0] == 3'b100) & (lnk_sop_next[1:0] == 2'b00);
+       end
+
+   assign lnk_fifo_rd          = ~lnk_fifo_empty;
+   assign lnk_fifo_din[CW-1:0] = lnk_shiftreg[CW-1:0];
 
    la_asyncfifo #(.DW(CW)  ,  // Link commands are only 32b
                   .DEPTH(8),  // FIFO depth
@@ -631,32 +674,8 @@ module lumi_rx
               .wr_din           (lnk_fifo_din[CW-1:0]),
               .rd_en            (lnk_fifo_rd));
 
-   assign lnk_sop_next[1:0] = lnk_sop[1:0] + iowidth[1:0];
-
-   // For shift left
-   assign lnk_sop_bit[4:0] = {3'b000,lnk_sop[1:0]};
-
-   always @(posedge clk or negedge nreset)
-     if (~nreset)
-       begin
-          lnk_sop[1:0]               <= 'h0;
-          lnk_fifo_dout_mask[CW-1:0] <= 'h0;
-          lnk_shiftreg[CW-1:0]       <= 'h0;
-       end
-     else if (lnk_fifo_rd)
-       begin
-          lnk_sop[1:0]               <= lnk_sop_next[1:0];
-          lnk_fifo_dout_mask[CW-1:0] <= (lnk_sop_next[1:0] == 2'b00) ?
-                                        ~({CW{1'b1}}<<(iowidth<<3))  :
-                                        lnk_fifo_dout_mask[CW-1:0] << (iowidth*8);
-          lnk_shiftreg[CW-1:0]       <= (lnk_sop[1:0] == 2'b00) ?
-                                        lnk_fifo_dout[CW-1:0] :
-                                        (lnk_fifo_dout[CW-1:0] << (lnk_sop_bit<<3)) & lnk_fifo_dout_mask[CW-1:0] |
-                                        lnk_shiftreg[CW-1:0] & ~lnk_fifo_dout_mask[CW-1:0];
-       end
-
    /*umi_unpack AUTO_TEMPLATE(
-    .packet_cmd        (lnk_shiftreg[]),
+    .packet_cmd        (lnk_fifo_dout[]),
     .cmd_user_extended (lnk_cmd_user[]),
     .cmd_.*            (),
     );*/
@@ -677,22 +696,15 @@ module lumi_rx
                .cmd_err         (),                      // Templated
                .cmd_hostid      (),                      // Templated
                // Inputs
-               .packet_cmd      (lnk_shiftreg[CW-1:0])); // Templated
+               .packet_cmd      (lnk_fifo_dout[CW-1:0])); // Templated
 
    //########################################
-   //# "steal" incoming credit update
+   //# Incoming credit update
    //########################################
-   always @(posedge clk or negedge nreset)
-     if (~nreset)
-       lnk_cmd_vld <= 'h0;
-     else
-       lnk_cmd_vld <= lnk_fifo_rd &
-                      (lnk_sop_next[1:0] == 2'b00);
-
-   assign credit_req_in[0] = lnk_cmd_vld &
+   assign credit_req_in[0] = lnk_fifo_rd &
                              ((lnk_cmd_user[7:0] == 8'h01) | (lnk_cmd_user[7:0] == 8'h02));
 
-   assign credit_req_in[1] = lnk_cmd_vld &
+   assign credit_req_in[1] = lnk_fifo_rd &
                              ((lnk_cmd_user[7:0] == 8'h11) | (lnk_cmd_user[7:0] == 8'h12));
 
    always @(posedge clk or negedge nreset)
@@ -707,6 +719,37 @@ module lumi_rx
             rmt_crdt_req  <= lnk_cmd_user[23:8];
           if (credit_req_in[1])
             rmt_crdt_resp <= lnk_cmd_user[23:8];
+       end
+
+   //########################################
+   // Credit init receive
+   //########################################
+   // Starting at link up each Tx will send credit init messages
+   // This will indicate to the other side that lumi framing is in progress
+   // Once the first valid credit init message is received lumi is locked
+   // and credit updates will be sent
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          loc_crdt_init[1:0] <= 2'b11;
+          rmt_crdt_init[1:0] <= 2'b11;
+       end
+     else if (~csr_en)
+       begin
+          loc_crdt_init[1:0] <= 2'b11;
+          rmt_crdt_init[1:0] <= 2'b11;
+       end
+     else
+       begin
+          if (credit_req_in[0]) // init or update
+            loc_crdt_init[0] <= 1'b0;
+          if (credit_req_in[1]) // init or update
+            loc_crdt_init[1] <= 1'b0;
+          if (credit_req_in[0] & (lnk_cmd_user[7:0] == 8'h02)) // update only
+            rmt_crdt_init[0] <= 1'b0;
+          if (credit_req_in[1] & (lnk_cmd_user[7:0] == 8'h12)) // update only
+            rmt_crdt_init[1] <= 1'b0;
        end
 
    //########################################

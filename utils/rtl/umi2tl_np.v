@@ -1,14 +1,25 @@
-/******************************************************************************
- * Function:  UMI to TL-UH converter
- * Author:    Aliasger Zaidy
- * Copyright: 2023 Zero ASIC Corporation. All rights reserved.
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- *****************************************************************************/
+ * - TileLink TL-UH converter
+ *
+ ******************************************************************************/
+
 `default_nettype none
 `include "tl-uh.vh"
 
@@ -270,7 +281,11 @@ module umi2tl_np #(
                             tl_a_opcode_r <= `TL_OP_LogicalData;
                         end
                     end
-                    default: $display("[UMI2TL]: Unsupported UMI Request");
+                `ifndef SYNTHESIS
+                    default: begin
+                        $display("[UMI2TL]: Unsupported UMI Request");
+                    end
+                `endif
                 endcase
             end
         end
@@ -293,7 +308,11 @@ module umi2tl_np #(
                         UMI_REQ_ATOMICMAXU: tl_a_param_r <= `TL_PA_MAXU;
                         UMI_REQ_ATOMICMINU: tl_a_param_r <= `TL_PA_MINU;
                         UMI_REQ_ATOMICSWAP: tl_a_param_r <= `TL_PL_SWAP;
-                        default: $display("[UMI2TL]: Unsupported UMI Atomic");
+                    `ifndef SYNTHESIS
+                        default: begin
+                            $display("[UMI2TL]: Unsupported UMI Atomic");
+                        end
+                    `endif
                     endcase
                 end
                 else begin
@@ -458,7 +477,11 @@ module umi2tl_np #(
             case (tl_d_opcode)
                 `TL_OP_AccessAck:       udev_resp_cmd_opcode_r <= UMI_RESP_WRITE;
                 `TL_OP_AccessAckData:   udev_resp_cmd_opcode_r <= UMI_RESP_READ;
-                default: $display("[UMI2TL]: Unsupported TileLink Response");
+            `ifndef SYNTHESIS
+                default: begin
+                    $display("[UMI2TL]: Unsupported TileLink Response");
+                end
+            `endif
             endcase
         end
     end

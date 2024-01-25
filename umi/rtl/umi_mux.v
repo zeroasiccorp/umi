@@ -1,16 +1,30 @@
 /*******************************************************************************
- * Function:  UMI Mux (one-hot)
- * Author:    Andreas Olofsson
- * License:
+ * Copyright 2020 Zero ASIC Corporation
  *
- * Documentation:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
+ *
+ * ##Documentation##
  *
  * - Selects between N inputs
  * - Assumes one-hot selects
- * - NOTE: The input ready is combinatorially connected to the output ready.
- *   Please make sure your surrounding logic does not create a timing loop.
+ * - WARNING: input ready is combinatorially connected to the output ready.
  *
  ******************************************************************************/
+
+
+
 module umi_mux
   #(parameter DW = 256, // UMI transaction width
     parameter CW = 32,
@@ -25,8 +39,8 @@ module umi_mux
     input [N*DW-1:0] umi_in_data,
     output [N-1:0]   umi_in_ready,
     // Outgoing UMI
-    output 	     umi_out_valid,
-    input 	     umi_out_ready,
+    output           umi_out_valid,
+    input            umi_out_ready,
     output [CW-1:0]  umi_out_cmd,
     output [AW-1:0]  umi_out_dstaddr,
     output [AW-1:0]  umi_out_srcaddr,
@@ -41,30 +55,30 @@ module umi_mux
 
    // packet mux
    la_vmux #(.N(N),
-	     .W(CW))
+             .W(CW))
    la_cmd_vmux(.out (umi_out_cmd[CW-1:0]),
-	       .sel (umi_in_valid[N-1:0]),
-	       .in  (umi_in_cmd[N*CW-1:0]));
+               .sel (umi_in_valid[N-1:0]),
+               .in  (umi_in_cmd[N*CW-1:0]));
 
    // packet mux
    la_vmux #(.N(N),
-	     .W(AW))
+             .W(AW))
    la_dstaddr_vmux(.out (umi_out_dstaddr[AW-1:0]),
-	           .sel (umi_in_valid[N-1:0]),
-	           .in  (umi_in_dstaddr[N*AW-1:0]));
+                   .sel (umi_in_valid[N-1:0]),
+                   .in  (umi_in_dstaddr[N*AW-1:0]));
 
    // packet mux
    la_vmux #(.N(N),
-	     .W(AW))
+             .W(AW))
    la_srcaddr_vmux(.out (umi_out_srcaddr[AW-1:0]),
-	           .sel (umi_in_valid[N-1:0]),
-	           .in  (umi_in_srcaddr[N*AW-1:0]));
+                   .sel (umi_in_valid[N-1:0]),
+                   .in  (umi_in_srcaddr[N*AW-1:0]));
 
    // packet mux
    la_vmux #(.N(N),
-	     .W(DW))
+             .W(DW))
    la_data_vmux(.out (umi_out_data[DW-1:0]),
-	        .sel (umi_in_valid[N-1:0]),
-	        .in  (umi_in_data[N*DW-1:0]));
+                .sel (umi_in_valid[N-1:0]),
+                .in  (umi_in_data[N*DW-1:0]));
 
 endmodule
