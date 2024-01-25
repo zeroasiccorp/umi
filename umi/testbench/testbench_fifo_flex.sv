@@ -70,6 +70,27 @@ module testbench (
    wire                 umi_req_in_valid;
 
    ///////////////////////////////////////////
+   // Reset Synchronizer
+   ///////////////////////////////////////////
+
+   wire     dut_out_of_reset0;
+   wire     dut_out_of_reset;
+
+   la_drsync la_drsync_0 (
+       .clk     (clk),
+       .nreset  (nreset),
+       .in      (1'b1),
+       .out     (dut_out_of_reset0)
+   );
+
+   la_drsync la_drsync_1 (
+       .clk     (clk),
+       .nreset  (dut_out_of_reset0),
+       .in      (1'b1),
+       .out     (dut_out_of_reset)
+   );
+
+   ///////////////////////////////////////////
    // Host side umi agents
    ///////////////////////////////////////////
 
@@ -81,20 +102,20 @@ module testbench (
                   .srcaddr(umi_req_in_srcaddr[AW-1:0]),
                   .dstaddr(umi_req_in_dstaddr[AW-1:0]),
                   .cmd(umi_req_in_cmd[CW-1:0]),
-                  .ready(umi_req_in_ready),
+                  .ready(umi_req_in_ready & dut_out_of_reset),
                   .valid(umi_req_in_valid)
                   );
 
    umi_tx_sim #(.READY_MODE_DEFAULT(2),
-                .DW(ODW)
+                .DW(IDW)
                 )
    host_umi_tx_i (.clk(clk),
-                  .data(umi_resp_out_data[ODW-1:0]),
+                  .data(umi_resp_out_data[IDW-1:0]),
                   .srcaddr(umi_resp_out_srcaddr[AW-1:0]),
                   .dstaddr(umi_resp_out_dstaddr[AW-1:0]),
                   .cmd(umi_resp_out_cmd[CW-1:0]),
                   .ready(umi_resp_out_ready),
-                  .valid(umi_resp_out_valid)
+                  .valid(umi_resp_out_valid & dut_out_of_reset)
                   );
 
    wire bypass = 1'b0;
@@ -131,7 +152,7 @@ module testbench (
                       .chaosmode        (chaosmode),
                       .umi_in_clk       (clk),                   // Templated
                       .umi_in_nreset    (nreset),                // Templated
-                      .umi_in_valid     (umi_req_in_valid),      // Templated
+                      .umi_in_valid     (umi_req_in_valid & dut_out_of_reset),      // Templated
                       .umi_in_cmd       (umi_req_in_cmd[CW-1:0]), // Templated
                       .umi_in_dstaddr   (umi_req_in_dstaddr[AW-1:0]), // Templated
                       .umi_in_srcaddr   (umi_req_in_srcaddr[AW-1:0]), // Templated
@@ -211,7 +232,7 @@ module testbench (
                       .umi_in_data      (umi_resp_in_data[ODW-1:0]), // Templated
                       .umi_out_clk      (clk),                   // Templated
                       .umi_out_nreset   (nreset),                // Templated
-                      .umi_out_ready    (umi_resp_out_ready),    // Templated
+                      .umi_out_ready    (umi_resp_out_ready & dut_out_of_reset),    // Templated
                       .vdd              (),                      // Templated
                       .vss              ());                     // Templated
 
@@ -260,7 +281,7 @@ module testbench (
 
    // auto-stop
 
-   auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));
+   auto_stop_sim #(.CYCLES(500000)) auto_stop_sim_i (.clk(clk));
 
 endmodule
 // Local Variables:
