@@ -1,31 +1,44 @@
-/******************************************************************************
- * Function:  Link UMI ("LUMI") Top Level Module
- * Author:    Amir Volk
- * Copyright: 2023 Zero ASIC Corporation. All rights reserved.
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
  *
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Version history:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. convert from CLINK
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- *****************************************************************************/
+ * ----
+ *
+ * Documentation:
+ * - Link UMI ("LUMI") Top Level Module
+ * - Wakes up in 1B, infinite credit mode. Chaging width must be done before
+ *   enabling credit mechanism or sending traffic
+ *
+ ******************************************************************************/
+
 module lumi
-  #(parameter TARGET = "DEFAULT", // compiler target
-    parameter IDOFFSET = 24,      // chip ID address offset
-    parameter GRPOFFSET = 24,     // group address offset
-    parameter GRPAW = 8,          // group address width
-    parameter GRPID = 0,          // group ID
+  #(parameter TARGET = "DEFAULT",                          // compiler target
+    parameter IDOFFSET = 40,                               // chip ID address offset
+    parameter GRPOFFSET = 24,                              // group address offset
+    parameter GRPAW = 8,                                   // group address width
+    parameter GRPID = 0,                                   // group ID
+    parameter ASYNCFIFODEPTH = 8,                          // depth of async fifo
+    parameter RXFIFOW = 8,                                 // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter NFIFO = IOW/RXFIFOW,                         // number of parallel fifo's
+    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO, // total fifo depth, eq is minimum
     // for development
-    parameter DW = 128,           // umi packet width
-    parameter CW = 32,            // umi packet width
-    parameter AW = 64,            // address width
-    parameter RW = 64,            // register width
-    parameter IDW = 16,           // chipid width
-    parameter IOW = 64            // phy IO width
+    parameter DW = 128,                                    // umi packet width
+    parameter CW = 32,                                     // umi packet width
+    parameter AW = 64,                                     // address width
+    parameter RW = 64,                                     // register width
+    parameter IDW = 16,                                    // chipid width
+    parameter IOW = 64                                     // phy IO width
     )
    (// host/device selector
     input            devicemode,      // 1=device, 0=host
@@ -94,6 +107,7 @@ module lumi
     input            txnreset,
     // phy control interface
     input            phy_linkactive,
+    input [7:0]      phy_iow,
     // Host control interface
     input            nreset,          // host driven reset
     input            clk,             // host driven clock
@@ -101,12 +115,10 @@ module lumi
     output           host_linkactive, // link is locked/ready
     // supplies
     input            vss,             // common ground
-    input            vdd              // core supply
+    input            vdd             // core supply
     /*AUTOINPUT*/
     /*AUTOOUTPUT*/
     );
-
-   localparam RXFIFOW = 8;
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -137,6 +149,7 @@ module lumi
    wire                 fifo2cb_ready;
    wire [AW-1:0]        fifo2cb_srcaddr;
    wire                 fifo2cb_valid;
+   wire [1:0]           loc_crdt_init;
    wire [15:0]          loc_crdt_req;
    wire [15:0]          loc_crdt_resp;
    wire [CW-1:0]        regs2cb_cmd;
@@ -145,6 +158,7 @@ module lumi
    wire                 regs2cb_ready;
    wire [AW-1:0]        regs2cb_srcaddr;
    wire                 regs2cb_valid;
+   wire [1:0]           rmt_crdt_init;
    wire [15:0]          rmt_crdt_req;
    wire [15:0]          rmt_crdt_resp;
    // End of automatics
@@ -170,7 +184,12 @@ module lumi
                .DW(DW),
                .CW(CW),
                .AW(AW),
-               .RXFIFOW(RXFIFOW))
+               .IOW(IOW),
+               .ASYNCFIFODEPTH(ASYNCFIFODEPTH),
+               .RXFIFOW(RXFIFOW),
+               .NFIFO(NFIFO),
+               .CRDTDEPTH(CRDTDEPTH)
+               )
    lumi_regs(/*AUTOINST*/
              // Outputs
              .udev_req_ready    (cb2regs_ready),         // Templated
@@ -201,6 +220,7 @@ module lumi
              .udev_req_data     (cb2regs_data[RW-1:0]),  // Templated
              .udev_resp_ready   (regs2cb_ready),         // Templated
              .phy_linkactive    (phy_linkactive),
+             .phy_iow           (phy_iow[7:0]),
              .csr_txcrdt_status (csr_txcrdt_status[31:0]));
 
    //###########################
@@ -380,7 +400,11 @@ module lumi
              .CW(CW),
              .AW(AW),
              .DW(DW),
-             .RXFIFOW(RXFIFOW))
+             .ASYNCFIFODEPTH(ASYNCFIFODEPTH),
+             .RXFIFOW(RXFIFOW),
+             .NFIFO(NFIFO),
+             .CRDTDEPTH(CRDTDEPTH)
+             )
    lumi_rx(/*AUTOINST*/
            // Outputs
            .umi_resp_out_cmd    (udev_resp_cmd[CW-1:0]), // Templated
@@ -397,6 +421,8 @@ module lumi
            .loc_crdt_resp       (loc_crdt_resp[15:0]),
            .rmt_crdt_req        (rmt_crdt_req[15:0]),
            .rmt_crdt_resp       (rmt_crdt_resp[15:0]),
+           .loc_crdt_init       (loc_crdt_init[1:0]),
+           .rmt_crdt_init       (rmt_crdt_init[1:0]),
            // Inputs
            .clk                 (clk),
            .nreset              (nreset),
@@ -462,7 +488,9 @@ module lumi
            .rmt_crdt_req        (rmt_crdt_req[15:0]),
            .rmt_crdt_resp       (rmt_crdt_resp[15:0]),
            .loc_crdt_req        (loc_crdt_req[15:0]),
-           .loc_crdt_resp       (loc_crdt_resp[15:0]));
+           .loc_crdt_resp       (loc_crdt_resp[15:0]),
+           .loc_crdt_init       (loc_crdt_init[1:0]),
+           .rmt_crdt_init       (rmt_crdt_init[1:0]));
 
 endmodule // clink
 // Local Variables:

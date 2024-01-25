@@ -19,7 +19,7 @@ def build_testbench():
     EX_DIR = EX_DIR.resolve()
 
     # Set up inputs
-    dut.input('testbench_mem_agent.sv')
+    dut.input('testbench_regif.sv')
 
     dut.input(EX_DIR / '..' / 'submodules' / 'switchboard' / 'examples' / 'common' / 'verilator' / 'testbench.cc')
     for option in ['ydir', 'idir']:
@@ -108,37 +108,31 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
 
     host = UmiTxRx(host2dut, dut2host)
 
-    print("### Statring test ###")
+    print("### Starting test ###")
 
-    avail_datatype = [np.uint8, np.uint16, np.uint32]
-
-    # un-aligned accesses
+    # regif accesses are all 32b wide and aligned
     for count in range (n):
-        addr = np.random.randint(0, 512)
+        addr = np.random.randint(0, 512) * 4
         src_addr = random.randrange(2**64-1)
         # length should not cross the DW boundary - umi_mem_agent limitation
-        length = np.random.randint(0, 256)
-        wordindexer = np.random.choice([0,1,2])
-        maxrange = 2**(8*(2**wordindexer))
-        data = np.random.randint(0, maxrange, size=(length+1), dtype=avail_datatype[wordindexer])
-        addr = addr*(2**wordindexer) & 0x1FF
+        data = np.uint32(random.randrange(2**32-1))
 
-        print(f"umi writing {length+1} words of type {avail_datatype[wordindexer]} to addr 0x{addr:08x}")
+        print(f"umi writing 0x{data:08x} to addr 0x{addr:08x}")
         host.write(addr, data)
         atomicopcode = np.random.randint(0, 9)
-        atomicdata = np.random.randint(0,256,dtype=avail_datatype[wordindexer])
-        print(f"umi atomic opcode: {atomicopcode} of type {avail_datatype[wordindexer]} to addr 0x{addr:08x}")
+        atomicdata = np.uint32(random.randrange(2**32-1))
+        print(f"umi atomic opcode: {atomicopcode} data: {atomicdata:08x} to addr 0x{addr:08x}")
         atomicval = host.atomic(addr, atomicdata, atomicopcode)
-        if not (atomicval == data[0]):
-            print(f"ERROR umi atomic from addr 0x{addr:08x} expected {data[0]} actual {atomicval}")
-            assert (atomicval == data[0])
-        data[0] = apply_atomic(data[0], atomicdata, atomicopcode, maxrange)
+        if not (atomicval == data):
+            print(f"ERROR umi atomic from addr 0x{addr:08x} expected {data} actual {atomicval}")
+            assert (atomicval == data)
+        data = np.uint32(apply_atomic(data, atomicdata, atomicopcode, 2**32))
 
         print(f"umi read from addr 0x{addr:08x}")
-        val = host.read(addr, length+1, dtype=avail_datatype[wordindexer])
-        if not (np.array_equal(val, data)):
+        val = host.read(addr, np.uint32)
+        if not (val == data):
             print(f"ERROR umi read from addr 0x{addr:08x} expected {data} actual {val}")
-            assert (np.array_equal(val, data))
+            assert (val == data)
 
     print("### TEST PASS ###")
 

@@ -1,16 +1,25 @@
-/******************************************************************************
- * Function:  Link UMI (LUMI) transmit
- * Author:    Amir Volk
- * Copyright: 2023 Zero ASIC Corporation
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
  *
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Version history:
- * Version 1 - convert from CLINK to LUMI
- *****************************************************************************/
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
+ *
+ * Documentation:
+ * - LUMI Transmit module
+ *
+ ******************************************************************************/
+
 module lumi_tx
   #(parameter TARGET = "DEFAULT", // implementation target
     // for development only (fixed )
@@ -52,7 +61,9 @@ module lumi_tx
     input [15:0]      rmt_crdt_req,
     input [15:0]      rmt_crdt_resp,
     input [15:0]      loc_crdt_req,
-    input [15:0]      loc_crdt_resp
+    input [15:0]      loc_crdt_resp,
+    input [1:0]       loc_crdt_init,
+    input [1:0]       rmt_crdt_init
     );
 
    // local state
@@ -112,14 +123,14 @@ module lumi_tx
    wire [11:0]                    cmd_req_bytes;
    reg [11:0]                     req_packet_bytes;
    reg [11:0]                     resp_packet_bytes;
-   reg [11:0]                     req_packet_lines;
-   reg [11:0]                     resp_packet_lines;
-   reg [11:0]                     req_packet_mod;
-   reg [11:0]                     resp_packet_mod;
-   reg [15:0]                     req_crdt_need;
-   reg [15:0]                     resp_crdt_need;
-   reg [15:0]                     req_crdt_avail;
-   reg [15:0]                     resp_crdt_avail;
+   wire [11:0]                    req_packet_lines;
+   wire [11:0]                    resp_packet_lines;
+   wire [11:0]                    req_packet_mod;
+   wire [11:0]                    resp_packet_mod;
+   wire [15:0]                    req_crdt_need;
+   wire [15:0]                    resp_crdt_need;
+   wire [15:0]                    req_crdt_avail;
+   wire [15:0]                    resp_crdt_avail;
    reg [15:0]                     crdt_updt_cntr;
    reg [1:0]                      crdt_updt_send;
 
@@ -180,12 +191,16 @@ module lumi_tx
           tx_crdt_req[15:0]  <= 'h0;
           tx_crdt_resp[15:0] <= 'h0;
        end
-     else
-       if (phy_fifo_wr & phy_txrdy)
-         begin
-            tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
-            tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
-         end
+     else if (~csr_en)
+       begin
+          tx_crdt_req[15:0]  <= 'h0;
+          tx_crdt_resp[15:0] <= 'h0;
+          end
+     else if (phy_fifo_wr & phy_txrdy)
+       begin
+          tx_crdt_resp[15:0] <= tx_crdt_resp[15:0] + {15'h0,shift_reg_type[1]};
+          tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
+       end
 
    // Credit status - count cycles of no-credit
 
@@ -219,7 +234,7 @@ module lumi_tx
      if (~nreset)
        crdt_updt_send <= 2'b00;
      else
-       if (crdt_updt_cntr == csr_crdt_intrvl)
+       if (csr_crdt_en & (crdt_updt_cntr == csr_crdt_intrvl))
          crdt_updt_send <= 2'b01;
        else
          crdt_updt_send <= (|crdt_updt_send) & sample_packet ?
@@ -265,10 +280,14 @@ module lumi_tx
    // Muxing the umi_mux output with sending credit updates
    // Change the order to send resp credits first so in case both are pending
    // response will get credits first
+   wire [3:0] req_crdt_msg, resp_crdt_msg;
+   assign req_crdt_msg  = loc_crdt_init[0] ? 4'h1 : 4'h2;
+   assign resp_crdt_msg = loc_crdt_init[1] ? 4'h1 : 4'h2;
+
    assign umi_muxed_cmd = crdt_updt_send[1] ?
-                          {loc_crdt_req[15:0],4'h0,4'h2,8'h2F}  :
+                          {loc_crdt_req[15:0],4'h0,req_crdt_msg[3:0],8'h2F}  :
                           crdt_updt_send[0] ?
-                          {loc_crdt_resp[15:0],4'h1,4'h2,8'h2F} :
+                          {loc_crdt_resp[15:0],4'h1,resp_crdt_msg[3:0],8'h2F} :
                           umi_out_cmd;
 
    // response takes precedence over request
@@ -278,7 +297,7 @@ module lumi_tx
    assign umi_req_in_gated  = umi_req_in_valid  & phy_txrdy & rxready[0] & ~(|crdt_updt_send);
    assign umi_resp_in_gated = umi_resp_in_valid & phy_txrdy & rxready[1] & ~(|crdt_updt_send);
 
-   assign lumi_txrdy        = ((~|valid[(DW+AW+AW+CW)/8-1:0]) | (~|valid_next[(DW+AW+AW+CW)/8-1:0]));
+   assign lumi_txrdy        = csr_en & ((~|valid[(DW+AW+AW+CW)/8-1:0]) | (~|valid_next[(DW+AW+AW+CW)/8-1:0]));
    assign umi_req_in_ready  = umi_req_ready  & umi_req_in_gated & ~umi_resp_in_gated;
    assign umi_resp_in_ready = umi_resp_ready & umi_resp_in_gated;
 
@@ -355,8 +374,10 @@ module lumi_tx
    assign req_crdt_avail[15:0]  = (rmt_crdt_req[15:0]  - tx_crdt_req[15:0] - {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[0]});
    assign resp_crdt_avail[15:0] = (rmt_crdt_resp[15:0] - tx_crdt_resp[15:0]- {15'h0,phy_fifo_wr & phy_txrdy & shift_reg_type[1]});
 
-   assign rxready[0] = req_crdt_avail[15:0]  >= req_crdt_need[15:0];
-   assign rxready[1] = resp_crdt_avail[15:0] >= resp_crdt_need[15:0];
+   // If credit mechanism is not enabled Tx works in infinite credit mode
+   // Do not start sending packets until remote side finished credit init
+   assign rxready[0] = ~(csr_crdt_en) | ~(|rmt_crdt_init[1:0]) & (req_crdt_avail[15:0]  >= req_crdt_need[15:0]);
+   assign rxready[1] = ~(csr_crdt_en) | ~(|rmt_crdt_init[1:0]) & (resp_crdt_avail[15:0] >= resp_crdt_need[15:0]);
 
    assign phy_fifo_wr = |valid[(DW+AW+AW+CW)/8-1:0];
 
@@ -577,7 +598,7 @@ module lumi_tx
                   .CTRLW(1),         // width of asic ctrl interface
                   .TESTW(1),         // width of asic test interface
                   .TYPE("DEFAULT"))  // Pass through variable for hard macro
-   req_fifo_i(// Outputs
+   phy_fifo_i(// Outputs
               .wr_full          (phy_fifo_full),
               .rd_dout          (phy_txdata[IOW-1:0]),
               .rd_empty         (phy_fifo_empty),

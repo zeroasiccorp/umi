@@ -1,41 +1,52 @@
 /*******************************************************************************
- * Function:  UMI Traffic Splitter
- * Author:    Andreas Olofsson
- * License:
+ * Copyright 2020 Zero ASIC Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- *
  * - Splits up traffic based on type.
- * - Responses (writes) has priority over requests (reads)
- * - Both outputs must be ready for input to go through.("blocking")
  *
  ******************************************************************************/
+
+
 module umi_splitter
   #(// standard parameters
     parameter AW   = 64,
     parameter CW   = 32,
     parameter DW   = 256)
    (// UMI Input
-    input 	    umi_in_valid,
+    input           umi_in_valid,
     input [CW-1:0]  umi_in_cmd,
     input [AW-1:0]  umi_in_dstaddr,
     input [AW-1:0]  umi_in_srcaddr,
     input [DW-1:0]  umi_in_data,
-    output 	    umi_in_ready,
+    output          umi_in_ready,
     // UMI Output
-    output 	    umi_resp_out_valid,
+    output          umi_resp_out_valid,
     output [CW-1:0] umi_resp_out_cmd,
     output [AW-1:0] umi_resp_out_dstaddr,
     output [AW-1:0] umi_resp_out_srcaddr,
     output [DW-1:0] umi_resp_out_data,
-    input 	    umi_resp_out_ready,
+    input           umi_resp_out_ready,
     // UMI Output
-    output 	    umi_req_out_valid,
+    output          umi_req_out_valid,
     output [CW-1:0] umi_req_out_cmd,
     output [AW-1:0] umi_req_out_dstaddr,
     output [AW-1:0] umi_req_out_srcaddr,
     output [DW-1:0] umi_req_out_data,
-    input 	    umi_req_out_ready
+    input           umi_req_out_ready
     );
 
    /*AUTOWIRE*/
@@ -106,6 +117,6 @@ module umi_splitter
 
    // Globally blocking ready implementation
    assign umi_in_ready = ~(umi_resp_out_valid & ~umi_resp_out_ready) &
-			 ~(umi_req_out_valid & ~umi_req_out_ready);
+                         ~(umi_req_out_valid & ~umi_req_out_ready);
 
 endmodule // umi_splitter

@@ -1,3 +1,20 @@
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ******************************************************************************/
+
 `default_nettype none
 
 module testbench (
@@ -139,8 +156,42 @@ module testbench (
    // No clink so driving all clock from the tb
    wire rxclk = clk;
    wire txclk = clk;
+   wire phy_clk = clk;
    wire rxnreset = nreset;
    wire txnreset = nreset;
+   wire phy_nreset = nreset;
+   reg  linkactive_host;
+   reg  linkactive_device;
+   integer host_delay;
+   integer device_delay;
+   reg [31:0] delay_cnt;
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       delay_cnt <= 'd0;
+     else
+       delay_cnt <= delay_cnt + 1;
+   initial
+     begin
+        if (!$value$plusargs("hostdly=%d",host_delay))
+          host_delay = $urandom%500;
+        if (!$value$plusargs("devdly=%d",device_delay))
+          device_delay = $urandom%500;
+     end
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       begin
+          linkactive_host <= 1'b0;
+          linkactive_device <= 1'b0;
+       end
+     else
+       begin
+          if (delay_cnt == host_delay)
+            linkactive_host <= 1'b1;
+          if (delay_cnt == device_delay)
+            linkactive_device <= 1'b1;
+       end
 
    // instantiate dut with UMI ports
    /* lumi AUTO_TEMPLATE(
@@ -157,7 +208,8 @@ module testbench (
     .phy_tx\(.*\)     (phy_rx\1[]),
     .devicemode       (1'b0),
     .deviceready      (1'b1),
-    .phy_linkactive   (1'b1),
+    .phy_linkactive   (linkactive_host),
+    .phy_iow          (8'h0),
     .host_linkactive  (),
     .vss              (),
     .vdd.*            (),
@@ -217,6 +269,8 @@ module testbench (
                .sb_in_srcaddr   (host_sb_req_srcaddr[AW-1:0]), // Templated
                .sb_in_data      (host_sb_req_data[RW-1:0]), // Templated
                .sb_out_ready    (host_sb_resp_ready),    // Templated
+               .phy_clk         (phy_clk),
+               .phy_nreset      (phy_nreset),
                .phy_in_valid    (phy_out_valid),         // Templated
                .phy_in_cmd      (phy_out_cmd[CW-1:0]),   // Templated
                .phy_in_dstaddr  (phy_out_dstaddr[AW-1:0]), // Templated
@@ -229,13 +283,13 @@ module testbench (
                .rxnreset        (rxnreset),
                .txclk           (txclk),
                .txnreset        (txnreset),
-               .phy_linkactive  (1'b1),                  // Templated
+               .phy_linkactive  (linkactive_host),       // Templated
+               .phy_iow         (8'h0),                  // Templated
                .nreset          (nreset),
                .clk             (clk),
                .deviceready     (1'b1),                  // Templated
                .vss             (),                      // Templated
-               .vdd             (),                      // Templated
-               .vddio           ());                     // Templated
+               .vdd             ());                     // Templated
 
    /* lumi AUTO_TEMPLATE(
     .uhost_req_\(.*\)  (udev_req_\1[]),
@@ -250,7 +304,8 @@ module testbench (
     .sb_out.*          (),
     .devicemode        (1'b1),
     .deviceready       (1'b1),
-    .phy_linkactive    (1'b1),
+    .phy_linkactive    (linkactive_device),
+    .phy_iow           (8'h0),
     .host_linkactive   (),
     .vss               (),
     .vdd.*             (),
@@ -310,6 +365,8 @@ module testbench (
               .sb_in_srcaddr    ('h0),                   // Templated
               .sb_in_data       ('h0),                   // Templated
               .sb_out_ready     (1'b0),                  // Templated
+              .phy_clk          (phy_clk),
+              .phy_nreset       (phy_nreset),
               .phy_in_valid     (phy_in_valid),
               .phy_in_cmd       (phy_in_cmd[CW-1:0]),
               .phy_in_dstaddr   (phy_in_dstaddr[AW-1:0]),
@@ -322,13 +379,13 @@ module testbench (
               .rxnreset         (rxnreset),
               .txclk            (txclk),
               .txnreset         (txnreset),
-              .phy_linkactive   (1'b1),                  // Templated
+              .phy_linkactive   (linkactive_device),     // Templated
+              .phy_iow          (8'h0),                  // Templated
               .nreset           (nreset),
               .clk              (clk),
               .deviceready      (1'b1),                  // Templated
               .vss              (),                      // Templated
-              .vdd              (),                      // Templated
-              .vddio            ());                     // Templated
+              .vdd              ());                     // Templated
 
    umiram #(.ADDR_WIDTH(10),
             .DATA_WIDTH(DW),

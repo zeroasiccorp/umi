@@ -1,10 +1,24 @@
 /*******************************************************************************
- * Function:  UMI Synthesizable Stimulus Driver
- * Author:    Andreas Olofsson
- * License:
+ * Copyright 2020 Zero ASIC Corporation
  *
- * Documentation:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
+ *
+ * ##Documentation##
+ *
+ * - Synthesizable UMI stimulus
+ * - Useful for FPGAs and emulators
  *
  ******************************************************************************/
 
@@ -60,9 +74,9 @@ module umi_stimulus
    wire [MAW-1:0]            rd_addr_nxt;
    wire [TCW-2:0]             rd_delay_nxt;
 
-   wire 		      beat;
-   wire 		      pause;
-   
+   wire                       beat;
+   wire                       pause;
+
    //#################################
    // Memory write port state machine
    //#################################
@@ -100,20 +114,20 @@ module umi_stimulus
        rd_state[1:0]  <= STIM_IDLE;
      else
        case (rd_state[1:0])
-	 STIM_IDLE :
-	   rd_state[1:0] <= (dut_start & data_valid)  ? STIM_ACTIVE :
-			    (dut_start & ~data_valid) ? STIM_DONE :
+         STIM_IDLE :
+           rd_state[1:0] <= (dut_start & data_valid)  ? STIM_ACTIVE :
+                            (dut_start & ~data_valid) ? STIM_DONE :
                             STIM_IDLE;
-	 STIM_ACTIVE :
-	   rd_state[1:0] <= pause      ? STIM_PAUSE :
-			    data_valid ? STIM_ACTIVE :
-			    STIM_DONE;
-	 STIM_PAUSE :
-	   rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
-			    data_valid  ? STIM_ACTIVE :
-			    STIM_DONE;
-	 STIM_DONE  :
-	   rd_state[1:0] <= STIM_DONE;
+         STIM_ACTIVE :
+           rd_state[1:0] <= pause      ? STIM_PAUSE :
+                            data_valid ? STIM_ACTIVE :
+                            STIM_DONE;
+         STIM_PAUSE :
+           rd_state[1:0] <= (|rd_delay) ? STIM_PAUSE :
+                            data_valid  ? STIM_ACTIVE :
+                            STIM_DONE;
+         STIM_DONE  :
+           rd_state[1:0] <= STIM_DONE;
 
        endcase // case (rd_state[1:0])
 
@@ -125,7 +139,7 @@ module umi_stimulus
    /* verilator lint_off WIDTH */
    assign rd_addr_nxt = rd_addr[MAW-1:0] + beat;
    /* verilator lint_on WIDTH */
-   
+
    always @ (posedge dut_clk or negedge nreset)
      if(!nreset)
        rd_addr[MAW-1:0] <= 'b0;

@@ -1,25 +1,26 @@
 /*******************************************************************************
- * Function:  Universal Memory Interface (UMI) Unpack(er)
- * Author:    Andreas Olofsson
- * License:
+ * Copyright 2020 Zero ASIC Corporation
  *
- * Documentation:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Higher priority write/response (packet[0]==1)
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. stores
- * 2. read (load) responses
- * 3. atomic response
- * 4. acks
- * 5. other responses
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * Lower priority read/request (packet[0]==0)
+ * ----
  *
- * 1. loads
- * 2. atomic request
- * 3. stores/writes that need acks
+ * ##Documentation##
+ *
+ * - Unpacks 32b command into separate ctrl fields
  *
  ******************************************************************************/
+
 module umi_unpack
   #(parameter CW = 32)
    (

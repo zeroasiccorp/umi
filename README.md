@@ -1,25 +1,13 @@
-![UMI](docs/_images/hokusai.jpg)
-
 # Universal Memory Interface (UMI)
-
-## License
-
-[Apache License 2.0](LICENSE)
-
-## Contributing
-
-UMI is an open-source project and welcomes contributions. To find out
-how to contribute to the project, see our
-[Contributing Guidelines.](./CONTRIBUTING.md)
-
-## Issues / Bugs
-
-We use [GitHub Issues](https://github.com/zeroasiccorp/umi/issues)
-for tracking requests and bugs.
 
 ## 1. Introduction
 
-### 1.1 Architecture
+### 1.1 Design Philosophy
+
+* Make everything addressable
+* Keep it simple
+
+### 1.2 Architecture
 
 The Universal Memory Interface (UMI) is a transaction based standard for accessing memory through request-response message exchange patterns. UMI includes five distinct abstraction layers:
 
@@ -31,7 +19,7 @@ The Universal Memory Interface (UMI) is a transaction based standard for accessi
 
 ![UMI](docs/_images/umi_stack.svg)
 
-### 1.2 Key Features
+### 1.3 Key Features
 
   * independent request and response channels
   * word sizes up to 1024 bits
@@ -41,7 +29,7 @@ The Universal Memory Interface (UMI) is a transaction based standard for accessi
   * protection and security support
   * reserved opcodes for users and future expansion
 
-### 1.3 Key Terms
+### 1.4 Key Terms
 
 * **Transaction**: Complete request-response memory operation.
 * **Message**: Unidirectional request or response, consisting of a command header, address fields, and an optional data payload.
@@ -922,3 +910,18 @@ UCIe also requires implementing other phy control logic to maintain the link. Th
 [3] [AMBA4 AXI Stream Protocol Specification (09 April 2021, Version A)](https://developer.arm.com/documentation/ihi0051/a)
 
 [4] [AMBA4 APB Protocol Specification (13 April 2010, Version C)](https://developer.arm.com/documentation/ihi0024/c)
+
+## License
+
+[Apache License 2.0](LICENSE)
+
+## Contributing
+
+UMI is an open-source project and welcomes contributions. To find out
+how to contribute to the project, see our
+[Contributing Guidelines.](./CONTRIBUTING.md)
+
+## Issues / Bugs
+
+We use [GitHub Issues](https://github.com/zeroasiccorp/umi/issues)
+for tracking requests and bugs.

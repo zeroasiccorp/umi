@@ -1,15 +1,24 @@
-/******************************************************************************
- * Function:  TL-UH to UMI converter
- * Author:    Aliasger Zaidy
- * Copyright: 2023 Zero ASIC Corporation. All rights reserved.
- * License: This file contains confidential and proprietary information of
- * Zero ASIC. This file may only be used in accordance with the terms and
- * conditions of a signed license agreement with Zero ASIC. All other use,
- * reproduction, or distribution of this software is strictly prohibited.
+/*******************************************************************************
+ * Copyright 2023 Zero ASIC Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ----
  *
  * Documentation:
- * The umi_srcaddr for requests uses User Defined Bits. It format is as
- * follows:
+ * -TL-UH to UMI converter
+ *
+ * The umi_srcaddr for requests uses User Defined Bits as follows:
  * [63:56]  : Reserved
  * [55:40]  : Chip ID
  * [39:24]  : Local routing address
@@ -17,7 +26,9 @@
  * [19:16]  : tl_a_size (TileLink Size)
  * [15:8]   : tl_a_source (TileLink Source)
  * [7:0]    : 0000_0000b
- *****************************************************************************/
+ *
+ ******************************************************************************/
+
 
 `default_nettype wire
 `include "tl-uh.vh"
@@ -318,8 +329,20 @@ module tl2umi_np #(
                         put_bytes_resp <= dataag_out_resp_bytes;
                     end
                     else begin
-                        // Not supported request, ignore
+                        // Not supported response type. Ignore and stay in idle.
+                        resp_state <= RESP_IDLE;
+                        dataag_out_resp_ready_assert <= 1'b1;
+                        tl_d_valid <= 1'b0;
+                        tl_d_opcode <= 3'b0;
+                        tl_d_size <= 3'b0;
+                        tl_d_source <= 5'b0;
+                        tl_d_data <= 64'b0;
+                        put_ack_resp <= 1'b0;
+                        put_bytes_resp <= 8'b0;
+                        get_ack_resp <= 1'b0;
+                    `ifndef SYNTHESIS
                         $display("Unsupported response on UMI side %d", dataag_out_resp_cmd_opcode);
+                    `endif
                     end
                 end
             end
@@ -381,8 +404,20 @@ module tl2umi_np #(
                 end
             end
             default: begin
-                // Entered wrong state
+                // Entered wrong state. Return to idle.
+                resp_state <= RESP_IDLE;
+                dataag_out_resp_ready_assert <= 1'b1;
+                tl_d_valid <= 1'b0;
+                tl_d_opcode <= 3'b0;
+                tl_d_size <= 3'b0;
+                tl_d_source <= 5'b0;
+                tl_d_data <= 64'b0;
+                put_ack_resp <= 1'b0;
+                put_bytes_resp <= 8'b0;
+                get_ack_resp <= 1'b0;
+            `ifndef SYNTHESIS
                 $display("Entered Invalid State in Response State Machine");
+            `endif
             end
 
             endcase
@@ -526,7 +561,7 @@ module tl2umi_np #(
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
-            req_state <= 'b0;
+            req_state <= REQ_IDLE;
             tl_a_ready_assert <= 1'b1;
             uhost_req_packet_cmd_opcode <= 'b0;
             uhost_req_packet_cmd_len <= 'b0;
@@ -538,6 +573,7 @@ module tl2umi_np #(
             uhost_req_packet_data <= 'b0;
             uhost_req_packet_valid_r <= 1'b0;
             ml_tx_non_zero_mask_r <= 1'b0;
+            put_ack_req <= 1'b0;
             put_bytes_req <= 8'b0;
         end
         else begin
@@ -628,8 +664,23 @@ module tl2umi_np #(
                         endcase
                     end
                     default: begin
-                        // Not supported request, ignore
+                        // Not supported request type. Ignore and stay in idle.
+                        req_state <= REQ_IDLE;
+                        tl_a_ready_assert <= 1'b1;
+                        uhost_req_packet_cmd_opcode <= 'b0;
+                        uhost_req_packet_cmd_len <= 'b0;
+                        uhost_req_packet_cmd_size <= 'b0;
+                        uhost_req_packet_cmd_atype <= 'b0;
+                        uhost_req_packet_cmd_eom <= 'b0;
+                        uhost_req_packet_dstaddr <= 'b0;
+                        uhost_req_packet_srcaddr <= 'b0;
+                        uhost_req_packet_data <= 'b0;
+                        uhost_req_packet_valid_r <= 1'b0;
+                        ml_tx_non_zero_mask_r <= 1'b0;
+                        put_bytes_req <= 8'b0;
+                    `ifndef SYNTHESIS
                         $display("Unsupported request on TL side %d", tl_a_opcode);
+                    `endif
                     end
                     endcase
                 end
@@ -693,8 +744,24 @@ module tl2umi_np #(
                 end
             end
             default: begin
-                // Entered wrong state
+                // Entered wrong state. Return to idle.
+                req_state <= REQ_IDLE;
+                tl_a_ready_assert <= 1'b1;
+                uhost_req_packet_cmd_opcode <= 'b0;
+                uhost_req_packet_cmd_len <= 'b0;
+                uhost_req_packet_cmd_size <= 'b0;
+                uhost_req_packet_cmd_atype <= 'b0;
+                uhost_req_packet_cmd_eom <= 'b0;
+                uhost_req_packet_dstaddr <= 'b0;
+                uhost_req_packet_srcaddr <= 'b0;
+                uhost_req_packet_data <= 'b0;
+                uhost_req_packet_valid_r <= 1'b0;
+                ml_tx_non_zero_mask_r <= 1'b0;
+                put_ack_req <= 1'b0;
+                put_bytes_req <= 8'b0;
+            `ifndef SYNTHESIS
                 $display("Entered Invalid State in Request State Machine");
+            `endif
             end
 
             endcase
