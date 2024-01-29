@@ -95,6 +95,7 @@ module umi_fifo_flex
    wire                    latch2fifo_eom;
    wire                    latch2fifo_valid;
    wire                    latch2fifo_ready;
+   wire                    latch2in_ready;
 
    // local wires
    wire                    umi_out_beat;
@@ -340,6 +341,7 @@ module umi_fifo_flex
         assign latch2fifo_ready   = (tx_mergeable & !packet_latch_eom) |
                                     (tx_mergeable & packet_latch_eom & (latch_bytes == 0)) |
                                     (!tx_mergeable & (latch_bytes == 0));
+        assign latch2in_ready     = latch2fifo_ready;
 
         assign packet_boundary    = packet_latch_eom | !tx_mergeable | !umi_in_valid;
         always @(posedge umi_in_clk or negedge umi_in_nreset)
@@ -422,7 +424,8 @@ module umi_fifo_flex
                               (((ODW[10:3]) - dstaddr_masked[7:0]) >> cmd_size) - 1'b1 :
                               cmd_len[7:0];
         assign latch2fifo_valid   = umi_in_valid | packet_latch_valid;
-        assign latch2fifo_ready   = ~packet_latch_valid & umi_out_ready;
+        assign latch2fifo_ready   = ~packet_latch_valid;
+        assign latch2in_ready     = ~packet_latch_valid & umi_out_ready;
 
         // Latched command for next split
         assign latch_dstaddr = latch2fifo_dstaddr + ((ODW/8) - dstaddr_masked[AW-1:0]);
@@ -468,7 +471,8 @@ module umi_fifo_flex
         assign latch2fifo_eom     = packet_latch_en    ? 1'b0                            : cmd_eom;
         assign latch2fifo_len     = packet_latch_en    ? ((ODW[10:3] >> cmd_size) - 1'b1) : cmd_len;
         assign latch2fifo_valid   = umi_in_valid | packet_latch_valid;
-        assign latch2fifo_ready   = ~packet_latch_valid & umi_out_ready;
+        assign latch2fifo_ready   = ~packet_latch_valid;
+        assign latch2in_ready     = ~packet_latch_valid & umi_out_ready;
 
         // Latched command for next split
         assign latch_dstaddr = latch2fifo_dstaddr + (ODW/8);
@@ -636,7 +640,7 @@ module umi_fifo_flex
    assign umi_out_valid           = ~fifo_out_of_reset ? 1'b0 :
                                     (bypass | ~(|DEPTH)) ? latch2fifo_valid : ~fifo_empty;
    assign umi_in_ready            = ~fifo_out_of_reset ? 1'b0 :
-                                    (bypass | ~(|DEPTH)) ? latch2fifo_ready : fifo_in_ready;
+                                    (bypass | ~(|DEPTH)) ? latch2in_ready : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;
