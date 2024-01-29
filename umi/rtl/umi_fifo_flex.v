@@ -310,8 +310,8 @@ module umi_fifo_flex
                                 (umi_in_cmd_err == cmd_err) &
                                 (umi_in_cmd_hostid == cmd_hostid);
 
-        assign dstaddr_mergeable = (umi_in_dstaddr == (packet_dstaddr_latch + latch_bytes));
-        assign srcaddr_mergeable = (umi_in_srcaddr == (packet_srcaddr_latch + latch_bytes)) |
+        assign dstaddr_mergeable = (umi_in_dstaddr == (packet_dstaddr_latch + {{(AW-9){1'b0}}, latch_bytes}));
+        assign srcaddr_mergeable = (umi_in_srcaddr == (packet_srcaddr_latch + {{(AW-9){1'b0}}, latch_bytes})) |
                                    umi_in_cmd_response;
         assign len_mergeable = (latch_bytes + latch_in_bytes) <= (ODW >> 3);
 
@@ -386,7 +386,9 @@ module umi_fifo_flex
         // However, if latch_out_bytes is non zero then the first 'else if'
         // in the always block will be hit and umi_in_data_shifted will not
         // be used. So to simplify we can use (latch_bytes << 3).
+        /* verilator lint_off WIDTHEXPAND */
         assign umi_in_data_shifted = umi_in_data << (latch_bytes << 3);
+        /* verilator lint_on WIDTHEXPAND */
 
         always @(posedge umi_in_clk or negedge umi_in_nreset)
           if (~umi_in_nreset)
