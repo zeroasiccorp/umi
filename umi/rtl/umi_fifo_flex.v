@@ -360,7 +360,7 @@ module umi_fifo_flex
                packet_dstaddr_latch <= {AW{1'b0}};
                packet_srcaddr_latch <= {AW{1'b0}};
             end
-          else if ((umi_in_ready & umi_in_valid) & packet_boundary)
+          else if ((umi_in_ready & umi_in_valid) & (packet_boundary | fifo_write))
             begin
                packet_latch_valid   <= 1'b1;
                packet_dstaddr_latch <= umi_in_dstaddr;
@@ -395,7 +395,7 @@ module umi_fifo_flex
         always @(posedge umi_in_clk or negedge umi_in_nreset)
           if (~umi_in_nreset)
                packet_data_latch    <= {ODW{1'b0}};
-          else if ((umi_in_ready & umi_in_valid) & packet_boundary)
+          else if ((umi_in_ready & umi_in_valid) & (packet_boundary | fifo_write))
                packet_data_latch    <= {{ODW-IDW{1'b0}}, umi_in_data};
           else if (umi_in_ready & umi_in_valid)
                packet_data_latch    <= packet_data_latch | umi_in_data_shifted;
