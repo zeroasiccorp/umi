@@ -209,7 +209,7 @@ module lumi_tx
        csr_crdt_status[31:0] <= 'h0;
      else
        begin
-          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & phy_txrdy & ~rxready[0])};
+          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & phy_txrdy & ~rxready[0] & ~umi_resp_in_gated)};
           csr_crdt_status[31:16] <= csr_crdt_status[31:16] + {15'h0000,(umi_resp_in_valid  & phy_txrdy & ~rxready[1])};
        end
 
