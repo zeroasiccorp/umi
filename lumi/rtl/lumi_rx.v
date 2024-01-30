@@ -631,7 +631,6 @@ module lumi_rx
           lnk_sop[1:0]            <= 'h0;
           lnk_rxdata_mask[CW-1:0] <= 'h0;
           lnk_shiftreg[CW-1:0]    <= 'h0;
-          lnk_fifo_wr             <= 'b0;
        end
      else if (rxvalid & (rxtype[2:0] == 3'b100))
        begin
@@ -643,8 +642,14 @@ module lumi_rx
                                      rxdata[CW-1:0] :
                                      (rxdata[CW-1:0] << (lnk_sop_bit<<3)) & lnk_rxdata_mask[CW-1:0] |
                                      lnk_shiftreg[CW-1:0] & ~lnk_rxdata_mask[CW-1:0];
-          lnk_fifo_wr             <= rxvalid & (rxtype[2:0] == 3'b100) & (lnk_sop_next[1:0] == 2'b00);
        end
+
+   // fifo write should be cleared at the end of the packet (even if no valid)
+   always @(posedge ioclk or negedge ionreset)
+     if (~ionreset)
+       lnk_fifo_wr             <= 'b0;
+     else
+       lnk_fifo_wr             <= rxvalid & (rxtype[2:0] == 3'b100) & (lnk_sop_next[1:0] == 2'b00);
 
    assign lnk_fifo_rd          = ~lnk_fifo_empty;
    assign lnk_fifo_din[CW-1:0] = lnk_shiftreg[CW-1:0];
