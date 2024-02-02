@@ -37,6 +37,7 @@ module lumi_rx
     input             clk,                // clock for sampling input data
     input             nreset,             // async active low reset
     input             csr_en,             // 1=enable outputs
+    input             csr_crdt_en,        // 1=enable credits
     input [7:0]       csr_iowidth,        // pad bus width
     input             vss,                // common ground
     input             vdd,                // core supply
@@ -744,6 +745,11 @@ module lumi_rx
        begin
           loc_crdt_init[1:0] <= 2'b11;
           rmt_crdt_init[1:0] <= 2'b11;
+       end
+     else if (csr_en & ~csr_crdt_en)
+       begin
+          loc_crdt_init[1:0] <= 2'b00;
+          rmt_crdt_init[1:0] <= 2'b00;
        end
      else
        begin
