@@ -386,6 +386,7 @@ module lumi
    //########################
 
    /*lumi_rx  AUTO_TEMPLATE (
+    .csr_crdt_en         (csr_txcrdt_en[]),
     .csr_rx\(.*\)        (csr_rx\1),
     .csr_\(.*\)          (csr_@"(substring vl-cell-name 5 7)"\1[]),
     .io\(.*\)            (@"(substring vl-cell-name 5 7)"\1[]),
@@ -427,6 +428,7 @@ module lumi
            .clk                 (clk),
            .nreset              (nreset),
            .csr_en              (csr_rxen),              // Templated
+           .csr_crdt_en         (csr_txcrdt_en),         // Templated
            .csr_iowidth         (csr_rxiowidth[7:0]),    // Templated
            .vss                 (vss),
            .vdd                 (vdd),
