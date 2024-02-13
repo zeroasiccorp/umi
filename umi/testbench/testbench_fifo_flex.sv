@@ -51,7 +51,7 @@ module testbench (
    wire [AW-1:0]        umi_resp_in_srcaddr;
    wire                 umi_resp_in_valid;
    // End of automatics
-   reg                  nreset;
+   wire                 nreset;
 
    wire [CTRLW-1:0]     sram_ctrl = 8'b0;
 
@@ -70,27 +70,6 @@ module testbench (
    wire                 umi_req_in_valid;
 
    ///////////////////////////////////////////
-   // Reset Synchronizer
-   ///////////////////////////////////////////
-
-   wire     dut_out_of_reset0;
-   wire     dut_out_of_reset;
-
-   la_drsync la_drsync_0 (
-       .clk     (clk),
-       .nreset  (nreset),
-       .in      (1'b1),
-       .out     (dut_out_of_reset0)
-   );
-
-   la_drsync la_drsync_1 (
-       .clk     (clk),
-       .nreset  (dut_out_of_reset0),
-       .in      (1'b1),
-       .out     (dut_out_of_reset)
-   );
-
-   ///////////////////////////////////////////
    // Host side umi agents
    ///////////////////////////////////////////
 
@@ -102,7 +81,7 @@ module testbench (
                   .srcaddr(umi_req_in_srcaddr[AW-1:0]),
                   .dstaddr(umi_req_in_dstaddr[AW-1:0]),
                   .cmd(umi_req_in_cmd[CW-1:0]),
-                  .ready(umi_req_in_ready & dut_out_of_reset),
+                  .ready(umi_req_in_ready),
                   .valid(umi_req_in_valid)
                   );
 
@@ -115,7 +94,7 @@ module testbench (
                   .dstaddr(umi_resp_out_dstaddr[AW-1:0]),
                   .cmd(umi_resp_out_cmd[CW-1:0]),
                   .ready(umi_resp_out_ready),
-                  .valid(umi_resp_out_valid & dut_out_of_reset)
+                  .valid(umi_resp_out_valid)
                   );
 
    wire bypass = 1'b0;
@@ -152,7 +131,7 @@ module testbench (
                       .chaosmode        (chaosmode),
                       .umi_in_clk       (clk),                   // Templated
                       .umi_in_nreset    (nreset),                // Templated
-                      .umi_in_valid     (umi_req_in_valid & dut_out_of_reset),      // Templated
+                      .umi_in_valid     (umi_req_in_valid),      // Templated
                       .umi_in_cmd       (umi_req_in_cmd[CW-1:0]), // Templated
                       .umi_in_dstaddr   (umi_req_in_dstaddr[AW-1:0]), // Templated
                       .umi_in_srcaddr   (umi_req_in_srcaddr[AW-1:0]), // Templated
@@ -232,7 +211,7 @@ module testbench (
                       .umi_in_data      (umi_resp_in_data[ODW-1:0]), // Templated
                       .umi_out_clk      (clk),                   // Templated
                       .umi_out_nreset   (nreset),                // Templated
-                      .umi_out_ready    (umi_resp_out_ready & dut_out_of_reset),    // Templated
+                      .umi_out_ready    (umi_resp_out_ready),    // Templated
                       .vdd              (),                      // Templated
                       .vss              ());                     // Templated
 
@@ -259,14 +238,17 @@ module testbench (
 
    // VCD
 
+   reg [15:0] nreset_r;
+   assign nreset = ~nreset_r[15];
+
    initial
      begin
-        nreset   = 1'b0;
+        nreset_r = 16'hFFFF;
      end // initial begin
 
    always @(negedge clk)
      begin
-        nreset <= nreset | 1'b1;
+        nreset_r <= nreset_r << 1;
      end
 
    // control block
