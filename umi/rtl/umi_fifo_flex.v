@@ -17,14 +17,14 @@
  *
  * Documentation:
  * - Converts UMI transactions between different width options.
- * - Currently does not support merge small -> large
  *
  * Future enhancements:
- * 1. merge small->large transactions (adds latency)
- * 2. do not split large->small transactions in case they carry no data
+ * 1. do not split large->small transactions in case they carry no data
  *
  * Known limitation/bugs:
  * - Does not handle cases where SIZE>ODW (does not manipulate SIZE)
+ * - When ODW>IDW, incoming transaction is merged only if merged transaction
+ *   does not cross ODW boundary (num_merged_bits + IDW)<=ODW
  *
  ******************************************************************************/
 
