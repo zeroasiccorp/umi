@@ -101,7 +101,6 @@ module umi_fifo_flex
    wire                    umi_out_beat;
    wire                    fifo_in_ready;
    wire [7:0]              latch_len;
-   reg                     last_sent;
    wire [8:0]              cmd_len_plus_one;
    wire                    fifo_out_of_reset;
    wire [AW-1:0]           addr_mask;
@@ -342,6 +341,12 @@ module umi_fifo_flex
                                     (tx_mergeable & packet_latch_eom & (latch_bytes == 0)) |
                                     (!tx_mergeable & (latch_bytes == 0));
         assign latch2in_ready     = latch2fifo_ready;
+
+        // Latched command for next split
+        assign latch_dstaddr = 'b0;
+        assign latch_srcaddr = 'b0;
+        assign latch_data    = 'b0;
+        assign latch_len     = 'b0;
 
         assign packet_boundary    = packet_latch_eom | !tx_mergeable | !umi_in_valid;
         always @(posedge umi_in_clk or negedge umi_in_nreset)
