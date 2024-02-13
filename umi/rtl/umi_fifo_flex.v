@@ -343,6 +343,7 @@ module umi_fifo_flex
         assign latch2in_ready     = latch2fifo_ready;
 
         // Latched command for next split
+        // Unused for merge
         assign latch_dstaddr = 'b0;
         assign latch_srcaddr = 'b0;
         assign latch_data    = 'b0;
