@@ -68,14 +68,14 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
 
     for count in range (1000):
         # length should not cross the DW boundary - umi_mem_agent limitation
-        length = np.random.randint(0,15)
+        length = np.random.randint(0,255)
         dst_addr = 32*random.randrange(2**(10-5)-1) # sb limitation - should align to bus width
         src_addr = 32*random.randrange(2**(10-5)-1)
         data8 = np.random.randint(0,255,size=length,dtype=np.uint8)
-        print(f"[{count}] umi writing {length+1} bytes to addr 0x{dst_addr:08x}")
-        host.write(dst_addr, data8, srcaddr=src_addr)
+        print(f"[{count}] umi writing {length} bytes to addr 0x{dst_addr:08x}")
+        host.write(dst_addr, data8, srcaddr=src_addr, max_bytes=16)
         print(f"[{count}] umi read from addr 0x{dst_addr:08x}")
-        val8 = host.read(dst_addr, length, np.uint8, srcaddr=src_addr)
+        val8 = host.read(dst_addr, length, np.uint8, srcaddr=src_addr, max_bytes=16)
         if ~((val8 == data8).all()):
             print(f"ERROR umi read from addr 0x{dst_addr:08x}")
             print(f"Expected:")
