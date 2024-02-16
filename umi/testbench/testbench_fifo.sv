@@ -251,7 +251,7 @@ module testbench (
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("../rtl" "../../submodules/switchboard/examples/common/verilog/" )
+// verilog-library-directories:("../rtl")
 // End:
 
 `default_nettype wire

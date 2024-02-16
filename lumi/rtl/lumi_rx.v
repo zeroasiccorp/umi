@@ -1229,5 +1229,5 @@ module lumi_rx
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("." "../../umi/rtl/" "../../../lambdalib/ramlib/rtl/")
+// verilog-library-directories:("." "../../umi/rtl/")
 // End:
