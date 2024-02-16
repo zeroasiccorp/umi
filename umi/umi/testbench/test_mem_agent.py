@@ -4,34 +4,24 @@
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
 import numpy as np
-from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
-import lambdalib
-
-THIS_DIR = Path(__file__).resolve().parent
+import umi
 
 
 def build_testbench():
     dut = SbDut('testbench', default_main=True)
 
-    EX_DIR = Path('..')
-    EX_DIR = EX_DIR.resolve()
-
     # Set up inputs
-    dut.input('testbench_mem_agent.sv')
+    dut.input('umi/testbench/testbench_mem_agent.sv', package='umi')
 
-    dut.use(lambdalib)
-    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
-
-    for option in ['ydir', 'idir']:
-        dut.add('option', option, EX_DIR / 'rtl')
+    dut.use(umi)
+    dut.add('option', 'library', 'umi')
+    dut.add('option', 'library', 'lambdalib_stdlib')
+    dut.add('option', 'library', 'lambdalib_ramlib')
 
     # Verilator configuration
-    vlt_config = EX_DIR / 'testbench' / 'config.vlt'
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'umi/testbench/config.vlt', package='umi')
 #    dut.set('option', 'relax', True)
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')

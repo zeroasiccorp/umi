@@ -15,5 +15,5 @@ jobs:
       - name: Lint with Flake8
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install .[test]
           flake8 --statistics .

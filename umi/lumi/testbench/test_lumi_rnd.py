@@ -7,19 +7,16 @@
 import time
 import random
 import numpy as np
-from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue
-import lambdalib
+import umi
 
 
 def build_testbench(topo="2d", trace=False):
     dut = SbDut('testbench', trace=True, trace_type='fst', default_main=True)
 
-    EX_DIR = Path('..')
-
     # Set up inputs
-    dut.input('testbench_lumi.sv')
+    dut.input('lumi/testbench/testbench_lumi.sv', package='umi')
     if topo == '2d':
         print("### Running 2D topology ###")
     elif topo == '3d':
@@ -27,18 +24,14 @@ def build_testbench(topo="2d", trace=False):
     else:
         raise ValueError('Invalid topology')
 
-    dut.use(lambdalib)
-    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
-
-    for option in ['ydir', 'idir']:
-        dut.add('option', option, EX_DIR / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'umi' / 'rtl')
+    dut.use(umi)
+    dut.add('option', 'library', ['lumi', 'umi'])
+    dut.add('option', 'library', 'lambdalib_stdlib')
+    dut.add('option', 'library', 'lambdalib_ramlib')
+    dut.add('option', 'library', 'lambdalib_vectorlib')
 
     # Verilator configuration
-    vlt_config = EX_DIR / 'testbench' / 'config.vlt'
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'lumi/testbench/config.vlt', package='umi')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
