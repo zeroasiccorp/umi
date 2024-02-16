@@ -67,8 +67,7 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
             ('hostdly', hostdly),
             ('devdly', devdly)
         ],
-        trace=trace,
-        args=['+verilator+seed+0']
+        trace=trace
     )
 
     # instantiate TX and RX queues.  note that these can be instantiated without

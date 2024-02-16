@@ -30,10 +30,10 @@ def build_testbench(topo="2d"):
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'umi' / 'rtl')
         dut.add('option', option, EX_DIR / 'utils' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'ramlib' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'stdlib' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'padring' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'vectorlib' / 'rtl')
+        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'ramlib' / 'rtl')
+        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'stdlib' / 'rtl')
+        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'padring' / 'rtl')
+        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'vectorlib' / 'rtl')
 
     # Verilator configuration
     vlt_config = EX_DIR / 'utils' / 'testbench' / 'config.vlt'
