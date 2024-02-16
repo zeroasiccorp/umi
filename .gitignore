@@ -9,6 +9,8 @@
 # test results
 *.q
 *.vcd
+build/
+gmon.out
 
 ######################
 # Emacs/vim/gedit backup files
