@@ -187,5 +187,5 @@ module testbench
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("../rtl" "../../submodules/switchboard/examples/common/verilog/" "../../submodules/lambdalib/ramlib/rtl/")
+// verilog-library-directories:("../rtl")
 // End:

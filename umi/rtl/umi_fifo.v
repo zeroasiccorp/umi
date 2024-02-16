@@ -127,5 +127,5 @@ module umi_fifo
 
 endmodule // clink_fifo
 // Local Variables:
-// verilog-library-directories:("." "../../../lambdalib/ramlib/rtl")
+// verilog-library-directories:(".")
 // End:
