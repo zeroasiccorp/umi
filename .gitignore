@@ -9,6 +9,7 @@
 # test results
 *.q
 *.vcd
+*.fst
 build/
 gmon.out
 
