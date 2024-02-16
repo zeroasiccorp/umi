@@ -14,7 +14,7 @@ from switchboard import (UmiTxRx, random_umi_packet, delete_queue,
 THIS_DIR = Path(__file__).resolve().parent
 
 def build_testbench():
-    dut = SbDut('testbench')
+    dut = SbDut('testbench', default_main=True)
 
     EX_DIR = Path('..')
     EX_DIR = EX_DIR.resolve()
@@ -22,10 +22,8 @@ def build_testbench():
     # Set up inputs
     dut.input('testbench_crossbar.sv')
 
-    dut.input(EX_DIR / '..' / 'submodules' / 'switchboard' / 'examples' / 'common' / 'verilator' / 'testbench.cc')
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'switchboard' / 'examples' / 'common' / 'verilog')
         dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'ramlib' / 'rtl')
         dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'stdlib' / 'rtl')
         dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'vectorlib' / 'rtl')

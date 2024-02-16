@@ -11,7 +11,7 @@ from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, binary_run,
 
 
 def build_testbench(topo="2d"):
-    dut = SbDut('testbench')
+    dut = SbDut('testbench', default_main=False)
 
     EX_DIR = Path('../..')
     EX_DIR = EX_DIR.resolve()
