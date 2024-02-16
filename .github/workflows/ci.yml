@@ -11,9 +11,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        testbench: [lumi/testbench/test_lumi.py, lumi/testbench/test_lumi_rnd.py]
+        testbench: [lumi/testbench/test_lumi.py, lumi/testbench/test_lumi_rnd.py, umi/testbench/test_crossbar.py, umi/testbench/test_fifo_flex.py, umi/testbench/test_fifo.py, umi/testbench/test_mem_agent.py, umi/testbench/test_regif.py, utils/testbench/test_umi_address_remap.py, utils/testbench/test_umi_packet_merge_greedy.py, utils/testbench/test_umi2tl_np.py]
     
-    timeout-minutes: 30
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zeroasiccorp/sbtest:latest
