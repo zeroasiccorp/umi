@@ -387,28 +387,28 @@ module testbench (
               .vss              (),                      // Templated
               .vdd              ());                     // Templated
 
-   umiram #(.ADDR_WIDTH(10),
-            .DATA_WIDTH(DW),
-            .DW(DW),
-            .AW(AW),
-            .CW(CW),
-            .ATOMIC_WIDTH(64))
-   umiram_i(// Outputs
-            .udev_req_ready(udev_req_ready),
-            .udev_resp_valid(udev_resp_valid),
-            .udev_resp_cmd(udev_resp_cmd[CW-1:0]),
-            .udev_resp_dstaddr(udev_resp_dstaddr[AW-1:0]),
-            .udev_resp_srcaddr(udev_resp_srcaddr[AW-1:0]),
-            .udev_resp_data(udev_resp_data[DW-1:0]),
-            // Inputs
-            .clk(clk),
-            .udev_req_valid(udev_req_valid),
-            .udev_req_cmd(udev_req_cmd[CW-1:0]),
-            .udev_req_dstaddr(udev_req_dstaddr[AW-1:0]),
-            .udev_req_srcaddr(udev_req_srcaddr[AW-1:0]),
-            .udev_req_data(udev_req_data[DW-1:0]),
-            .udev_resp_ready(udev_resp_ready)
-            /*AUTOINST*/);
+   umi_mem_agent #(.DW(DW),
+                   .AW(AW),
+                   .CW(CW),
+                   .CTRLW(8))
+   umi_mem_agent_i(.sram_ctrl           (8'b010_01_0_0_0),
+                   /*AUTOINST*/
+                   // Outputs
+                   .udev_req_ready      (udev_req_ready),
+                   .udev_resp_valid     (udev_resp_valid),
+                   .udev_resp_cmd       (udev_resp_cmd[CW-1:0]),
+                   .udev_resp_dstaddr   (udev_resp_dstaddr[AW-1:0]),
+                   .udev_resp_srcaddr   (udev_resp_srcaddr[AW-1:0]),
+                   .udev_resp_data      (udev_resp_data[DW-1:0]),
+                   // Inputs
+                   .clk                 (clk),
+                   .nreset              (nreset),
+                   .udev_req_valid      (udev_req_valid),
+                   .udev_req_cmd        (udev_req_cmd[CW-1:0]),
+                   .udev_req_dstaddr    (udev_req_dstaddr[AW-1:0]),
+                   .udev_req_srcaddr    (udev_req_srcaddr[AW-1:0]),
+                   .udev_req_data       (udev_req_data[DW-1:0]),
+                   .udev_resp_ready     (udev_resp_ready));
 
             // Initialize UMI
    integer valid_mode, ready_mode;
@@ -469,7 +469,7 @@ module testbench (
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("../rtl" "../../submodules/switchboard/examples/common/verilog/" )
+// verilog-library-directories:("../rtl" "../../umi/rtl" )
 // End:
 
 `default_nettype wire

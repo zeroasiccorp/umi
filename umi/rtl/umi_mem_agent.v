@@ -286,5 +286,5 @@ module umi_mem_agent
 
 endmodule // ebrick_core
 // Local Variables:
-// verilog-library-directories:("./" "../umi/rtl" "../../submodules/lambdalib/ramlib/rtl/")
+// verilog-library-directories:("./")
 // End:
