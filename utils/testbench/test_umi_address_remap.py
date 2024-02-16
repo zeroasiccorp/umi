@@ -11,7 +11,7 @@ from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, binary_run,
 
 
 def build_testbench(topo="2d"):
-    dut = SbDut('testbench')
+    dut = SbDut('testbench', default_main=True)
 
     EX_DIR = Path('../..')
 
@@ -26,7 +26,6 @@ def build_testbench(topo="2d"):
     else:
         raise ValueError('Invalid topology')
 
-    dut.input(EX_DIR / 'submodules' / 'switchboard' / 'examples' / 'common' / 'verilator' / 'testbench.cc')
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'umi' / 'rtl')
         dut.add('option', option, EX_DIR / 'utils' / 'rtl')
