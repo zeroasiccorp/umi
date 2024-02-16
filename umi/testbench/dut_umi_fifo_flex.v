@@ -90,5 +90,5 @@ module dut_umi_fifo_flex
 
 endmodule // testbench
 // Local Variables:
-// verilog-library-directories:("../rtl" "../../../lambdalib/stdlib/rtl")
+// verilog-library-directories:("../rtl")
 // End:

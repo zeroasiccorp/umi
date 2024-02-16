@@ -330,5 +330,5 @@ module umi_endpoint
 
 endmodule // umi_endpoint
 // Local Variables:
-// verilog-library-directories:("." "../../submodules/lambdalib/stdlib/rtl")
+// verilog-library-directories:(".")
 // End:

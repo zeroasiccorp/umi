@@ -497,5 +497,5 @@ module lumi
 
 endmodule // clink
 // Local Variables:
-// verilog-library-directories:("." "../../submodules/oh/stdlib/rtl" "../../../umi/umi/rtl" )
+// verilog-library-directories:("." "../../umi/rtl" )
 // End:
