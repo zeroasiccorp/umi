@@ -27,11 +27,9 @@ def build_testbench(topo="2d", trace=False):
     else:
         raise ValueError('Invalid topology')
 
-    dut.input(EX_DIR / '..' / 'submodules' / 'switchboard' / 'examples' / 'common' / 'verilator' / 'testbench.cc')
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'rtl')
         dut.add('option', option, EX_DIR / '..' / 'umi' / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'switchboard' / 'examples' / 'common' / 'verilog')
         dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'ramlib' / 'rtl')
         dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'stdlib' / 'rtl')
         dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'vectorlib' / 'rtl')
@@ -67,8 +65,7 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
             ('hostdly', hostdly),
             ('devdly', devdly)
         ],
-        trace=trace,
-        args=['+verilator+seed+0']
+        trace=trace
     )
 
     # instantiate TX and RX queues.  note that these can be instantiated without

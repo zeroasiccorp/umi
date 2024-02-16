@@ -23,7 +23,15 @@
  ******************************************************************************/
 
 module lumi
-  #(parameter TARGET = "DEFAULT",                          // compiler target
+  #(// for development
+    parameter DW = 128,                                    // umi packet width
+    parameter CW = 32,                                     // umi packet width
+    parameter AW = 64,                                     // address width
+    parameter RW = 64,                                     // register width
+    parameter IDW = 16,                                    // chipid width
+    parameter IOW = 64,                                    // phy IO width
+    // end development
+    parameter TARGET = "DEFAULT",                          // compiler target
     parameter IDOFFSET = 40,                               // chip ID address offset
     parameter GRPOFFSET = 24,                              // group address offset
     parameter GRPAW = 8,                                   // group address width
@@ -31,14 +39,7 @@ module lumi
     parameter ASYNCFIFODEPTH = 8,                          // depth of async fifo
     parameter RXFIFOW = 8,                                 // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
     parameter NFIFO = IOW/RXFIFOW,                         // number of parallel fifo's
-    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO, // total fifo depth, eq is minimum
-    // for development
-    parameter DW = 128,                                    // umi packet width
-    parameter CW = 32,                                     // umi packet width
-    parameter AW = 64,                                     // address width
-    parameter RW = 64,                                     // register width
-    parameter IDW = 16,                                    // chipid width
-    parameter IOW = 64                                     // phy IO width
+    parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO  // total fifo depth, eq is minimum
     )
    (// host/device selector
     input            devicemode,      // 1=device, 0=host
@@ -496,5 +497,5 @@ module lumi
 
 endmodule // clink
 // Local Variables:
-// verilog-library-directories:("." "../../submodules/oh/stdlib/rtl" "../../../umi/umi/rtl" )
+// verilog-library-directories:("." "../../umi/rtl" )
 // End:
