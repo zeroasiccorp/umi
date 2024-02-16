@@ -35,16 +35,14 @@ module testbench (
 
 
    /*AUTOWIRE*/
-   // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   reg                  nreset;
+   reg                  go;
+
    wire [AW-1:0]        reg_addr;
    wire [RW-1:0]        reg_rddata;
    wire                 reg_read;
    wire [RW-1:0]        reg_wrdata;
    wire                 reg_write;
-   // End of automatics
-   reg                  nreset;
-   reg                  go;
-
    wire                 udev_resp_ready;
    wire [CW-1:0]        udev_resp_cmd;
    wire [DW-1:0]        udev_resp_data;
@@ -143,8 +141,7 @@ module testbench (
               .vdd              (1'b1),
               .vddio            (1'b1),
               .ctrl             (sram_ctrl),
-              .test             (128'h0)
-              /*AUTOINST*/);
+              .test             (128'h0));
 
    // Initialize UMI
    integer valid_mode, ready_mode;
@@ -198,7 +195,7 @@ module testbench (
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("../rtl" "../../submodules/switchboard/examples/common/verilog/" "../../submodules/lambdalib/ramlib/rtl/")
+// verilog-library-directories:("../rtl")
 // End:
 
 `default_nettype wire

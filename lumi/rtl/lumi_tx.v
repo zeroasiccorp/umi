@@ -624,5 +624,5 @@ module lumi_tx
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("." "../../umi/rtl/" "../submodules/lambdalib/stdlib/rtl")
+// verilog-library-directories:("." "../../umi/rtl/")
 // End:
