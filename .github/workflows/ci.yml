@@ -1,6 +1,5 @@
 name: Testbench CI
 on:
-  push:
   # Runs on all PRs
   pull_request:
   # Manual Dispatch
