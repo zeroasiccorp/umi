@@ -7,12 +7,29 @@ on:
   workflow_dispatch:
 
 jobs:
+  get_testbenches:
+    name: 'Get testbenches'
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      testbenches: ${{ steps.tests.outputs.tests }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Collect testbenches
+        id: tests
+        run: |
+          echo "tests=$(python3 .github/workflows/bin/collect_tests.py)" >> $GITHUB_OUTPUT
+
   testbench:
+    needs: get_testbenches
     strategy:
       fail-fast: false
-      matrix:
-        testbench: [lumi/testbench/test_lumi.py, lumi/testbench/test_lumi_rnd.py, umi/testbench/test_crossbar.py, umi/testbench/test_fifo_flex.py, umi/testbench/test_fifo.py, umi/testbench/test_mem_agent.py, umi/testbench/test_regif.py, utils/testbench/test_umi_address_remap.py, utils/testbench/test_umi_packet_merge_greedy.py, utils/testbench/test_umi2tl_np.py]
-    
+      matrix: ${{ fromJson(needs.get_testbenches.outputs.testbenches) }}
+
     timeout-minutes: 10
     runs-on: ubuntu-latest
     container:
@@ -23,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      
+
       - name: Install requirements
         run: |
           python3 -m venv .venv
