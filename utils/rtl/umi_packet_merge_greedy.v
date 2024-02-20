@@ -266,7 +266,9 @@ module umi_packet_merge_greedy #(
                               umi_in_opcode_check &
                               umi_in_field_match;
 
+    /* verilator lint_off WIDTHTRUNC */
     assign umi_in_bytes = (1 << umi_in_cmd_size)*(umi_in_cmd_len + 1);
+    /* verilator lint_on WIDTHTRUNC */
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset)

@@ -56,7 +56,7 @@ module testbench #(
     wire [ODW-1:0]  umi_dut2check_data;
     reg             umi_dut2check_ready;
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge nreset) begin
         if(~nreset)
             umi_dut2check_ready <= 1'b0;
         else

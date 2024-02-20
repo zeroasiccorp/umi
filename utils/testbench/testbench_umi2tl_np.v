@@ -50,7 +50,7 @@ module testbench #(
 
     // Reset initialization
     always @(posedge clk) begin
-        nreset_vec <= {nreset_vec[15:0], 1'b1};
+        nreset_vec <= {nreset_vec[14:0], 1'b1};
     end
 
     assign nreset = nreset_vec[14];
