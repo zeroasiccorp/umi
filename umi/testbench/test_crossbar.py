@@ -35,6 +35,7 @@ def build_testbench():
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
+    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Settings - enable tracing
     dut.set('option', 'trace', True)

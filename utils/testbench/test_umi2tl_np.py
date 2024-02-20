@@ -43,6 +43,7 @@ def build_testbench(topo="2d"):
     header_files_dir = EX_DIR / 'utils' / 'testbench'
     dut.set('tool', 'verilator', 'task', 'compile', 'var', 'cflags', f'-I{header_files_dir}')
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
+    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Settings - enable tracing
     dut.set('option', 'trace', True)

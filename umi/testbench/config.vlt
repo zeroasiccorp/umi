@@ -8,4 +8,12 @@ lint_off -file "*verilog-axi/rtl/*"
 //lint_off -rule UNOPTFLAT
 //lint_off -rule WIDTHTRUNC
 //lint_off -rule SELRANGE
-//lint_off -rule IMPLICIT
+lint_off -rule IMPLICIT
+lint_off -rule DECLFILENAME
+lint_off -rule PINCONNECTEMPTY
+lint_off -rule UNUSEDPARAM
+lint_off -rule UNUSEDSIGNAL
+lint_off -rule UNUSEDGENVAR
+lint_off -rule UNDRIVEN
+lint_off -rule BLKSEQ -file "*switchboard/switchboard/verilog/*"
+lint_off -rule GENUNNAMED
