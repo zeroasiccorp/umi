@@ -51,7 +51,7 @@ module testbench (
    wire [AW-1:0]        umi_resp_in_srcaddr;
    wire                 umi_resp_in_valid;
    // End of automatics
-   reg                  nreset;
+   wire                 nreset;
 
    wire [CTRLW-1:0]     sram_ctrl = 8'b0;
 
@@ -86,10 +86,10 @@ module testbench (
                   );
 
    umi_tx_sim #(.READY_MODE_DEFAULT(2),
-                .DW(ODW)
+                .DW(IDW)
                 )
    host_umi_tx_i (.clk(clk),
-                  .data(umi_resp_out_data[ODW-1:0]),
+                  .data(umi_resp_out_data[IDW-1:0]),
                   .srcaddr(umi_resp_out_srcaddr[AW-1:0]),
                   .dstaddr(umi_resp_out_dstaddr[AW-1:0]),
                   .cmd(umi_resp_out_cmd[CW-1:0]),
@@ -238,14 +238,17 @@ module testbench (
 
    // VCD
 
+   reg [15:0] nreset_r;
+   assign nreset = ~nreset_r[15];
+
    initial
      begin
-        nreset   = 1'b0;
+        nreset_r = 16'hFFFF;
      end // initial begin
 
    always @(negedge clk)
      begin
-        nreset <= nreset | 1'b1;
+        nreset_r <= nreset_r << 1;
      end
 
    // control block
@@ -260,7 +263,7 @@ module testbench (
 
    // auto-stop
 
-   auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));
+   auto_stop_sim #(.CYCLES(500000)) auto_stop_sim_i (.clk(clk));
 
 endmodule
 // Local Variables:
