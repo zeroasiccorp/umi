@@ -148,7 +148,7 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_ready_r;
     wire                    umi_in_cmd_commit_r;
 
-    reg [$clog2(ODW/8):0]   byte_counter;
+    reg [7:0]               byte_counter;
     localparam [$clog2(ODW/8):0]    ODW_BYTES = ODW[3+$clog2(ODW/8):3];
     localparam                      ADDR_PAD_BYTES = AW - 1 - $clog2(ODW/8);
 
@@ -236,9 +236,9 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_opcode_check;
     wire                    umi_in_field_match;
     wire                    umi_in_mergeable;
-    wire [$clog2(IDW/8):0]  umi_in_bytes;
+    wire [7:0]              umi_in_bytes;
     reg                     umi_in_mergeable_r;
-    reg  [$clog2(IDW/8):0]  umi_in_bytes_r;
+    reg  [7:0]              umi_in_bytes_r;
 
     reg [AW-1:0]            umi_in_dstaddr_nx;
     reg [AW-1:0]            umi_in_srcaddr_nx;
