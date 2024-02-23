@@ -148,7 +148,7 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_ready_r;
     wire                    umi_in_cmd_commit_r;
 
-    reg [7:0]               byte_counter;
+    reg [15:0]              byte_counter;
     localparam [$clog2(ODW/8):0]    ODW_BYTES = ODW[3+$clog2(ODW/8):3];
     localparam                      ADDR_PAD_BYTES = AW - 1 - $clog2(ODW/8);
 
@@ -236,9 +236,9 @@ module umi_packet_merge_greedy #(
     wire                    umi_in_opcode_check;
     wire                    umi_in_field_match;
     wire                    umi_in_mergeable;
-    wire [7:0]              umi_in_bytes;
+    wire [15:0]             umi_in_bytes;
     reg                     umi_in_mergeable_r;
-    reg  [7:0]              umi_in_bytes_r;
+    reg  [15:0]             umi_in_bytes_r;
 
     reg [AW-1:0]            umi_in_dstaddr_nx;
     reg [AW-1:0]            umi_in_srcaddr_nx;
@@ -266,7 +266,8 @@ module umi_packet_merge_greedy #(
                               umi_in_opcode_check &
                               umi_in_field_match;
 
-    assign umi_in_bytes = (1 << umi_in_cmd_size)*(umi_in_cmd_len + 1);
+    wire [8:0]  umi_in_cmd_len_plus_one = umi_in_cmd_len + 1;
+    assign umi_in_bytes = {7'b0, umi_in_cmd_len_plus_one} << umi_in_cmd_size;
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset)
@@ -386,7 +387,7 @@ module umi_packet_merge_greedy #(
         end
     end
 
-    wire [7:0]              umi_out_cmd_len_m;
+    wire [15:0]             umi_out_cmd_len_m;
 
     assign umi_out_cmd_len_m = (byte_counter >> umi_out_cmd_size_r) - 1;
 
@@ -396,7 +397,7 @@ module umi_packet_merge_greedy #(
         // Command inputs
         .cmd_opcode         (umi_out_cmd_opcode_r),
         .cmd_size           (umi_out_cmd_size_r),
-        .cmd_len            (umi_out_cmd_len_m),
+        .cmd_len            (umi_out_cmd_len_m[7:0]),
         .cmd_atype          (umi_out_cmd_atype_r),
         .cmd_qos            (umi_out_cmd_qos_r),
         .cmd_prot           (umi_out_cmd_prot_r),
