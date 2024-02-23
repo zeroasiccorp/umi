@@ -170,7 +170,8 @@ module umi2tl_np #(
     );
 
     // Calculate byte shift needed
-    wire [7:0] req_bytes = (1 << fifoflex_out_req_cmd_size)*(fifoflex_out_req_cmd_len + 1);
+    wire [8:0] fifoflex_out_req_cmd_len_plus_one = fifoflex_out_req_cmd_len + 1;
+    wire [15:0] req_bytes = {7'b0, fifoflex_out_req_cmd_len_plus_one} << fifoflex_out_req_cmd_size;
 
     reg [2:0]   masked_shift;
     reg [2:0]   masked_tl_a_size;
