@@ -385,7 +385,7 @@ module umi_fifo_flex
 
         always @(posedge umi_in_clk or negedge umi_in_nreset)
           if (~umi_in_nreset)
-            packet_latch_eom     <= 1'b0;
+            packet_latch_eom     <= 1'b1;
           else if (umi_in_ready & umi_in_valid)
             packet_latch_eom     <= umi_in_cmd_eom;
 
