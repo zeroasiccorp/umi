@@ -9,6 +9,8 @@ import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue
+from lambdalib import lambdalib
+
 
 THIS_DIR = Path(__file__).resolve().parent
 
@@ -27,12 +29,14 @@ def build_testbench(topo="2d", trace=False):
     else:
         raise ValueError('Invalid topology')
 
+    dut.use(lambdalib)
+    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
+    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
+    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
+
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'rtl')
         dut.add('option', option, EX_DIR / '..' / 'umi' / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'ramlib' / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'stdlib' / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'vectorlib' / 'rtl')
 
     # Verilator configuration
     vlt_config = EX_DIR / 'testbench' / 'config.vlt'
