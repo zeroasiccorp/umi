@@ -6,6 +6,7 @@ import platform
 import pytest
 from siliconcompiler.core import SiliconCompilerError
 
+
 def setup(chip):
     '''Adds sources/build configuration for the UMI testbench.
 
@@ -30,7 +31,7 @@ def setup(chip):
         chip.add('option', 'define', 'TRACE')
 
     # Configure tools for verification flow
-    cflags =['-Wno-unknown-warning-option', f'-I{sbdir}/cpp']
+    cflags = ['-Wno-unknown-warning-option', f'-I{sbdir}/cpp']
     if trace:
         cflags += ['-DTRACE']
     chip.set('tool', 'za_verilator', 'var', 'compile', '0', 'cflags', cflags)
@@ -46,6 +47,7 @@ def setup(chip):
 
     # Make Verilator allow warnings - missing connections in current testbench
     chip.set('option', 'relax', True)
+
 
 def compile_tb(chip, module):
     '''Sets up and compiles a testbench from a Chip object.'''
@@ -64,6 +66,7 @@ def compile_tb(chip, module):
     chip.set('option', 'jobinput', 'execute', '0', 'compile_tb')
 
     return chip
+
 
 def run_tb(chip, job):
     '''Runs the execute step of the verification flow.

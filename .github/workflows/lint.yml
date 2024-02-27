@@ -1,0 +1,19 @@
+name: Lint UMI
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: main
+
+jobs:
+  lint_python:
+    name: Lint Python Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+      - name: Lint with Flake8
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          flake8 --statistics .

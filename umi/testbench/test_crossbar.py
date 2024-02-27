@@ -8,12 +8,11 @@ import random
 import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
-from switchboard import (UmiTxRx, random_umi_packet, delete_queue,
+from switchboard import (
+    UmiTxRx, random_umi_packet, delete_queue,
     verilator_run, SbDut)
 from lambdalib import lambdalib
 
-
-THIS_DIR = Path(__file__).resolve().parent
 
 def build_testbench():
     dut = SbDut('testbench', default_main=True)
@@ -35,7 +34,6 @@ def build_testbench():
     # Verilator configuration
     vlt_config = EX_DIR / 'testbench' / 'config.vlt'
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
-#    dut.set('option', 'relax', True)
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
@@ -50,7 +48,8 @@ def build_testbench():
 
     return dut.find_result('vexe', step='compile')
 
-def umi_send(x,n,ports):
+
+def umi_send(x, n, ports):
     import os
 
     random.seed(os.getpid())
@@ -59,18 +58,20 @@ def umi_send(x,n,ports):
     umi = UmiTxRx(f'client2rtl_{x}.q', '')
     tee = UmiTxRx(f'tee_{x}.q', '')
 
-    for count in range (n):
-        dstport = random.randint(0,ports-1)
-        dstaddr = (2**8)*random.randint(0,(2**32)-1) + dstport*(2**40)
-        srcaddr = (2**8)*random.randint(0,(2**32)-1) + x*(2**40)
-        txp = random_umi_packet(dstaddr=dstaddr,srcaddr=srcaddr)
-        print(f"port {x} sending #{count} cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} dstaddr: 0x{dstaddr:08x} to port {dstport}")
+    for count in range(n):
+        dstport = random.randint(0, ports-1)
+        dstaddr = (2**8)*random.randint(0, (2**32)-1) + dstport*(2**40)
+        srcaddr = (2**8)*random.randint(0, (2**32)-1) + x*(2**40)
+        txp = random_umi_packet(dstaddr=dstaddr, srcaddr=srcaddr)
+        print(f"port {x} sending #{count} cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} "
+              f"dstaddr: 0x{dstaddr:08x} to port {dstport}")
         # send the packet to both simulation and local queues
         umi.send(txp)
         tee.send(txp)
 
+
 def main(vldmode="2", rdymode="2", n=100, ports=4):
-    for x in range (ports):
+    for x in range(ports):
         delete_queue(f'rtl2client_{x}.q')
         delete_queue(f'client2rtl_{x}.q')
         delete_queue(f'tee_{x}.q')
@@ -93,7 +94,7 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
 
     procs = []
     for x in range(ports):
-        procs.append(multiprocessing.Process(target=umi_send, args=(x,n,ports,)))
+        procs.append(multiprocessing.Process(target=umi_send, args=(x, n, ports,)))
 
     for proc in procs:
         proc.start()
@@ -109,7 +110,8 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
                     raise Exception(f'Unexpected packet received {nrecv}')
                 else:
                     recv_src = (rxp.srcaddr >> 40)
-                    print(f"port {i} receiving srcaddr: 0x{rxp.srcaddr:08x} dstaddr: 0x{rxp.dstaddr:08x} src: {recv_src} #{nrecv}")
+                    print(f"port {i} receiving srcaddr: 0x{rxp.srcaddr:08x} "
+                          f"dstaddr: 0x{rxp.dstaddr:08x} src: {recv_src} #{nrecv}")
                     recv_queue[recv_src][i].append(rxp)
                     nrecv += 1
 
@@ -120,12 +122,10 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
                     raise Exception('Unexpected packet sent')
                 else:
                     send_dst = (txp.dstaddr >> 40)
-                    #print(f"Tee port {i} dst: {send_dst} #{nsend}")
                     send_queue[i][send_dst].append(txp)
                     nsend += 1
 
     # join running processes
-
     for proc in procs:
         proc.join()
 
@@ -134,19 +134,23 @@ def main(vldmode="2", rdymode="2", n=100, ports=4):
             if len(send_queue[i][j]) != len(recv_queue[i][j]):
                 print(f"packets sent: {len(send_queue[i][j])} packets received: {len(recv_queue[i][j])}")
             assert len(send_queue[i][j]) == len(recv_queue[i][j])
-            for txp, rxp in zip(send_queue[i][j],recv_queue[i][j]):
-                #print(f"{rxp} {txp}")
+            for txp, rxp in zip(send_queue[i][j], recv_queue[i][j]):
                 assert txp == rxp
             print(f"compared {len(recv_queue[i][j])} packets from port {i} to port {j}")
+
     print("TEST PASS")
+
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--vldmode', default='2')
     parser.add_argument('--rdymode', default='2')
-    parser.add_argument('-n', type=int, default=10, help='Number of'
-                    ' transactions to send during the test.')
+    parser.add_argument('-n', type=int, default=10,
+                        help='Number of transactions to send during the test.')
     parser.add_argument('-ports', type=int, default=4, help='Number of ports')
     args = parser.parse_args()
 
-    main(vldmode=args.vldmode,rdymode=args.rdymode, n=args.n, ports=args.ports)
+    main(vldmode=args.vldmode,
+         rdymode=args.rdymode,
+         n=args.n,
+         ports=args.ports)
