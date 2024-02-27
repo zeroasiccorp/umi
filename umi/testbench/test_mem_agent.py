@@ -3,7 +3,6 @@
 # Copyright (C) 2023 Zero ASIC
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
-import random
 import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
@@ -62,21 +61,21 @@ def apply_atomic(origdata, atomicdata, operation, maxrange):
     elif (operation == 3):
         tempval = origdata ^ atomicdata
     elif (operation == 4):
-        if (origdata & (maxrange>>1)):
+        if (origdata & (maxrange >> 1)):
             origdata = int(origdata) - int(maxrange)
         else:
             origdata = int(origdata)
-        if (atomicdata & (maxrange>>1)):
+        if (atomicdata & (maxrange >> 1)):
             atomicdata = int(atomicdata) - int(maxrange)
         else:
             atomicdata = int(atomicdata)
         tempval = origdata if (origdata > atomicdata) else atomicdata
     elif (operation == 5):
-        if (origdata & (maxrange>>1)):
+        if (origdata & (maxrange >> 1)):
             origdata = int(origdata) - int(maxrange)
         else:
             origdata = int(origdata)
-        if (atomicdata & (maxrange>>1)):
+        if (atomicdata & (maxrange >> 1)):
             atomicdata = int(atomicdata) - int(maxrange)
         else:
             atomicdata = int(atomicdata)
@@ -101,7 +100,6 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
     verilator_bin = build_testbench()
 
     # launch the simulation
-    #verilator_run(verilator_bin, plusargs=['trace'])
     verilator_run(verilator_bin, plusargs=['trace', ('valid_mode', vldmode), ('ready_mode', rdymode)])
 
     # instantiate TX and RX queues.  note that these can be instantiated without
@@ -115,12 +113,11 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
     avail_datatype = [np.uint8, np.uint16, np.uint32]
 
     # un-aligned accesses
-    for count in range (n):
+    for _ in range(n):
         addr = np.random.randint(0, 512)
-        src_addr = random.randrange(2**64-1)
         # length should not cross the DW boundary - umi_mem_agent limitation
         length = np.random.randint(0, 256)
-        wordindexer = np.random.choice([0,1,2])
+        wordindexer = np.random.choice([0, 1, 2])
         maxrange = 2**(8*(2**wordindexer))
         data = np.random.randint(0, maxrange, size=(length+1), dtype=avail_datatype[wordindexer])
         addr = addr*(2**wordindexer) & 0x1FF
@@ -128,7 +125,7 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
         print(f"umi writing {length+1} words of type {avail_datatype[wordindexer]} to addr 0x{addr:08x}")
         host.write(addr, data)
         atomicopcode = np.random.randint(0, 9)
-        atomicdata = np.random.randint(0,256,dtype=avail_datatype[wordindexer])
+        atomicdata = np.random.randint(0, 256, dtype=avail_datatype[wordindexer])
         print(f"umi atomic opcode: {atomicopcode} of type {avail_datatype[wordindexer]} to addr 0x{addr:08x}")
         atomicval = host.atomic(addr, atomicdata, atomicopcode)
         if not (atomicval == data[0]):
@@ -144,12 +141,15 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
 
     print("### TEST PASS ###")
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--vldmode', default='2')
     parser.add_argument('--rdymode', default='2')
-    parser.add_argument('-n', type=int, default=10, help='Number of'
-                    ' transactions to send during the test.')
+    parser.add_argument('-n', type=int, default=10,
+                        help='Number of transactions to send during the test.')
     args = parser.parse_args()
 
-    main(vldmode=args.vldmode,rdymode=args.rdymode, n=args.n)
+    main(vldmode=args.vldmode,
+         rdymode=args.rdymode,
+         n=args.n)

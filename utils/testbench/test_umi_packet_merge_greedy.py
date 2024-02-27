@@ -14,7 +14,7 @@ def build_testbench(topo="2d"):
     EX_DIR = Path('../..')
 
     # Set up inputs
-    if topo=='2d':
+    if topo == '2d':
         dut.input('testbench_umi_packet_merge_greedy.v')
         print("### Running 2D topology ###")
     # elif topo=='3d':
@@ -85,8 +85,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--topo', default='2d')
     parser.add_argument('--vldmode', default='2')
-    parser.add_argument('-n', type=int, default=10, help='Number of'
-                    ' transactions to send during the test.')
+    parser.add_argument('-n', type=int, default=10,
+                        help='Number of transactions to send during the test.')
     args = parser.parse_args()
 
     main(topo=args.topo, vldmode=args.vldmode, n=args.n)

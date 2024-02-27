@@ -139,4 +139,3 @@ svg = wavedrom.render("""
 }
 """)
 svg.saveas("_images/example_rw_xaction.svg")
-

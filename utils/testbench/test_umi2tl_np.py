@@ -17,7 +17,7 @@ def build_testbench(topo="2d"):
     EX_DIR = EX_DIR.resolve()
 
     # Set up inputs
-    if topo=='2d':
+    if topo == '2d':
         dut.input('testbench_umi2tl_np.v')
         print("### Running 2D topology ###")
     # elif topo=='3d':
@@ -77,36 +77,24 @@ def main(topo="2d", vldmode="2", n=100, client2rtl="client2rtl_0.q", rtl2client=
 
     n_sent = 0
 
-    # while (n_sent < n):
-    #     txp = random_umi_packet(dstaddr=random.randint(0, 0x1FFFFFFF), size=0, len=0x7)
-    #     if umi.send(txp, blocking=False):
-    #         print('* TX *', n_sent)
-    #         print(str(txp))
-    #         n_sent += 1
-
     while (n_sent < n):
         print(f"Transaction {n_sent}:")
         addr = random.randrange(511)
         length = random.choice([1, 2, 4, 8])
-        addr = addr & (0xFFFFFFF8 | (8-length)) # FIXME: Align address. Limitation of umi2tl converter. Will be fixed in the next release
+
+        # FIXME: Align address. Limitation of umi2tl converter. Will be fixed in the next release
+        addr = addr & (0xFFFFFFF8 | (8-length))
+
         data8 = np.random.randint(0, 255, size=length, dtype=np.uint8)
         print(f"umi writing {length} bytes:: data: {data8} to addr: 0x{addr:08x}")
         umi.write(addr, data8, srcaddr=0x0000110000000000)
         print(f"umi reading {length} bytes:: from addr 0x{addr:08x}")
         val8 = umi.read(addr, length, np.uint8, srcaddr=0x0000110000000000)
         print(f"umi Read: {val8}")
-        if ~((val8 == data8).all()) :
+        if not (val8 == data8).all():
             print(f"ERROR core read from addr 0x{addr:08x} expected {data8} actual {val8}")
         assert (val8 == data8).all()
         n_sent = n_sent + 1
-
-    # addr = random.randrange(511)
-    # data8 = np.uint8(random.randrange(2**32-1))
-    # umi.write(addr, data8, srcaddr=0x0000110000000000)
-    # umi.write(addr, data8, srcaddr=0x0000110000000000)
-    # umi.write(addr, data8, srcaddr=0x0000110000000000)
-    # umi.write(addr, data8, srcaddr=0x0000110000000000)
-    # umi.write(addr, data8, srcaddr=0x0000110000000000)
 
     ret_val.wait()
 
@@ -115,8 +103,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--topo', default='2d')
     parser.add_argument('--vldmode', default='2')
-    parser.add_argument('-n', type=int, default=10, help='Number of'
-                    ' transactions to send during the test.')
+    parser.add_argument('-n', type=int, default=10,
+                        help='Number of transactions to send during the test.')
     args = parser.parse_args()
 
     main(topo=args.topo, vldmode=args.vldmode, n=args.n)

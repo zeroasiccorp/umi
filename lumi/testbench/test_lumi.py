@@ -4,15 +4,13 @@
 # Copyright (C) 2023 Zero ASIC
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
+import time
 import random
 import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue
 from lambdalib import lambdalib
-
-
-THIS_DIR = Path(__file__).resolve().parent
 
 
 def build_testbench(topo="2d", trace=False):
@@ -22,9 +20,9 @@ def build_testbench(topo="2d", trace=False):
 
     # Set up inputs
     dut.input('testbench_lumi.sv')
-    if topo=='2d':
+    if topo == '2d':
         print("### Running 2D topology ###")
-    elif topo=='3d':
+    elif topo == '3d':
         print("### Running 3D topology ###")
     else:
         raise ValueError('Invalid topology')
@@ -57,12 +55,13 @@ def build_testbench(topo="2d", trace=False):
     return dut
 
 
-def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.q", dut2host="dut2host_0.q", sb2dut="sb2dut_0.q", dut2sb="dut2sb_0.q"):
+def main(topo="2d", vldmode="2", rdymode="2", trace=False,
+         host2dut="host2dut_0.q", dut2host="dut2host_0.q", sb2dut="sb2dut_0.q", dut2sb="dut2sb_0.q"):
     # clean up old queues if present
     for q in [host2dut, dut2host, sb2dut, dut2sb]:
         delete_queue(q)
 
-    dut = build_testbench(topo,trace)
+    dut = build_testbench(topo, trace)
 
     hostdly = random.randrange(500)
     devdly = random.randrange(500)
@@ -96,9 +95,9 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
     print(f"Read: 0x{val32:08x}")
     assert val32 == 0x00000000
 
-    if topo=='2d':
+    if topo == '2d':
         width = np.uint32(0x00000000)
-    if topo=='3d':
+    if topo == '3d':
         width = np.uint32(0x00030000)
 
         linkactive = 0
@@ -117,8 +116,7 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
         sb.write(0x60000010, np.uint32(0x0), posted=True)
         sb.write(0x70000010, np.uint32(0x0), posted=True)
 
-        import time
-        time.sleep (0.1)
+        time.sleep(0.1)
 
         print("### disable Rx ###")
         sb.write(0x70000014, np.uint32(0x0), posted=True)
@@ -157,26 +155,22 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
     print("### Read loc Rx ctrl ###")
     val32 = sb.read(0x70000014, np.uint32)
     print(f"Read: 0x{val32:08x}")
-    #assert val32 == np.uint32(0x1) + width
 
     print("### Read loc Tx ctrl ###")
     val32 = sb.read(0x70000010, np.uint32)
     print(f"Read: 0x{val32:08x}")
-    #assert val32 == np.uint32(0x11) + width
 
     print("### Read rmt Rx ctrl ###")
     val32 = sb.read(0x60000014, np.uint32)
     print(f"Read: 0x{val32:08x}")
-    #assert val32 == np.uint32(0x1) + width
 
     print("### Read rmt Tx ctrl ###")
     val32 = sb.read(0x60000010, np.uint32)
     print(f"Read: 0x{val32:08x}")
-    #assert val32 == np.uint32(0x11) + width
 
     print("### UMI WRITES ###")
 
-#    host.write(0x70, np.arange(32, dtype=np.uint8), srcaddr=0x0000110000000000)
+    # host.write(0x70, np.arange(32, dtype=np.uint8), srcaddr=0x0000110000000000)
     host.write(0x70, np.uint64(0xBAADD70DCAFEFACE), srcaddr=0x0000110000000000)
     host.write(0x80, np.uint64(0xBAADD80DCAFEFACE), srcaddr=0x0000110000000000)
     host.write(0x90, np.uint64(0xBAADD90DCAFEFACE), srcaddr=0x0000110000000000)
@@ -221,9 +215,6 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
     print(f"Read: 0x{val8:08x}")
     assert val8 == 0xBA
 
-#    import time
-#    time.sleep (5)
-
     # 2 bytes
     rdbuf = host.read(0x40, 2, np.uint16, srcaddr=0x0000110000000000)
     val32 = rdbuf.view(np.uint32)[0]
@@ -262,6 +253,7 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False, host2dut="host2dut_0.
 
     print("### TEST PASS ###")
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--trace', action='store_true', default=False,
@@ -271,4 +263,7 @@ if __name__ == '__main__':
     parser.add_argument('--rdymode', default='2')
     args = parser.parse_args()
 
-    main(topo=args.topo,vldmode=args.vldmode,rdymode=args.rdymode,trace=args.trace)
+    main(topo=args.topo,
+         vldmode=args.vldmode,
+         rdymode=args.rdymode,
+         trace=args.trace)
