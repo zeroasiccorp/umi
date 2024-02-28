@@ -13,7 +13,7 @@ from lambdalib import lambdalib
 THIS_DIR = Path(__file__).resolve().parent
 
 
-def build_testbench():
+def build_testbench(split=False):
     dut = SbDut('testbench', default_main=True)
 
     EX_DIR = Path('..')
@@ -26,6 +26,7 @@ def build_testbench():
     dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
     dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
     dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
+    dut.add('option', 'define', f'SPLIT={int(split)}')
 
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'rtl')
@@ -49,12 +50,12 @@ def build_testbench():
     return dut.find_result('vexe', step='compile')
 
 
-def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
+def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0.q", split=False):
     # clean up old queues if present
     for q in [host2dut, dut2host]:
         delete_queue(q)
 
-    verilator_bin = build_testbench()
+    verilator_bin = build_testbench(split=split)
 
     # launch the simulation
     ret_val = verilator_run(verilator_bin, plusargs=['trace', ('valid_mode', vldmode), ('ready_mode', rdymode)])
@@ -91,7 +92,9 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--vldmode', default='2')
     parser.add_argument('--rdymode', default='2')
+    parser.add_argument('--split', action='store_true')
     args = parser.parse_args()
 
     main(vldmode=args.vldmode,
-         rdymode=args.rdymode)
+         rdymode=args.rdymode,
+         split=args.split)
