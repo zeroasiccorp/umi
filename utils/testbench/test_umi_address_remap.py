@@ -3,8 +3,6 @@
 # Copyright (C) 2023 Zero ASIC
 
 import random
-import time
-import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, random_umi_packet
@@ -17,7 +15,7 @@ def build_testbench(topo="2d"):
     EX_DIR = Path('../..')
 
     # Set up inputs
-    if topo=='2d':
+    if topo == '2d':
         dut.input('testbench_umi_address_remap.v')
         print("### Running 2D topology ###")
     # elif topo=='3d':
@@ -76,9 +74,7 @@ def main(topo="2d", rdymode="2", vldmode="2", n=100, client2rtl="client2rtl_0.q"
 
     while (n_sent < n) or (n_recv < n):
         addr = random.randrange(0x0000_0000_0000_0000, 0x0000_07FF_FFFF_FFFF)
-        addr = addr & 0xFFFF_FF00_0000_FFF0 # Allow different devices but reduce address space per device
-        length = random.choice([1, 2, 4, 8])
-        data8 = np.random.randint(0, 255, size=length, dtype=np.uint8)
+        addr = addr & 0xFFFF_FF00_0000_FFF0  # Allow different devices but reduce address space per device
 
         txp = random_umi_packet(dstaddr=addr, srcaddr=0x0000110000000000)
         if n_sent < n:
@@ -87,8 +83,8 @@ def main(topo="2d", rdymode="2", vldmode="2", n=100, client2rtl="client2rtl_0.q"
                 print(str(txp))
                 txq.append(txp)
                 # Offset
-                if ((addr >= 0x0000_0600_0000_0080) & \
-                    (addr <= 0x0000_06FF_FFFF_FFFF)):
+                if ((addr >= 0x0000_0600_0000_0080) and
+                        (addr <= 0x0000_06FF_FFFF_FFFF)):
                     addr = addr - 0x0000_0000_0000_0080
                     txq[-1].dstaddr = addr
                 # Remap
@@ -116,8 +112,8 @@ if __name__ == '__main__':
     parser.add_argument('--topo', default='2d')
     parser.add_argument('--rdymode', default='2')
     parser.add_argument('--vldmode', default='2')
-    parser.add_argument('-n', type=int, default=10, help='Number of'
-                    ' transactions to send during the test.')
+    parser.add_argument('-n', type=int, default=10,
+                        help='Number of transactions to send during the test.')
     args = parser.parse_args()
 
     main(topo=args.topo, rdymode=args.rdymode, vldmode=args.vldmode, n=args.n)

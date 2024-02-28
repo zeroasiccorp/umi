@@ -49,7 +49,7 @@ def build_testbench():
     return dut.find_result('vexe', step='compile')
 
 
-def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0.q",split="0"):
+def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
     # clean up old queues if present
     for q in [host2dut, dut2host]:
         delete_queue(q)
@@ -57,7 +57,6 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
     verilator_bin = build_testbench()
 
     # launch the simulation
-    #verilator_run(verilator_bin, plusargs=['trace'])
     ret_val = verilator_run(verilator_bin, plusargs=['trace', ('valid_mode', vldmode), ('ready_mode', rdymode)])
 
     # instantiate TX and RX queues.  note that these can be instantiated without
@@ -68,32 +67,31 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
 
     print("### Statring test ###")
 
-    for count in range (1000):
+    for count in range(1000):
         # length should not cross the DW boundary - umi_mem_agent limitation
-        length = np.random.randint(0,255)
-        dst_addr = 32*random.randrange(2**(10-5)-1) # sb limitation - should align to bus width
+        length = np.random.randint(0, 255)
+        dst_addr = 32*random.randrange(2**(10-5)-1)  # sb limitation - should align to bus width
         src_addr = 32*random.randrange(2**(10-5)-1)
-        data8 = np.random.randint(0,255,size=length,dtype=np.uint8)
+        data8 = np.random.randint(0, 255, size=length, dtype=np.uint8)
         print(f"[{count}] umi writing {length} bytes to addr 0x{dst_addr:08x}")
         host.write(dst_addr, data8, srcaddr=src_addr, max_bytes=16)
         print(f"[{count}] umi read from addr 0x{dst_addr:08x}")
         val8 = host.read(dst_addr, length, np.uint8, srcaddr=src_addr, max_bytes=16)
         if ~((val8 == data8).all()):
             print(f"ERROR umi read from addr 0x{dst_addr:08x}")
-            print(f"Expected:")
-            print(f"{data8}")
-            print(f"Actual:")
-            print(f"{val8}")
+            print(f"Expected: {data8}")
+            print(f"Actual: {val8}")
             assert (val8 == data8).all()
 
     ret_val.wait()
     print("### TEST PASS ###")
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--vldmode', default='2')
     parser.add_argument('--rdymode', default='2')
-    parser.add_argument('--split', default='0')
     args = parser.parse_args()
 
-    main(vldmode=args.vldmode,rdymode=args.rdymode,split=args.split)
+    main(vldmode=args.vldmode,
+         rdymode=args.rdymode)
