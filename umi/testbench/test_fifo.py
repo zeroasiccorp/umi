@@ -91,9 +91,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--vldmode', default='2')
     parser.add_argument('--rdymode', default='2')
-    parser.add_argument('--split', default='0')
     args = parser.parse_args()
 
     main(vldmode=args.vldmode,
-         rdymode=args.rdymode,
-         split=args.split)
+         rdymode=args.rdymode)
