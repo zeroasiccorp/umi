@@ -7,7 +7,8 @@ import random
 import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, binary_run
+from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
+from lambdalib import lambdalib
 
 THIS_DIR = Path(__file__).resolve().parent
 
@@ -21,11 +22,13 @@ def build_testbench():
     # Set up inputs
     dut.input('testbench_mem_agent.sv')
 
+    dut.use(lambdalib)
+    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
+    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
+    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
+
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'ramlib' / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'stdlib' / 'rtl')
-        dut.add('option', option, EX_DIR / '..' / 'submodules' / 'lambdalib' / 'lambdalib' / 'vectorlib' / 'rtl')
 
     # Verilator configuration
     vlt_config = EX_DIR / 'testbench' / 'config.vlt'
