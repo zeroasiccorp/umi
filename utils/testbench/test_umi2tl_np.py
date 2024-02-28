@@ -3,11 +3,11 @@
 # Copyright (C) 2023 Zero ASIC
 
 import random
-import time
 import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, binary_run, random_umi_packet
+from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
+from lambdalib import lambdalib
 
 
 def build_testbench(topo="2d"):
@@ -27,15 +27,17 @@ def build_testbench(topo="2d"):
     else:
         raise ValueError('Invalid topology')
 
+    dut.use(lambdalib)
+    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
+    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
+    dut.add('option', 'ydir', 'lambdalib/padring/rtl', package='lambdalib')
+    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
+
     dut.input('testbench_umi2tl_np.cc')
     dut.input(EX_DIR / 'utils' / 'testbench' / 'tlmemsim.cpp')
     for option in ['ydir', 'idir']:
         dut.add('option', option, EX_DIR / 'umi' / 'rtl')
         dut.add('option', option, EX_DIR / 'utils' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'ramlib' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'stdlib' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'padring' / 'rtl')
-        dut.add('option', option, EX_DIR / 'submodules' / 'lambdalib' / 'lambdalib' / 'vectorlib' / 'rtl')
 
     # Verilator configuration
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--coverage')
