@@ -62,21 +62,21 @@ def apply_atomic(origdata, atomicdata, operation, maxrange):
     elif (operation == 3):
         tempval = origdata ^ atomicdata
     elif (operation == 4):
-        if (origdata & (maxrange>>1)):
+        if (origdata & (maxrange >> 1)):
             origdata = int(origdata) - int(maxrange)
         else:
             origdata = int(origdata)
-        if (atomicdata & (maxrange>>1)):
+        if (atomicdata & (maxrange >> 1)):
             atomicdata = int(atomicdata) - int(maxrange)
         else:
             atomicdata = int(atomicdata)
         tempval = origdata if (origdata > atomicdata) else atomicdata
     elif (operation == 5):
-        if (origdata & (maxrange>>1)):
+        if (origdata & (maxrange >> 1)):
             origdata = int(origdata) - int(maxrange)
         else:
             origdata = int(origdata)
-        if (atomicdata & (maxrange>>1)):
+        if (atomicdata & (maxrange >> 1)):
             atomicdata = int(atomicdata) - int(maxrange)
         else:
             atomicdata = int(atomicdata)
@@ -101,7 +101,6 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
     verilator_bin = build_testbench()
 
     # launch the simulation
-    #verilator_run(verilator_bin, plusargs=['trace'])
     verilator_run(verilator_bin, plusargs=['trace', ('valid_mode', vldmode), ('ready_mode', rdymode)])
 
     # instantiate TX and RX queues.  note that these can be instantiated without
@@ -113,9 +112,8 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
     print("### Starting test ###")
 
     # regif accesses are all 32b wide and aligned
-    for count in range (n):
+    for _ in range(n):
         addr = np.random.randint(0, 512) * 4
-        src_addr = random.randrange(2**64-1)
         # length should not cross the DW boundary - umi_mem_agent limitation
         data = np.uint32(random.randrange(2**32-1))
 
@@ -138,12 +136,15 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
 
     print("### TEST PASS ###")
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--vldmode', default='2')
     parser.add_argument('--rdymode', default='2')
-    parser.add_argument('-n', type=int, default=10, help='Number of'
-                    ' transactions to send during the test.')
+    parser.add_argument('-n', type=int, default=10,
+                        help='Number of transactions to send during the test.')
     args = parser.parse_args()
 
-    main(vldmode=args.vldmode,rdymode=args.rdymode, n=args.n)
+    main(vldmode=args.vldmode,
+         rdymode=args.rdymode,
+         n=args.n)
