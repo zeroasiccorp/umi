@@ -33,8 +33,11 @@ module testbench (
    parameter integer CW=32;
    parameter integer CTRLW=8;
    parameter integer DEPTH=512;
-   parameter integer SPLIT=1;
    parameter integer ASYNC=0;
+
+   `ifndef SPLIT
+     `define SPLIT 0
+   `endif
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -110,7 +113,7 @@ module testbench (
     .fifo_.*        (),
     );*/
    umi_fifo_flex #(.ASYNC(ASYNC),
-                   .SPLIT(SPLIT),
+                   .SPLIT(`SPLIT),
                    .IDW(IDW),
                    .ODW(ODW),
                    .CW(CW),
@@ -183,7 +186,7 @@ module testbench (
     .fifo_.*        (),
     );*/
    umi_fifo_flex #(.ASYNC(ASYNC),
-                   .SPLIT(SPLIT),
+                   .SPLIT(`SPLIT),
                    .IDW(ODW),
                    .ODW(IDW),
                    .CW(CW),
