@@ -186,28 +186,28 @@ module tb_axilite2umi #(
     assign axi_wstrb_options[1]  = 8'h02;
     assign axi_wstrb_options[2]  = 8'h04;
     assign axi_wstrb_options[3]  = 8'h08;
-    assign axi_wstrb_options[4]  = 8'h10;
-    assign axi_wstrb_options[5]  = 8'h20;
-    assign axi_wstrb_options[6]  = 8'h40;
-    assign axi_wstrb_options[7]  = 8'h80;
+    assign axi_wstrb_options[4]  = (DW == 64) ? 8'h10 : 8'h01;
+    assign axi_wstrb_options[5]  = (DW == 64) ? 8'h20 : 8'h02;
+    assign axi_wstrb_options[6]  = (DW == 64) ? 8'h40 : 8'h04;
+    assign axi_wstrb_options[7]  = (DW == 64) ? 8'h80 : 8'h08;
     assign axi_wstrb_options[8]  = 8'h03;
     assign axi_wstrb_options[9]  = 8'h06;
     assign axi_wstrb_options[10] = 8'h0C;
     assign axi_wstrb_options[11] = 8'h18;
-    assign axi_wstrb_options[12] = 8'h30;
-    assign axi_wstrb_options[13] = 8'h60;
-    assign axi_wstrb_options[14] = 8'hC0;
+    assign axi_wstrb_options[12] = (DW == 64) ? 8'h30 : 8'h03;
+    assign axi_wstrb_options[13] = (DW == 64) ? 8'h60 : 8'h06;
+    assign axi_wstrb_options[14] = (DW == 64) ? 8'hC0 : 8'h0C;
     assign axi_wstrb_options[15] = 8'h07;
     assign axi_wstrb_options[16] = 8'h0E;
     assign axi_wstrb_options[17] = 8'h1C;
     assign axi_wstrb_options[18] = 8'h38;
-    assign axi_wstrb_options[19] = 8'h70;
-    assign axi_wstrb_options[20] = 8'hE0;
+    assign axi_wstrb_options[19] = (DW == 64) ? 8'h70 : 8'h07;
+    assign axi_wstrb_options[20] = (DW == 64) ? 8'hE0 : 8'h0E;
     assign axi_wstrb_options[21] = 8'h0F;
     assign axi_wstrb_options[22] = 8'h1E;
     assign axi_wstrb_options[23] = 8'h3C;
     assign axi_wstrb_options[24] = 8'h78;
-    assign axi_wstrb_options[25] = 8'hF0;
+    assign axi_wstrb_options[25] = (DW == 64) ? 8'hF0 : 8'h0F;
     assign axi_wstrb_options[26] = 8'h1F;
     assign axi_wstrb_options[27] = 8'h3E;
     assign axi_wstrb_options[28] = 8'h7C;
@@ -220,7 +220,7 @@ module tb_axilite2umi #(
     assign axi_wstrb_options[35] = 8'hFF;
 
     always @(posedge clk) begin
-        axi_awaddr  <= $random & 64'h0000_0000_0000_7FF8; // 64 bit aligned
+        axi_awaddr  <= $random & ((RAMDEPTH-1) << $clog2(DW/8)); // 64 bit aligned
         axi_awprot  <= $random;
         axi_awvalid <= $random;
         axi_wdata   <= {$random, $random};
@@ -228,7 +228,7 @@ module tb_axilite2umi #(
         axi_wvalid  <= $random;
         axi_bready  <= $random;
 
-        axi_araddr  <= $random & 64'h0000_0000_0000_7FF8; // 64 bit aligned
+        axi_araddr  <= $random & ((RAMDEPTH-1) << $clog2(DW/8)); // 64 bit aligned
         axi_arprot  <= $random;
         axi_arvalid <= $random;
         axi_rready  <= $random;
