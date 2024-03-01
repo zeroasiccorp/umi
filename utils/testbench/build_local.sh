@@ -3,19 +3,20 @@
 MAIN_DIR=$(pwd)/../..
 RTL_DIR=$MAIN_DIR/utils/rtl
 
-iverilog tb_tl2umi_np.v \
+iverilog \
     -y . \
     -I . \
     -y $RTL_DIR \
     -I $RTL_DIR \
     -y $MAIN_DIR/umi/rtl \
     -I $MAIN_DIR/umi/rtl \
-    -y $MAIN_DIR/submodules/lambdalib/padring/rtl \
-    -I $MAIN_DIR/submodules/lambdalib/padring/rtl \
-    -y $MAIN_DIR/submodules/lambdalib/stdlib/rtl \
-    -y $MAIN_DIR/submodules/lambdalib/vectorlib/rtl \
-    -y $MAIN_DIR/submodules/lambdalib/ramlib/rtl
+    -y $MAIN_DIR/../lambdalib/lambdalib/padring/rtl \
+    -I $MAIN_DIR/../lambdalib/lambdalib/padring/rtl \
+    -y $MAIN_DIR/../lambdalib/lambdalib/stdlib/rtl \
+    -y $MAIN_DIR/../lambdalib/lambdalib/vectorlib/rtl \
+    -y $MAIN_DIR/../lambdalib/lambdalib/ramlib/rtl \
+    tb_axilite2umi.v
 
 #./a.out
-./a.out +MEMHFILE=./buffer.memh
+./a.out +MEMHFILE=./buffer_axilite.memh
 #./a.out +MEMHFILE=$MAIN_DIR/umi/testbench/buffer.memh
