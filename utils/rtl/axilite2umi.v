@@ -265,8 +265,8 @@ module axilite2umi #(
     assign uhost_req_srcaddr = {chip_address, local_routing, 24'b0};
     assign uhost_req_data    = axi_wdata_r;
     assign uhost_req_valid   = write_in_flight ?
-                               (axi_awvalid_r & axi_wvalid_r) :
-                               axi_arvalid_r;
+                               (axi_awvalid_r & axi_wvalid_r & reset_done) :
+                               (axi_arvalid_r & reset_done);
 
     // UMI response
     wire [4:0]  umi_resp_cmd_opcode;
@@ -277,7 +277,7 @@ module axilite2umi #(
 
     umi_unpack #(
         .CW     (CW)
-    ) tl2umi_resp_unpack (
+    ) axilite2umi_resp_unpack (
         // Input CMD
         .packet_cmd         (uhost_resp_cmd),
 
@@ -297,19 +297,23 @@ module axilite2umi #(
         .cmd_hostid         ()
     );
 
-    assign uhost_resp_ready = write_in_flight ? axi_bready : axi_rready;
+    assign uhost_resp_ready = write_in_flight ?
+                              (axi_bready & reset_done) :
+                              (axi_rready & reset_done);
 
     // Read response
     assign axi_rdata  = uhost_resp_data;
     assign axi_rresp  = umi_resp_cmd_err;
     assign axi_rvalid = read_in_flight &
                         uhost_resp_valid &
-                        (umi_resp_cmd_opcode == UMI_RESP_READ);
+                        (umi_resp_cmd_opcode == UMI_RESP_READ) &
+                        reset_done;
 
     // Write response
     assign axi_bresp  = umi_resp_cmd_err;
     assign axi_bvalid = write_in_flight &
                         uhost_resp_valid &
-                        (umi_resp_cmd_opcode == UMI_RESP_WRITE);
+                        (umi_resp_cmd_opcode == UMI_RESP_WRITE) &
+                        reset_done;
 
 endmodule
