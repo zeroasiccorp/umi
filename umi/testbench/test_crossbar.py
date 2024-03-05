@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 from switchboard import (
     UmiTxRx, random_umi_packet, delete_queue,
     verilator_run, SbDut)
-from lambdalib import lambdalib
+import lambdalib
 
 
 def build_testbench():

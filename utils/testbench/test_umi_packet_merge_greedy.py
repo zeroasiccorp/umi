@@ -5,7 +5,7 @@
 from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, random_umi_packet
-from lambdalib import lambdalib
+import lambdalib
 
 
 def build_testbench(topo="2d"):
