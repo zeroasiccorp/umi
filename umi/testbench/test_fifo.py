@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
-from lambdalib import lambdalib
+import lambdalib
 
 THIS_DIR = Path(__file__).resolve().parent
 

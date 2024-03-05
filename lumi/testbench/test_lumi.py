@@ -10,7 +10,7 @@ import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue
-from lambdalib import lambdalib
+import lambdalib
 
 
 def build_testbench(topo="2d", trace=False):
