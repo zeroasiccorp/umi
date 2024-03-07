@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "setuptools >= 61.2",
+    "setuptools_scm[toml] >= 6.2"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+# Presence of this section activates setuptools_scm, even though it's empty
+
+[project]
+name = "umi"
+authors = [{name = "Zero ASIC"}]
+description = "Universal Memory Interface (UMI)"
+readme = "README.md"
+urls = {Homepage = "https://github.com/zeroasiccorp/umi"}
+requires-python = ">= 3.8"
+license = {file = "LICENSE"}
+dependencies = [
+    "siliconcompiler>=0.21.0",
+    "lambdalib==0.2.0"
+]
+dynamic = [
+    "version"
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "umi.__version__"}
+
+[project.optional-dependencies]
+test = [
+    "switchboard-hw",
+    "flake8==7.0.0"
+]
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    "umi"
+]
+
+[tool.check-wheel-contents]
+ignore = [
+    "W002"
+]
