@@ -45,7 +45,7 @@ jobs:
           python3 -m venv .venv
           . .venv/bin/activate
           python3 -m pip install --upgrade pip
-          python3 -m pip install .[test]
+          python3 -m pip install -e .[test]
 
       - name: Run ${{ matrix.testbench }}
         run: |
