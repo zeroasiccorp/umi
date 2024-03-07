@@ -3,20 +3,17 @@
 # Copyright (C) 2023 Zero ASIC
 
 import random
-from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, random_umi_packet
-import lambdalib
+import umi
 
 
 def build_testbench(topo="2d"):
     dut = SbDut('testbench', default_main=True)
 
-    EX_DIR = Path('../..')
-
     # Set up inputs
     if topo == '2d':
-        dut.input('testbench_umi_address_remap.v')
+        dut.input('utils/testbench/testbench_umi_address_remap.v', package='umi')
         print("### Running 2D topology ###")
     # elif topo=='3d':
     #     dut.input('testbench_3d.sv')
@@ -25,19 +22,11 @@ def build_testbench(topo="2d"):
     else:
         raise ValueError('Invalid topology')
 
-    dut.use(lambdalib)
-    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/padring/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
-
-    for option in ['ydir', 'idir']:
-        dut.add('option', option, EX_DIR / 'umi' / 'rtl')
-        dut.add('option', option, EX_DIR / 'utils' / 'rtl')
+    dut.use(umi)
+    dut.add('option', 'library', 'umi')
 
     # Verilator configuration
-    vlt_config = EX_DIR / 'utils' / 'testbench' / 'config.vlt'
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'utils/testbench/config.vlt', package='umi')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Settings - enable tracing
