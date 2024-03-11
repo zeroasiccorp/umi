@@ -31,7 +31,7 @@ jobs:
         path: dist
 
     - name: Publish
-      uses: pypa/gh-action-pypi-publish@v1.8.11
+      uses: pypa/gh-action-pypi-publish@v1.8.14
 
   save:
     needs: [publish]
@@ -44,6 +44,6 @@ jobs:
         path: dist
 
     - name: Add wheels to GitHub release artifacts
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: dist/*.whl
