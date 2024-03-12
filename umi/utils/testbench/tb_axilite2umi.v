@@ -278,15 +278,6 @@ module tb_axilite2umi #(
         end
     end
 
-    //always @(posedge clk) begin
-    //    if (axi_awvalid & axi_awready)
-    //        $display("Writing data to: 0x%h", axi_awaddr);
-    //    if (axi_wvalid & axi_wready)
-    //        $display("Data written: 0x%h, strobe: 0b%b", axi_wdata, axi_wstrb);
-    //    if (axi_arvalid & axi_arready)
-    //        $display("Reading data from: 0x%h", axi_araddr);
-    //end
-
     // Perf Counters
     wire        axi_awcommit;
     wire        axi_wcommit;
