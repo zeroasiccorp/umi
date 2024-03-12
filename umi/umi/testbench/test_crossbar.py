@@ -6,34 +6,25 @@
 import multiprocessing
 import random
 import numpy as np
-from pathlib import Path
 from argparse import ArgumentParser
-from switchboard import (
-    UmiTxRx, random_umi_packet, delete_queue,
-    verilator_run, SbDut)
-from lambdalib import lambdalib
+from switchboard import UmiTxRx, random_umi_packet, delete_queue, verilator_run, SbDut
+import umi
 
 
 def build_testbench():
     dut = SbDut('testbench', default_main=True)
 
-    EX_DIR = Path('..')
-    EX_DIR = EX_DIR.resolve()
-
     # Set up inputs
-    dut.input('testbench_crossbar.sv')
+    dut.input('umi/testbench/testbench_crossbar.sv', package='umi')
 
-    dut.use(lambdalib)
-    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
-
-    for option in ['ydir', 'idir']:
-        dut.add('option', option, EX_DIR / 'rtl')
+    dut.use(umi)
+    dut.add('option', 'library', 'umi')
+    dut.add('option', 'library', 'lambdalib_stdlib')
+    dut.add('option', 'library', 'lambdalib_ramlib')
+    dut.add('option', 'library', 'lambdalib_vectorlib')
 
     # Verilator configuration
-    vlt_config = EX_DIR / 'testbench' / 'config.vlt'
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'umi/testbench/config.vlt', package='umi')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
