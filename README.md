@@ -660,7 +660,7 @@ After reset both sides of the link wake up in non-active state and can only acce
 UMI link layer can be transported over several physical layer options.
 The following options are supported and their mapping outlined below:
 
-* CLINK physical layer as defined in CLINK spec [REF](https://github.com/zeroasiccorp/chipio/tree/main/clink/README.md)
+* Zero ASIC Chip Link (CLINK) physical layer
 * Bunch of Wires (BoW)
 * Advanced Interface Bus (AIB)
 * Universal Chiplet Interconnect Express (UCIe)

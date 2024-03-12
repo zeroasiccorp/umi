@@ -2,20 +2,21 @@
 
 # Copyright (C) 2023 Zero ASIC
 
+import random
+import numpy as np
 from pathlib import Path
 from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, random_umi_packet
-from lambdalib import lambdalib
+from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
+from siliconcompiler.package import path as sc_path
+import umi
 
 
 def build_testbench(topo="2d"):
     dut = SbDut('testbench', default_main=False)
 
-    EX_DIR = Path('../..')
-
     # Set up inputs
     if topo == '2d':
-        dut.input('testbench_umi_packet_merge_greedy.v')
+        dut.input('utils/testbench/testbench_umi2tl_np.v', package='umi')
         print("### Running 2D topology ###")
     # elif topo=='3d':
     #     dut.input('testbench_3d.sv')
@@ -24,21 +25,17 @@ def build_testbench(topo="2d"):
     else:
         raise ValueError('Invalid topology')
 
-    dut.use(lambdalib)
-    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/padring/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
+    dut.input('utils/testbench/testbench_umi2tl_np.cc', package='umi')
+    dut.input('utils/testbench/tlmemsim.cpp', package='umi')
 
-    dut.input('testbench_umi_packet_merge_greedy.cc')
-    for option in ['ydir', 'idir']:
-        dut.add('option', option, EX_DIR / 'umi' / 'rtl')
-        dut.add('option', option, EX_DIR / 'utils' / 'rtl')
+    dut.use(umi)
+    dut.add('option', 'library', ['umi', 'lambdalib_stdlib'])
 
     # Verilator configuration
-    vlt_config = EX_DIR / 'utils' / 'testbench' / 'config.vlt'
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--coverage')
+    header_files_dir = Path(sc_path(dut, 'umi')) / 'utils' / 'testbench'
+    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'cflags', f'-I{header_files_dir}')
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'utils/testbench/config.vlt', package='umi')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Settings - enable tracing
@@ -72,11 +69,23 @@ def main(topo="2d", vldmode="2", n=100, client2rtl="client2rtl_0.q", rtl2client=
     n_sent = 0
 
     while (n_sent < n):
-        txp = random_umi_packet()
-        if umi.send(txp, blocking=False):
-            print('* TX *')
-            print(str(txp))
-            n_sent += 1
+        print(f"Transaction {n_sent}:")
+        addr = random.randrange(511)
+        length = random.choice([1, 2, 4, 8])
+
+        # FIXME: Align address. Limitation of umi2tl converter. Will be fixed in the next release
+        addr = addr & (0xFFFFFFF8 | (8-length))
+
+        data8 = np.random.randint(0, 255, size=length, dtype=np.uint8)
+        print(f"umi writing {length} bytes:: data: {data8} to addr: 0x{addr:08x}")
+        umi.write(addr, data8, srcaddr=0x0000110000000000)
+        print(f"umi reading {length} bytes:: from addr 0x{addr:08x}")
+        val8 = umi.read(addr, length, np.uint8, srcaddr=0x0000110000000000)
+        print(f"umi Read: {val8}")
+        if not (val8 == data8).all():
+            print(f"ERROR core read from addr 0x{addr:08x} expected {data8} actual {val8}")
+        assert (val8 == data8).all()
+        n_sent = n_sent + 1
 
     ret_val.wait()
 

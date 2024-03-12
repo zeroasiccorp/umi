@@ -1,3 +1,0 @@
-lambdalib==0.1.5
-switchboard-hw
-flake8 == 6.0.0

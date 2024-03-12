@@ -12,6 +12,7 @@
 *.fst
 build/
 gmon.out
+coverage.dat
 
 ######################
 # Emacs/vim/gedit backup files
