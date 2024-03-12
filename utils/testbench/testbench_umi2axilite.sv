@@ -173,12 +173,12 @@ module testbench (
         .axi_rready         (axi_rready)
     );
 
-    // UMI to AXI4-Lite
+    // AXI4-Lite to UMI
     axilite2umi #(
-        .CW     (),
-        .AW     (),
-        .DW     (),
-        .IDW    ()
+        .CW     (CW),
+        .AW     (AW),
+        .DW     (DW),
+        .IDW    (16)
     ) axilite2umi_ (
         .clk                (clk),
         .nreset             (nreset),
