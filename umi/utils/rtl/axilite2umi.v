@@ -26,7 +26,7 @@ module axilite2umi #(
     parameter CW    = 32,   // command width
     parameter AW    = 64,   // address width
     parameter DW    = 64,   // umi packet width
-    parameter IDW   = 16    // brick ID width
+    parameter IDW   = 16    // chip ID width
 )
 (
     input               clk,
