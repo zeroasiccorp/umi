@@ -5,41 +5,28 @@
 
 import random
 import numpy as np
-from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
-from lambdalib import lambdalib
-
-THIS_DIR = Path(__file__).resolve().parent
+import umi
 
 
 def build_testbench():
     dut = SbDut('testbench', default_main=True)
 
-    EX_DIR = Path('../..')
-    EX_DIR = EX_DIR.resolve()
-
     # Set up inputs
-    dut.input('testbench_umi2axilite.sv')
+    dut.input('utils/testbench/testbench_umi2axilite.sv', package='umi')
 
-    dut.use(lambdalib)
-    dut.add('option', 'ydir', 'lambdalib/ramlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/stdlib/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/padring/rtl', package='lambdalib')
-    dut.add('option', 'ydir', 'lambdalib/vectorlib/rtl', package='lambdalib')
-
-    for option in ['ydir', 'idir']:
-        dut.add('option', option, EX_DIR / 'umi' / 'rtl')
-        dut.add('option', option, EX_DIR / 'utils' / 'rtl')
+    dut.use(umi)
+    dut.add('option', 'library', 'umi')
+    dut.add('option', 'library', 'lambdalib_ramlib')
+    dut.add('option', 'library', 'lambdalib_stdlib')
+    dut.add('option', 'library', 'lambdalib_vectorlib')
 
     # Verilator configuration
-    vlt_config = EX_DIR / 'utils' / 'testbench' / 'config.vlt'
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', vlt_config)
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config',
+            'utils/testbench/config.vlt',
+            package='umi')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
-#    dut.set('option', 'relax', True)
-#    dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
-#    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
-#    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
 
     # Settings - enable tracing
     dut.set('option', 'trace', True)
