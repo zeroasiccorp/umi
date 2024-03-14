@@ -202,13 +202,13 @@ The EOF bit can be used to indicate the last message in a sequence of related UM
 
 ### 3.3.8 Exclusive Access (EX)
 
-The EX field is used to indicate exclusive access to an address. The function is used to enable atomic load-store exchanges. The sequence of operation:
+The EX field is used to indicate exclusive access to an address. The function is used to enable atomic load-store exchanges. The sequence of operations is:
 
-1. Host sends a REQ_RD to address A (with EX=1) with HOSTID B
-2. Host sends a REQ_WR to address A (with EX=1) With HOSTID B
+1. Host sends a REQ_RD to address A (with EX=1) with SA B
+2. Host sends a REQ_WR to address A (with EX=1) with SA B
 3. Device:
-   1. If address A has NOT been modified by another host since last exclusive read, device writes to address A and returns a ERR = 0b01 in RESP_WR to host.
-   2. If address A has been modified by another host since last exclusive read, device returns a ERR = 0b00 in RESP_WR to host and does not write to address A.
+   1. If address A has NOT been modified by another host (i.e., write with a different SA) since last exclusive read, device performs write to address A and returns ERR = 0b01 in RESP_WR to host.
+   2. If address A has been modified by another host since last exclusive read, device returns a ERR = 0b00 in RESP_WR to host and does not perform write to address A.
 
 ### 3.3.9 Error Code (ERR[1:0])
 
