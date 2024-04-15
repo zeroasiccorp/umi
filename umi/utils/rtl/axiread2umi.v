@@ -259,7 +259,7 @@ module axiread2umi #(
     );
 
     assign umi_resp_cmd_len_plus_one = umi_resp_cmd_len + 1;
-    assign uhost_resp_ready = axi_rready & reset_done;
+    assign uhost_resp_ready = (axi_rready | !uhost_resp_valid_r) & reset_done;
 
     // Read response
     reg  [(DWLOG+8):0]  tx_bytes_ctr;
@@ -286,7 +286,7 @@ module axiread2umi #(
     wire [DWLOG+3:0]    uhost_resp_data_shift;
     reg  [DW-1:0]       uhost_resp_data_r;
     reg                 uhost_resp_valid_r;
-    reg  [DWLOG+3:0]    axi_rdata_shift;
+    reg  [DWLOG+2:0]    axi_rdata_shift;
 
     assign uhost_resp_data_shift = {umi_resp_cmd_len_plus_one[DWLOG:0], 3'b000};
 
