@@ -165,9 +165,22 @@ module testbench (
         .udev_resp_ready    (umi_mem_resp_ready)
     );
 
+    // Initialize SB
+    integer valid_mode, ready_mode;
+
     initial begin
         /* verilator lint_off IGNOREDRETURN */
+        if (!$value$plusargs("valid_mode=%d", valid_mode)) begin
+            valid_mode = 1;  // default if not provided as a plusarg
+        end
+
+        if (!$value$plusargs("ready_mode=%d", ready_mode)) begin
+            ready_mode = 1;  // default if not provided as a plusarg
+        end
+
         sb_axi_m_i.init("axi");
+        sb_axi_m_i.set_valid_mode(valid_mode);
+        sb_axi_m_i.set_ready_mode(ready_mode);
         /* verilator lint_on IGNOREDRETURN */
     end
 
@@ -177,6 +190,23 @@ module testbench (
             $dumpfile("testbench.fst");
             $dumpvars(0, testbench);
         end
+    end
+
+    reg [63:0]      umi_mem_req_ctr;
+    reg [63:0]      umi_mem_resp_ctr;
+
+    always @(posedge clk or negedge nreset) begin
+        if (~nreset)
+            umi_mem_req_ctr <= 'b0;
+        else if (umi_mem_req_valid & umi_mem_req_ready)
+            umi_mem_req_ctr <= umi_mem_req_ctr + 1;
+    end
+
+    always @(posedge clk or negedge nreset) begin
+        if (~nreset)
+            umi_mem_resp_ctr <= 'b0;
+        else if (umi_mem_resp_valid & umi_mem_resp_ready)
+            umi_mem_resp_ctr <= umi_mem_resp_ctr + 1;
     end
 
     //// auto-stop
