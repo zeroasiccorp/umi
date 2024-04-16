@@ -371,6 +371,6 @@ module axiwrite2umi #(
     assign axi_bid    = axi_awid_r;
     assign axi_bresp  = umi_resp_cmd_err_r;
     assign axi_bvalid = (tx_bytes_ctr == 0) & (axi_wbeats_rem == 0) &
-                        write_in_flight & reset_done;
+                        !axi_wvalid_r & write_in_flight & reset_done;
 
 endmodule
