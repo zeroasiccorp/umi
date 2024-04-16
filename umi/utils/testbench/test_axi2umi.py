@@ -53,56 +53,48 @@ def build_testbench(fast=False, tool='verilator'):
     return dut
 
 
-def main(n=1, fast=False, tool='verilator', max_bytes=10, max_beats=256):
+def main(n=100, fast=False, tool='verilator', max_bytes=10, max_beats=256):
     # build the simulator
     dut = build_testbench(fast=fast, tool=tool)
 
     # create the queues
-    axi = AxiTxRx('axi', data_width=64, addr_width=16, id_width=8, max_beats=max_beats)
+    axi = AxiTxRx('axi', data_width=64, addr_width=64, id_width=8, max_beats=max_beats)
 
     # launch the simulation
     dut.simulate()
 
-    # run the test: write to random addresses and read back in a random order
-
-    addr_bytes = axi.addr_width // 8
-
-    valid_addr_width = axi.addr_width - ceil(log2(addr_bytes))
-    model = np.zeros((1 << valid_addr_width,), dtype=np.uint8)
+    # run the test: write to random addresses and read back
+    # Valid address width is based on memory model in testbench_axi2umi.sv
+    valid_addr_width = 15 #axi.addr_width
 
     success = True
 
-    #for _ in range(n):
-    addr = random.randint(0, (1 << valid_addr_width) - 1)
-    size = random.randint(1, min(max_bytes, (1 << valid_addr_width) - addr))
+    for _ in range(n):
+        addr = random.randint(0, (1 << valid_addr_width) - 1)
+        size = random.randint(1, min(max_bytes, (1 << valid_addr_width) - addr))
 
-    #if random.random() < 0.5:
-    #    #########
-    #    # write #
-    #    #########
+        #########
+        # write #
+        #########
 
-    #    data = np.random.randint(0, 255, size=size, dtype=np.uint8)
+        data = np.random.randint(0, 255, size=size, dtype=np.uint8)
 
-    #    # perform the write
-    #    axi.write(addr, data)
-    #    print(f'Wrote addr=0x{addr:0{addr_bytes * 2}x} data={data}')
+        # perform the write
+        axi.write(addr, data)
+        print(f'Wrote addr=0x{addr:x} data={data}')
 
-    #    # update local memory model
-    #    model[addr:addr + size] = data
-    #else:
-    ########
-    # read #
-    ########
+        ########
+        # read #
+        ########
 
-    print(f'Reading size={size} from addr=0x{addr:0{addr_bytes * 2}x}')
-    # perform the read
-    data = axi.read(addr, size)
-    print(f'Read addr=0x{addr:0{addr_bytes * 2}x} data={data}')
+        # perform the read
+        read_data = axi.read(addr, size)
+        print(f'Read addr=0x{addr:x} data={read_data}')
 
-        ## check against the model
-        #if not np.array_equal(data, model[addr:addr + size]):
-        #    print('MISMATCH')
-        #    success = False
+        # check against the write
+        if not np.array_equal(data, read_data):
+            print('MISMATCH')
+            success = False
 
     if success:
         print("PASS!")
