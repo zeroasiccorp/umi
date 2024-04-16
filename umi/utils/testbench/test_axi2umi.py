@@ -9,7 +9,6 @@ import sys
 import random
 import numpy as np
 
-from math import ceil, log2
 from argparse import ArgumentParser
 from switchboard import SbDut, AxiTxRx
 import umi
@@ -65,7 +64,7 @@ def main(n=100, fast=False, tool='verilator', max_bytes=10, max_beats=256):
 
     # run the test: write to random addresses and read back
     # Valid address width is based on memory model in testbench_axi2umi.sv
-    valid_addr_width = 15 #axi.addr_width
+    valid_addr_width = 15
 
     success = True
 
@@ -107,15 +106,15 @@ def main(n=100, fast=False, tool='verilator', max_bytes=10, max_beats=256):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-n', type=int, default=100, help='Number of'
-        ' words to write as part of the test.')
+                        ' words to write as part of the test.')
     parser.add_argument('--max-bytes', type=int, default=10, help='Maximum'
-        ' number of bytes in any single read/write.')
+                        ' number of bytes in any single read/write.')
     parser.add_argument('--max-beats', type=int, default=256, help='Maximum'
-        ' number of beats to use in AXI transfers.')
+                        ' number of beats to use in AXI transfers.')
     parser.add_argument('--fast', action='store_true', help='Do not build'
-        ' the simulator binary if it has already been built.')
+                        ' the simulator binary if it has already been built.')
     parser.add_argument('--tool', default='verilator', choices=['icarus', 'verilator'],
-        help='Name of the simulator to use.')
+                        help='Name of the simulator to use.')
     args = parser.parse_args()
 
     main(n=args.n, fast=args.fast, tool=args.tool, max_bytes=args.max_bytes)
