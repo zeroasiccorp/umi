@@ -15,7 +15,7 @@ import umi
 
 
 def build_testbench(fast=False, tool='verilator'):
-    dut = SbDut(tool=tool, default_main=True)
+    dut = SbDut(tool=tool, default_main=False)
 
     dut.register_package_source(
         'verilog-axi',
@@ -25,11 +25,7 @@ def build_testbench(fast=False, tool='verilator'):
 
     # Set up inputs
     dut.input('utils/testbench/testbench_axi2umi.sv', package='umi')
-
-    dut.add('tool', 'verilator', 'task', 'compile', 'warningoff', 'WIDTHEXPAND')
-    dut.add('tool', 'verilator', 'task', 'compile', 'warningoff', 'CASEINCOMPLETE')
-    dut.add('tool', 'verilator', 'task', 'compile', 'warningoff', 'WIDTHTRUNC')
-    dut.add('tool', 'verilator', 'task', 'compile', 'warningoff', 'TIMESCALEMOD')
+    dut.input('utils/testbench/testbench_axi2umi.cc', package='umi')
 
     dut.use(umi)
     dut.add('option', 'library', 'umi')
@@ -38,6 +34,7 @@ def build_testbench(fast=False, tool='verilator'):
     dut.add('option', 'library', 'lambdalib_vectorlib')
 
     # Verilator configuration
+    dut.add('tool', 'verilator', 'task', 'compile', 'warningoff', 'CASEINCOMPLETE')
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config',
             'utils/testbench/config.vlt',
             package='umi')
@@ -52,7 +49,7 @@ def build_testbench(fast=False, tool='verilator'):
     return dut
 
 
-def main(n=100, fast=False, tool='verilator', max_bytes=10, max_beats=256):
+def main(n=100, fast=False, tool='verilator', max_bytes=10, max_beats=256, vldmode=1, rdymode=1):
     # build the simulator
     dut = build_testbench(fast=fast, tool=tool)
 
@@ -60,7 +57,7 @@ def main(n=100, fast=False, tool='verilator', max_bytes=10, max_beats=256):
     axi = AxiTxRx('axi', data_width=64, addr_width=64, id_width=8, max_beats=max_beats)
 
     # launch the simulation
-    dut.simulate()
+    dut.simulate(plusargs=[('valid_mode', vldmode), ('ready_mode', rdymode)])
 
     # run the test: write to random addresses and read back
     # Valid address width is based on memory model in testbench_axi2umi.sv
@@ -115,6 +112,9 @@ if __name__ == '__main__':
                         ' the simulator binary if it has already been built.')
     parser.add_argument('--tool', default='verilator', choices=['icarus', 'verilator'],
                         help='Name of the simulator to use.')
+    parser.add_argument('--vldmode', default='2', choices=['0', '1', '2'])
+    parser.add_argument('--rdymode', default='2', choices=['0', '1', '2'])
     args = parser.parse_args()
 
-    main(n=args.n, fast=args.fast, tool=args.tool, max_bytes=args.max_bytes)
+    main(n=args.n, fast=args.fast, tool=args.tool, max_bytes=args.max_bytes,
+         vldmode=args.vldmode, rdymode=args.rdymode)
