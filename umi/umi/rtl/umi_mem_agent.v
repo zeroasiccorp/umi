@@ -16,10 +16,7 @@
  * ----
  *
  * Documentation:
- * - Implements a simple memory array for use in simulation
- *
- * Known limitation/bugs:
- * - Transaction cannot cross the DW boundary
+ * - Implements a simple memory array
  *
  ******************************************************************************/
 
