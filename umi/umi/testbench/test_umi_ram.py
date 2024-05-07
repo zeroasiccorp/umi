@@ -5,7 +5,7 @@
 
 import numpy as np
 from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
+from switchboard import SbDut, UmiTxRx, verilator_run
 import umi
 
 
