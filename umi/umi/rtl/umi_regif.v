@@ -37,7 +37,7 @@ module umi_regif
     parameter DW = 256,           // data width
     parameter RW = 64,            // register width
     parameter GRPOFFSET = 24,     // group address offset
-    parameter GRPAW = 4,          // group address width
+    parameter GRPAW = 0,          // group address width
     parameter GRPID = 0           // group ID
     )
    (// clk, reset
