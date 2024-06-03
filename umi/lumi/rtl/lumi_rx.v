@@ -558,6 +558,7 @@ module lumi_rx
                    // Inputs
                    .clk              (ioclk),
                    .nreset           (ionreset),
+                   .clear            (1'b0),
                    .vss              (1'b0),
                    .vdd              (1'b1),
                    .chaosmode        (1'b0),
@@ -605,6 +606,7 @@ module lumi_rx
                     // Inputs
                     .clk              (ioclk),
                     .nreset           (ionreset),
+                    .clear            (1'b0),
                     .vss              (1'b0),
                     .vdd              (1'b1),
                     .chaosmode        (1'b0),
