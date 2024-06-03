@@ -317,7 +317,7 @@ module umi_fifo_flex
 
         assign tx_mergeable = opcode_mergeable & misc_mergeable &
                               dstaddr_mergeable & srcaddr_mergeable &
-                              len_mergeable;
+                              len_mergeable & (latch_bytes != 0);
 
         reg             packet_latch_eom;
         wire            packet_boundary;
@@ -639,7 +639,7 @@ module umi_fifo_flex
    assign fifo_empty              = (bypass | ~(|DEPTH)) ? 1'b1                 : fifo_empty_raw;
 
    assign umi_out_cmd[CW-1:0]     = (bypass | ~(|DEPTH)) ? latch2fifo_cmd[CW-1:0]     : fifo_dout[CW-1:0];
-   assign umi_out_dstaddr[AW-1:0] = (bypass | ~(|DEPTH)) ? latch2fifo_dstaddr[AW-1:0] : fifo_dout[CW+:AW] & 64'hFFFF_FFFF_FFFF_FFFF;
+   assign umi_out_dstaddr[AW-1:0] = (bypass | ~(|DEPTH)) ? latch2fifo_dstaddr[AW-1:0] : fifo_dout[CW+:AW] & {AW{1'b1}};
    assign umi_out_srcaddr[AW-1:0] = (bypass | ~(|DEPTH)) ? latch2fifo_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
    assign umi_out_data[ODW-1:0]   = (bypass | ~(|DEPTH)) ? latch2fifo_data[ODW-1:0] : fifo_dout[CW+AW+AW+:ODW];
 
