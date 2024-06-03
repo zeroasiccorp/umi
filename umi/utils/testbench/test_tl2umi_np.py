@@ -17,7 +17,7 @@ def build():
     chip.input('utils/testbench/tb_tl2umi_np.v', package='umi')
 
     chip.add('option', 'library', 'umi')
-    chip.add('option', 'library', 'lambdalib_stdlib')
+    chip.add('option', 'library', 'lambdalib_auxlib')
     chip.add('option', 'library', 'lambdalib_ramlib')
     chip.add('option', 'library', 'lambdalib_vectorlib')
 

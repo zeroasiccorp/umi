@@ -26,7 +26,7 @@ def build_testbench(topo="2d", trace=False):
 
     dut.use(umi)
     dut.add('option', 'library', ['lumi', 'umi'])
-    dut.add('option', 'library', 'lambdalib_stdlib')
+    dut.add('option', 'library', 'lambdalib_auxlib')
     dut.add('option', 'library', 'lambdalib_ramlib')
     dut.add('option', 'library', 'lambdalib_vectorlib')
 
