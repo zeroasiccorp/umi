@@ -556,7 +556,7 @@ to the TX of the host (and vice versa).](docs/_images/swizzle_lumi.png)
 #### nreset
 
 Asynchronous active low reset. To prevent power up and initialization issues the device 'nreset' pin must be sampled by a synchronizer with asynchronous assert and synchronous deassert logic.
-[REF](https://github.com/siliconcompiler/lambdalib/blob/main/stdlib/rtl/la_rsync.v)
+[REF](https://github.com/siliconcompiler/lambdalib/blob/main/lambdalib/auxlib/rtl/la_rsync.v)
 
 #### clk
 

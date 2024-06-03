@@ -18,7 +18,6 @@ def build_testbench():
 
     dut.use(umi)
     dut.add('option', 'library', 'umi')
-    dut.add('option', 'library', 'lambdalib_stdlib')
     dut.add('option', 'library', 'lambdalib_ramlib')
 
     # Verilator configuration

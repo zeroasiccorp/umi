@@ -29,7 +29,7 @@ def build_testbench(topo="2d"):
     dut.input('utils/testbench/tlmemsim.cpp', package='umi')
 
     dut.use(umi)
-    dut.add('option', 'library', ['umi', 'lambdalib_stdlib'])
+    dut.add('option', 'library', ['umi', 'lambdalib_auxlib'])
 
     # Verilator configuration
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--coverage')
