@@ -181,7 +181,7 @@ module tb_tl2umi_np #(
     // control block
     initial begin
         r = $value$plusargs("MEMHFILE=%s", memhfile);
-        $readmemh(memhfile, memory_module_.la_spram_i.ram);
+        $readmemh(memhfile, memory_module_.la_spram.ram);
         $timeformat(-9, 0, " ns", 20);
         $dumpfile("waveform.vcd");
         $dumpvars();
