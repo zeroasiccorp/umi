@@ -18,7 +18,7 @@ def build_testbench(split=False):
 
     dut.use(umi)
     dut.add('option', 'library', 'umi')
-    dut.add('option', 'library', 'lambdalib_stdlib')
+    dut.add('option', 'library', 'lambdalib_auxlib')
     dut.add('option', 'library', 'lambdalib_ramlib')
 
     dut.add('option', 'define', f'SPLIT={int(split)}')

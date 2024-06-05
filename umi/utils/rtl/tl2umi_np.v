@@ -472,6 +472,7 @@ module tl2umi_np #(
     ) tl2umi_req_fifo (
         .clk        (clk),
         .nreset     (nreset),
+        .clear      (1'b0),
 
         .vss        (1'b0),
         .vdd        (1'b1),
