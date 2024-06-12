@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 # Presence of this section activates setuptools_scm, even though it's empty
 
 [project]
-name = "umi"
+name = "umi-hw"
 authors = [{name = "Zero ASIC"}]
 description = "Universal Memory Interface (UMI)"
 readme = "README.md"
@@ -18,7 +18,7 @@ requires-python = ">= 3.8"
 license = {file = "LICENSE"}
 dependencies = [
     "siliconcompiler>=0.21.0",
-    "lambdalib==0.2.4"
+    "lambdalib>=0.2.4, <0.2.5"
 ]
 dynamic = [
     "version"
