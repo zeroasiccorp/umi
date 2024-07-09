@@ -8,7 +8,7 @@ import umi
 
 
 def build_testbench(topo="2d"):
-    dut = SbDut('testbench', default_main=False)
+    dut = SbDut('testbench', trace=False, default_main=False)
 
     # Set up inputs
     if topo == '2d':
@@ -32,7 +32,6 @@ def build_testbench(topo="2d"):
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Settings - enable tracing
-    dut.set('option', 'trace', True)
     dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
 
     # Build simulator
