@@ -11,7 +11,7 @@ import umi
 
 
 def build_testbench(split=False):
-    dut = SbDut('testbench', default_main=True)
+    dut = SbDut('testbench', trace=False, default_main=True)
 
     # Set up inputs
     dut.input('umi/testbench/testbench_fifo_flex.sv', package='umi')

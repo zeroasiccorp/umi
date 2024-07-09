@@ -10,7 +10,7 @@ import umi
 
 
 def build_testbench():
-    dut = SbDut('testbench', default_main=True)
+    dut = SbDut('testbench', trace=False, default_main=True)
 
     # Set up inputs
     dut.input('umi/testbench/testbench_umi_ram.sv', package='umi')

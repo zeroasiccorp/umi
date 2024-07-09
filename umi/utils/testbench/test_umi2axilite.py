@@ -11,7 +11,7 @@ import umi
 
 
 def build_testbench():
-    dut = SbDut('testbench', default_main=True)
+    dut = SbDut('testbench', trace=False, default_main=True)
 
     # Set up inputs
     dut.input('utils/testbench/testbench_umi2axilite.sv', package='umi')
