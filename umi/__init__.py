@@ -2,12 +2,11 @@ from siliconcompiler import Library
 import lambdalib
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 def _register_umi(lib):
-    lib.register_package_source("umi",
-                                "python://umi")
+    lib.register_source("umi", "python://umi")
 
 
 def setup(chip):

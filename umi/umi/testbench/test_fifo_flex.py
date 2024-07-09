@@ -11,7 +11,7 @@ import umi
 
 
 def build_testbench(split=False):
-    dut = SbDut('testbench', default_main=True)
+    dut = SbDut('testbench', trace=False, default_main=True)
 
     # Set up inputs
     dut.input('umi/testbench/testbench_fifo_flex.sv', package='umi')
@@ -32,7 +32,6 @@ def build_testbench(split=False):
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Settings - enable tracing
-    dut.set('option', 'trace', True)
     dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
 
     # Build simulator
