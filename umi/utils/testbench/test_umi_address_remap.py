@@ -9,7 +9,7 @@ import umi
 
 
 def build_testbench(topo="2d"):
-    dut = SbDut('testbench', default_main=True)
+    dut = SbDut('testbench', trace=False, default_main=True)
 
     # Set up inputs
     if topo == '2d':
