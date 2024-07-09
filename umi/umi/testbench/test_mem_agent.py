@@ -29,6 +29,7 @@ def build_testbench():
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Settings - enable tracing
+    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace', True)
     dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
 
     # Build simulator
