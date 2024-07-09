@@ -13,7 +13,7 @@ import umi
 
 
 def build_testbench(topo="2d", trace=False):
-    dut = SbDut('testbench', trace=False, trace_type='fst', default_main=True)
+    dut = SbDut('testbench', trace=trace, trace_type='fst', default_main=True)
 
     # Set up inputs
     dut.input('lumi/testbench/testbench_lumi.sv', package='umi')
