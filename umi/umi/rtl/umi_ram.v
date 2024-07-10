@@ -34,6 +34,7 @@ module umi_ram
     input               clk,    // clock signals
     input               nreset, // async active low reset
     input  [CTRLW-1:0]  sram_ctrl, // Control signal for SRAM
+    input  [1:0]        mode,   // [00]=priority,[10]=roundrobin,[x1]=reserved
     // Device port
     input  [N-1:0]      udev_req_valid,
     input  [N*CW-1:0]   udev_req_cmd,
@@ -74,7 +75,6 @@ module umi_ram
    //##################################################################
 
    /*umi_arbiter AUTO_TEMPLATE(
-    .mode     (2'b10),
     .mask     ({@"vl-width"{1'b0}}),
     .requests (udev_req_valid[]),
     .grants   (umi_req_grants[]),
@@ -87,7 +87,7 @@ module umi_ram
                 // Inputs
                 .clk            (clk),
                 .nreset         (nreset),
-                .mode           (2'b10),                 // Templated
+                .mode           (mode),                  // Templated
                 .mask           ({N{1'b0}}),             // Templated
                 .requests       (udev_req_valid[N-1:0])); // Templated
 

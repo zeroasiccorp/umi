@@ -51,6 +51,7 @@ module testbench (
    wire [N-1:0]         udev_resp_ready;
 
    wire [CTRLW-1:0]  sram_ctrl = 8'b0;
+   wire [1:0]        mode = 2'b10;
 
    ///////////////////////////////////////////
    // Host side umi agents
@@ -105,6 +106,7 @@ module testbench (
              // Inputs
              .clk                 (clk),
              .nreset              (nreset),
+             .mode                (mode),
              .sram_ctrl           (sram_ctrl[CTRLW-1:0]),
              .udev_req_valid      (udev_req_valid[N-1:0]),
              .udev_req_cmd        (udev_req_cmd[N*CW-1:0]),
