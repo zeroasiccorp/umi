@@ -115,7 +115,7 @@ def main(vldmode="2", rdymode="2", n=100, host2dut="host2dut_0.q", dut2host="dut
         if not (atomicval == data):
             print(f"ERROR umi atomic from addr 0x{addr:08x} expected {data} actual {atomicval}")
             assert (atomicval == data)
-        data = np.uint32(apply_atomic(data, atomicdata, atomicopcode, 2**32))
+        data = np.array(apply_atomic(data, atomicdata, atomicopcode, 2**32)).astype(np.uint32)
 
         print(f"umi read from addr 0x{addr:08x}")
         val = host.read(addr, np.uint32)

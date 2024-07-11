@@ -121,7 +121,8 @@ def main(vldmode="2", rdymode="2", n=100):
         if not (atomicval == data[0]):
             print(f"ERROR umi atomic from addr 0x{addr:08x} expected {data[0]} actual {atomicval}")
             assert (atomicval == data[0])
-        data[0] = apply_atomic(data[0], atomicdata, atomicopcode, maxrange)
+        temp_data = apply_atomic(data[0], atomicdata, atomicopcode, maxrange)
+        data[0] = np.array(temp_data).astype(avail_datatype[wordindexer])
 
         psel = np.random.choice([0, 1, 2, 3, 4])
         print(f"umi{psel} read from addr 0x{addr:08x}")
