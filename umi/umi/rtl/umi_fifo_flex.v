@@ -607,7 +607,6 @@ module umi_fifo_flex
                // Inputs
                .clk          (umi_in_clk),
                .nreset       (umi_in_nreset),
-               .clear        (1'b0),
                .wr_din       (fifo_din[ODW+AW+AW+CW-1:0]),
                .wr_en        (fifo_write),
                .chaosmode    (chaosmode),
