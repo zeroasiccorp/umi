@@ -252,7 +252,7 @@ module umi2apb #(
     always @(posedge clk or negedge nreset)
         if (~nreset)
             prdata_r <= 'b0;
-        else if (pready)
+        else if (penable & pready)
             prdata_r <= prdata;
 
     always @(posedge clk or negedge nreset)
@@ -268,7 +268,7 @@ module umi2apb #(
     always @(posedge clk or negedge nreset)
         if (~nreset)
             pslverr_r <= 'b0;
-        else if (pready)
+        else if (penable & pready)
             pslverr_r <= {pslverr, 1'b0};
 
     /*umi_pack AUTO_TEMPLATE(
