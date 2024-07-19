@@ -5,8 +5,7 @@
 
 import random
 import numpy as np
-from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
+from switchboard import SbDut, UmiTxRx, verilator_run
 import umi
 
 
@@ -87,7 +86,7 @@ def main(host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
         '--vldmode': dict(type=int, default=2, help='Valid mode'),
         '--rdymode': dict(type=int, default=2, help='Ready mode'),
         '-n': dict(type=int, default=10, help='Number of transactions'
-        'to send during the test.')
+                   'to send during the test.')
     }
 
     dut = SbDut('testbench', cmdline=True, extra_args=extra_args, trace=True, default_main=True)
