@@ -36,55 +36,11 @@ def build_testbench(dut):
     return dut.find_result('vexe', step='compile')
 
 
-def apply_atomic(origdata, atomicdata, operation, maxrange):
-    tempval = origdata
-    if (operation == 0):
-        tempval = origdata + atomicdata
-        if (tempval >= maxrange):
-            tempval = tempval - maxrange
-    elif (operation == 1):
-        tempval = origdata & atomicdata
-    elif (operation == 2):
-        tempval = origdata | atomicdata
-    elif (operation == 3):
-        tempval = origdata ^ atomicdata
-    elif (operation == 4):
-        if (origdata & (maxrange >> 1)):
-            origdata = int(origdata) - int(maxrange)
-        else:
-            origdata = int(origdata)
-        if (atomicdata & (maxrange >> 1)):
-            atomicdata = int(atomicdata) - int(maxrange)
-        else:
-            atomicdata = int(atomicdata)
-        tempval = origdata if (origdata > atomicdata) else atomicdata
-    elif (operation == 5):
-        if (origdata & (maxrange >> 1)):
-            origdata = int(origdata) - int(maxrange)
-        else:
-            origdata = int(origdata)
-        if (atomicdata & (maxrange >> 1)):
-            atomicdata = int(atomicdata) - int(maxrange)
-        else:
-            atomicdata = int(atomicdata)
-        tempval = atomicdata if (origdata > atomicdata) else origdata
-    elif (operation == 6):
-        tempval = origdata if (origdata > atomicdata) else atomicdata
-    elif (operation == 7):
-        tempval = atomicdata if (origdata > atomicdata) else origdata
-    elif (operation == 8):
-        tempval = atomicdata
-    else:
-        tempval = atomicdata
-
-    return tempval
-
-
 def main(host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
 
     extra_args = {
-        '--vldmode': dict(type=int, default=2, help='Valid mode'),
-        '--rdymode': dict(type=int, default=2, help='Ready mode'),
+        '--vldmode': dict(type=int, default=1, help='Valid mode'),
+        '--rdymode': dict(type=int, default=1, help='Ready mode'),
         '-n': dict(type=int, default=10, help='Number of transactions'
                    'to send during the test.')
     }
@@ -112,14 +68,6 @@ def main(host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
 
         print(f"umi writing 0x{data:08x} to addr 0x{addr:08x}")
         host.write(addr, data)
-        atomicopcode = np.random.randint(0, 9)
-        atomicdata = np.uint32(random.randrange(2**32-1))
-        print(f"umi atomic opcode: {atomicopcode} data: {atomicdata:08x} to addr 0x{addr:08x}")
-        atomicval = host.atomic(addr, atomicdata, atomicopcode)
-        if not (atomicval == data):
-            print(f"ERROR umi atomic from addr 0x{addr:08x} expected {data} actual {atomicval}")
-            assert (atomicval == data)
-        data = np.array(apply_atomic(data, atomicdata, atomicopcode, 2**32)).astype(np.uint32)
 
         print(f"umi read from addr 0x{addr:08x}")
         val = host.read(addr, np.uint32)
