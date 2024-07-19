@@ -26,11 +26,11 @@
  * The address range [GRPOFFSET+:GRPAW] is checked against GRPID for a match.
  * To disable the check, set the GRPAW to 0.
  *
- * Only RW-aligned read/writes <= DW are supported.
+ * Only RW-aligned read/writes <= RW are supported.
  *
  ******************************************************************************/
 
-module umi_apb_dev #(
+module umi2apb #(
     parameter TARGET    = "DEFAULT",    // compile target
     parameter APB_AW    = 64,           // APB address width
     parameter AW        = 64,           // UMI address width
@@ -333,4 +333,4 @@ module umi_apb_dev #(
              .cmd_hostid         (req_hostid[4:0]),       // Templated
              .cmd_user_extended  (req_user_extended[23:0])); // Templated
 
-endmodule // umi_apb_dev
+endmodule // umi2apb

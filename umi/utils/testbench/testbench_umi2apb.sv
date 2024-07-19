@@ -74,7 +74,7 @@ module testbench (
     wire                pslverr;
     reg                 randomize_ready;
 
-    umi_apb_dev #(
+    umi2apb #(
         .APB_AW (APB_AW),
         .AW     (AW),
         .CW     (CW),

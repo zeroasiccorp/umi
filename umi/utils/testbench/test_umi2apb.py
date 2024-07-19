@@ -11,7 +11,7 @@ import umi
 
 def build_testbench(dut):
     # Set up inputs
-    dut.input('utils/testbench/testbench_umi_apb_dev.sv', package='umi')
+    dut.input('utils/testbench/testbench_umi2apb.sv', package='umi')
 
     dut.use(umi)
     dut.add('option', 'library', 'umi')
