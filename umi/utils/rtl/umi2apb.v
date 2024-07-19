@@ -17,8 +17,8 @@
  *
  * Documentation:
  *
- * The module translates a UMI request into a APB requester interface.
- * Read data is returned as UMI response packets. Requests can occur
+ * The module translates a SUMI request into a APB requester interface.
+ * Read data is returned as SUMI response packets. Requests can occur
  * at a maximum rate of one transaction every two cycles.
  *
  * This module can also check if the incoming access is within the designated
@@ -27,6 +27,8 @@
  * To disable the check, set the GRPAW to 0.
  *
  * Only RW-aligned read/writes <= RW are supported.
+ * SUMI Atomics are not supported. Atomic requests will be dropped silently.
+ * SUMI RDMA is not supported. RDMA requests will be dropped silently.
  *
  ******************************************************************************/
 
@@ -130,13 +132,8 @@ module umi2apb #(
 
     wire [CW-1:0]   packet_cmd;
 
-    wire            signed_max;
-    wire            unsigned_max;
-    wire [RW-1:0]   atomic_data;
-    reg             atomic_wr;
     wire [4:0]      cmd_opcode;
     reg  [1:0]      pslverr_r;
-    reg             pvalid_r;
     reg  [RW-1:0]   prdata_r;
 
     generate
@@ -147,7 +144,8 @@ module umi2apb #(
     endgenerate
 
     assign incoming_req  = udev_req_valid & udev_req_ready & group_match;
-    assign outgoing_resp = (udev_resp_valid & udev_resp_ready) | (pready & cmd_write_posted);
+    assign outgoing_resp = (udev_resp_valid & udev_resp_ready) |
+                           (penable & pready & cmd_write_posted);
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
@@ -229,55 +227,20 @@ module umi2apb #(
                         udev_req_dstaddr[APB_AW-1:0] :
                         udev_req_dstaddr_r[APB_AW-1:0];
     assign pprot      = {1'b0, req_prot};
-    assign pwrite     = cmd_write | cmd_write_posted | atomic_wr;
-    assign pwdata     = incoming_req ? udev_req_data[RW-1:0] :
-                        (atomic_wr   ? atomic_data[RW-1:0] : udev_req_data_r[RW-1:0]);
+    assign pwrite     = cmd_write | cmd_write_posted;
+    assign pwdata     = incoming_req ? udev_req_data[RW-1:0] : udev_req_data_r[RW-1:0];
     assign pwstrb     = {(RW/8){1'b1}}; // TODO: Support strobe
-
-    assign psel       = udev_req_valid | pvalid_r;
+    assign psel       = incoming_req | penable;
 
     always @(posedge clk or negedge nreset)
         if (~nreset)
             penable <= 1'b0;
-        else if (pready)
-            penable <= 1'b0;
-        else if (incoming_req | atomic_wr)
-            penable <= 1'b1;
-
-    always @(posedge clk or negedge nreset)
-        if (~nreset)
-            pvalid_r <= 1'b0;
         else if (incoming_req)
-            pvalid_r <= 1'b1;
-        else if (pready & (~cmd_atomic | atomic_wr))
-            pvalid_r <= 1'b0;
-
-    //########################
-    // Handle atomics
-    //########################
-
-    assign signed_max = $signed(udev_req_data_r[RW-1:0]) > $signed(udev_resp_data[RW-1:0]);
-    assign unsigned_max = $unsigned(udev_req_data_r[RW-1:0]) > $unsigned(udev_resp_data[RW-1:0]);
-
-    assign atomic_data[RW-1:0] = cmd_atomic_add ? udev_req_data_r[RW-1:0] + udev_resp_data[RW-1:0] :
-                                 cmd_atomic_and ? udev_req_data_r[RW-1:0] & udev_resp_data[RW-1:0] :
-                                 cmd_atomic_or  ? udev_req_data_r[RW-1:0] | udev_resp_data[RW-1:0] :
-                                 cmd_atomic_xor ? udev_req_data_r[RW-1:0] ^ udev_resp_data[RW-1:0] :
-                                 (cmd_atomic_max  & ~signed_max   |
-                                  cmd_atomic_maxu & ~unsigned_max |
-                                  cmd_atomic_min  & signed_max    |
-                                  cmd_atomic_minu & unsigned_max  ) ? udev_resp_data[RW-1:0] :
-                                 udev_req_data_r[RW-1:0]; // inlcd. swap
-
-    always @ (posedge clk or negedge nreset)
-        if(!nreset)
-            atomic_wr <= 1'b0;
-        else if (cmd_atomic & pready & ~pwrite)
-            atomic_wr <= 1'b1;
+            penable <= 1'b1;
         else if (pready)
-            atomic_wr <= 1'b0;
+            penable <= 1'b0;
 
-    assign udev_req_ready = ~pvalid_r;
+    assign udev_req_ready = ~penable;
 
     //############################
     //# UMI OUTPUT
@@ -289,18 +252,18 @@ module umi2apb #(
     always @(posedge clk or negedge nreset)
         if (~nreset)
             prdata_r <= 'b0;
-        else if (pready & ~pwrite)
+        else if (pready)
             prdata_r <= prdata;
 
     always @(posedge clk or negedge nreset)
         if (~nreset)
             udev_resp_valid <= 1'b0;
-        else if (pready & ~cmd_write_posted & ~atomic_wr)
+        else if (penable & pready & ~cmd_write_posted)
             udev_resp_valid <= 1'b1;
         else if (outgoing_resp)
             udev_resp_valid <= 1'b0;
 
-    assign cmd_opcode[4:0] = (cmd_read | cmd_atomic) ? UMI_RESP_READ : UMI_RESP_WRITE;
+    assign cmd_opcode[4:0] = cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE;
 
     always @(posedge clk or negedge nreset)
         if (~nreset)
