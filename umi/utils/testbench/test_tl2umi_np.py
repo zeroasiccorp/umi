@@ -11,7 +11,6 @@ def build():
     chip.use(umi)
     chip.use(dvflow, tool='icarus')
 
-    chip.set('option', 'mode', 'sim')
     chip.set('option', 'flow', 'dvflow')
 
     chip.input('utils/testbench/tb_tl2umi_np.v', package='umi')
