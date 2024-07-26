@@ -69,7 +69,7 @@ module umi2apb #(
     output reg              penable,    // enable
     output                  pwrite,     // 0=read, 1=write
     output     [RW-1:0]     pwdata,     // write data
-    output     [(RW/8)-1:0] pwstrb,     // strobe
+    output     [(RW/8)-1:0] pstrb,      // strobe
     input                   pready,     // ready
     input      [RW-1:0]     prdata,     // read data
     input                   pslverr     // err
@@ -229,7 +229,7 @@ module umi2apb #(
     assign pprot      = {1'b0, req_prot};
     assign pwrite     = cmd_write | cmd_write_posted;
     assign pwdata     = incoming_req ? udev_req_data[RW-1:0] : udev_req_data_r[RW-1:0];
-    assign pwstrb     = {(RW/8){1'b1}}; // TODO: Support strobe
+    assign pstrb      = {(RW/8){1'b1}}; // TODO: Support strobe
     assign psel       = incoming_req | penable;
 
     always @(posedge clk or negedge nreset)
