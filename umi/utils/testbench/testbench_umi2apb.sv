@@ -68,7 +68,7 @@ module testbench (
     wire                penable;
     wire                pwrite;
     wire [RW-1:0]       pwdata;
-    wire [(RW/8)-1:0]   pwstrb;
+    wire [(RW/8)-1:0]   pstrb;
     wire                pready;
     wire [RW-1:0]       prdata;
     wire                pslverr;
@@ -104,7 +104,7 @@ module testbench (
         .penable            (penable),
         .pwrite             (pwrite),
         .pwdata             (pwdata),
-        .pwstrb             (pwstrb),
+        .pstrb              (pstrb),
         .pready             (pready),
         .prdata             (prdata),
         .pslverr            (pslverr));
