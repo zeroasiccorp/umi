@@ -260,7 +260,7 @@ module umi_mem_agent
 
    la_spram #(.DW    (DW),               // Memory width
               .AW    ($clog2(RAMDEPTH)), // Address width (derived)
-              .TYPE  (SRAMTYPE),         // Pass through variable for hard macro
+              .PROP  (SRAMTYPE),         // Pass through variable for hard macro
               .CTRLW (CTRLW),            // Width of asic ctrl interface
               .TESTW (128)               // Width of asic test interface
               )

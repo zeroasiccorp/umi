@@ -597,7 +597,7 @@ module lumi_tx
                   .CHAOS(0),         // generates random full logic when set
                   .CTRLW(1),         // width of asic ctrl interface
                   .TESTW(1),         // width of asic test interface
-                  .TYPE("DEFAULT"))  // Pass through variable for hard macro
+                  .PROP("DEFAULT"))  // Pass through variable for hard macro
    phy_fifo_i(// Outputs
               .wr_full          (phy_fifo_full),
               .rd_dout          (phy_txdata[IOW-1:0]),
