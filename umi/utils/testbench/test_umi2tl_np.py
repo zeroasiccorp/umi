@@ -8,7 +8,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
 from siliconcompiler.package import path as sc_path
-import umi
+from umi import umi
 
 
 def build_testbench(topo="2d"):
@@ -29,7 +29,6 @@ def build_testbench(topo="2d"):
     dut.input('utils/testbench/tlmemsim.cpp', package='umi')
 
     dut.use(umi)
-    dut.add('option', 'library', ['umi', 'lambdalib_auxlib'])
 
     # Verilator configuration
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--coverage')

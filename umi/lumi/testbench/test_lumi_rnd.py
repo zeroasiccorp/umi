@@ -9,7 +9,7 @@ import random
 import numpy as np
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue
-import umi
+from umi import lumi
 
 
 def build_testbench(topo="2d", trace=False):
@@ -24,11 +24,7 @@ def build_testbench(topo="2d", trace=False):
     else:
         raise ValueError('Invalid topology')
 
-    dut.use(umi)
-    dut.add('option', 'library', ['lumi', 'umi'])
-    dut.add('option', 'library', 'lambdalib_auxlib')
-    dut.add('option', 'library', 'lambdalib_ramlib')
-    dut.add('option', 'library', 'lambdalib_vectorlib')
+    dut.use(lumi)
 
     # Verilator configuration
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'lumi/testbench/config.vlt', package='umi')

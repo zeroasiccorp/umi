@@ -8,7 +8,7 @@ import random
 import numpy as np
 from argparse import ArgumentParser
 from switchboard import UmiTxRx, random_umi_packet, delete_queue, verilator_run, SbDut
-import umi
+from umi import umi
 
 
 def build_testbench():
@@ -18,10 +18,6 @@ def build_testbench():
     dut.input('umi/testbench/testbench_crossbar.sv', package='umi')
 
     dut.use(umi)
-    dut.add('option', 'library', 'umi')
-    dut.add('option', 'library', 'lambdalib_auxlib')
-    dut.add('option', 'library', 'lambdalib_ramlib')
-    dut.add('option', 'library', 'lambdalib_vectorlib')
 
     # Verilator configuration
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'umi/testbench/config.vlt', package='umi')
