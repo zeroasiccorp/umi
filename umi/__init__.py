@@ -1,7 +1,7 @@
 from umi import umi, lumi
 
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 
 def setup(chip):
