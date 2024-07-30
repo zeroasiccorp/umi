@@ -6,7 +6,7 @@
 import random
 import numpy as np
 from switchboard import SbDut, UmiTxRx, verilator_run
-import umi
+from umi import umi
 
 
 def build_testbench(dut):
@@ -14,8 +14,6 @@ def build_testbench(dut):
     dut.input('utils/testbench/testbench_umi2apb.sv', package='umi')
 
     dut.use(umi)
-    dut.add('option', 'library', 'umi')
-    dut.add('option', 'library', 'lambdalib_ramlib')
 
     # Verilator configuration
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'utils/testbench/config.vlt',
