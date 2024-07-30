@@ -3,7 +3,7 @@
 from siliconcompiler import Chip
 from siliconcompiler.flows import dvflow
 from siliconcompiler.package import path as sc_path
-import umi
+from umi import umi
 
 
 def build():
@@ -14,11 +14,6 @@ def build():
     chip.set('option', 'flow', 'dvflow')
 
     chip.input('utils/testbench/tb_tl2umi_np.v', package='umi')
-
-    chip.add('option', 'library', 'umi')
-    chip.add('option', 'library', 'lambdalib_auxlib')
-    chip.add('option', 'library', 'lambdalib_ramlib')
-    chip.add('option', 'library', 'lambdalib_vectorlib')
 
     memfile = f"{sc_path(chip, 'umi')}/utils/testbench/buffer.memh"
 
