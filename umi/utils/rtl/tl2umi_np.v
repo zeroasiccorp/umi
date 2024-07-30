@@ -468,7 +468,7 @@ module tl2umi_np #(
     la_syncfifo #(
         .DW     (CW + AW + AW + DW),
         .DEPTH  (2),
-        .TYPE   ("DEFAULT")
+        .PROP   ("DEFAULT")
     ) tl2umi_req_fifo (
         .clk        (clk),
         .nreset     (nreset),
