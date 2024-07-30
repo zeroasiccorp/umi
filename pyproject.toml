@@ -17,8 +17,8 @@ urls = {Homepage = "https://github.com/zeroasiccorp/umi"}
 requires-python = ">= 3.8"
 license = {file = "LICENSE"}
 dependencies = [
-    "siliconcompiler>=0.24.0",
-    "lambdalib>=0.2.4, <0.2.7"
+    "siliconcompiler>=0.26.0",
+    "lambdalib>=0.2.9, <0.2.10"
 ]
 dynamic = [
     "version"
@@ -29,7 +29,7 @@ version = {attr = "umi.__version__"}
 
 [project.optional-dependencies]
 test = [
-    "switchboard-hw",
+    "switchboard-hw>=0.2.14",
     "flake8==7.1.0"
 ]
 

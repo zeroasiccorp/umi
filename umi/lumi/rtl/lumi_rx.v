@@ -550,7 +550,7 @@ module lumi_rx
                       .CHAOS(0),         // generates random full logic when set
                       .CTRLW(1),         // width of asic ctrl interface
                       .TESTW(1),         // width of asic test interface
-                      .TYPE("DEFAULT"))  // Pass through variable for hard macro
+                      .PROP("DEFAULT"))  // Pass through variable for hard macro
         req_fifo_i(// Outputs
                    .wr_full          (req_fifo_full[j]),
                    .rd_dout          (req_fifo_dout[j*RXFIFOW+:RXFIFOW]),
@@ -598,7 +598,7 @@ module lumi_rx
                       .CHAOS(0),         // generates random full logic when set
                       .CTRLW(1),         // width of asic ctrl interface
                       .TESTW(1),         // width of asic test interface
-                      .TYPE("DEFAULT"))  // Pass through variable for hard macro
+                      .PROP("DEFAULT"))  // Pass through variable for hard macro
         resp_fifo_i(// Outputs
                     .wr_full          (resp_fifo_full[k]),
                     .rd_dout          (resp_fifo_dout[k*RXFIFOW+:RXFIFOW]),
@@ -663,7 +663,7 @@ module lumi_rx
                   .CHAOS(0),  // generates random full logic when set
                   .CTRLW(1),  // width of asic ctrl interface
                   .TESTW(1),  // width of asic test interface
-                  .TYPE("DEFAULT")) // Pass through variable for hard macro
+                  .PROP("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .rd_dout          (lnk_fifo_dout[CW-1:0]),
@@ -782,7 +782,7 @@ module lumi_rx
                   .CHAOS(0),              // generates random full logic when set
                   .CTRLW(1),              // width of asic ctrl interface
                   .TESTW(1),              // width of asic test interface
-                  .TYPE("DEFAULT"))       // Pass through variable for hard macro
+                  .PROP("DEFAULT"))       // Pass through variable for hard macro
    req_syncfifo_i(// Outputs
                   .wr_full          (sync_fifo_full[0]),
                   .rd_dout          (sync_fifo_dout[IOW-1:0]),
@@ -810,7 +810,7 @@ module lumi_rx
                   .CHAOS(0),              // generates random full logic when set
                   .CTRLW(1),              // width of asic ctrl interface
                   .TESTW(1),              // width of asic test interface
-                  .TYPE("DEFAULT"))       // Pass through variable for hard macro
+                  .PROP("DEFAULT"))       // Pass through variable for hard macro
    resp_syncfifo_i(// Outputs
                    .wr_full          (sync_fifo_full[1]),
                    .rd_dout          (sync_fifo_dout[2*IOW-1:IOW]),
