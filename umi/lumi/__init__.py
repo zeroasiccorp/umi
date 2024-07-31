@@ -1,5 +1,5 @@
 from siliconcompiler import Library
-from umi import umi
+from umi import sumi
 from lambdalib import auxlib, ramlib
 
 
