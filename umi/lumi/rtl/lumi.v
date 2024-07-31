@@ -127,7 +127,7 @@ module lumi
    wire [RW-1:0]        cb2fifo_data;
    wire [AW-1:0]        cb2fifo_dstaddr;
    wire                 cb2fifo_ready;
-   wire [AW-1:0]        cb2fifo_srcaddr;
+     wire [AW-1:0]        cb2fifo_srcaddr;
    wire                 cb2fifo_valid;
    wire [CW-1:0]        cb2regs_cmd;
    wire [RW-1:0]        cb2regs_data;
