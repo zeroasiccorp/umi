@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 # Presence of this section activates setuptools_scm, even though it's empty
 
 [project]
-name = "umi-hw"
+name = "umi"
 authors = [{name = "Zero ASIC"}]
 description = "Universal Memory Interface (UMI)"
 readme = "README.md"
