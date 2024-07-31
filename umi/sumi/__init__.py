@@ -1,13 +1,12 @@
 from siliconcompiler import Library
 from lambdalib import auxlib, ramlib, vectorlib
 
-
 def setup(chip):
-    lib = Library(chip, "umi", package="umi", auto_enable=True)
+    lib = Library(chip, "sumi", package="umi", auto_enable=True)
     lib.register_source("umi", "python://umi")
 
-    lib.add("option", "idir", "umi/rtl")
-    lib.add("option", "ydir", "umi/rtl")
+    lib.add("option", "idir", "sumi/rtl")
+    lib.add("option", "ydir", "sumi/rtl")
 
     lib.add("option", "idir", "utils/rtl")
     lib.add("option", "ydir", "utils/rtl")
