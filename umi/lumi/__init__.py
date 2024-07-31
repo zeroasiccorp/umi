@@ -13,7 +13,7 @@ def setup(chip):
     lib.add("option", "idir", "utils/rtl")
     lib.add("option", "ydir", "utils/rtl")
 
-    lib.use(umi)
+    lib.use(sumi)
 
     lib.use(auxlib)
     lib.use(ramlib)
