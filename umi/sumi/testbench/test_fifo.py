@@ -7,19 +7,19 @@ import random
 import numpy as np
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
-from umi import umi
+from umi import sumi
 
 
 def build_testbench():
     dut = SbDut('testbench', trace=False, default_main=True)
 
     # Set up inputs
-    dut.input('umi/testbench/testbench_fifo.sv', package='umi')
+    dut.input('sumi/testbench/testbench_fifo.sv', package='umi')
 
-    dut.use(umi)
+    dut.use(sumi)
 
     # Verilator configuration
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'umi/testbench/config.vlt', package='umi')
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'sumi/testbench/config.vlt', package='umi')
 #    dut.set('option', 'relax', True)
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')

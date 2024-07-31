@@ -3,12 +3,12 @@
 from siliconcompiler import Chip
 from siliconcompiler.flows import dvflow
 from siliconcompiler.package import path as sc_path
-from umi import umi
+from umi import sumi
 
 
 def build():
     chip = Chip('tb_tl2umi_np')
-    chip.use(umi)
+    chip.use(sumi)
     chip.use(dvflow, tool='icarus')
 
     chip.set('option', 'flow', 'dvflow')
