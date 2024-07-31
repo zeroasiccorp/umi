@@ -5,7 +5,7 @@
 import random
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run, random_umi_packet
-from umi import umi
+from umi import sumi
 
 
 def build_testbench(topo="2d"):
@@ -22,7 +22,7 @@ def build_testbench(topo="2d"):
     else:
         raise ValueError('Invalid topology')
 
-    dut.use(umi)
+    dut.use(sumi)
 
     # Verilator configuration
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'utils/testbench/config.vlt', package='umi')
