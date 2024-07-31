@@ -7,7 +7,7 @@ import random
 import numpy as np
 from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
-from umi import umi
+from umi import sumi
 
 
 def build_testbench():
@@ -16,7 +16,7 @@ def build_testbench():
     # Set up inputs
     dut.input('utils/testbench/testbench_umi2axilite.sv', package='umi')
 
-    dut.use(umi)
+    dut.use(sumi)
 
     # Verilator configuration
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config',

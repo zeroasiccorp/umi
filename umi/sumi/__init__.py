@@ -1,6 +1,7 @@
 from siliconcompiler import Library
 from lambdalib import auxlib, ramlib, vectorlib
 
+
 def setup(chip):
     lib = Library(chip, "sumi", package="umi", auto_enable=True)
     lib.register_source("umi", "python://umi")
