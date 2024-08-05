@@ -30,7 +30,7 @@ version = {attr = "umi.__version__"}
 [project.optional-dependencies]
 test = [
     "switchboard-hw>=0.2.14",
-    "flake8==7.1.0"
+    "flake8==7.1.1"
 ]
 
 [tool.setuptools]
