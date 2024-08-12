@@ -31,7 +31,7 @@ module umi_port
     input [1:0]       arbmode, // arbiter` mode (0=fixed)
     input [N-1:0]     arbmask, // arbiter mask (0=fixed)
     // incoming UMI
-    input [N-1:0]     umi_in_request,
+    input [N-1:0]     umi_in_valid,
     input [N*CW-1:0]  umi_in_cmd,
     input [N*AW-1:0]  umi_in_dstaddr,
     input [N*AW-1:0]  umi_in_srcaddr,
@@ -49,7 +49,7 @@ module umi_port
    wire [N*N-1:0]    grants;
 
    //##############################
-   // Request Arbiter
+   // Valid Arbiter
    //##############################
 
    umi_arbiter #(.N(N))
@@ -60,7 +60,7 @@ module umi_port
                 .nreset   (nreset),
                 .mode     (arbmode[1:0]),
                 .mask     (arbmask[N-1:0]),
-                .requests (umi_in_request[N-1:0]));
+                .requests (umi_in_valid[N-1:0]));
 
    assign umi_out_valid = |grants[N-1:0];
 
@@ -69,7 +69,7 @@ module umi_port
    //##############################
 
 
-   // request[j] | out_ready[j] | grant[j] | in_ready
+   // valid[j] | out_ready[j] | grant[j] | in_ready
    //------------------------------------------------
    //     0             x           x      | 1
    //     1             0           x      | 0
@@ -81,7 +81,7 @@ module umi_port
      begin
         umi_in_ready[N-1:0] = {N{1'b1}};
         for (j=0;j<N;j=j+1)
-          umi_in_ready[j] = umi_in_ready[j] & ~(umi_in_request[j] &
+          umi_in_ready[j] = umi_in_ready[j] & ~(umi_in_valid[j] &
                                                 (~grants[j] | ~umi_out_ready));
      end
 

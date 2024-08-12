@@ -46,7 +46,7 @@ module umi_switch
     input [1:0]        arbmode, // arbiter mode (0=fixed)
     input [N*M-1:0]    arbmask, // (1=mask/disable path)
     // Incoming UMI
-    input [N*M-1:0]    umi_in_request,
+    input [N*M-1:0]    umi_in_valid,
     input [N*CW-1:0]   umi_in_cmd,
     input [N*AW-1:0]   umi_in_dstaddr,
     input [N*AW-1:0]   umi_in_srcaddr,
@@ -70,7 +70,7 @@ module umi_switch
    //#######################################################
 
    // data broadcasted to all output ports for M inputs
-   // N individual requests sent to each port
+   // N individual valids sent to each port
    // M*N ready signals generated
 
    for (i=0;i<M;i=i+1)
@@ -91,7 +91,7 @@ module umi_switch
              .nreset                (nreset),
              .arbmode               (arbmode[1:0]),
              .arbmask               (arbmask[i*N+:N]),
-             .umi_in_request        (umi_in_request[i*N+:N]),
+             .umi_in_valid          (umi_in_valid[i*N+:N]),
              .umi_in_cmd            (umi_in_cmd[N*CW-1:0]),
              .umi_in_dstaddr        (umi_in_dstaddr[N*AW-1:0]),
              .umi_in_srcaddr        (umi_in_srcaddr[N*AW-1:0]),
