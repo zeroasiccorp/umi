@@ -79,11 +79,13 @@ module umi_switch
 
    // disable loopback
    for (i=0;i<M;i=i+1)
-     for (j=0;j<N;j=j+1)
-       if(MASK[i*N+j])
-         assign umi_valid[i*N+j] = 1'b0;
-       else
-         assign umi_valid[i*N+j] = umi_in_valid[i*N+j];
+     begin: mask
+        for (j=0;j<N;j=j+1)
+          if(MASK[i*N+j])
+            assign umi_valid[i*N+j] = 1'b0;
+          else
+            assign umi_valid[i*N+j] = umi_in_valid[i*N+j];
+     end
 
    // instantiate M output ports
    for (i=0;i<M;i=i+1)
