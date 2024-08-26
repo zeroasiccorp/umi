@@ -33,6 +33,7 @@ module umi_router
     parameter AW = 64   // umi adress width
     )
    (// Incoming UMI
+    input [M-1:0]     umi_in_select, // output selector
     input             umi_in_valid,
     input [CW-1:0]    umi_in_cmd,
     input [AW-1:0]    umi_in_dstaddr,
@@ -40,7 +41,6 @@ module umi_router
     input [DW-1:0]    umi_in_data,
     output            umi_in_ready,
     // Outgoing UMI
-    input [M-1:0]     umi_select, // output selector
     output [M-1:0]    umi_out_valid,
     output [M*CW-1:0] umi_out_cmd,
     output [M*AW-1:0] umi_out_dstaddr,
@@ -50,15 +50,15 @@ module umi_router
     );
 
    // Valid signal
-   assign umi_out_valid[M-1:0] = umi_in_valid ? umi_select[M-1:0] : 'b0;
+   assign umi_out_valid[M-1:0] = umi_in_valid ? umi_in_select[M-1:0] : 'b0;
 
    // Ready signal
-   assign umi_in_ready = &(~umi_out_valid[M-1:0] | umi_out_ready[M-1:0]);
+   assign umi_in_ready = &(~umi_in_select[M-1:0] | umi_out_ready[M-1:0]);
 
    // Broadcast packet
-   assign umi_out_cmd[M*CW-1:0] = {M{umi_in_cmd[CW-1:0]}};
-   assign umi_out_dstaddr[M*AW-1:0] = {M{umi_in_dstadddr[AW-1:0]}};
-   assign umi_out_srcaddr[M*AW-1:0] = {M{umi_in_srcadddr[AW-1:0]}};
-   assign umi_out_data[M*DW-1:0] = {M{umi_in_data[DW-1:0]}};
+   assign umi_out_cmd[M*CW-1:0]     = {M{umi_in_cmd[CW-1:0]}};
+   assign umi_out_dstaddr[M*AW-1:0] = {M{umi_in_dstaddr[AW-1:0]}};
+   assign umi_out_srcaddr[M*AW-1:0] = {M{umi_in_srcaddr[AW-1:0]}};
+   assign umi_out_data[M*DW-1:0]    = {M{umi_in_data[DW-1:0]}};
 
 endmodule
