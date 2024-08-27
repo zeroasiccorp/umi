@@ -245,13 +245,19 @@ module lumi_tx
    //# UMI Transmit Arbiter
    //########################################
 
+   // TODO: umi_mux should be changed as follows:
+   // .arbmode      (2'b00),
+   // .umi_in_valid ({umi_req_in_gated,umi_resp_in_gated}),
+
    // Mux together response and request over one data channel
    // the mux assumes one hot select (valid so need to prioritize the resp)
    /*umi_mux AUTO_TEMPLATE(
+    .arbmode           (2'b10),
+    .arbmask           ({2{1'b0}}),
     .umi_out_ready     (lumi_txrdy & ~(|crdt_updt_send)),
     .umi_out_valid     (),
     .umi_in_ready      ({umi_req_ready,umi_resp_ready}),
-    .umi_in_valid      ({umi_req_in_gated & ~umi_resp_in_gated ,umi_resp_in_gated}),
+    .umi_in_valid      ({umi_req_in_gated & ~umi_resp_in_gated,umi_resp_in_gated}),
     .umi_in_cmd        ({umi_req_in_cmd,umi_resp_in_cmd}),
     .umi_in_\(.*\)addr ({umi_req_in_\1addr,umi_resp_in_\1addr}),
     .umi_in_data       ({umi_req_in_data,umi_resp_in_data}),
@@ -270,7 +276,11 @@ module lumi_tx
            .umi_out_srcaddr     (umi_out_srcaddr[AW-1:0]),
            .umi_out_data        (umi_out_data[DW-1:0]),
            // Inputs
-           .umi_in_valid        ({umi_req_in_gated & ~umi_resp_in_gated ,umi_resp_in_gated}), // Templated
+           .clk                 (clk),
+           .nreset              (nreset),
+           .arbmode             (2'b10),
+           .arbmask             ({2{1'b0}}),
+           .umi_in_valid        ({umi_req_in_gated & ~umi_resp_in_gated,umi_resp_in_gated}), // Templated
            .umi_in_cmd          ({umi_req_in_cmd,umi_resp_in_cmd}), // Templated
            .umi_in_dstaddr      ({umi_req_in_dstaddr,umi_resp_in_dstaddr}), // Templated
            .umi_in_srcaddr      ({umi_req_in_srcaddr,umi_resp_in_srcaddr}), // Templated
