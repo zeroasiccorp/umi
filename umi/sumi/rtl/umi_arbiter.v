@@ -67,7 +67,7 @@ module umi_arbiter
 
    // Priority Selection Using Masked Inputs
    umi_priority #(.N(N))
-   umi_prioroty(// Outputs
+   umi_priority(// Outputs
                 .grants   (grants[N-1:0]),
                 // Inputs
                 .requests (spec_requests[N-1:0]));
