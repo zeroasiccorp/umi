@@ -26,6 +26,7 @@ module umi_ram
     parameter DW = 256,           // umi packet width
     parameter AW = 64,            // address width
     parameter CW = 32,            // command width
+    parameter IDOFF = 40,         // offset into AW for unique UMI port ID
     parameter RAMDEPTH = 512,
     parameter CTRLW = 8,
     parameter SRAMTYPE = "DEFAULT"
@@ -56,17 +57,15 @@ module umi_ram
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire [CW-1:0]        mem_resp_cmd;
    wire [DW-1:0]        mem_resp_data;
-   wire [AW+N-1:0]      mem_resp_dstaddr;
-   wire [AW+N-1:0]      mem_resp_srcaddr;
+   wire [AW-1:0]        mem_resp_dstaddr;
+   wire [AW-1:0]        mem_resp_srcaddr;
    wire                 mem_resp_valid;
-   wire [N-1:0]         umi_in_ready;
    wire [CW-1:0]        umi_out_cmd;
    wire [DW-1:0]        umi_out_data;
    wire [AW-1:0]        umi_out_dstaddr;
    wire                 umi_out_ready;
    wire [AW-1:0]        umi_out_srcaddr;
    wire                 umi_out_valid;
-   wire [N-1:0]         umi_req_grants;
    // End of automatics
    wire                 mem_resp_ready;
 
@@ -74,28 +73,9 @@ module umi_ram
    //# UMI ENDPOINT (Pipelined Request/Response)
    //##################################################################
 
-   /*umi_arbiter AUTO_TEMPLATE(
-    .mask     ({@"vl-width"{1'b0}}),
-    .requests (udev_req_valid[]),
-    .grants   (umi_req_grants[]),
-    );*/
-
-   umi_arbiter #(.N(N))
-   umi_arbiter (/*AUTOINST*/
-                // Outputs
-                .grants         (umi_req_grants[N-1:0]), // Templated
-                // Inputs
-                .clk            (clk),
-                .nreset         (nreset),
-                .mode           (mode),                  // Templated
-                .mask           ({N{1'b0}}),             // Templated
-                .requests       (udev_req_valid[N-1:0])); // Templated
-
-   assign udev_req_ready[N-1:0] = umi_in_ready[N-1:0] & umi_req_grants[N-1:0];
-
    /*umi_mux AUTO_TEMPLATE(
-    .umi_in_valid (umi_req_grants[]),
-    .umi_in_ready (umi_in_ready[]),
+    .arbmode       (mode),
+    .arbmask       ({N{1'b0}}),
     .umi_in_\(.*\) (udev_req_\1[]),
     );*/
 
@@ -105,29 +85,34 @@ module umi_ram
              .N(N))
    umi_mux(/*AUTOINST*/
            // Outputs
-           .umi_in_ready        (umi_in_ready[N-1:0]),   // Templated
+           .umi_in_ready        (udev_req_ready[N-1:0]),   // Templated
            .umi_out_valid       (umi_out_valid),
            .umi_out_cmd         (umi_out_cmd[CW-1:0]),
            .umi_out_dstaddr     (umi_out_dstaddr[AW-1:0]),
            .umi_out_srcaddr     (umi_out_srcaddr[AW-1:0]),
            .umi_out_data        (umi_out_data[DW-1:0]),
            // Inputs
-           .umi_in_valid        (umi_req_grants[N-1:0]), // Templated
+           .clk                 (clk),
+           .nreset              (nreset),
+           .arbmode             (mode),
+           .arbmask             ({N{1'b0}}),
+           .umi_in_valid        (udev_req_valid[N-1:0]), // Templated
            .umi_in_cmd          (udev_req_cmd[N*CW-1:0]), // Templated
            .umi_in_dstaddr      (udev_req_dstaddr[N*AW-1:0]), // Templated
            .umi_in_srcaddr      (udev_req_srcaddr[N*AW-1:0]), // Templated
            .umi_in_data         (udev_req_data[N*DW-1:0]), // Templated
            .umi_out_ready       (umi_out_ready));
 
-   assign udev_resp_valid[N-1:0]      = mem_resp_srcaddr[AW+:N] & {N{mem_resp_valid}};
-   assign mem_resp_ready              = |(mem_resp_srcaddr[AW+:N] & udev_resp_ready[N-1:0]) | ~mem_resp_valid;
+   assign udev_resp_valid[N-1:0]      = mem_resp_dstaddr[IDOFF+:N] & {N{mem_resp_valid}};
+   assign mem_resp_ready              = |(mem_resp_dstaddr[IDOFF+:N] & udev_resp_ready[N-1:0]) |
+                                        ~mem_resp_valid;
    assign udev_resp_cmd[N*CW-1:0]     = {N{mem_resp_cmd[CW-1:0]}};
    assign udev_resp_dstaddr[N*AW-1:0] = {N{mem_resp_dstaddr[AW-1:0]}};
    assign udev_resp_srcaddr[N*AW-1:0] = {N{mem_resp_srcaddr[AW-1:0]}};
    assign udev_resp_data[N*DW-1:0]    = {N{mem_resp_data[DW-1:0]}};
 
    umi_mem_agent #(.CW(CW),
-                   .AW(AW+N),
+                   .AW(AW),
                    .DW(DW),
                    .RAMDEPTH(RAMDEPTH),
                    .CTRLW(CTRLW),
@@ -138,15 +123,15 @@ module umi_ram
 
                  .udev_req_valid        (umi_out_valid),
                  .udev_req_cmd          (umi_out_cmd[CW-1:0]),
-                 .udev_req_dstaddr      ({umi_req_grants[N-1:0], umi_out_dstaddr[AW-1:0]}),
-                 .udev_req_srcaddr      ({{N{1'b0}}, umi_out_srcaddr[AW-1:0]}),
+                 .udev_req_dstaddr      (umi_out_dstaddr[AW-1:0]),
+                 .udev_req_srcaddr      (umi_out_srcaddr[AW-1:0]),
                  .udev_req_data         (umi_out_data[DW-1:0]),
                  .udev_req_ready        (umi_out_ready),
 
                  .udev_resp_valid       (mem_resp_valid),
                  .udev_resp_cmd         (mem_resp_cmd[CW-1:0]),
-                 .udev_resp_dstaddr     (mem_resp_dstaddr[AW+N-1:0]),
-                 .udev_resp_srcaddr     (mem_resp_srcaddr[AW+N-1:0]),
+                 .udev_resp_dstaddr     (mem_resp_dstaddr[AW-1:0]),
+                 .udev_resp_srcaddr     (mem_resp_srcaddr[AW-1:0]),
                  .udev_resp_data        (mem_resp_data[DW-1:0]),
                  .udev_resp_ready       (mem_resp_ready));
 
