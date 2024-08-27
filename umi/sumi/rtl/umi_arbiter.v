@@ -35,8 +35,7 @@ module umi_arbiter
 
    wire                collision;
    reg [N-1:0]         thermometer;
-   wire [N-1:0]        spec_requests[0:N-1];
-   wire [N-1:0]        spec_grants[0:N-1];
+   wire [N-1:0]        spec_requests;
    genvar              i;
 
    // Thermometer mask that gets hotter with every collision
@@ -61,29 +60,17 @@ module umi_arbiter
 
    // 1. Create N rotated set of requests
    // 2. Feed requests into fixed priority encoders
-   for (i=0;i<N;i=i+1)
-     begin
-        // double width needed for rotation
-        assign spec_requests[i] = ~mask[N-1:0] &
-                                  ~thermometer[N-1:0] &
-                                   requests[N-1:0];
+   // double width needed for rotation
+   assign spec_requests = ~mask[N-1:0] &
+                          ~thermometer[N-1:0] &
+                           requests[N-1:0];
 
-        // Priority Selection Using Masked Inputs
-        umi_priority #(.N(N))
-        umi_prioroty(// Outputs
-                     .grants   (spec_grants[i][N-1:0]),
-                     // Inputs
-                     .requests (spec_requests[i][N-1:0]));
-     end
-
-   // Or together all grants
-   always @*
-     begin : imux
-        integer    k;
-        grants[N-1:0] = 'b0;
-        for(k=0;k<N;k=k+1)
-          grants[N-1:0] = grants[N-1:0] | spec_grants[k][N-1:0];
-     end
+   // Priority Selection Using Masked Inputs
+   umi_priority #(.N(N))
+   umi_prioroty(// Outputs
+                .grants   (grants[N-1:0]),
+                // Inputs
+                .requests (spec_requests[N-1:0]));
 
    // Detect collision on pushback
    assign collision = |(requests[N-1:0] & ~grants[N-1:0]);
