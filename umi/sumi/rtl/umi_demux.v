@@ -25,7 +25,7 @@
  *
  ******************************************************************************/
 
-module umi_router
+module umi_demux
   #(
     parameter M = 4,    // number of outputs ports
     parameter DW = 128, // umi data width
