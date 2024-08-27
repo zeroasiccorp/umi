@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2020 Zero ASIC Corporation
+ * Copyright 2024 Zero ASIC Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,70 +15,114 @@
  *
  * ----
  *
- * ##Documentation##
- *
- * - Selects between N inputs
- * - Assumes one-hot selects
- * - WARNING: input ready is combinatorially connected to the output ready.
+ * N:1 UMI transaction mux with arbiter and flow control.
  *
  ******************************************************************************/
 
-
-
 module umi_mux
-  #(parameter DW = 256, // UMI transaction width
-    parameter CW = 32,
-    parameter AW = 64,
-    parameter N = 4     // number of inputs
+  #(parameter N  = 2,   // mumber of inputs
+    parameter DW = 128, // umi data width
+    parameter CW = 32,  // umi command width
+    parameter AW = 6   // umi address width
     )
-   (// Incoming UMI
-    input [N-1:0]    umi_in_valid,
-    input [N*CW-1:0] umi_in_cmd,
-    input [N*AW-1:0] umi_in_dstaddr,
-    input [N*AW-1:0] umi_in_srcaddr,
-    input [N*DW-1:0] umi_in_data,
-    output [N-1:0]   umi_in_ready,
-    // Outgoing UMI
-    output           umi_out_valid,
-    input            umi_out_ready,
-    output [CW-1:0]  umi_out_cmd,
-    output [AW-1:0]  umi_out_dstaddr,
-    output [AW-1:0]  umi_out_srcaddr,
-    output [DW-1:0]  umi_out_data
+   (// controls
+    input             clk,
+    input             nreset,
+    input [1:0]       arbmode, // arbiter` mode (0=fixed)
+    input [N-1:0]     arbmask, // arbiter mask (0=fixed)
+    // incoming UMI
+    input [N-1:0]     umi_in_valid,
+    input [N*CW-1:0]  umi_in_cmd,
+    input [N*AW-1:0]  umi_in_dstaddr,
+    input [N*AW-1:0]  umi_in_srcaddr,
+    input [N*DW-1:0]  umi_in_data,
+    output reg [N-1:0] umi_in_ready,
+    // outgoing UMI
+    output            umi_out_valid,
+    output [CW-1:0]   umi_out_cmd,
+    output [AW-1:0]   umi_out_dstaddr,
+    output [AW-1:0]   umi_out_srcaddr,
+    output [DW-1:0]   umi_out_data,
+    input             umi_out_ready
     );
 
-   // valid output
-   assign umi_out_valid = |umi_in_valid[N-1:0];
+   wire [N*N-1:0]    grants;
 
-   // ready pusback
-   assign umi_in_ready[N-1:0] = {N{umi_out_ready}};
+   //##############################
+   // Valid Arbiter
+   //##############################
 
-   // packet mux
-   la_vmux #(.N(N),
-             .W(CW))
-   la_cmd_vmux(.out (umi_out_cmd[CW-1:0]),
-               .sel (umi_in_valid[N-1:0]),
-               .in  (umi_in_cmd[N*CW-1:0]));
+   umi_arbiter #(.N(N))
+   umi_arbiter (// Outputs
+                .grants   (grants[N-1:0]),
+                // Inputs
+                .clk      (clk),
+                .nreset   (nreset),
+                .mode     (arbmode[1:0]),
+                .mask     (arbmask[N-1:0]),
+                .requests (umi_in_valid[N-1:0]));
 
-   // packet mux
-   la_vmux #(.N(N),
-             .W(AW))
-   la_dstaddr_vmux(.out (umi_out_dstaddr[AW-1:0]),
-                   .sel (umi_in_valid[N-1:0]),
-                   .in  (umi_in_dstaddr[N*AW-1:0]));
+   assign umi_out_valid = |grants[N-1:0];
 
-   // packet mux
-   la_vmux #(.N(N),
-             .W(AW))
-   la_srcaddr_vmux(.out (umi_out_srcaddr[AW-1:0]),
-                   .sel (umi_in_valid[N-1:0]),
-                   .in  (umi_in_srcaddr[N*AW-1:0]));
+   //##############################
+   // Ready
+   //##############################
 
-   // packet mux
+
+   // valid[j] | out_ready[j] | grant[j] | in_ready
+   //------------------------------------------------
+   //     0             x           x      | 1
+   //     1             0           x      | 0
+   //     1             1           0      | 0
+   //     1             1           1      | 1
+
+   integer j;
+   always @(*)
+     begin
+        umi_in_ready[N-1:0] = {N{1'b1}};
+        for (j=0;j<N;j=j+1)
+          umi_in_ready[j] = umi_in_ready[j] & ~(umi_in_valid[j] &
+                                                (~grants[j] | ~umi_out_ready));
+     end
+
+   //##############################
+   // Output Mux
+   //##############################
+
+   // data
    la_vmux #(.N(N),
              .W(DW))
-   la_data_vmux(.out (umi_out_data[DW-1:0]),
-                .sel (umi_in_valid[N-1:0]),
+   la_data_vmux(// Outputs
+                .out (umi_out_data[DW-1:0]),
+                // Inputs
+                .sel (grants[N-1:0]),
                 .in  (umi_in_data[N*DW-1:0]));
+
+   // srcaddr
+   la_vmux #(.N(N),
+             .W(AW))
+   la_src_vmux(// Outputs
+               .out (umi_out_srcaddr[AW-1:0]),
+               // Inputs
+               .sel (grants[N-1:0]),
+               .in  (umi_in_srcaddr[N*AW-1:0]));
+
+   // dstaddr
+   la_vmux #(.N(N),
+             .W(AW))
+   la_dst_vmux(// Outputs
+               .out (umi_out_dstaddr[AW-1:0]),
+               // Inputs
+               .sel (grants[N-1:0]),
+               .in  (umi_in_dstaddr[N*AW-1:0]));
+
+   // command
+   la_vmux #(.N(N),
+             .W(CW))
+   la_cmd_vmux(// Outputs
+               .out (umi_out_cmd[CW-1:0]),
+               // Inputs
+               .sel (grants[N-1:0]),
+               .in  (umi_in_cmd[N*CW-1:0]));
 
 endmodule
