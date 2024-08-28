@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (C) 2023 Zero ASIC
+# Copyright (C) 2024 Zero ASIC
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
 import pytest

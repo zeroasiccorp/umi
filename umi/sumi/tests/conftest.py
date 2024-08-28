@@ -41,7 +41,7 @@ def build_dir(pytestconfig):
 
 @pytest.fixture
 def sumi_dut(build_dir, request):
-    dut = SbDut('testbench')
+    dut = SbDut('testbench', default_main=True, trace=False)
 
     dut.use(sumi)
 
@@ -50,15 +50,17 @@ def sumi_dut(build_dir, request):
     testbench_name = test_file_name.replace('test', 'sumi/testbench/testbench') + ".sv"
     dut.input(testbench_name, package='umi')
 
+    # TODO: How to add module/testbench specific parameters
+    #dut.add('option', 'define', f'SPLIT={int(split)}')
+
     # Verilator configuration
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'sumi/testbench/config.vlt',
             package='umi')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
     dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
 
     # Build simulator
-    dut.set('option', 'builddir', build_dir)
-    with InterProcessLock(build_dir / 'test.lock'):
+    dut.set('option', 'builddir', build_dir / test_file_name)
+    with InterProcessLock(build_dir / test_file_name / 'test.lock'):
         # ensure build only happens once
         # https://github.com/pytest-dev/pytest-xdist/blob/v3.6.1/docs/how-to.rst#making-session-scoped-fixtures-execute-only-once
         dut.build(fast=True)
