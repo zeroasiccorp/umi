@@ -47,7 +47,8 @@ def sumi_dut(build_dir, request):
 
     # Add testbench
     test_file_name = Path(request.fspath).stem
-    testbench_name = test_file_name.replace('test', 'sumi/testbench/testbench') + ".sv"
+    assert (test_file_name[:5] == 'test_'), "Test file name must start with test_"
+    testbench_name = f'sumi/testbench/testbench_{test_file_name[5:]}.sv'
     dut.input(testbench_name, package='umi')
 
     # TODO: How to add module/testbench specific parameters
