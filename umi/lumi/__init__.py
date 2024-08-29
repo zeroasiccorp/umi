@@ -3,9 +3,8 @@ from umi import sumi
 from lambdalib import auxlib, ramlib
 
 
-def setup(chip):
-    lib = Library(chip, "lumi", package="umi", auto_enable=True)
-    lib.register_source("umi", "python://umi")
+def setup():
+    lib = Library("lumi", package=("umi", "python://umi"), auto_enable=True)
 
     lib.add("option", "idir", "lumi/rtl")
     lib.add("option", "ydir", "lumi/rtl")
