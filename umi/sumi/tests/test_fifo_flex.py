@@ -7,7 +7,6 @@ import pytest
 import random
 import numpy as np
 from switchboard import UmiTxRx
-from umi import sumi
 
 
 def test_fifo_flex(sumi_dut, valid_mode, ready_mode):

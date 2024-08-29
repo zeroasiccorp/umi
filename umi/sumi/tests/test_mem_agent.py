@@ -6,7 +6,6 @@
 import pytest
 import numpy as np
 from switchboard import UmiTxRx
-from umi import sumi
 
 
 def apply_atomic(origdata, atomicdata, operation, maxrange):
