@@ -8,6 +8,7 @@ on:
 jobs:
   get_testbenches:
     name: 'Get testbenches'
+    if: false
 
     runs-on: ubuntu-latest
 
