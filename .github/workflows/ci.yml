@@ -19,6 +19,27 @@ jobs:
 
       - name: pytest
         run: |
+          python3 -m venv venv
+          . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
           pytest -m "switchboard" -n auto
+
+  python_ci:
+    name: "Python + Tools CI"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/siliconcompiler/sc_tools:latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: pytest
+        run: |
+          python3 -m venv venv
+          . venv/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e .[test]
+          pytest -m "not switchboard" -n auto
