@@ -16,7 +16,7 @@
  * ----
  *
  * Documentation:
- * - Simple register interface testbench
+ * - Power domain isolation buffers testbench
  *
  ******************************************************************************/
 
