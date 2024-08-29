@@ -19,6 +19,8 @@ jobs:
 
       - name: pytest
         run: |
+          python3 -m venv venv
+          . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
           pytest -m "switchboard" -n auto
@@ -36,6 +38,8 @@ jobs:
 
       - name: pytest
         run: |
+          python3 -m venv venv
+          . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
           pytest -m "not switchboard" -n auto
