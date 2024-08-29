@@ -74,8 +74,8 @@ module umi_isolate
                       .iso(isolate));
 
            la_visolo #(.N(DW))
-           i_data (.in(umi_srcaddr[DW-1:0]),
-                   .out(umi_srcaddr_iso[DW-1:0]),
+           i_data (.in(umi_data[DW-1:0]),
+                   .out(umi_data_iso[DW-1:0]),
                    .iso(isolate));
         end
       else
