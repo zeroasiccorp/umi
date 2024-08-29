@@ -18,7 +18,7 @@ def test_isolate(sumi_dut, valid_mode, ready_mode):
 
     host = UmiTxRx("host2dut_0.q", "dut2host_0.q", fresh=True)
 
-    print("### Statring test ###")
+    print("### Starting test ###")
 
     umi_loopback(host, 1000, max_bytes=32)
 
