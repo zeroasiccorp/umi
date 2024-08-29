@@ -10,7 +10,7 @@ import multiprocessing
 def pytest_collection_modifyitems(items):
     for item in items:
         if "sumi_dut" in getattr(item, "fixturenames", ()):
-            #item.add_marker("switchboard")
+            item.add_marker("switchboard")
             pass
 
 
