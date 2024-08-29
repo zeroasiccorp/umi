@@ -20,7 +20,7 @@ def test_fifo_flex(sumi_dut, valid_mode, ready_mode):
 
     host = UmiTxRx("host2dut_0.q", "dut2host_0.q", fresh=True)
 
-    print("### Statring test ###")
+    print("### Starting test ###")
 
     for count in range(1000):
         # length should not cross the DW boundary - umi_mem_agent limitation

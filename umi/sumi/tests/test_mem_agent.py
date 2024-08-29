@@ -63,7 +63,7 @@ def test_mem_agent(sumi_dut, valid_mode, ready_mode):
 
     host = UmiTxRx("host2dut_0.q", "dut2host_0.q", fresh=True)
 
-    print("### Statring test ###")
+    print("### Starting test ###")
 
     avail_datatype = [np.uint8, np.uint16, np.uint32]
 
