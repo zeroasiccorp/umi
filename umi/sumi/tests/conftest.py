@@ -51,7 +51,7 @@ def sumi_dut(build_dir, request):
     dut.input(testbench_name, package='umi')
 
     # TODO: How to add module/testbench specific parameters
-    #dut.add('option', 'define', f'SPLIT={int(split)}')
+    # dut.add('option', 'define', f'SPLIT={int(split)}')
 
     # Verilator configuration
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'sumi/testbench/config.vlt',

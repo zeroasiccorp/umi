@@ -4,10 +4,7 @@
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
 import pytest
-import random
-import numpy as np
 from switchboard import UmiTxRx, umi_loopback
-from umi import sumi
 
 
 def test_isolate(sumi_dut, valid_mode, ready_mode):

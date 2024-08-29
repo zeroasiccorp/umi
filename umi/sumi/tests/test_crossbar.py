@@ -8,7 +8,6 @@ import multiprocessing
 import random
 import numpy as np
 from switchboard import UmiTxRx, random_umi_packet, delete_queue
-from umi import sumi
 
 
 def umi_send(x, n, ports):
