@@ -3,9 +3,9 @@
 # Copyright (C) 2023 Zero ASIC
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
+import pytest
 import numpy as np
-from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
+from switchboard import UmiTxRx
 from umi import sumi
 
 
