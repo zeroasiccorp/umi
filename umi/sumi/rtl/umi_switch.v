@@ -90,10 +90,10 @@ module umi_switch
    // instantiate M output ports
    for (i=0;i<M;i=i+1)
      begin: port
-        umi_port #(.N(N),
-                   .DW(DW),
-                   .CW(CW),
-                   .AW(AW))
+        umi_mux #(.N(N),
+                  .DW(DW),
+                  .CW(CW),
+                  .AW(AW))
         i0 (// Outputs
              .umi_in_ready          (umi_ready[i*N+:N]),
              .umi_out_valid         (umi_out_valid[i]),
