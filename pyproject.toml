@@ -29,8 +29,11 @@ version = {attr = "umi.__version__"}
 
 [project.optional-dependencies]
 test = [
-    "switchboard-hw>=0.2.14",
-    "flake8==7.1.1"
+    "switchboard-hw>=0.2.15",
+    "flake8==7.1.1",
+    "pytest==8.3.2",
+    "pytest-xdist==3.6.1",
+    "pytest-timeout==2.3.1"
 ]
 
 [tool.setuptools]
@@ -43,3 +46,12 @@ packages = [
 ignore = [
     "W002"
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "switchboard: this test requires switchboard to run"
+]
+testpaths = [
+    "umi/sumi/tests"
+]
+timeout = "300"

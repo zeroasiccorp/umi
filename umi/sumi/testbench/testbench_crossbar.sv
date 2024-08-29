@@ -30,6 +30,8 @@ module testbench
     input clk
     );
 
+`include "switchboard.vh"
+
    localparam N = PORTS;
 
    /*AUTOWIRE*/
@@ -171,15 +173,8 @@ module testbench
         nreset <= nreset | 1'b1;
      end
 
-   // control block
-   initial
-     begin
-        if ($test$plusargs("trace"))
-          begin
-             $dumpfile("testbench.fst");
-             $dumpvars(0, testbench);
-          end
-     end
+   // waveform dump
+   `SB_SETUP_PROBES
 
    // auto-stop
 
