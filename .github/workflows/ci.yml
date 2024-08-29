@@ -6,6 +6,23 @@ on:
   workflow_dispatch:
 
 jobs:
+  switchboard_ci:
+    name: "Switchboard CI"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zeroasiccorp/sbtest:latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: pytest
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e .[test]
+          pytest -m "switchboard"
+
   get_testbenches:
     name: 'Get testbenches'
     if: false
