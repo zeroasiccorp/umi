@@ -1,10 +1,5 @@
 import pytest
-from switchboard import SbDut
 import os
-from pathlib import Path
-from umi import sumi
-from fasteners import InterProcessLock
-import multiprocessing
 
 
 @pytest.fixture(autouse=True)
