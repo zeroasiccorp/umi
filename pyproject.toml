@@ -52,6 +52,7 @@ markers = [
     "switchboard: this test requires switchboard to run"
 ]
 testpaths = [
+    "tests",
     "umi/sumi/tests"
 ]
 timeout = "300"
