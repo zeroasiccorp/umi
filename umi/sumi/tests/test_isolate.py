@@ -7,10 +7,10 @@ import pytest
 from switchboard import UmiTxRx, umi_loopback
 
 
-def test_isolate(sumi_dut, valid_mode, ready_mode):
+def test_isolate(sumi_dut, sb_umi_valid_mode, sb_umi_ready_mode):
 
     # launch the simulation
-    sumi_dut.simulate(plusargs=[('valid_mode', valid_mode), ('ready_mode', ready_mode)])
+    sumi_dut.simulate(plusargs=[('valid_mode', sb_umi_valid_mode), ('ready_mode', sb_umi_ready_mode)])
 
     # instantiate TX and RX queues.  note that these can be instantiated without
     # specifying a URI, in which case the URI can be specified later via the
