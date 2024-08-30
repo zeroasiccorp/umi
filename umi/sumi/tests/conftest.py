@@ -68,13 +68,3 @@ def sumi_dut(build_dir, request):
     yield dut
 
     dut.terminate()
-
-
-@pytest.fixture(params=[0, 1, 2])
-def valid_mode(request):
-    return request.param
-
-
-@pytest.fixture(params=[0, 1, 2])
-def ready_mode(request):
-    return request.param
