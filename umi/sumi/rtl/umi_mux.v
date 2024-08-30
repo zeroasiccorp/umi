@@ -46,7 +46,7 @@ module umi_mux
     input             umi_out_ready
     );
 
-   wire [N*N-1:0]    grants;
+   wire [N-1:0]    grants;
 
    //##############################
    // Valid Arbiter
