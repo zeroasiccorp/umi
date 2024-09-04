@@ -81,5 +81,6 @@ def random_seed(request):
         test_seed = fixed_seed
     else:
         test_seed = os.getpid()
+    print(f'Random seed used: {test_seed}')
     yield test_seed
     print(f'Random seed used: {test_seed}')
