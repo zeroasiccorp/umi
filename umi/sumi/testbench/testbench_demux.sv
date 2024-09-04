@@ -122,6 +122,9 @@ module testbench (
         );
 
         initial begin
+            `ifndef VERILATOR
+                #1;
+            `endif
             demux_out[i].umi_tx_i.init($sformatf("rtl2client_%0d.q", i));
             demux_out[i].umi_tx_i.set_ready_mode(ready_mode);
         end
