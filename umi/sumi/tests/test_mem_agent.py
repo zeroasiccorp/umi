@@ -52,7 +52,9 @@ def apply_atomic(origdata, atomicdata, operation, maxrange):
     return tempval
 
 
-def test_mem_agent(sumi_dut, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_mem_agent(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
+
+    np.random.seed(random_seed)
 
     # launch the simulation
     sumi_dut.simulate(plusargs=[('valid_mode', sb_umi_valid_mode), ('ready_mode', sb_umi_ready_mode)])
