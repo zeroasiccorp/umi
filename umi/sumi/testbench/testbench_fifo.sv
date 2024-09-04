@@ -23,14 +23,27 @@
 `default_nettype none
 
 module testbench (
-                  input clk
-                  );
+`ifdef VERILATOR
+    input clk
+`endif
+);
 
    parameter integer DW=128;
    parameter integer AW=64;
    parameter integer CW=32;
    parameter integer CTRLW=8;
    parameter integer DEPTH=1;
+
+   localparam PERIOD_CLK   = 10;
+
+`ifndef VERILATOR
+    // Generate clock for non verilator sim tools
+    reg clk;
+
+    initial
+        clk  = 1'b0;
+    always #(PERIOD_CLK/2) clk = ~clk;
+`endif
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
