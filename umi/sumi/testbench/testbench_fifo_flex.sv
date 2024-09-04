@@ -24,8 +24,10 @@
 `default_nettype none
 
 module testbench (
-                  input clk
-                  );
+`ifdef VERILATOR
+    input clk
+`endif
+);
 
    parameter integer IDW=128;
    parameter integer ODW=32;
@@ -34,6 +36,17 @@ module testbench (
    parameter integer CTRLW=8;
    parameter integer DEPTH=512;
    parameter integer ASYNC=0;
+
+   localparam PERIOD_CLK   = 10;
+
+`ifndef VERILATOR
+    // Generate clock for non verilator sim tools
+    reg clk;
+
+    initial
+        clk  = 1'b0;
+    always #(PERIOD_CLK/2) clk = ~clk;
+`endif
 
    `ifndef SPLIT
      `define SPLIT 0
