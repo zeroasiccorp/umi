@@ -23,7 +23,9 @@
 `default_nettype none
 
 module testbench (
+`ifdef VERILATOR
     input clk
+`endif
 );
 
 `include "switchboard.vh"
@@ -33,7 +35,17 @@ module testbench (
     parameter integer DW    = 256;
     parameter integer ISO   = 1;
 
+    localparam PERIOD_CLK   = 10;
     localparam RST_CYCLES   = 16;
+
+`ifndef VERILATOR
+    // Generate clock for non verilator sim tools
+    reg clk;
+
+    initial
+        clk  = 1'b0;
+    always #(PERIOD_CLK/2) clk = ~clk;
+`endif
 
     // Reset control
     reg [RST_CYCLES-1:0]    nreset_vec;

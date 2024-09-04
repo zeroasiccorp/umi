@@ -27,12 +27,25 @@ module testbench
     parameter AW=64,
     parameter CW=32)
    (
+`ifdef VERILATOR
     input clk
-    );
+`endif
+);
 
 `include "switchboard.vh"
 
    localparam N = PORTS;
+
+   localparam PERIOD_CLK   = 10;
+
+`ifndef VERILATOR
+    // Generate clock for non verilator sim tools
+    reg clk;
+
+    initial
+        clk  = 1'b0;
+    always #(PERIOD_CLK/2) clk = ~clk;
+`endif
 
    /*AUTOWIRE*/
    reg               nreset;
