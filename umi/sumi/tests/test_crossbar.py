@@ -10,11 +10,10 @@ import numpy as np
 from switchboard import UmiTxRx, random_umi_packet, delete_queue
 
 
-def umi_send(x, n, ports):
-    import os
+def umi_send(x, n, ports, seed):
 
-    random.seed(os.getpid())
-    np.random.seed(os.getpid())
+    random.seed(seed)
+    np.random.seed(seed)
 
     umi = UmiTxRx(f'client2rtl_{x}.q', '')
     tee = UmiTxRx(f'tee_{x}.q', '')
@@ -32,7 +31,7 @@ def umi_send(x, n, ports):
 
 
 @pytest.mark.skip(reason="Crossbar asserts output valid even when in reset")
-def test_crossbar(sumi_dut, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_crossbar(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
     n = 100
     ports = 4
     for x in range(ports):
@@ -59,7 +58,7 @@ def test_crossbar(sumi_dut, sb_umi_valid_mode, sb_umi_ready_mode):
 
     procs = []
     for x in range(ports):
-        procs.append(multiprocessing.Process(target=umi_send, args=(x, n, ports,)))
+        procs.append(multiprocessing.Process(target=umi_send, args=(x, n, ports, (random_seed+x),)))
 
     for proc in procs:
         proc.start()
