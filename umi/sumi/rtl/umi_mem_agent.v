@@ -222,7 +222,7 @@ module umi_mem_agent
      end
    end
 
-   assign mem_rddata_atomic = mem_rddata<<postatomic_shift;
+   assign mem_rddata_atomic = (mem_rddata & wmask_r)<<postatomic_shift;
 
    always @(*) begin
      if (loc_atype_r == 8'h00)
