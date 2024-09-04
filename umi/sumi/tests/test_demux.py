@@ -34,13 +34,10 @@ def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
     for x in range(ports):
         delete_queue(f'tee_{x}.q')
 
-    # instantiate TX and RX queues.  note that these can be instantiated without
-    # specifying a URI, in which case the URI can be specified later via the
-    # "init" method
-
+    # Instantiate TX and RX queues
     umi = UmiTxRx('client2rtl_0.q', '', fresh=True)
-    tee = [UmiTxRx('', f'tee_{x}.q') for x in range(ports)]
     recvq = [UmiTxRx('', f'rtl2client_{x}.q', fresh=True) for x in range(ports)]
+    tee = [UmiTxRx('', f'tee_{x}.q') for x in range(ports)]
 
     # launch the simulation
     sumi_dut.simulate(
@@ -79,7 +76,6 @@ def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
                 if nsend >= ports*n:
                     raise Exception('Unexpected packet sent')
                 else:
-                    send_dst = (txp.dstaddr >> 40)
                     send_queue[i].append(txp)
                     nsend += 1
 
