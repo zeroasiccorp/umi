@@ -68,3 +68,18 @@ def sumi_dut(build_dir, request):
     yield dut
 
     dut.terminate()
+
+
+def pytest_addoption(parser):
+    parser.addoption("--seed", type=int, action="store", help="Provide a fixed seed")
+
+
+@pytest.fixture
+def random_seed(request):
+    fixed_seed = request.config.getoption("--seed")
+    if fixed_seed is not None:
+        test_seed = fixed_seed
+    else:
+        test_seed = os.getpid()
+    yield test_seed
+    print(f'Random seed used: {test_seed}')
