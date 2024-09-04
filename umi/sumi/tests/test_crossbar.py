@@ -6,14 +6,12 @@
 import pytest
 import multiprocessing
 import random
-import numpy as np
 from switchboard import UmiTxRx, random_umi_packet, delete_queue
 
 
 def umi_send(x, n, ports, seed):
 
     random.seed(seed)
-    np.random.seed(seed)
 
     umi = UmiTxRx(f'client2rtl_{x}.q', '')
     tee = UmiTxRx(f'tee_{x}.q', '')
