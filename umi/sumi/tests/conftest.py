@@ -41,7 +41,7 @@ def build_dir(pytestconfig):
 
 @pytest.fixture
 def sumi_dut(build_dir, request):
-    dut = SbDut('testbench', default_main=True, trace=True)
+    dut = SbDut('testbench', default_main=True, trace=False)
 
     dut.use(sumi)
 
