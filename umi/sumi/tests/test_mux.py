@@ -35,7 +35,7 @@ def test_mux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
     # Instantiate TX and RX queues
     umi = [UmiTxRx(f'client2rtl_{x}.q', '', fresh=True) for x in range(ports)]
-    recvq = UmiTxRx('', f'rtl2client_0.q', fresh=True)
+    recvq = UmiTxRx('', 'rtl2client_0.q', fresh=True)
     tee = [UmiTxRx('', f'tee_{x}.q') for x in range(ports)]
 
     # launch the simulation
