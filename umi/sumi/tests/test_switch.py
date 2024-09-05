@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+
+# Copyright (C) 2024 Zero ASIC
+# This code is licensed under Apache License 2.0 (see LICENSE for details)
+
+import pytest
+import multiprocessing
+import numpy as np
+from switchboard import UmiTxRx, random_umi_packet, delete_queue
+
+
+def umi_send(x, n, out_ports, seed):
+
+    np.random.seed(seed)
+
+    umi = UmiTxRx(f'client2rtl_{x}.q', '')
+    tee = UmiTxRx(f'tee_{x}.q', '')
+
+    for count in range(n):
+        dstport = np.random.randint(out_ports)
+        dstaddr = (2**8)*np.random.randint(2**32) + dstport*(2**40)
+        srcaddr = (2**8)*np.random.randint(2**32) + x*(2**40)
+        txp = random_umi_packet(dstaddr=dstaddr, srcaddr=srcaddr)
+        print(f"port {x} sending #{count} cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} "
+              f"dstaddr: 0x{dstaddr:08x} to port {dstport}")
+        # send the packet to both simulation and local queues
+        umi.send(txp)
+        tee.send(txp)
+
+
+def test_switch(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
+    n = 1000
+    in_ports = 4
+    out_ports = 2
+
+    for x in range(in_ports):
+        delete_queue(f'client2rtl_{x}.q')
+
+    for x in range(out_ports):
+        delete_queue(f'rtl2client_{x}.q')
+        delete_queue(f'tee_{x}.q')
+
+    # launch the simulation
+    sumi_dut.simulate(
+            plusargs=[('valid_mode', sb_umi_valid_mode),
+                      ('ready_mode', sb_umi_ready_mode)])
+
+    # instantiate TX and RX queues.  note that these can be instantiated without
+    # specifying a URI, in which case the URI can be specified later via the
+    # "init" method
+
+    umi = [UmiTxRx('', f'rtl2client_{x}.q') for x in range(out_ports)]
+    tee = [UmiTxRx('', f'tee_{x}.q') for x in range(in_ports)]
+
+    print("### Starting test ###")
+    recv_queue = [[[] for i in range(out_ports)] for j in range(in_ports)]
+    send_queue = [[[] for i in range(out_ports)] for j in range(in_ports)]
+
+    procs = []
+    for x in range(in_ports):
+        procs.append(multiprocessing.Process(target=umi_send,
+                                             args=(x, n, out_ports, (random_seed+x),)))
+
+    for proc in procs:
+        proc.start()
+
+    nrecv = 0
+    nsend = 0
+    while (nrecv < in_ports*n) or (nsend < in_ports*n):
+        for i in range(out_ports):
+            rxp = umi[i].recv(blocking=False)
+            if rxp is not None:
+                if nrecv >= in_ports*n:
+                    print(f'Unexpected packet received {nrecv}')
+                    raise Exception(f'Unexpected packet received {nrecv}')
+                else:
+                    recv_src = (rxp.srcaddr >> 40)
+                    print(f"port {i} receiving srcaddr: 0x{rxp.srcaddr:08x} "
+                          f"dstaddr: 0x{rxp.dstaddr:08x} src: {recv_src} #{nrecv}")
+                    recv_queue[recv_src][i].append(rxp)
+                    nrecv += 1
+
+        for i in range(in_ports):
+            txp = tee[i].recv(blocking=False)
+            if txp is not None:
+                if nsend >= in_ports*n:
+                    raise Exception('Unexpected packet sent')
+                else:
+                    send_dst = (txp.dstaddr >> 40)
+                    send_queue[i][send_dst].append(txp)
+                    nsend += 1
+
+    # join running processes
+    for proc in procs:
+        proc.join()
+
+    for i in range(in_ports):
+        for j in range(out_ports):
+            if len(send_queue[i][j]) != len(recv_queue[i][j]):
+                print(f"packets sent: {len(send_queue[i][j])} packets received: {len(recv_queue[i][j])}")
+            assert len(send_queue[i][j]) == len(recv_queue[i][j])
+            for txp, rxp in zip(send_queue[i][j], recv_queue[i][j]):
+                assert txp == rxp
+            print(f"compared {len(recv_queue[i][j])} packets from port {i} to port {j}")
+
+
+if __name__ == '__main__':
+    pytest.main(['-s', '-q', __file__])
