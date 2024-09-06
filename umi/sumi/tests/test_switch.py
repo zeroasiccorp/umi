@@ -6,10 +6,9 @@
 import pytest
 import multiprocessing
 from switchboard import UmiTxRx, delete_queue
-from umi_common import umi_send
 
 
-def test_switch(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_switch(sumi_dut, umi_send, sb_umi_valid_mode, sb_umi_ready_mode):
     n = 1000  # Number of transactions to be sent to each switch input port
     in_ports = 4  # Number of input ports. Must match testbench
     out_ports = 2  # Number of output ports. Must match testbench
@@ -32,7 +31,7 @@ def test_switch(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
     procs = []
     for x in range(in_ports):
         procs.append(multiprocessing.Process(target=umi_send,
-                                             args=(x, n, out_ports, (random_seed+x),)))
+                                             args=(x, n, out_ports,)))
 
     for proc in procs:
         proc.start()

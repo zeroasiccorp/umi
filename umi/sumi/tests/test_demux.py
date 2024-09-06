@@ -6,10 +6,9 @@
 import pytest
 import multiprocessing
 from switchboard import UmiTxRx, delete_queue
-from umi_common import umi_send
 
 
-def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_demux(sumi_dut, umi_send, sb_umi_valid_mode, sb_umi_ready_mode):
     n = 4000  # Number of transactions to be sent to each demux input port
     in_ports = 1  # Number of input ports. Fixed to 1 for demux
     out_ports = 4  # Number of output ports. Must match testbench
@@ -30,7 +29,7 @@ def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
     print("### Starting test ###")
 
     send_proc = multiprocessing.Process(target=umi_send,
-                                        args=(0, n, out_ports, random_seed,))
+                                        args=(0, n, out_ports,))
 
     send_proc.start()
 

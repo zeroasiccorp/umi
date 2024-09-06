@@ -147,7 +147,7 @@ module testbench (
     ) umi_mux_i (
         .clk                (clk),
         .nreset             (nreset),
-        .arbmode            (2'b00),
+        .arbmode            (2'b10),
         .arbmask            ({N{1'b0}}),
 
         .umi_in_valid       (umi_in_valid),
