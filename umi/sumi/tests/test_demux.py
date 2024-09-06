@@ -10,9 +10,9 @@ from umi_common import umi_send
 
 
 def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
-    n = 4000 # Number of transactions to be sent to each demux input port
-    in_ports = 1 # Number of input ports. Fixed to 1 for demux
-    out_ports = 4 # Number of output ports. Must match testbench
+    n = 4000  # Number of transactions to be sent to each demux input port
+    in_ports = 1  # Number of input ports. Fixed to 1 for demux
+    out_ports = 4  # Number of output ports. Must match testbench
 
     for x in range(in_ports):
         delete_queue(f'client2rtl_{x}.q')

@@ -10,9 +10,9 @@ from umi_common import umi_send
 
 
 def test_switch(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
-    n = 1000 # Number of transactions to be sent to each switch input port
-    in_ports = 4 # Number of input ports. Must match testbench
-    out_ports = 2 # Number of output ports. Must match testbench
+    n = 1000  # Number of transactions to be sent to each switch input port
+    in_ports = 4  # Number of input ports. Must match testbench
+    out_ports = 2  # Number of output ports. Must match testbench
 
     for x in range(in_ports):
         delete_queue(f'client2rtl_{x}.q')

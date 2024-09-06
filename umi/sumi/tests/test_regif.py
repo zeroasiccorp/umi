@@ -54,7 +54,7 @@ def apply_atomic(origdata, atomicdata, operation, maxrange):
 
 def test_regif(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
-    n = 100 # Number of reads, atomic txns and writes each from the register file
+    n = 100  # Number of reads, atomic txns and writes each from the register file
 
     np.random.seed(random_seed)
 

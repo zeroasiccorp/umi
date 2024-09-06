@@ -10,9 +10,9 @@ from umi_common import umi_send
 
 
 def test_mux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
-    n = 1000 # Number of transactions to be sent to each mux input port
-    in_ports = 4 # Number of input ports. Must match testbench
-    out_ports = 1 # Number of output ports. Fixed to 1 for mux
+    n = 1000  # Number of transactions to be sent to each mux input port
+    in_ports = 4  # Number of input ports. Must match testbench
+    out_ports = 1  # Number of output ports. Fixed to 1 for mux
 
     for x in range(in_ports):
         delete_queue(f'client2rtl_{x}.q')
