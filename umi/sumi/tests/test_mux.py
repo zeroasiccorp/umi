@@ -5,7 +5,7 @@
 
 import pytest
 import multiprocessing
-from switchboard import UmiTxRx, delete_queue
+from switchboard import UmiTxRx, random_umi_packet, delete_queue
 from umi_common import umi_send
 
 
@@ -77,6 +77,34 @@ def test_mux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
         for txp, rxp in zip(send_queue[i], recv_queue[i]):
             assert txp == rxp
         print(f"Received {len(recv_queue[i])} packets at port {i}")
+
+
+@pytest.mark.skip(reason="Must only be run when evaluating performance using waveforms")
+def test_round_robin_arb(sumi_dut):
+    '''
+    This test is used to get an initial idea of the performance impact of
+    the arbitration scheme present in the mux. With the thermometer based
+    round robin scheme this test shows a performance penalty of up to 4
+    cycles for a thermometer masked transaction. This test must be run with
+    the waveform enabled.
+    '''
+
+    # Instantiate TX and RX queues
+    inq = [UmiTxRx(f'client2rtl_{x}.q', '', fresh=True) for x in range(2)]
+    outq = UmiTxRx('', f'rtl2client_0.q', fresh=True)
+
+    # launch the simulation
+    sumi_dut.simulate(
+            plusargs=[('valid_mode', 1),
+                      ('ready_mode', 1)])
+
+    txp = random_umi_packet()
+    print(f"Sending cmd: 0x{txp.cmd:08x} "
+          f"srcaddr: 0x{txp.srcaddr:08x} dstaddr: 0x{txp.dstaddr:08x}")
+    # send the packet to both simulation and local queues
+    inq[0].send(txp)
+    inq[1].send(txp)
+    inq[0].send(txp)
 
 
 if __name__ == '__main__':
