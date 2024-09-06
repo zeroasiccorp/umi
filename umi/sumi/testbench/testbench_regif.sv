@@ -23,8 +23,12 @@
 `default_nettype none
 
 module testbench (
-                  input clk
-                  );
+`ifdef VERILATOR
+    input clk
+`endif
+);
+
+`include "switchboard.vh"
 
    parameter integer RW=32;
    parameter integer DW=256;
@@ -33,10 +37,19 @@ module testbench (
    parameter integer CTRLW=8;
    parameter integer RAMDEPTH=512;
 
+   localparam PERIOD_CLK   = 10;
+
+`ifndef VERILATOR
+    // Generate clock for non verilator sim tools
+    reg clk;
+
+    initial
+        clk  = 1'b0;
+    always #(PERIOD_CLK/2) clk = ~clk;
+`endif
 
    /*AUTOWIRE*/
    reg                  nreset;
-   reg                  go;
 
    wire [AW-1:0]        reg_addr;
    wire [RW-1:0]        reg_rddata;
@@ -164,34 +177,23 @@ module testbench (
       /* verilator lint_on IGNOREDRETURN */
    end
 
-   // VCD
-
+   // reset
    initial
      begin
         nreset   = 1'b0;
-        go       = 1'b0;
      end // initial begin
 
-   // Bring up reset and the go signal on the first clock cycle
+   // Bring up reset on the first clock cycle
    always @(negedge clk)
      begin
         nreset <= nreset | 1'b1;
-        go <= 1'b1;
      end
 
-   // control block
-   initial
-     begin
-        if ($test$plusargs("trace"))
-          begin
-             $dumpfile("testbench.fst");
-             $dumpvars(0, testbench);
-          end
-     end
+    // waveform dump
+    `SB_SETUP_PROBES
 
-   // auto-stop
-
-   auto_stop_sim auto_stop_sim_i (.clk(clk));
+    // auto-stop
+    auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 // Local Variables:

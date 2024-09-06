@@ -28,8 +28,8 @@ module umi_mux
    (// controls
     input             clk,
     input             nreset,
-    input [1:0]       arbmode, // arbiter` mode (0=fixed)
-    input [N-1:0]     arbmask, // arbiter mask (0=fixed)
+    input [1:0]       arbmode, // arbiter mode (0=fixed)
+    input [N-1:0]     arbmask, // arbiter mask (1=input is masked)
     // incoming UMI
     input [N-1:0]     umi_in_valid,
     input [N*CW-1:0]  umi_in_cmd,
