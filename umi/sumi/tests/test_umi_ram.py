@@ -3,36 +3,9 @@
 # Copyright (C) 2023 Zero ASIC
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
+import pytest
 import numpy as np
-from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, verilator_run
-from umi import sumi
-
-
-def build_testbench():
-    dut = SbDut('testbench', trace=False, default_main=True)
-
-    # Set up inputs
-    dut.input('sumi/testbench/testbench_umi_ram.sv', package='umi')
-
-    dut.use(sumi)
-
-    # Verilator configuration
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'sumi/testbench/config.vlt',
-            package='umi')
-#    dut.set('option', 'relax', True)
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
-
-    # Settings - enable tracing
-    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
-
-    # Build simulator
-    dut.run()
-
-    return dut.find_result('vexe', step='compile')
+from switchboard import UmiTxRx
 
 
 def apply_atomic(origdata, atomicdata, operation, maxrange):
@@ -79,22 +52,25 @@ def apply_atomic(origdata, atomicdata, operation, maxrange):
     return tempval
 
 
-def main(vldmode="2", rdymode="2", n=100):
+def test_umi_ram(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
-    verilator_bin = build_testbench()
+    ports = 5  # Number of input ports of umi_ram. Must match testbench
+    n = 100  # Number of reads, atomic txns and writes each from the umi_ram
+
+    np.random.seed(random_seed)
 
     # launch the simulation
-    verilator_run(verilator_bin, plusargs=['trace',
-                                           ('valid_mode', vldmode),
-                                           ('ready_mode', rdymode)])
+    sumi_dut.simulate(
+            plusargs=[('valid_mode', sb_umi_valid_mode),
+                      ('ready_mode', sb_umi_ready_mode)])
 
     # instantiate TX and RX queues.  note that these can be instantiated without
     # specifying a URI, in which case the URI can be specified later via the
     # "init" method
 
-    host = [UmiTxRx(f'host2dut_{x}.q', f'dut2host_{x}.q', fresh=True) for x in range(5)]
+    host = [UmiTxRx(f'host2dut_{x}.q', f'dut2host_{x}.q', fresh=True) for x in range(ports)]
 
-    print("### Statring test ###")
+    print("### Starting test ###")
 
     avail_datatype = [np.uint8, np.uint16, np.uint32]
 
@@ -135,17 +111,6 @@ def main(vldmode="2", rdymode="2", n=100):
             print(f"ERROR umi read from addr 0x{addr:08x} expected {data} actual {val}")
             assert (np.array_equal(val, data))
 
-    print("### TEST PASS ###")
-
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('--vldmode', default='2')
-    parser.add_argument('--rdymode', default='2')
-    parser.add_argument('-n', type=int, default=10,
-                        help='Number of transactions to send during the test.')
-    args = parser.parse_args()
-
-    main(vldmode=args.vldmode,
-         rdymode=args.rdymode,
-         n=args.n)
+    pytest.main(['-s', '-q', __file__])
