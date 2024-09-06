@@ -48,14 +48,16 @@ module testbench (
 `endif
 
     // Reset control
-    reg [RST_CYCLES-1:0]    nreset_vec;
+    reg [RST_CYCLES:0]      nreset_vec;
     wire                    nreset;
+    wire                    initdone;
 
     assign nreset = nreset_vec[RST_CYCLES-1];
+    assign initdone = nreset_vec[RST_CYCLES];
 
     initial
         nreset_vec = 'b1;
-    always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-2:0], 1'b1};
+    always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
 
     wire            isolate;
 
@@ -88,7 +90,7 @@ module testbench (
         .dstaddr    (umi_dstaddr[AW-1:0]),
         .srcaddr    (umi_srcaddr[AW-1:0]),
         .data       (umi_data[DW-1:0]),
-        .ready      (umi_ready_iso)
+        .ready      (umi_ready_iso & initdone)
     );
 
     umi_tx_sim #(
@@ -97,7 +99,7 @@ module testbench (
     ) host_umi_tx_i (
         .clk        (clk),
 
-        .valid      (umi_valid_iso),
+        .valid      (umi_valid_iso & initdone),
         .cmd        (umi_cmd_iso[CW-1:0]),
         .dstaddr    (umi_dstaddr_iso[AW-1:0]),
         .srcaddr    (umi_srcaddr_iso[AW-1:0]),
@@ -114,8 +116,8 @@ module testbench (
     ) dut (
         .isolate            (1'b0),
 
-        .umi_ready          (umi_ready),
-        .umi_valid          (umi_valid),
+        .umi_ready          (umi_ready & initdone),
+        .umi_valid          (umi_valid & initdone),
         .umi_cmd            (umi_cmd),
         .umi_dstaddr        (umi_dstaddr),
         .umi_srcaddr        (umi_srcaddr),

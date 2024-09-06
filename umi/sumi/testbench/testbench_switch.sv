@@ -35,6 +35,7 @@ module testbench (
     parameter integer CW    = 32;
 
     localparam PERIOD_CLK   = 10;
+    localparam RST_CYCLES   = 16;
 
 `ifndef VERILATOR
     // Generate clock for non verilator sim tools
@@ -45,7 +46,17 @@ module testbench (
     always #(PERIOD_CLK/2) clk = ~clk;
 `endif
 
-    reg             nreset;
+    // Reset control
+    reg [RST_CYCLES:0]      nreset_vec;
+    wire                    nreset;
+    wire                    initdone;
+
+    assign nreset = nreset_vec[RST_CYCLES-1];
+    assign initdone = nreset_vec[RST_CYCLES];
+
+    initial
+        nreset_vec = 'b1;
+    always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
 
     wire [N*M-1:0]  umi_in_valid;
     wire [N*CW-1:0] umi_in_cmd;
@@ -97,7 +108,7 @@ module testbench (
             .dstaddr    (umi_in_dstaddr[i*AW+:AW]),
             .srcaddr    (umi_in_srcaddr[i*AW+:AW]),
             .data       (umi_in_data[i*DW+:DW]),
-            .ready      (umi_in_ready[i])
+            .ready      (umi_in_ready[i] & initdone)
         );
 
         for (j = 0; j < M; j = j + 1) begin: request
@@ -123,7 +134,7 @@ module testbench (
         ) umi_tx_i (
             .clk        (clk),
 
-            .valid      (umi_out_valid[i]),
+            .valid      (umi_out_valid[i] & initdone),
             .cmd        (umi_out_cmd[i*CW+:CW]),
             .dstaddr    (umi_out_dstaddr[i*AW+:AW]),
             .srcaddr    (umi_out_srcaddr[i*AW+:AW]),
@@ -155,7 +166,7 @@ module testbench (
         .arbmode            (2'b00),
         .arbmask            ('b0),
 
-        .umi_in_valid       (umi_in_valid),
+        .umi_in_valid       (umi_in_valid & {(N*M){initdone}}),
         .umi_in_cmd         (umi_in_cmd),
         .umi_in_dstaddr     (umi_in_dstaddr),
         .umi_in_srcaddr     (umi_in_srcaddr),
@@ -167,18 +178,8 @@ module testbench (
         .umi_out_dstaddr    (umi_out_dstaddr),
         .umi_out_srcaddr    (umi_out_srcaddr),
         .umi_out_data       (umi_out_data),
-        .umi_out_ready      (umi_out_ready)
+        .umi_out_ready      (umi_out_ready & {M{initdone}})
     );
-
-    // reset
-    initial begin
-        nreset   = 1'b0;
-    end // initial begin
-
-    // Bring up reset on the first clock cycle
-    always @(negedge clk) begin
-        nreset <= nreset | 1'b1;
-    end
 
     // waveform dump
     `SB_SETUP_PROBES

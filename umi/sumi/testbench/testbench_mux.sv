@@ -34,6 +34,7 @@ module testbench (
     localparam AW = 64;
 
     localparam PERIOD_CLK   = 10;
+    localparam RST_CYCLES   = 16;
 
 `ifndef VERILATOR
     // Generate clock for non verilator sim tools
@@ -44,16 +45,17 @@ module testbench (
     always #(PERIOD_CLK/2) clk = ~clk;
 `endif
 
-    reg     nreset;
+    // Reset control
+    reg [RST_CYCLES:0]      nreset_vec;
+    wire                    nreset;
+    wire                    initdone;
 
-    initial begin
-        nreset   = 1'b0;
-    end // initial begin
+    assign nreset = nreset_vec[RST_CYCLES-1];
+    assign initdone = nreset_vec[RST_CYCLES];
 
-    // Bring up reset and the go signal on the first clock cycle
-    always @(negedge clk) begin
-        nreset <= nreset | 1'b1;
-    end
+    initial
+        nreset_vec = 'b1;
+    always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
 
     // Initialize UMI
     integer valid_mode, ready_mode;
@@ -103,7 +105,7 @@ module testbench (
             .dstaddr    (umi_in_dstaddr[i*AW+:AW]),
             .srcaddr    (umi_in_srcaddr[i*AW+:AW]),
             .data       (umi_in_data[i*DW+:DW]),
-            .ready      (umi_in_ready[i])
+            .ready      (umi_in_ready[i] & initdone)
         );
 
         initial begin
@@ -122,7 +124,7 @@ module testbench (
     ) umi_tx_i (
         .clk        (clk),
 
-        .valid      (umi_out_valid),
+        .valid      (umi_out_valid & initdone),
         .cmd        (umi_out_cmd),
         .dstaddr    (umi_out_dstaddr),
         .srcaddr    (umi_out_srcaddr),
@@ -150,7 +152,7 @@ module testbench (
         .arbmode            (2'b10),
         .arbmask            ({N{1'b0}}),
 
-        .umi_in_valid       (umi_in_valid),
+        .umi_in_valid       (umi_in_valid & {N{initdone}}),
         .umi_in_cmd         (umi_in_cmd),
         .umi_in_dstaddr     (umi_in_dstaddr),
         .umi_in_srcaddr     (umi_in_srcaddr),
@@ -162,7 +164,7 @@ module testbench (
         .umi_out_dstaddr    (umi_out_dstaddr),
         .umi_out_srcaddr    (umi_out_srcaddr),
         .umi_out_data       (umi_out_data),
-        .umi_out_ready      (umi_out_ready)
+        .umi_out_ready      (umi_out_ready & initdone)
     );
 
     // waveform dump
