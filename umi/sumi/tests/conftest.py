@@ -1,10 +1,11 @@
 import pytest
-from switchboard import SbDut
+from switchboard import SbDut, UmiTxRx, random_umi_packet
 import os
 from pathlib import Path
 from umi import sumi
 from fasteners import InterProcessLock
 import multiprocessing
+import numpy as np
 
 
 def pytest_collection_modifyitems(items):
@@ -84,3 +85,26 @@ def random_seed(request):
     print(f'Random seed used: {test_seed}')
     yield test_seed
     print(f'Random seed used: {test_seed}')
+
+
+@pytest.fixture
+def umi_send(random_seed):
+
+    def setup(host_num, num_packets_to_send, num_out_ports):
+        np.random.seed(random_seed)
+
+        umi = UmiTxRx(f'client2rtl_{host_num}.q', '')
+        tee = UmiTxRx(f'tee_{host_num}.q', '')
+
+        for count in range(num_packets_to_send):
+            dstport = np.random.randint(num_out_ports)
+            dstaddr = (2**8)*np.random.randint(2**32) + dstport*(2**40)
+            srcaddr = (2**8)*np.random.randint(2**32) + host_num*(2**40)
+            txp = random_umi_packet(dstaddr=dstaddr, srcaddr=srcaddr)
+            print(f"port {host_num} sending #{count} cmd: 0x{txp.cmd:08x}"
+                  f"srcaddr: 0x{srcaddr:08x} dstaddr: 0x{dstaddr:08x} to port {dstport}")
+            # send the packet to both simulation and local queues
+            umi.send(txp)
+            tee.send(txp)
+
+    return setup
