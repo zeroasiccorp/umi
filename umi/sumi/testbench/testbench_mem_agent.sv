@@ -28,6 +28,8 @@ module testbench (
 `endif
 );
 
+`include "switchboard.vh"
+
    parameter integer RW=32;
    parameter integer DW=256;
    parameter integer AW=64;
@@ -36,6 +38,7 @@ module testbench (
    parameter integer RAMDEPTH=512;
 
    localparam PERIOD_CLK   = 10;
+   localparam RST_CYCLES   = 16;
 
 `ifndef VERILATOR
     // Generate clock for non verilator sim tools
@@ -46,9 +49,19 @@ module testbench (
     always #(PERIOD_CLK/2) clk = ~clk;
 `endif
 
+   // Reset control
+   reg [RST_CYCLES:0]   nreset_vec;
+   wire                 nreset;
+   wire                 initdone;
+
+   assign nreset = nreset_vec[RST_CYCLES-1];
+   assign initdone = nreset_vec[RST_CYCLES];
+
+   initial
+      nreset_vec = 'b1;
+   always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
+
    /*AUTOWIRE*/
-   reg                  nreset;
-   reg                  go;
 
    wire                 udev_resp_ready;
    wire [CW-1:0]        udev_resp_cmd;
@@ -78,7 +91,7 @@ module testbench (
                   .srcaddr(udev_req_srcaddr[AW-1:0]),
                   .dstaddr(udev_req_dstaddr[AW-1:0]),
                   .cmd(udev_req_cmd[CW-1:0]),
-                  .ready(udev_req_ready),
+                  .ready(udev_req_ready & initdone),
                   .valid(udev_req_valid)
                   );
 
@@ -91,11 +104,13 @@ module testbench (
                   .dstaddr(udev_resp_dstaddr[AW-1:0]),
                   .cmd(udev_resp_cmd[CW-1:0]),
                   .ready(udev_resp_ready),
-                  .valid(udev_resp_valid)
+                  .valid(udev_resp_valid & initdone)
                   );
 
    // instantiate dut with UMI ports
    /* umi_mem_agent AUTO_TEMPLATE(
+    .udev_req_valid     (udev_req_valid & initdone),
+    .udev_resp_ready    (udev_resp_ready & initdone),
     );*/
    umi_mem_agent #(.CW(CW),
                    .AW(AW),
@@ -114,12 +129,12 @@ module testbench (
                    .clk                 (clk),
                    .nreset              (nreset),
                    .sram_ctrl           (sram_ctrl[CTRLW-1:0]),
-                   .udev_req_valid      (udev_req_valid),
+                   .udev_req_valid      (udev_req_valid & initdone),
                    .udev_req_cmd        (udev_req_cmd[CW-1:0]),
                    .udev_req_dstaddr    (udev_req_dstaddr[AW-1:0]),
                    .udev_req_srcaddr    (udev_req_srcaddr[AW-1:0]),
                    .udev_req_data       (udev_req_data[DW-1:0]),
-                   .udev_resp_ready     (udev_resp_ready));
+                   .udev_resp_ready     (udev_resp_ready & initdone));
 
             // Initialize UMI
    integer valid_mode, ready_mode;
@@ -142,38 +157,15 @@ module testbench (
       /* verilator lint_on IGNOREDRETURN */
    end
 
-   // VCD
-
-   initial
-     begin
-        nreset   = 1'b0;
-        go       = 1'b0;
-     end // initial begin
-
-   // Bring up reset and the go signal on the first clock cycle
-   always @(negedge clk)
-     begin
-        nreset <= nreset | 1'b1;
-        go <= 1'b1;
-     end
-
-   // control block
-   initial
-     begin
-        if ($test$plusargs("trace"))
-          begin
-             $dumpfile("testbench.fst");
-             $dumpvars(0, testbench);
-          end
-     end
+   // waveform dump
+   `SB_SETUP_PROBES
 
    // auto-stop
-
    auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("../rtl" )
+// verilog-library-directories:("../rtl")
 // End:
 
 `default_nettype wire

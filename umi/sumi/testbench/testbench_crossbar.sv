@@ -37,6 +37,7 @@ module testbench
    localparam N = PORTS;
 
    localparam PERIOD_CLK   = 10;
+   localparam RST_CYCLES   = 16;
 
 `ifndef VERILATOR
     // Generate clock for non verilator sim tools
@@ -47,8 +48,19 @@ module testbench
     always #(PERIOD_CLK/2) clk = ~clk;
 `endif
 
+   // Reset control
+   reg [RST_CYCLES:0]   nreset_vec;
+   wire                 nreset;
+   wire                 initdone;
+
+   assign nreset = nreset_vec[RST_CYCLES-1];
+   assign initdone = nreset_vec[RST_CYCLES];
+
+   initial
+      nreset_vec = 'b1;
+   always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
+
    /*AUTOWIRE*/
-   reg               nreset;
    wire [N*N-1:0]    umi_in_request;
 
    wire [N-1:0]      umi_in_valid;
@@ -80,7 +92,7 @@ module testbench
                      .srcaddr(umi_in_srcaddr[i*AW+:AW]),
                      .dstaddr(umi_in_dstaddr[i*AW+:AW]),
                      .cmd(umi_in_cmd[i*CW+:CW]),
-                     .ready(umi_in_ready[i]),
+                     .ready(umi_in_ready[i] & initdone),
                      .valid(umi_in_valid[i]));
 
            assign umi_in_data[i*DW+256+:256] = 'h0;
@@ -99,15 +111,17 @@ module testbench
                      .dstaddr(umi_out_dstaddr[i*AW+:AW]),
                      .cmd(umi_out_cmd[i*CW+:CW]),
                      .ready(umi_out_ready[i]),
-                     .valid(umi_out_valid[i])
+                     .valid(umi_out_valid[i] & initdone)
                      );
         end
    endgenerate
 
    // instantiate dut with UMI ports
    /* umi_crossbar AUTO_TEMPLATE(
-    .mode (2'b10),
-    .mask ({@"vl-width"{1'b0}}),
+    .mode           (2'b10),
+    .mask           ({@"vl-width"{1'b0}}),
+    .umi_in_request ({@"vl-width"{initdone}}),
+    .umi_out_ready  (umi_out_ready & {@"vl-width"{initdone}}),
     );*/
    umi_crossbar #(.CW(CW),
                   .AW(AW),
@@ -126,12 +140,12 @@ module testbench
                   .nreset               (nreset),
                   .mode                 (2'b10),                 // Templated
                   .mask                 ({(1+(N*N-1)){1'b0}}),   // Templated
-                  .umi_in_request       (umi_in_request[N*N-1:0]),
+                  .umi_in_request       (umi_in_request[N*N-1:0] & {(N*N){initdone}}),
                   .umi_in_cmd           (umi_in_cmd[N*CW-1:0]),
                   .umi_in_dstaddr       (umi_in_dstaddr[N*AW-1:0]),
                   .umi_in_srcaddr       (umi_in_srcaddr[N*AW-1:0]),
                   .umi_in_data          (umi_in_data[N*DW-1:0]),
-                  .umi_out_ready        (umi_out_ready[N-1:0]));
+                  .umi_out_ready        (umi_out_ready & {N{initdone}}));
 
    // Initialize UMI
    integer valid_mode, ready_mode;
@@ -171,19 +185,6 @@ module testbench
         portif[3].umi_rx_i.set_valid_mode(valid_mode);
         portif[3].umi_tx_i.init("rtl2client_3.q");
         portif[3].umi_tx_i.set_ready_mode(ready_mode);
-     end
-
-   // VCD
-
-   initial
-     begin
-        nreset   = 1'b0;
-     end // initial begin
-
-   // Bring up reset and the go signal on the first clock cycle
-   always @(negedge clk)
-     begin
-        nreset <= nreset | 1'b1;
      end
 
    // waveform dump
