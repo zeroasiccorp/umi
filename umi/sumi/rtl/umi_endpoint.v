@@ -118,7 +118,6 @@ module umi_endpoint
    reg [AW-1:0]         dstaddr_pipe;
    reg [AW-1:0]         srcaddr_pipe;
    reg [DW-1:0]         data_pipe;
-   wire                 ready_gated;
 
    // local wires
    wire                 request_stall;
@@ -195,22 +194,16 @@ module umi_endpoint
               // Inputs
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
-   assign loc_read   = ready_gated & cmd_read & udev_req_valid & ~request_stall;
-   assign loc_write  = ready_gated & (cmd_write | cmd_write_posted) & udev_req_valid & ~request_stall;
-   assign loc_atomic = ready_gated & cmd_atomic & udev_req_valid & ~request_stall;
-   assign loc_resp   = ready_gated & (cmd_read | cmd_write | cmd_atomic) & udev_req_valid & loc_ready & ~request_stall;
+   assign loc_read   = cmd_read & udev_req_valid & ~request_stall;
+   assign loc_write  = (cmd_write | cmd_write_posted) & udev_req_valid & ~request_stall;
+   assign loc_atomic = cmd_atomic & udev_req_valid & ~request_stall;
+   assign loc_resp   = (cmd_read | cmd_write | cmd_atomic) & udev_req_valid & loc_ready & ~request_stall;
 
    //############################
    //# Outgoing Transaction
    //############################
 
-   // Propagating wait signal
-   // Since this is a pipeline we hold the request if we cannot respond
-   la_rsync la_rsync(.nrst_out          (ready_gated),
-                     .clk               (clk),
-                     .nrst_in           (nreset));
-
-   assign udev_req_ready = ready_gated & loc_ready & ~request_stall;
+   assign udev_req_ready = loc_ready & ~request_stall;
 
    //#############################
    //# Pipeline Packet
