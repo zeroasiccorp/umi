@@ -108,3 +108,52 @@ def umi_send(random_seed):
             tee.send(txp)
 
     return setup
+
+
+@pytest.fixture
+def apply_atomic():
+
+    def setup(origdata, atomicdata, operation, maxrange):
+        tempval = origdata
+        if (operation == 0):
+            tempval = origdata + atomicdata
+            if (tempval >= maxrange):
+                tempval = tempval - maxrange
+        elif (operation == 1):
+            tempval = origdata & atomicdata
+        elif (operation == 2):
+            tempval = origdata | atomicdata
+        elif (operation == 3):
+            tempval = origdata ^ atomicdata
+        elif (operation == 4):
+            if (origdata & (maxrange >> 1)):
+                origdata = int(origdata) - int(maxrange)
+            else:
+                origdata = int(origdata)
+            if (atomicdata & (maxrange >> 1)):
+                atomicdata = int(atomicdata) - int(maxrange)
+            else:
+                atomicdata = int(atomicdata)
+            tempval = origdata if (origdata > atomicdata) else atomicdata
+        elif (operation == 5):
+            if (origdata & (maxrange >> 1)):
+                origdata = int(origdata) - int(maxrange)
+            else:
+                origdata = int(origdata)
+            if (atomicdata & (maxrange >> 1)):
+                atomicdata = int(atomicdata) - int(maxrange)
+            else:
+                atomicdata = int(atomicdata)
+            tempval = atomicdata if (origdata > atomicdata) else origdata
+        elif (operation == 6):
+            tempval = origdata if (origdata > atomicdata) else atomicdata
+        elif (operation == 7):
+            tempval = atomicdata if (origdata > atomicdata) else origdata
+        elif (operation == 8):
+            tempval = atomicdata
+        else:
+            tempval = atomicdata
+
+        return tempval
+
+    return setup

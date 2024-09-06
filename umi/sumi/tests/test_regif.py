@@ -8,51 +8,7 @@ import numpy as np
 from switchboard import UmiTxRx
 
 
-def apply_atomic(origdata, atomicdata, operation, maxrange):
-    tempval = origdata
-    if (operation == 0):
-        tempval = origdata + atomicdata
-        if (tempval >= maxrange):
-            tempval = tempval - maxrange
-    elif (operation == 1):
-        tempval = origdata & atomicdata
-    elif (operation == 2):
-        tempval = origdata | atomicdata
-    elif (operation == 3):
-        tempval = origdata ^ atomicdata
-    elif (operation == 4):
-        if (origdata & (maxrange >> 1)):
-            origdata = int(origdata) - int(maxrange)
-        else:
-            origdata = int(origdata)
-        if (atomicdata & (maxrange >> 1)):
-            atomicdata = int(atomicdata) - int(maxrange)
-        else:
-            atomicdata = int(atomicdata)
-        tempval = origdata if (origdata > atomicdata) else atomicdata
-    elif (operation == 5):
-        if (origdata & (maxrange >> 1)):
-            origdata = int(origdata) - int(maxrange)
-        else:
-            origdata = int(origdata)
-        if (atomicdata & (maxrange >> 1)):
-            atomicdata = int(atomicdata) - int(maxrange)
-        else:
-            atomicdata = int(atomicdata)
-        tempval = atomicdata if (origdata > atomicdata) else origdata
-    elif (operation == 6):
-        tempval = origdata if (origdata > atomicdata) else atomicdata
-    elif (operation == 7):
-        tempval = atomicdata if (origdata > atomicdata) else origdata
-    elif (operation == 8):
-        tempval = atomicdata
-    else:
-        tempval = atomicdata
-
-    return tempval
-
-
-def test_regif(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_regif(sumi_dut, apply_atomic, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
     n = 100  # Number of reads, atomic txns and writes each from the register file
 
