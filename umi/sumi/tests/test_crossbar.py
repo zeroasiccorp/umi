@@ -9,27 +9,8 @@ import random
 from switchboard import UmiTxRx, random_umi_packet, delete_queue
 
 
-def umi_send(x, n, ports, seed):
-
-    random.seed(seed)
-
-    umi = UmiTxRx(f'client2rtl_{x}.q', '')
-    tee = UmiTxRx(f'tee_{x}.q', '')
-
-    for count in range(n):
-        dstport = random.randint(0, ports-1)
-        dstaddr = (2**8)*random.randint(0, (2**32)-1) + dstport*(2**40)
-        srcaddr = (2**8)*random.randint(0, (2**32)-1) + x*(2**40)
-        txp = random_umi_packet(dstaddr=dstaddr, srcaddr=srcaddr)
-        print(f"port {x} sending #{count} cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} "
-              f"dstaddr: 0x{dstaddr:08x} to port {dstport}")
-        # send the packet to both simulation and local queues
-        umi.send(txp)
-        tee.send(txp)
-
-
 @pytest.mark.skip(reason="Crossbar asserts output valid even when in reset")
-def test_crossbar(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_crossbar(sumi_dut, umi_send, sb_umi_valid_mode, sb_umi_ready_mode):
     n = 100
     ports = 4
     for x in range(ports):
@@ -56,7 +37,8 @@ def test_crossbar(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
     procs = []
     for x in range(ports):
-        procs.append(multiprocessing.Process(target=umi_send, args=(x, n, ports, (random_seed+x),)))
+        procs.append(multiprocessing.Process(target=umi_send,
+                                             args=(x, n, ports,)))
 
     for proc in procs:
         proc.start()
