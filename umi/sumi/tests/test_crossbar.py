@@ -5,8 +5,7 @@
 
 import pytest
 import multiprocessing
-import random
-from switchboard import UmiTxRx, random_umi_packet, delete_queue
+from switchboard import UmiTxRx, delete_queue
 
 
 @pytest.mark.skip(reason="Crossbar asserts output valid even when in reset")
