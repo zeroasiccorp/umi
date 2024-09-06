@@ -38,6 +38,21 @@ module umi_arbiter
    wire [N-1:0]        spec_requests;
    genvar              i;
 
+   // NOTE: The thermometer mask works correctly in case of a collision
+   // that is followed by a single request from a masked source.
+   // Consider, 4 requestors but only 0 and 1 are requesting:
+   // cycle 0: req[0] = 1, req[1] = 1, grants[0] = 1, grants[1] = 0, collision = 1, therm = 4'b0000
+   // cycle 1: req[0] = 0, req[1] = 1, grants[0] = 0, grants[1] = 1, collision = 0, therm = 4'b0001
+   // cycle 2: req[0] = 1, req[1] = 0, grants[0] = 0, grants[1] = 0, collision = 1, therm = 4'b0001
+   // cycle 3: req[0] = 1, req[1] = 0, grants[0] = 0, grants[1] = 0, collision = 1, therm = 4'b0011
+   // cycle 4: req[0] = 1, req[1] = 0, grants[0] = 0, grants[1] = 0, collision = 1, therm = 4'b0111
+   // cycle 5: req[0] = 1, req[1] = 0, grants[0] = 1, grants[1] = 0, collision = 0, therm = 4'b0000
+   // Here, after cycle 0, requestor 0 was masked due to a collision with
+   // requestor 1. When requestor 0 sends its second request with no other
+   // requestors trying, it incurs a 3 cycle penalty for the thermometer to
+   // fill up. While the 3 cycle penalty is detrimental to performance the
+   // system does not hang.
+
    // Thermometer mask that gets hotter with every collision
    // wraps to zero when all ones
    generate if (N > 1)
