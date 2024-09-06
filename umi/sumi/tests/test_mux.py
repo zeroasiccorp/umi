@@ -90,7 +90,6 @@ def test_round_robin_arb(sumi_dut):
 
     # Instantiate TX and RX queues
     inq = [UmiTxRx(f'client2rtl_{x}.q', '', fresh=True) for x in range(2)]
-    outq = UmiTxRx('', f'rtl2client_0.q', fresh=True)
 
     # launch the simulation
     sumi_dut.simulate(
