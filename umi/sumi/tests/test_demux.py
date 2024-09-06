@@ -5,39 +5,22 @@
 
 import pytest
 import multiprocessing
-import numpy as np
-from switchboard import UmiTxRx, random_umi_packet, delete_queue
-
-
-def umi_send(umi_q, n, ports, seed):
-
-    np.random.seed(seed)
-
-    tee = [UmiTxRx(f'tee_{x}.q', '') for x in range(ports)]
-
-    for count in range(n*ports):
-        dstport = np.random.randint(0, ports)
-        dstaddr = (2**8)*np.random.randint(0, 2**32) + (2**(40+dstport))
-        srcaddr = (2**8)*np.random.randint(0, 2**32) + (2**(40+ports))
-        txp = random_umi_packet(dstaddr=dstaddr, srcaddr=srcaddr)
-        print(f"Sending #{count} cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} "
-              f"dstaddr: 0x{dstaddr:08x} to port {dstport}")
-        # send the packet to both simulation and local queues
-        umi_q.send(txp)
-        tee[dstport].send(txp)
+from switchboard import UmiTxRx, delete_queue
+from umi_common import umi_send
 
 
 def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
-    n = 100
-    ports = 4
+    n = 4000 # Number of transactions to be sent to each demux input port
+    in_ports = 1 # Number of input ports. Fixed to 1 for demux
+    out_ports = 4 # Number of output ports. Must match testbench
 
-    for x in range(ports):
+    for x in range(in_ports):
+        delete_queue(f'client2rtl_{x}.q')
         delete_queue(f'tee_{x}.q')
 
     # Instantiate TX and RX queues
-    umi = UmiTxRx('client2rtl_0.q', '', fresh=True)
-    recvq = [UmiTxRx('', f'rtl2client_{x}.q', fresh=True) for x in range(ports)]
-    tee = [UmiTxRx('', f'tee_{x}.q') for x in range(ports)]
+    umi = [UmiTxRx('', f'rtl2client_{x}.q', fresh=True) for x in range(out_ports)]
+    tee = [UmiTxRx('', f'tee_{x}.q') for x in range(in_ports)]
 
     # launch the simulation
     sumi_dut.simulate(
@@ -47,20 +30,20 @@ def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
     print("### Starting test ###")
 
     send_proc = multiprocessing.Process(target=umi_send,
-                                        args=(umi, n, ports, random_seed,))
+                                        args=(0, n, out_ports, random_seed,))
 
     send_proc.start()
 
-    recv_queue = [[] for i in range(ports)]
-    send_queue = [[] for i in range(ports)]
+    recv_queue = [[] for i in range(out_ports)]
+    send_queue = [[] for i in range(out_ports)]
 
     nrecv = 0
     nsend = 0
-    while (nrecv < ports*n) or (nsend < ports*n):
-        for i in range(ports):
-            rxp = recvq[i].recv(blocking=False)
+    while (nrecv < in_ports*n) or (nsend < in_ports*n):
+        for i in range(out_ports):
+            rxp = umi[i].recv(blocking=False)
             if rxp is not None:
-                if nrecv >= ports*n:
+                if nrecv >= in_ports*n:
                     print(f'Unexpected packet received {nrecv}')
                     raise Exception(f'Unexpected packet received {nrecv}')
                 else:
@@ -70,19 +53,20 @@ def test_demux(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
                     recv_queue[i].append(rxp)
                     nrecv += 1
 
-        for i in range(ports):
+        for i in range(in_ports):
             txp = tee[i].recv(blocking=False)
             if txp is not None:
-                if nsend >= ports*n:
+                if nsend >= in_ports*n:
                     raise Exception('Unexpected packet sent')
                 else:
-                    send_queue[i].append(txp)
+                    send_dst = (txp.dstaddr >> 40)
+                    send_queue[send_dst].append(txp)
                     nsend += 1
 
     # join Tx sender
     send_proc.join()
 
-    for i in range(ports):
+    for i in range(out_ports):
         if len(send_queue[i]) != len(recv_queue[i]):
             print(f"packets sent: {len(send_queue[i])} packets received: {len(recv_queue[i])}")
         assert len(send_queue[i]) == len(recv_queue[i])

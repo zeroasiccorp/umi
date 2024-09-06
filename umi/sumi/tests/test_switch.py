@@ -5,56 +5,29 @@
 
 import pytest
 import multiprocessing
-import numpy as np
-from switchboard import UmiTxRx, random_umi_packet, delete_queue
-
-
-def umi_send(x, n, out_ports, seed):
-
-    np.random.seed(seed)
-
-    umi = UmiTxRx(f'client2rtl_{x}.q', '')
-    tee = UmiTxRx(f'tee_{x}.q', '')
-
-    for count in range(n):
-        dstport = np.random.randint(out_ports)
-        dstaddr = (2**8)*np.random.randint(2**32) + dstport*(2**40)
-        srcaddr = (2**8)*np.random.randint(2**32) + x*(2**40)
-        txp = random_umi_packet(dstaddr=dstaddr, srcaddr=srcaddr)
-        print(f"port {x} sending #{count} cmd: 0x{txp.cmd:08x} srcaddr: 0x{srcaddr:08x} "
-              f"dstaddr: 0x{dstaddr:08x} to port {dstport}")
-        # send the packet to both simulation and local queues
-        umi.send(txp)
-        tee.send(txp)
+from switchboard import UmiTxRx, delete_queue
+from umi_common import umi_send
 
 
 def test_switch(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
-    n = 1000
-    in_ports = 4
-    out_ports = 2
+    n = 1000 # Number of transactions to be sent to each switch input port
+    in_ports = 4 # Number of input ports. Must match testbench
+    out_ports = 2 # Number of output ports. Must match testbench
 
     for x in range(in_ports):
         delete_queue(f'client2rtl_{x}.q')
-
-    for x in range(out_ports):
-        delete_queue(f'rtl2client_{x}.q')
         delete_queue(f'tee_{x}.q')
+
+    # Instantiate TX and RX queues
+    umi = [UmiTxRx('', f'rtl2client_{x}.q', fresh=True) for x in range(out_ports)]
+    tee = [UmiTxRx('', f'tee_{x}.q') for x in range(in_ports)]
 
     # launch the simulation
     sumi_dut.simulate(
             plusargs=[('valid_mode', sb_umi_valid_mode),
                       ('ready_mode', sb_umi_ready_mode)])
 
-    # instantiate TX and RX queues.  note that these can be instantiated without
-    # specifying a URI, in which case the URI can be specified later via the
-    # "init" method
-
-    umi = [UmiTxRx('', f'rtl2client_{x}.q') for x in range(out_ports)]
-    tee = [UmiTxRx('', f'tee_{x}.q') for x in range(in_ports)]
-
     print("### Starting test ###")
-    recv_queue = [[[] for i in range(out_ports)] for j in range(in_ports)]
-    send_queue = [[[] for i in range(out_ports)] for j in range(in_ports)]
 
     procs = []
     for x in range(in_ports):
@@ -63,6 +36,9 @@ def test_switch(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
     for proc in procs:
         proc.start()
+
+    recv_queue = [[[] for i in range(out_ports)] for j in range(in_ports)]
+    send_queue = [[[] for i in range(out_ports)] for j in range(in_ports)]
 
     nrecv = 0
     nsend = 0

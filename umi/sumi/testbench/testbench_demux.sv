@@ -95,7 +95,7 @@ module testbench (
         .ready      (umi_in_ready)
     );
 
-    assign select = umi_in_dstaddr[40+:M];
+    assign select = {{(M-1){1'b0}}, 1'b1}<<umi_in_dstaddr[40+:$clog2(M)];
 
     initial begin
         `ifndef VERILATOR
