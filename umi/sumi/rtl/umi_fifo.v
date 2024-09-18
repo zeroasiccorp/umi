@@ -67,25 +67,19 @@ module umi_fifo
    wire             fifo_write;
    wire [DW+AW+AW+CW-1:0] fifo_dout;
    wire             fifo_in_ready;
-   wire             sync_nreset;
 
    //#################################
    // UMI Control Logic
    //#################################
 
-   // CHIPS-399 block fifo input and ready during reset
-   la_rsync la_rsync_i (.clk(umi_in_clk),
-                        .nrst_in (umi_in_nreset),
-                        .nrst_out (sync_nreset));
-
    // Read FIFO when ready (blocked inside fifo when empty)
    assign fifo_read = ~fifo_empty & umi_out_ready;
 
    // Write fifo when high (blocked inside fifo when full)
-   assign fifo_write = ~fifo_full & umi_in_valid & sync_nreset;
+   assign fifo_write = ~fifo_full & umi_in_valid;
 
    // FIFO pushback
-   assign fifo_in_ready = ~fifo_full & sync_nreset;
+   assign fifo_in_ready = ~fifo_full;
 
    //#################################
    // Standard Dual Clock FIFO
@@ -101,7 +95,7 @@ module umi_fifo
           .wr_clk       (umi_in_clk),
           .wr_nreset    (umi_in_nreset),
           .wr_din       ({umi_in_data[DW-1:0],umi_in_srcaddr[AW-1:0],umi_in_dstaddr[AW-1:0],umi_in_cmd[CW-1:0]}),
-          .wr_en        (umi_in_valid & sync_nreset),
+          .wr_en        (umi_in_valid),
           .wr_chaosmode (chaosmode),
           .rd_clk       (umi_out_clk),
           .rd_nreset    (umi_out_nreset),

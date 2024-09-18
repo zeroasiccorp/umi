@@ -38,6 +38,7 @@ module testbench (
    parameter integer RAMDEPTH=512;
 
    localparam PERIOD_CLK   = 10;
+   localparam RST_CYCLES   = 16;
 
 `ifndef VERILATOR
     // Generate clock for non verilator sim tools
@@ -48,8 +49,19 @@ module testbench (
     always #(PERIOD_CLK/2) clk = ~clk;
 `endif
 
+   // Reset control
+   reg [RST_CYCLES:0]   nreset_vec;
+   wire                 nreset;
+   wire                 initdone;
+
+   assign nreset = nreset_vec[RST_CYCLES-1];
+   assign initdone = nreset_vec[RST_CYCLES];
+
+   initial
+      nreset_vec = 'b1;
+   always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
+
    /*AUTOWIRE*/
-   reg                  nreset;
 
    wire [AW-1:0]        reg_addr;
    wire [RW-1:0]        reg_rddata;
@@ -84,7 +96,7 @@ module testbench (
                   .srcaddr(udev_req_srcaddr[AW-1:0]),
                   .dstaddr(udev_req_dstaddr[AW-1:0]),
                   .cmd(udev_req_cmd[CW-1:0]),
-                  .ready(udev_req_ready),
+                  .ready(udev_req_ready & initdone),
                   .valid(udev_req_valid)
                   );
 
@@ -97,14 +109,16 @@ module testbench (
                   .dstaddr(udev_resp_dstaddr[AW-1:0]),
                   .cmd(udev_resp_cmd[CW-1:0]),
                   .ready(udev_resp_ready),
-                  .valid(udev_resp_valid)
+                  .valid(udev_resp_valid & initdone)
                   );
 
    // instantiate dut with UMI ports
    /* umi_regif AUTO_TEMPLATE(
-    .reg_opcode (), // Future use
-    .reg_size   (), // Future use
-    .reg_len    (), // Future use
+    .udev_req_valid     (udev_req_valid & initdone),
+    .udev_resp_ready    (udev_resp_ready & initdone),
+    .reg_opcode         (), // Future use
+    .reg_size           (), // Future use
+    .reg_len            (), // Future use
     );*/
    umi_regif #(.CW(CW),
                .AW(AW),
@@ -128,12 +142,12 @@ module testbench (
                // Inputs
                .clk             (clk),
                .nreset          (nreset),
-               .udev_req_valid  (udev_req_valid),
+               .udev_req_valid  (udev_req_valid & initdone),
                .udev_req_cmd    (udev_req_cmd[CW-1:0]),
                .udev_req_dstaddr(udev_req_dstaddr[AW-1:0]),
                .udev_req_srcaddr(udev_req_srcaddr[AW-1:0]),
                .udev_req_data   (udev_req_data[DW-1:0]),
-               .udev_resp_ready (udev_resp_ready),
+               .udev_resp_ready (udev_resp_ready & initdone),
                .reg_rddata      (reg_rddata[RW-1:0]));
 
    la_spram #(.DW    (RW),               // Memory width
@@ -177,23 +191,11 @@ module testbench (
       /* verilator lint_on IGNOREDRETURN */
    end
 
-   // reset
-   initial
-     begin
-        nreset   = 1'b0;
-     end // initial begin
+   // waveform dump
+   `SB_SETUP_PROBES
 
-   // Bring up reset on the first clock cycle
-   always @(negedge clk)
-     begin
-        nreset <= nreset | 1'b1;
-     end
-
-    // waveform dump
-    `SB_SETUP_PROBES
-
-    // auto-stop
-    auto_stop_sim auto_stop_sim_i (.clk(clk));
+   // auto-stop
+   auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 // Local Variables:

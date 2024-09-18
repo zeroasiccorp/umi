@@ -64,7 +64,6 @@ module umi_crossbar
 
    wire [N*N-1:0]    grants;
    reg [N-1:0]       umi_ready;
-   wire              ready_gated;
    wire [N*N-1:0]    umi_out_sel;
    genvar            i;
 
@@ -110,11 +109,7 @@ module umi_crossbar
                                             (~grants[j+N*k] | ~umi_out_ready[k]));
      end
 
-   la_rsync la_rsync(.nrst_out          (ready_gated),
-                     .clk               (clk),
-                     .nrst_in           (nreset));
-
-   assign umi_in_ready[N-1:0] = {N{ready_gated}} & umi_ready[N-1:0];
+   assign umi_in_ready[N-1:0] = umi_ready[N-1:0];
 
    //##############################
    // Mux on all outputs

@@ -8,7 +8,6 @@ import multiprocessing
 from switchboard import UmiTxRx, delete_queue
 
 
-@pytest.mark.skip(reason="Crossbar asserts output valid even when in reset")
 def test_crossbar(sumi_dut, umi_send, sb_umi_valid_mode, sb_umi_ready_mode):
     n = 100
     ports = 4
