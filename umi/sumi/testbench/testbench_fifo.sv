@@ -28,6 +28,8 @@ module testbench (
 `endif
 );
 
+`include "switchboard.vh"
+
    parameter integer DW=128;
    parameter integer AW=64;
    parameter integer CW=32;
@@ -35,6 +37,7 @@ module testbench (
    parameter integer DEPTH=1;
 
    localparam PERIOD_CLK   = 10;
+   localparam RST_CYCLES   = 16;
 
 `ifndef VERILATOR
     // Generate clock for non verilator sim tools
@@ -44,6 +47,18 @@ module testbench (
         clk  = 1'b0;
     always #(PERIOD_CLK/2) clk = ~clk;
 `endif
+
+   // Reset control
+   reg [RST_CYCLES:0]   nreset_vec;
+   wire                 nreset;
+   wire                 initdone;
+
+   assign nreset = nreset_vec[RST_CYCLES-1];
+   assign initdone = nreset_vec[RST_CYCLES];
+
+   initial
+      nreset_vec = 'b1;
+   always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -60,7 +75,6 @@ module testbench (
    wire [AW-1:0]        umi_resp_in_srcaddr;
    wire                 umi_resp_in_valid;
    // End of automatics
-   reg               nreset;
 
    wire [CTRLW-1:0]  sram_ctrl = 8'b0;
 
@@ -90,7 +104,7 @@ module testbench (
                   .srcaddr(umi_req_in_srcaddr[AW-1:0]),
                   .dstaddr(umi_req_in_dstaddr[AW-1:0]),
                   .cmd(umi_req_in_cmd[CW-1:0]),
-                  .ready(umi_req_in_ready),
+                  .ready(umi_req_in_ready & initdone),
                   .valid(umi_req_in_valid)
                   );
 
@@ -103,13 +117,14 @@ module testbench (
                   .dstaddr(umi_resp_out_dstaddr[AW-1:0]),
                   .cmd(umi_resp_out_cmd[CW-1:0]),
                   .ready(umi_resp_out_ready),
-                  .valid(umi_resp_out_valid)
+                  .valid(umi_resp_out_valid & initdone)
                   );
 
    // instantiate dut with UMI ports
    /* umi_fifo AUTO_TEMPLATE(
     .umi_.*_clk     (clk),
     .umi_.*_nreset  (nreset),
+    .umi_in_valid   (umi_req_in_valid & initdone),
     .umi_in_\(.*\)  (umi_req_in_\1[]),
     .umi_out_\(.*\) (umi_req_out_\1[]),
     .bypass         ('b0),
@@ -136,7 +151,7 @@ module testbench (
                  .chaosmode             ('b0),                   // Templated
                  .umi_in_clk            (clk),                   // Templated
                  .umi_in_nreset         (nreset),                // Templated
-                 .umi_in_valid          (umi_req_in_valid),      // Templated
+                 .umi_in_valid          (umi_req_in_valid & initdone), // Templated
                  .umi_in_cmd            (umi_req_in_cmd[CW-1:0]), // Templated
                  .umi_in_dstaddr        (umi_req_in_dstaddr[AW-1:0]), // Templated
                  .umi_in_srcaddr        (umi_req_in_srcaddr[AW-1:0]), // Templated
@@ -179,6 +194,7 @@ module testbench (
     .umi_.*_clk     (clk),
     .umi_.*_nreset  (nreset),
     .umi_in_\(.*\)  (umi_resp_in_\1[]),
+    .umi_out_ready  (umi_resp_out_ready & initdone),
     .umi_out_\(.*\) (umi_resp_out_\1[]),
     .bypass         ('b0),
     .chaosmode      ('b0),
@@ -211,7 +227,7 @@ module testbench (
                  .umi_in_data           (umi_resp_in_data[DW-1:0]), // Templated
                  .umi_out_clk           (clk),                   // Templated
                  .umi_out_nreset        (nreset),                // Templated
-                 .umi_out_ready         (umi_resp_out_ready),    // Templated
+                 .umi_out_ready         (umi_resp_out_ready & initdone), // Templated
                  .vdd                   (),                      // Templated
                  .vss                   ());                     // Templated
 
@@ -236,31 +252,11 @@ module testbench (
       /* verilator lint_on IGNOREDRETURN */
    end
 
-   // VCD
-
-   initial
-     begin
-        nreset   = 1'b0;
-     end // initial begin
-
-   always @(negedge clk)
-     begin
-        nreset <= nreset | 1'b1;
-     end
-
-   // control block
-   initial
-     begin
-        if ($test$plusargs("trace"))
-          begin
-             $dumpfile("testbench.fst");
-             $dumpvars(0, testbench);
-          end
-     end
+   // waveform dump
+   `SB_SETUP_PROBES
 
    // auto-stop
-
-   auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));
+   auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 // Local Variables:

@@ -102,7 +102,6 @@ module umi_fifo_flex
    wire                    fifo_in_ready;
    wire [7:0]              latch_len;
    wire [8:0]              cmd_len_plus_one;
-   wire                    fifo_out_of_reset;
    wire [AW-1:0]           addr_mask;
    wire [AW-1:0]           dstaddr_masked;
 
@@ -560,7 +559,7 @@ module umi_fifo_flex
    assign fifo_read = ~fifo_empty & umi_out_ready;
 
    // Write fifo when high (blocked inside fifo when full)
-   assign fifo_write = ~fifo_full & fifo_out_of_reset & latch2fifo_valid;
+   assign fifo_write = ~fifo_full & latch2fifo_valid;
 
    // FIFO pushback
    assign fifo_in_ready = ~fifo_full & latch2fifo_ready;
@@ -625,13 +624,6 @@ module umi_fifo_flex
      end
    endgenerate
 
-   la_drsync la_drsync_i (
-       .clk     (umi_in_clk),
-       .nreset  (umi_in_nreset),
-       .in      (1'b1),
-       .out     (fifo_out_of_reset)
-   );
-
    //#################################
    // FIFO Bypass
    //#################################
@@ -644,10 +636,8 @@ module umi_fifo_flex
    assign umi_out_srcaddr[AW-1:0] = (bypass | ~(|DEPTH)) ? latch2fifo_srcaddr[AW-1:0] : fifo_dout[CW+AW+:AW];
    assign umi_out_data[ODW-1:0]   = (bypass | ~(|DEPTH)) ? latch2fifo_data[ODW-1:0] : fifo_dout[CW+AW+AW+:ODW];
 
-   assign umi_out_valid           = ~fifo_out_of_reset ? 1'b0 :
-                                    (bypass | ~(|DEPTH)) ? latch2fifo_valid : ~fifo_empty;
-   assign umi_in_ready            = ~fifo_out_of_reset ? 1'b0 :
-                                    (bypass | ~(|DEPTH)) ? latch2in_ready : fifo_in_ready;
+   assign umi_out_valid           = (bypass | ~(|DEPTH)) ? latch2fifo_valid : ~fifo_empty;
+   assign umi_in_ready            = (bypass | ~(|DEPTH)) ? latch2in_ready : fifo_in_ready;
 
    // debug signals
    assign umi_out_beat = umi_out_valid & umi_out_ready;

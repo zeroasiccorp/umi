@@ -38,6 +38,7 @@ module testbench (
    parameter integer RAMDEPTH=512;
 
    localparam PERIOD_CLK   = 10;
+   localparam RST_CYCLES   = 16;
 
 `ifndef VERILATOR
     // Generate clock for non verilator sim tools
@@ -48,7 +49,17 @@ module testbench (
     always #(PERIOD_CLK/2) clk = ~clk;
 `endif
 
-   reg                  nreset;
+   // Reset control
+   reg [RST_CYCLES:0]   nreset_vec;
+   wire                 nreset;
+   wire                 initdone;
+
+   assign nreset = nreset_vec[RST_CYCLES-1];
+   assign initdone = nreset_vec[RST_CYCLES];
+
+   initial
+      nreset_vec = 'b1;
+   always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
 
    wire [N-1:0]         udev_req_valid;
    wire [N*CW-1:0]      udev_req_cmd;
@@ -98,14 +109,14 @@ module testbench (
                        .dstaddr(udev_req_dstaddr[i*AW+:AW]),
                        .srcaddr(udev_req_srcaddr[i*AW+:AW]),
                        .data(udev_req_data[i*DW+:DW]),
-                       .ready(udev_req_ready[i])
+                       .ready(udev_req_ready[i] & initdone)
                        );
 
         umi_tx_sim #(.READY_MODE_DEFAULT(2),
                      .DW(DW)
                      )
         host_umi_tx_i (.clk(clk),
-                       .valid(udev_resp_valid[i]),
+                       .valid(udev_resp_valid[i] & initdone),
                        .cmd(udev_resp_cmd[i*CW+:CW]),
                        .dstaddr(udev_resp_dstaddr[i*AW+:AW]),
                        .srcaddr(udev_resp_srcaddr[i*AW+:AW]),
@@ -127,6 +138,8 @@ module testbench (
 
    // instantiate dut with UMI ports
    /* umi_ram AUTO_TEMPLATE(
+    .udev_req_valid     (udev_req_valid & {@"vl-width"{initdone}}),
+    .udev_resp_ready    (udev_resp_ready & {@"vl-width"{initdone}}),
     );*/
    umi_ram #(.N(N),
              .CW(CW),
@@ -147,34 +160,22 @@ module testbench (
              .nreset              (nreset),
              .mode                (mode),
              .sram_ctrl           (sram_ctrl[CTRLW-1:0]),
-             .udev_req_valid      (udev_req_valid[N-1:0]),
+             .udev_req_valid      (udev_req_valid[N-1:0] & {N{initdone}}),
              .udev_req_cmd        (udev_req_cmd[N*CW-1:0]),
              .udev_req_dstaddr    (udev_req_dstaddr[N*AW-1:0]),
              .udev_req_srcaddr    (udev_req_srcaddr[N*AW-1:0]),
              .udev_req_data       (udev_req_data[N*DW-1:0]),
-             .udev_resp_ready     (udev_resp_ready[N-1:0]));
+             .udev_resp_ready     (udev_resp_ready[N-1:0] & {N{initdone}}));
 
-   // reset
-   initial
-     begin
-        nreset   = 1'b0;
-     end // initial begin
+   // waveform dump
+   `SB_SETUP_PROBES
 
-   // Bring up reset on the first clock cycle
-   always @(negedge clk)
-     begin
-        nreset <= nreset | 1'b1;
-     end
-
-    // waveform dump
-    `SB_SETUP_PROBES
-
-    // auto-stop
-    auto_stop_sim auto_stop_sim_i (.clk(clk));
+   // auto-stop
+   auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("../rtl" )
+// verilog-library-directories:("../rtl")
 // End:
 
 `default_nettype wire
