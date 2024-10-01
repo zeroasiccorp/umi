@@ -1,10 +1,8 @@
 import pytest
 from switchboard import SbDut, UmiTxRx, random_umi_packet
-import os
 from pathlib import Path
 from umi import sumi
 from fasteners import InterProcessLock
-import multiprocessing
 import numpy as np
 
 
@@ -13,26 +11,6 @@ def pytest_collection_modifyitems(items):
         if "sumi_dut" in getattr(item, "fixturenames", ()):
             item.add_marker("switchboard")
             pass
-
-
-@pytest.fixture(autouse=True)
-def test_wrapper(tmp_path):
-    '''
-    Fixture that automatically runs each test in a test-specific temporary
-    directory to avoid clutter.
-    '''
-    try:
-        multiprocessing.set_start_method('fork')
-    except RuntimeError:
-        pass
-
-    topdir = os.getcwd()
-    os.chdir(tmp_path)
-
-    # Run the test.
-    yield
-
-    os.chdir(topdir)
 
 
 @pytest.fixture
@@ -69,22 +47,6 @@ def sumi_dut(build_dir, request):
     yield dut
 
     dut.terminate()
-
-
-def pytest_addoption(parser):
-    parser.addoption("--seed", type=int, action="store", help="Provide a fixed seed")
-
-
-@pytest.fixture
-def random_seed(request):
-    fixed_seed = request.config.getoption("--seed")
-    if fixed_seed is not None:
-        test_seed = fixed_seed
-    else:
-        test_seed = os.getpid()
-    print(f'Random seed used: {test_seed}')
-    yield test_seed
-    print(f'Random seed used: {test_seed}')
 
 
 @pytest.fixture
