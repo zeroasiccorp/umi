@@ -10,7 +10,7 @@ from switchboard import UmiTxRx
 import pytest
 
 
-def test_lumi_rnd(lumi_dut, chip_topo, random_seed):
+def test_lumi_rnd(lumi_dut, chip_topo, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
     np.random.seed(random_seed)
 
@@ -21,8 +21,8 @@ def test_lumi_rnd(lumi_dut, chip_topo, random_seed):
     # launch the simulation
     lumi_dut.simulate(
         plusargs=[
-            ('valid_mode', 2),
-            ('ready_mode', 2),
+            ('valid_mode', sb_umi_valid_mode),
+            ('ready_mode', sb_umi_ready_mode),
             ('hostdly', hostdly),
             ('devdly', devdly)
         ]
