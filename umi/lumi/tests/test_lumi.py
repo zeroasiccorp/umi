@@ -5,64 +5,27 @@
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
 import time
-import random
 import numpy as np
-from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue
-from umi import lumi
+from switchboard import UmiTxRx
+import pytest
 
 
-def build_testbench(topo="2d", trace=False):
-    dut = SbDut('testbench', trace=trace, trace_type='fst', default_main=True)
+def test_lumi(lumi_dut, chip_topo, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
-    # Set up inputs
-    dut.input('lumi/testbench/testbench_lumi.sv', package='umi')
-    if topo == '2d':
-        print("### Running 2D topology ###")
-    elif topo == '3d':
-        print("### Running 3D topology ###")
-    else:
-        raise ValueError('Invalid topology')
+    np.random.seed(random_seed)
 
-    dut.use(lumi)
-
-    # Verilator configuration
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'lumi/testbench/config.vlt', package='umi')
-#    dut.set('option', 'relax', True)
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
-
-    # Settings - enable tracing
-    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
-
-    # Build simulator
-    dut.build()
-
-    return dut
-
-
-def main(topo="2d", vldmode="2", rdymode="2", trace=False,
-         host2dut="host2dut_0.q", dut2host="dut2host_0.q", sb2dut="sb2dut_0.q", dut2sb="dut2sb_0.q"):
-    # clean up old queues if present
-    for q in [host2dut, dut2host, sb2dut, dut2sb]:
-        delete_queue(q)
-
-    dut = build_testbench(topo, trace)
-
-    hostdly = random.randrange(500)
-    devdly = random.randrange(500)
+    hostdly = np.random.randint(500)
+    devdly = np.random.randint(500)
+    topo = chip_topo
 
     # launch the simulation
-    dut.simulate(
+    lumi_dut.simulate(
         plusargs=[
-            ('valid_mode', vldmode),
-            ('ready_mode', rdymode),
+            ('valid_mode', sb_umi_valid_mode),
+            ('ready_mode', sb_umi_ready_mode),
             ('hostdly', hostdly),
             ('devdly', devdly)
         ],
-        trace=trace,
         args=['+verilator+seed+100']
     )
 
@@ -70,8 +33,8 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False,
     # specifying a URI, in which case the URI can be specified later via the
     # "init" method
 
-    sb = UmiTxRx(sb2dut, dut2sb)
-    host = UmiTxRx(host2dut, dut2host)
+    sb = UmiTxRx("sb2dut_0.q", "dut2sb_0.q", fresh=True)
+    host = UmiTxRx("host2dut_0.q", "dut2host_0.q", fresh=True)
 
     # Lumi starts in auto configuration based on the link indication from the phy
     # In 2d mode no need to configure anything!
@@ -239,19 +202,40 @@ def main(topo="2d", vldmode="2", rdymode="2", trace=False,
     print(f"Read: 0x{val64:016x}")
     assert val64 == 0xBAADDB0DCAFEFACE
 
+    print("### Read loc Tx req credit unavailable ###")
+    val32 = sb.read(0x70000030, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
+    print("### Read loc Tx resp credit unavailable ###")
+    val32 = sb.read(0x70000034, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
+    print("### Read loc Tx req credit available ###")
+    val32 = sb.read(0x70000038, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
+    print("### Read loc Tx resp credit available ###")
+    val32 = sb.read(0x7000003C, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
+    print("### Read rmt Tx req credit unavailable ###")
+    val32 = sb.read(0x60000030, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
+    print("### Read rmt Tx resp credit unavailable ###")
+    val32 = sb.read(0x60000034, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
+    print("### Read rmt Tx req credit available ###")
+    val32 = sb.read(0x60000038, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
+    print("### Read rmt Tx resp credit available ###")
+    val32 = sb.read(0x6000003C, np.uint32)
+    print(f"Read: 0x{val32:08x}")
+
     print("### TEST PASS ###")
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('--trace', action='store_true', default=False,
-                        help="Enable waveform tracing")
-    parser.add_argument('--topo', default='2d')
-    parser.add_argument('--vldmode', default='2')
-    parser.add_argument('--rdymode', default='2')
-    args = parser.parse_args()
-
-    main(topo=args.topo,
-         vldmode=args.vldmode,
-         rdymode=args.rdymode,
-         trace=args.trace)
+    pytest.main(['-s', '-q', __file__])
