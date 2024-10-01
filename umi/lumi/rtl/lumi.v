@@ -141,7 +141,10 @@ module lumi
    wire [7:0]           csr_rxiowidth;
    wire                 csr_txcrdt_en;
    wire [15:0]          csr_txcrdt_intrvl;
-   wire [31:0]          csr_txcrdt_status;
+   wire [31:0]          csr_req_txcrdt_navail;
+   wire [31:0]          csr_resp_txcrdt_navail;
+   wire [31:0]          csr_req_txcrdt_avail;
+   wire [31:0]          csr_resp_txcrdt_avail;
    wire                 csr_txen;
    wire [7:0]           csr_txiowidth;
    wire [CW-1:0]        fifo2cb_cmd;
@@ -193,36 +196,39 @@ module lumi
                )
    lumi_regs(/*AUTOINST*/
              // Outputs
-             .udev_req_ready    (cb2regs_ready),         // Templated
-             .udev_resp_valid   (regs2cb_valid),         // Templated
-             .udev_resp_cmd     (regs2cb_cmd[CW-1:0]),   // Templated
-             .udev_resp_dstaddr (regs2cb_dstaddr[AW-1:0]), // Templated
-             .udev_resp_srcaddr (regs2cb_srcaddr[AW-1:0]), // Templated
-             .udev_resp_data    (regs2cb_data[RW-1:0]),  // Templated
-             .host_linkactive   (host_linkactive),
-             .csr_arbmode       (),                      // Templated
-             .csr_txen          (csr_txen),
-             .csr_txcrdt_en     (csr_txcrdt_en),
-             .csr_txiowidth     (csr_txiowidth[7:0]),
-             .csr_rxen          (csr_rxen),
-             .csr_rxiowidth     (csr_rxiowidth[7:0]),
-             .csr_txcrdt_intrvl (csr_txcrdt_intrvl[15:0]),
-             .csr_rxcrdt_req_init(csr_rxcrdt_req_init[15:0]),
-             .csr_rxcrdt_resp_init(csr_rxcrdt_resp_init[15:0]),
+             .udev_req_ready            (cb2regs_ready),         // Templated
+             .udev_resp_valid           (regs2cb_valid),         // Templated
+             .udev_resp_cmd             (regs2cb_cmd[CW-1:0]),   // Templated
+             .udev_resp_dstaddr         (regs2cb_dstaddr[AW-1:0]), // Templated
+             .udev_resp_srcaddr         (regs2cb_srcaddr[AW-1:0]), // Templated
+             .udev_resp_data            (regs2cb_data[RW-1:0]),  // Templated
+             .host_linkactive           (host_linkactive),
+             .csr_arbmode               (),                      // Templated
+             .csr_txen                  (csr_txen),
+             .csr_txcrdt_en             (csr_txcrdt_en),
+             .csr_txiowidth             (csr_txiowidth[7:0]),
+             .csr_rxen                  (csr_rxen),
+             .csr_rxiowidth             (csr_rxiowidth[7:0]),
+             .csr_txcrdt_intrvl         (csr_txcrdt_intrvl[15:0]),
+             .csr_rxcrdt_req_init       (csr_rxcrdt_req_init[15:0]),
+             .csr_rxcrdt_resp_init      (csr_rxcrdt_resp_init[15:0]),
              // Inputs
-             .devicemode        (devicemode),
-             .deviceready       (deviceready),
-             .nreset            (nreset),
-             .clk               (clk),
-             .udev_req_valid    (cb2regs_valid),         // Templated
-             .udev_req_cmd      (cb2regs_cmd[CW-1:0]),   // Templated
-             .udev_req_dstaddr  (cb2regs_dstaddr[AW-1:0]), // Templated
-             .udev_req_srcaddr  (cb2regs_srcaddr[AW-1:0]), // Templated
-             .udev_req_data     (cb2regs_data[RW-1:0]),  // Templated
-             .udev_resp_ready   (regs2cb_ready),         // Templated
-             .phy_linkactive    (phy_linkactive),
-             .phy_iow           (phy_iow[7:0]),
-             .csr_txcrdt_status (csr_txcrdt_status[31:0]));
+             .devicemode                (devicemode),
+             .deviceready               (deviceready),
+             .nreset                    (nreset),
+             .clk                       (clk),
+             .udev_req_valid            (cb2regs_valid),         // Templated
+             .udev_req_cmd              (cb2regs_cmd[CW-1:0]),   // Templated
+             .udev_req_dstaddr          (cb2regs_dstaddr[AW-1:0]), // Templated
+             .udev_req_srcaddr          (cb2regs_srcaddr[AW-1:0]), // Templated
+             .udev_req_data             (cb2regs_data[RW-1:0]),  // Templated
+             .udev_resp_ready           (regs2cb_ready),         // Templated
+             .phy_linkactive            (phy_linkactive),
+             .phy_iow                   (phy_iow[7:0]),
+             .csr_req_txcrdt_navail     (csr_req_txcrdt_navail),
+             .csr_resp_txcrdt_navail    (csr_resp_txcrdt_navail),
+             .csr_req_txcrdt_avail      (csr_req_txcrdt_avail),
+             .csr_resp_txcrdt_avail     (csr_resp_txcrdt_avail));
 
    //###########################
    // Register Crossbar
@@ -466,7 +472,10 @@ module lumi
            .umi_resp_in_ready   (uhost_resp_ready),      // Templated
            .phy_txdata          (phy_txdata[IOW-1:0]),
            .phy_txvld           (phy_txvld),
-           .csr_crdt_status     (csr_txcrdt_status[31:0]), // Templated
+           .csr_req_crdt_navail (csr_req_txcrdt_navail), // Templated
+           .csr_resp_crdt_navail(csr_resp_txcrdt_navail), // Templated
+           .csr_req_crdt_avail  (csr_req_txcrdt_avail), // Templated
+           .csr_resp_crdt_avail (csr_resp_txcrdt_avail), // Templated
            // Inputs
            .clk                 (clk),
            .nreset              (nreset),
