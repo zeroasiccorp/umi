@@ -56,7 +56,10 @@ module lumi_tx
     input             ioclk,
     input             ionreset,
     // Credit interface
-    output reg [31:0] csr_crdt_status,
+    output reg [31:0] csr_req_crdt_navail,
+    output reg [31:0] csr_resp_crdt_navail,
+    output reg [31:0] csr_req_crdt_avail,
+    output reg [31:0] csr_resp_crdt_avail,
     input [15:0]      csr_crdt_intrvl,
     input [15:0]      rmt_crdt_req,
     input [15:0]      rmt_crdt_resp,
@@ -202,16 +205,34 @@ module lumi_tx
           tx_crdt_req[15:0]  <= tx_crdt_req[15:0]  + {15'h0,shift_reg_type[0]};
        end
 
-   // Credit status - count cycles of no-credit
+   // Credit status - count cycles of credit/no-credit
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       csr_crdt_status[31:0] <= 'h0;
+       csr_req_crdt_navail[31:0] <= 'b0;
      else
-       begin
-          csr_crdt_status[15:0]  <= csr_crdt_status[15:0]  + {15'h0000,(umi_req_in_valid   & phy_txrdy & ~rxready[0] & ~umi_resp_in_gated)};
-          csr_crdt_status[31:16] <= csr_crdt_status[31:16] + {15'h0000,(umi_resp_in_valid  & phy_txrdy & ~rxready[1])};
-       end
+       csr_req_crdt_navail[31:0] <= csr_req_crdt_navail[31:0] +
+                                    {31'h0, (umi_req_in_valid & phy_txrdy & ~rxready[0] &
+                                             ~umi_resp_in_gated)};
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       csr_resp_crdt_navail[31:0] <= 'b0;
+     else
+       csr_resp_crdt_navail[31:0] <= csr_resp_crdt_navail[31:0] +
+                                     {31'h0, (umi_resp_in_valid & phy_txrdy & ~rxready[1])};
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       csr_req_crdt_avail[31:0] <= 'b0;
+     else
+       csr_req_crdt_avail[31:0] <= csr_req_crdt_avail[31:0] + {31'h0, umi_req_in_ready};
+
+   always @(posedge clk or negedge nreset)
+     if (~nreset)
+       csr_resp_crdt_avail[31:0] <= 'b0;
+     else
+       csr_resp_crdt_avail[31:0] <= csr_resp_crdt_avail[31:0] + {31'h0, umi_resp_in_ready};
 
    //########################################
    //# Credit message generation for the remote side
@@ -245,19 +266,15 @@ module lumi_tx
    //# UMI Transmit Arbiter
    //########################################
 
-   // TODO: umi_mux should be changed as follows:
-   // .arbmode      (2'b00),
-   // .umi_in_valid ({umi_req_in_gated,umi_resp_in_gated}),
-
    // Mux together response and request over one data channel
    // the mux assumes one hot select (valid so need to prioritize the resp)
    /*umi_mux AUTO_TEMPLATE(
-    .arbmode           (2'b10),
+    .arbmode           (2'b00),
     .arbmask           ({2{1'b0}}),
     .umi_out_ready     (lumi_txrdy & ~(|crdt_updt_send)),
     .umi_out_valid     (),
     .umi_in_ready      ({umi_req_ready,umi_resp_ready}),
-    .umi_in_valid      ({umi_req_in_gated & ~umi_resp_in_gated,umi_resp_in_gated}),
+    .umi_in_valid      ({umi_req_in_gated,umi_resp_in_gated}),
     .umi_in_cmd        ({umi_req_in_cmd,umi_resp_in_cmd}),
     .umi_in_\(.*\)addr ({umi_req_in_\1addr,umi_resp_in_\1addr}),
     .umi_in_data       ({umi_req_in_data,umi_resp_in_data}),
@@ -278,9 +295,9 @@ module lumi_tx
            // Inputs
            .clk                 (clk),
            .nreset              (nreset),
-           .arbmode             (2'b10),
+           .arbmode             (2'b00),
            .arbmask             ({2{1'b0}}),
-           .umi_in_valid        ({umi_req_in_gated & ~umi_resp_in_gated,umi_resp_in_gated}), // Templated
+           .umi_in_valid        ({umi_req_in_gated,umi_resp_in_gated}), // Templated
            .umi_in_cmd          ({umi_req_in_cmd,umi_resp_in_cmd}), // Templated
            .umi_in_dstaddr      ({umi_req_in_dstaddr,umi_resp_in_dstaddr}), // Templated
            .umi_in_srcaddr      ({umi_req_in_srcaddr,umi_resp_in_srcaddr}), // Templated
@@ -421,9 +438,9 @@ module lumi_tx
    //# DATA SHIFT REGISTER
    //########################################
 
-   assign sample_packet = lumi_txrdy & csr_en & phy_txrdy & ((|crdt_updt_send) |
-                                                             umi_resp_in_gated |
-                                                             umi_req_in_gated  );
+   assign sample_packet = lumi_txrdy & phy_txrdy & ((|crdt_updt_send) |
+                                                    umi_resp_in_gated |
+                                                    umi_req_in_gated  );
 
    //########################################
    // UMI bandwidth optimization - send only what is needed
@@ -569,10 +586,10 @@ module lumi_tx
          end
      endcase
 
-   assign valid_start_value = lumi_txrdy & csr_en & (|crdt_updt_send) ?
-                              {{CW/8{1'b1}},{(DW+AW+AW)/8{1'b0}}}     :
-                              lumi_txrdy & umi_resp_in_gated          ?
-                              valid_start_value_resp                  :
+   assign valid_start_value = lumi_txrdy & (|crdt_updt_send)      ?
+                              {{CW/8{1'b1}},{(DW+AW+AW)/8{1'b0}}} :
+                              lumi_txrdy & umi_resp_in_gated      ?
+                              valid_start_value_resp              :
                               valid_start_value_req;
 
    // TX is done as lsb first
