@@ -53,6 +53,7 @@ markers = [
 ]
 testpaths = [
     "tests",
-    "umi/sumi/tests"
+    "umi/sumi/tests",
+    "umi/lumi/tests"
 ]
 timeout = "300"
