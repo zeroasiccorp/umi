@@ -55,11 +55,14 @@ module lumi_tx
     output            phy_txvld,   // valid signal to the phy
     input             ioclk,
     input             ionreset,
+    // performance counters
+    // cycle counters indicating if credits are available or not for an
+    // outstanding transaction
+    output reg [31:0] csr_req_crdt_stall_cycles,
+    output reg [31:0] csr_resp_crdt_stall_cycles,
+    output reg [31:0] csr_req_crdt_active_cycles,
+    output reg [31:0] csr_resp_crdt_active_cycles,
     // Credit interface
-    output reg [31:0] csr_req_crdt_navail,
-    output reg [31:0] csr_resp_crdt_navail,
-    output reg [31:0] csr_req_crdt_avail,
-    output reg [31:0] csr_resp_crdt_avail,
     input [15:0]      csr_crdt_intrvl,
     input [15:0]      rmt_crdt_req,
     input [15:0]      rmt_crdt_resp,
@@ -209,30 +212,32 @@ module lumi_tx
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       csr_req_crdt_navail[31:0] <= 'b0;
+       csr_req_crdt_stall_cycles[31:0] <= 'b0;
      else
-       csr_req_crdt_navail[31:0] <= csr_req_crdt_navail[31:0] +
-                                    {31'h0, (umi_req_in_valid & phy_txrdy & ~rxready[0] &
-                                             ~umi_resp_in_gated)};
+       csr_req_crdt_stall_cycles[31:0] <= csr_req_crdt_stall_cycles[31:0] +
+                                          {31'h0, (umi_req_in_valid & phy_txrdy & ~rxready[0] &
+                                                   ~umi_resp_in_gated)};
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       csr_resp_crdt_navail[31:0] <= 'b0;
+       csr_resp_crdt_stall_cycles[31:0] <= 'b0;
      else
-       csr_resp_crdt_navail[31:0] <= csr_resp_crdt_navail[31:0] +
-                                     {31'h0, (umi_resp_in_valid & phy_txrdy & ~rxready[1])};
+       csr_resp_crdt_stall_cycles[31:0] <= csr_resp_crdt_stall_cycles[31:0] +
+                                           {31'h0, (umi_resp_in_valid & phy_txrdy & ~rxready[1])};
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       csr_req_crdt_avail[31:0] <= 'b0;
+       csr_req_crdt_active_cycles[31:0] <= 'b0;
      else
-       csr_req_crdt_avail[31:0] <= csr_req_crdt_avail[31:0] + {31'h0, umi_req_in_ready};
+       csr_req_crdt_active_cycles[31:0] <= csr_req_crdt_active_cycles[31:0] +
+                                           {31'h0, umi_req_in_ready};
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       csr_resp_crdt_avail[31:0] <= 'b0;
+       csr_resp_crdt_active_cycles[31:0] <= 'b0;
      else
-       csr_resp_crdt_avail[31:0] <= csr_resp_crdt_avail[31:0] + {31'h0, umi_resp_in_ready};
+       csr_resp_crdt_active_cycles[31:0] <= csr_resp_crdt_active_cycles[31:0] +
+                                            {31'h0, umi_resp_in_ready};
 
    //########################################
    //# Credit message generation for the remote side
