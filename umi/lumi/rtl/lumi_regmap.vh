@@ -21,13 +21,13 @@
  ******************************************************************************/
 
 // registers (addr[7:0]), 32bit aligned
-localparam LUMI_CTRL           = 8'h00; // device configuration
-localparam LUMI_STATUS         = 8'h04; // device status
-localparam LUMI_TXMODE         = 8'h10; // tx operating mode
-localparam LUMI_RXMODE         = 8'h14; // rx operating mode
-localparam LUMI_CRDTINIT       = 8'h20; // Credit init value
-localparam LUMI_CRDTINTRVL     = 8'h24; // Credir update interval
-localparam LUMI_REQCRDTNAVAIL  = 8'h30; // Req credit not available
-localparam LUMI_RESPCRDTNAVAIL = 8'h34; // Resp credit not available
-localparam LUMI_REQCRDTAVAIL   = 8'h38; // Req credit available
-localparam LUMI_RESPCRDTAVAIL  = 8'h3C; // Resp credit available
+localparam LUMI_CTRL              = 8'h00; // device configuration
+localparam LUMI_STATUS            = 8'h04; // device status
+localparam LUMI_TXMODE            = 8'h10; // tx operating mode
+localparam LUMI_RXMODE            = 8'h14; // rx operating mode
+localparam LUMI_CRDTINIT          = 8'h20; // Credit init value
+localparam LUMI_CRDTINTRVL        = 8'h24; // Credir update interval
+localparam LUMI_REQCRDTNAVAILCYC  = 8'h30; // Cycle count of outstanding request transaction and credits are not available
+localparam LUMI_RESPCRDTNAVAILCYC = 8'h34; // Cycle count of outstanding response transaction and credits are not available
+localparam LUMI_REQCRDTAVAILCYC   = 8'h38; // Cycle count of outstanding request transaction and credits are available
+localparam LUMI_RESPCRDTAVAILCYC  = 8'h3C; // Cycle count of outstanding response transaction and credits are available

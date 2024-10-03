@@ -74,10 +74,12 @@ module lumi_regs
     output [15:0]   csr_rxcrdt_req_init,
     output [15:0]   csr_rxcrdt_resp_init,
     // performance counters
-    input [31:0]    csr_req_txcrdt_navail,
-    input [31:0]    csr_resp_txcrdt_navail,
-    input [31:0]    csr_req_txcrdt_avail,
-    input [31:0]    csr_resp_txcrdt_avail
+    // cycle counters indicating if credits are available or not for an
+    // outstanding transaction
+    input [31:0]    csr_req_txcrdt_navail_cycles,
+    input [31:0]    csr_resp_txcrdt_navail_cycles,
+    input [31:0]    csr_req_txcrdt_avail_cycles,
+    input [31:0]    csr_resp_txcrdt_avail_cycles
     );
 
 `include "lumi_regmap.vh"
@@ -304,16 +306,16 @@ module lumi_regs
      else
        if (reg_read)
          case (reg_addr[7:2])
-           LUMI_CTRL[7:2]          : reg_rddata[RW-1:0] <= ctrl_reg[RW-1:0];
-           LUMI_STATUS[7:2]        : reg_rddata[RW-1:0] <= status_reg[RW-1:0];
-           LUMI_TXMODE[7:2]        : reg_rddata[RW-1:0] <= txmode_reg[RW-1:0];
-           LUMI_RXMODE[7:2]        : reg_rddata[RW-1:0] <= rxmode_reg[RW-1:0];
-           LUMI_CRDTINIT[7:2]      : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},rxcrdt_init_reg[31:0]};
-           LUMI_CRDTINTRVL[7:2]    : reg_rddata[RW-1:0] <= {{RW-16{1'b0}},txcrdt_intrvl_reg[15:0]};
-           LUMI_REQCRDTNAVAIL[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_navail[31:0]};
-           LUMI_RESPCRDTNAVAIL[7:2]: reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_navail[31:0]};
-           LUMI_REQCRDTAVAIL[7:2]  : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_avail[31:0]};
-           LUMI_RESPCRDTAVAIL[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_avail[31:0]};
+           LUMI_CTRL[7:2]             : reg_rddata[RW-1:0] <= ctrl_reg[RW-1:0];
+           LUMI_STATUS[7:2]           : reg_rddata[RW-1:0] <= status_reg[RW-1:0];
+           LUMI_TXMODE[7:2]           : reg_rddata[RW-1:0] <= txmode_reg[RW-1:0];
+           LUMI_RXMODE[7:2]           : reg_rddata[RW-1:0] <= rxmode_reg[RW-1:0];
+           LUMI_CRDTINIT[7:2]         : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},rxcrdt_init_reg[31:0]};
+           LUMI_CRDTINTRVL[7:2]       : reg_rddata[RW-1:0] <= {{RW-16{1'b0}},txcrdt_intrvl_reg[15:0]};
+           LUMI_REQCRDTNAVAILCYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_navail_cycles[31:0]};
+           LUMI_RESPCRDTNAVAILCYC[7:2]: reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_navail_cycles[31:0]};
+           LUMI_REQCRDTAVAILCYC[7:2]  : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_avail_cycles[31:0]};
+           LUMI_RESPCRDTAVAILCYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_avail_cycles[31:0]};
            default:
              reg_rddata[RW-1:0] <= 'b0;
          endcase
