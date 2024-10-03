@@ -76,10 +76,10 @@ module lumi_regs
     // performance counters
     // cycle counters indicating if credits are available or not for an
     // outstanding transaction
-    input [31:0]    csr_req_txcrdt_navail_cycles,
-    input [31:0]    csr_resp_txcrdt_navail_cycles,
-    input [31:0]    csr_req_txcrdt_avail_cycles,
-    input [31:0]    csr_resp_txcrdt_avail_cycles
+    input [31:0]    csr_req_txcrdt_stall_cycles,
+    input [31:0]    csr_resp_txcrdt_stall_cycles,
+    input [31:0]    csr_req_txcrdt_active_cycles,
+    input [31:0]    csr_resp_txcrdt_active_cycles
     );
 
 `include "lumi_regmap.vh"
@@ -312,10 +312,10 @@ module lumi_regs
            LUMI_RXMODE[7:2]           : reg_rddata[RW-1:0] <= rxmode_reg[RW-1:0];
            LUMI_CRDTINIT[7:2]         : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},rxcrdt_init_reg[31:0]};
            LUMI_CRDTINTRVL[7:2]       : reg_rddata[RW-1:0] <= {{RW-16{1'b0}},txcrdt_intrvl_reg[15:0]};
-           LUMI_REQCRDTNAVAILCYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_navail_cycles[31:0]};
-           LUMI_RESPCRDTNAVAILCYC[7:2]: reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_navail_cycles[31:0]};
-           LUMI_REQCRDTAVAILCYC[7:2]  : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_avail_cycles[31:0]};
-           LUMI_RESPCRDTAVAILCYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_avail_cycles[31:0]};
+           LUMI_REQCRDTSTALLCYC[7:2]  : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_stall_cycles[31:0]};
+           LUMI_RESPCRDTSTALLCYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_stall_cycles[31:0]};
+           LUMI_REQCRDTACTIVECYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_active_cycles[31:0]};
+           LUMI_RESPCRDTACTIVECYC[7:2]: reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_active_cycles[31:0]};
            default:
              reg_rddata[RW-1:0] <= 'b0;
          endcase
