@@ -31,7 +31,7 @@ jobs:
         path: dist
 
     - name: Publish
-      uses: pypa/gh-action-pypi-publish@v1.12.2
+      uses: pypa/gh-action-pypi-publish@v1.12.3
 
   save:
     needs: [publish]
