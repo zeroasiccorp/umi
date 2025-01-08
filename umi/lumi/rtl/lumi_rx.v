@@ -87,7 +87,6 @@ module lumi_rx
    wire [$clog2((DW+AW+AW+CW))-1:0] req_bytes_to_receive;
    wire [$clog2((DW+AW+AW+CW))-1:0] resp_bytes_to_receive;
    reg                              rxvalid;
-   reg                              rxvalid2;
    reg                              rxfec;
    reg [(DW+AW+AW+CW)-1:0]          req_shiftreg;
    reg [(DW+AW+AW+CW)-1:0]          resp_shiftreg;
@@ -259,12 +258,10 @@ module lumi_rx
      if (~ionreset)
        begin
           rxvalid  <= 1'b0;
-          rxvalid2 <= 1'b0;
        end
      else
        begin
           rxvalid  <= phy_rxvld & csr_en;
-          rxvalid2 <= rxvalid;
        end
 
    // rising edge data sample
@@ -376,7 +373,7 @@ module lumi_rx
      case ({rx_cmd_only,rx_no_data})
        2'b10: rxbytes_raw = (CW)/8;
        2'b01: rxbytes_raw = (CW+AW+AW)/8;
-       default: rxbytes_raw = full_hdr_size + rxcmd_bytes[8:0];
+       default: rxbytes_raw = full_hdr_size + rxcmd_bytes[$clog2(DW+AW+AW+CW)-1:0];
      endcase
 
    // support for 1B IOW (#bytes unknown in first cycle)
@@ -1058,7 +1055,7 @@ module lumi_rx
      case ({req_cmd_only,req_no_data})
        2'b10: req_hdr_bytes = (CW)/8;
        2'b01: req_hdr_bytes = (CW+AW+AW)/8;
-       default: req_hdr_bytes = full_hdr_size + req_cmd_bytes[8:0];
+       default: req_hdr_bytes = full_hdr_size + req_cmd_bytes[$clog2(DW+AW+AW+CW)-1:0];
      endcase
 
    // Before we get 2B of the header we do not know the size
@@ -1136,7 +1133,7 @@ module lumi_rx
      case ({resp_cmd_only,resp_no_data})
        2'b10: resp_hdr_bytes = (CW)/8;
        2'b01: resp_hdr_bytes = (CW+AW+AW)/8;
-       default: resp_hdr_bytes = full_hdr_size + resp_cmd_bytes[8:0];
+       default: resp_hdr_bytes = full_hdr_size + resp_cmd_bytes[$clog2(DW+AW+AW+CW)-1:0];
      endcase
 
    // Before we get 2B of the header we do not know the size
