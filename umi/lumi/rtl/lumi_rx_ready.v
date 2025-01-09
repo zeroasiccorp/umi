@@ -112,7 +112,8 @@ module lumi_rx_ready
     wire                                rxcmd_write_posted;
     wire                                rxcmd_write_resp;
 
-    reg                                 first_sample;
+    reg  [1:0]                          first_sample;
+    wire [1:0]                          first_sample_next;
 
     wire [(CW+AW+AW)-1:0]               masked_metadata;
     reg  [CW-1:0]                       cmd_metadata;
@@ -142,13 +143,15 @@ module lumi_rx_ready
     assign byterate = {3'b0,iowidth[10:0]};
     assign bitmask = ({{(IOW-1){1'b0}}, 1'b1} << (byterate << 3)) - 1;
 
+    assign first_sample_next = first_sample | {umi_out_commit, (phy_rxrdy & !phy_rxvld)};
+
     always @ (posedge ioclk or negedge ionreset)
         if (~ionreset)
-            first_sample <= 1'b1;
+            first_sample <= 2'b11;
         else if (phy_rxrdy & phy_rxvld)
-            first_sample <= 1'b0;
-        else if (phy_rxrdy & !phy_rxvld)
-            first_sample <= 1'b1;
+            first_sample <= 2'b00;
+        else
+            first_sample <= first_sample_next;
 
     //########################################
     //# Input Sampling
@@ -261,7 +264,9 @@ module lumi_rx_ready
                           rxcmd_future0    ;
 
     assign rxcmd_lenp1[11:0] = {4'h0,rxcmd_len[7:0]} + 1'b1;
-    assign rxcmd_bytes[11:0] = rxcmd_lenp1[11:0] << rxcmd_size[2:0];
+    assign rxcmd_bytes[11:0] = rx_no_data ?
+                               'b0 :
+                               (rxcmd_lenp1[11:0] << rxcmd_size[2:0]);
 
     always @(posedge ioclk or negedge ionreset)
         if (~ionreset)
@@ -286,8 +291,8 @@ module lumi_rx_ready
 
     always @ (posedge ioclk or negedge ionreset) begin
         if (~ionreset) begin
-            rxbytes_keep_metadata <= 'h0;
-            rxbytes_keep_data <= 'h0;
+            rxbytes_keep_metadata <= 'h1;
+            rxbytes_keep_data <= 'h1;
         end
         else if (rxhdr_sample & rxvalid) begin
             rxbytes_keep_metadata <= rxbytes_raw;
@@ -307,7 +312,7 @@ module lumi_rx_ready
     always @ (posedge ioclk or negedge ionreset)
         if (~ionreset)
             sopptr_metadata <= 'b0;
-        else if (first_sample)
+        else if (&first_sample_next)
             sopptr_metadata <= 'b0;
         else if (rxvalid & metadata_beats_rem)
             sopptr_metadata <= sopptr_metadata + byterate;
@@ -322,7 +327,7 @@ module lumi_rx_ready
             dstaddr_metadata <= 'b0;
             srcaddr_metadata <= 'b0;
         end
-        else if (first_sample) begin
+        else if (&first_sample_next) begin
             cmd_metadata <= 'b0;
             dstaddr_metadata <= 'b0;
             srcaddr_metadata <= 'b0;
@@ -334,7 +339,7 @@ module lumi_rx_ready
         end
         else if (umi_out_commit) begin
             dstaddr_metadata <= dstaddr_metadata + rxbytes_data_to_rcv;
-            srcaddr_metadata <= dstaddr_metadata + rxbytes_data_to_rcv;
+            srcaddr_metadata <= srcaddr_metadata + rxbytes_data_to_rcv;
         end
     end
 
@@ -360,7 +365,7 @@ module lumi_rx_ready
     always @ (posedge ioclk or negedge ionreset)
         if (~ionreset)
             sopptr_data <= 'b0;
-        else if (first_sample)
+        else if (&first_sample_next)
             sopptr_data <= 'b0;
         else if (rxvalid & last_metadata_beat_rem)
             sopptr_data <= sopptr_data_init;
@@ -368,7 +373,7 @@ module lumi_rx_ready
             sopptr_data <= sopptr_data_next;
 
     // Qualify masked data with valid and left shift to the correct position
-    assign umi_data_in = ({{DW{1'b0}}, masked_rxdata} << (sopptr_data_next << 3)) &
+    assign umi_data_in = ({{DW{1'b0}}, masked_rxdata} << ((sopptr_data-sopptr_data_out) << 3)) &
                          {(DW+IOW){rxvalid}};
 
     // Determine next data by right shifting for output and ORing with input data
@@ -377,14 +382,16 @@ module lumi_rx_ready
     always @ (posedge ioclk or negedge ionreset)
         if (~ionreset)
             umi_data <= 'b0;
-        else if (first_sample)
+        else if (&first_sample_next)
             umi_data <= 'b0;
         else if (rxvalid & last_metadata_beat_rem)
             umi_data <= masked_rxdata >> ((byterate - sopptr_data_init) << 3);
         else if (all_metadata_received)
             umi_data <= umi_data_next;
 
-    assign umi_out_valid = all_metadata_received & (sopptr_data >= rxbytes_data_to_rcv);
+    assign umi_out_valid = all_metadata_received &
+                           (sopptr_data >= rxbytes_data_to_rcv) &
+                           !(&first_sample);
 
     assign umi_out_ready = (rxtype[0] & umi_req_out_ready) |
                            (rxtype[1] & umi_resp_out_ready);
@@ -401,7 +408,7 @@ module lumi_rx_ready
     assign umi_resp_out_data    = umi_data[DW-1:0];
     assign umi_resp_out_valid   = umi_out_valid & rxtype[1];
 
-    assign phy_rxrdy = first_sample |
+    assign phy_rxrdy = (&first_sample) |
                        metadata_beats_rem |
                        (sopptr_data < rxbytes_data_to_rcv) |
                        ((sopptr_data >= rxbytes_data_to_rcv) & umi_out_commit);
