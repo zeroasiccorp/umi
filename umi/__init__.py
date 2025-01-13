@@ -1,7 +1,7 @@
 from umi import sumi, lumi
 
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 
 def setup():
