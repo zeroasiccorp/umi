@@ -15,19 +15,15 @@ def gen_mergeable_umi_packets(num_bytes, size, opcode_arr, bytes_per_tx=16):
 
     if (bytes_per_tx > 16):
         num_mergeable_packets = bytes_per_tx // 16
-        # num_mergeable_packets = 256 // 16
     else:
         num_mergeable_packets = 1
-        # num_mergeable_packets = 256 // bytes_per_tx
 
     for _ in range(num_bytes // bytes_per_tx):
-    # for _ in range(num_bytes // 256):
         dstaddr = (2**8)*np.random.randint(2**32)
         srcaddr = (2**8)*np.random.randint(2**32)
         opcode = np.random.choice(opcode_arr)
         for _ in range(num_mergeable_packets):
             length = ((bytes_per_tx // num_mergeable_packets) >> size) - 1
-            # length = ((256 // num_mergeable_packets) >> size) - 1
             txp = random_umi_packet(opcode=opcode, dstaddr=dstaddr,
                                     srcaddr=srcaddr, size=size, len=length,
                                     eom=0, eof=0, max_bytes=16)
