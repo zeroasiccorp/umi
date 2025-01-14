@@ -39,7 +39,7 @@ def main():
     dut.build()
 
     # launch the simulation
-    ret_val = dut.simulate(plusargs=[('valid_mode', dut.args.vldmode)])
+    dut.simulate(plusargs=[('valid_mode', dut.args.vldmode)])
 
     # instantiate TX and RX queues.  note that these can be instantiated without
     # specifying a URI, in which case the URI can be specified later via the
