@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
+`include "switchboard.vh"
+
 module testbench #(
     parameter TARGET     = "DEFAULT",   // pass through variable for hard macro
     parameter TIMEOUT    = 5000        // timeout value (cycles)
@@ -21,14 +23,6 @@ module testbench #(
     localparam IDW      = 16;
     localparam IDSB     = 40;
     localparam NMAPS    = 8;
-
-    // control block
-    initial begin
-        if ($test$plusargs("trace")) begin
-            $dumpfile("waveform.fst");
-            $dumpvars();
-        end
-    end
 
     genvar i;
     wire [IDW*NMAPS-1:0]  old_row_col_address;
@@ -133,8 +127,11 @@ module testbench #(
         umi_tx_i.set_ready_mode(ready_mode);
     end
 
-   // auto-stop
-   auto_stop_sim #(.CYCLES(500000)) auto_stop_sim_i (.clk(clk));
+    // control block
+    `SB_SETUP_PROBES
+
+    // auto-stop
+    auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 
