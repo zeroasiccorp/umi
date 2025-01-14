@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
+`include "switchboard.vh"
+
 module testbench #(
     parameter TARGET     = "DEFAULT",   // pass through variable for hard macro
     parameter TIMEOUT    = 5000        // timeout value (cycles)
@@ -32,14 +34,6 @@ module testbench #(
 
     assign nreset = nreset_vec[14];
     assign go = nreset_vec[15];
-
-    // control block
-    initial begin
-        if ($test$plusargs("trace")) begin
-            $dumpfile("waveform.fst");
-            $dumpvars();
-        end
-    end
 
     // DUT signals
     wire            umi_stim2dut_valid;
@@ -112,8 +106,11 @@ module testbench #(
         umi_rx_i.set_valid_mode(valid_mode);
     end
 
-   // auto-stop
-   auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));
+    // control block
+    `SB_SETUP_PROBES
+
+    // auto-stop
+    auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));
 
 endmodule
 

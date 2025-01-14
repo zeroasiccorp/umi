@@ -5,36 +5,11 @@
 
 import random
 import numpy as np
-from switchboard import SbDut, UmiTxRx, verilator_run
+from switchboard import SbDut, UmiTxRx
 from umi import sumi
 
 
-def build_testbench(dut):
-    # Set up inputs
-    dut.input('utils/testbench/testbench_umi2apb.sv', package='umi')
-
-    dut.use(sumi)
-
-    # Verilator configuration
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'utils/testbench/config.vlt',
-            package='umi')
-#    dut.set('option', 'relax', True)
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '--prof-cfuncs')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-CFLAGS')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-DVL_DEBUG')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
-
-    # Settings - enable tracing
-    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace', True)
-    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
-
-    # Build simulator
-    dut.run()
-
-    return dut.find_result('vexe', step='compile')
-
-
-def main(host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
+def main():
 
     extra_args = {
         '--vldmode': dict(type=int, default=1, help='Valid mode'),
@@ -43,18 +18,32 @@ def main(host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
                    'to send during the test.')
     }
 
-    dut = SbDut('testbench', cmdline=True, extra_args=extra_args, trace=True, default_main=True)
+    dut = SbDut('testbench', cmdline=True, extra_args=extra_args, trace=False, default_main=True)
 
-    verilator_bin = build_testbench(dut)
+    # Set up inputs
+    dut.input('utils/testbench/testbench_umi2apb.sv', package='umi')
+
+    dut.use(sumi)
+
+    # Verilator configuration
+    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'utils/testbench/config.vlt',
+            package='umi')
+
+    dut.build()
 
     # launch the simulation
-    verilator_run(verilator_bin)
+    dut.simulate(
+        plusargs=[
+            ('valid_mode', dut.args.vldmode),
+            ('ready_mode', dut.args.rdymode)
+        ]
+    )
 
     # instantiate TX and RX queues.  note that these can be instantiated without
     # specifying a URI, in which case the URI can be specified later via the
     # "init" method
 
-    host = UmiTxRx(host2dut, dut2host, fresh=True)
+    host = UmiTxRx("host2dut_0.q", "dut2host_0.q", fresh=True)
 
     print("### Starting test ###")
 
