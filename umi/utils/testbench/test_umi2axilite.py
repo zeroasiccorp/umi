@@ -6,12 +6,19 @@
 import random
 import numpy as np
 from argparse import ArgumentParser
-from switchboard import SbDut, UmiTxRx, delete_queue, verilator_run
+from switchboard import SbDut, UmiTxRx
 from umi import sumi
 
 
-def build_testbench():
-    dut = SbDut('testbench', trace=False, default_main=True)
+def main():
+
+    extra_args = {
+        '--vldmode': dict(type=int, default=1, help='Valid mode'),
+        '--rdymode': dict(type=int, default=1, help='Ready mode'),
+    }
+
+    dut = SbDut('testbench', cmdline=True, extra_args=extra_args,
+                trace=False, default_main=True)
 
     # Set up inputs
     dut.input('utils/testbench/testbench_umi2axilite.sv', package='umi')
@@ -22,32 +29,19 @@ def build_testbench():
     dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config',
             'utils/testbench/config.vlt',
             package='umi')
-    dut.add('tool', 'verilator', 'task', 'compile', 'option', '-Wall')
-
-    # Settings - enable tracing
-    dut.set('tool', 'verilator', 'task', 'compile', 'var', 'trace_type', 'fst')
 
     # Build simulator
-    dut.run()
-
-    return dut.find_result('vexe', step='compile')
-
-
-def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0.q"):
-    # clean up old queues if present
-    for q in [host2dut, dut2host]:
-        delete_queue(q)
-
-    verilator_bin = build_testbench()
+    dut.build()
 
     # launch the simulation
-    ret_val = verilator_run(verilator_bin, plusargs=['trace', ('valid_mode', vldmode), ('ready_mode', rdymode)])
+    ret_val = dut.simulate(plusargs=[('valid_mode', dut.args.vldmode),
+                                     ('ready_mode', dut.args.rdymode)])
 
     # instantiate TX and RX queues.  note that these can be instantiated without
     # specifying a URI, in which case the URI can be specified later via the
     # "init" method
 
-    host = UmiTxRx(host2dut, dut2host)
+    host = UmiTxRx("host2dut_0.q", "dut2host_0.q", fresh=True)
 
     print("### Statring test ###")
 
@@ -67,15 +61,8 @@ def main(vldmode="2", rdymode="2", host2dut="host2dut_0.q", dut2host="dut2host_0
             print(f"Actual: {val8}")
             assert (val8 == data8).all()
 
-    ret_val.wait()
     print("### TEST PASS ###")
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('--vldmode', default='2')
-    parser.add_argument('--rdymode', default='2')
-    args = parser.parse_args()
-
-    main(vldmode=args.vldmode,
-         rdymode=args.rdymode)
+    main()

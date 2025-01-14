@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
+`include "switchboard.vh"
+
 module testbench #(
     parameter ODW       = 64,
     parameter TARGET    = "DEFAULT",   // pass through variable for hard macro
@@ -55,14 +57,6 @@ module testbench #(
 
     assign nreset = nreset_vec[14];
     assign go = nreset_vec[15];
-
-    // control block
-    initial begin
-        if ($test$plusargs("trace")) begin
-            $dumpfile("waveform.fst");
-            $dumpvars();
-        end
-    end
 
     // DUT signals
     wire            umi_rx2dut_valid;
@@ -170,8 +164,11 @@ module testbench #(
         umi_tx_i.set_ready_mode(ready_mode);
     end
 
-   // auto-stop
-   auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));
+    // control block
+    `SB_SETUP_PROBES
+
+    // auto-stop
+    auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 

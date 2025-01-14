@@ -20,14 +20,14 @@
  *
  ******************************************************************************/
 
-
 `default_nettype none
+
+`include "switchboard.vh"
 
 module testbench (
     input clk
 );
 
-    localparam TIMEOUT  = 500000;
     localparam DW       = 64;
     localparam AW       = 64;
     localparam CW       = 32;
@@ -281,16 +281,11 @@ module testbench (
         /* verilator lint_on IGNOREDRETURN */
     end
 
-    // VCD
-    initial begin
-        if ($test$plusargs("trace")) begin
-            $dumpfile("testbench.fst");
-            $dumpvars(0, testbench);
-        end
-    end
+    // control block
+    `SB_SETUP_PROBES
 
     // auto-stop
-    auto_stop_sim #(.CYCLES(TIMEOUT)) auto_stop_sim_i (.clk(clk));
+    auto_stop_sim auto_stop_sim_i (.clk(clk));
 
 endmodule
 
