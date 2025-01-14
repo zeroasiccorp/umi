@@ -5,7 +5,6 @@
 
 import random
 import numpy as np
-from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx
 from umi import sumi
 

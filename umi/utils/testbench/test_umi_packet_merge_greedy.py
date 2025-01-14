@@ -2,7 +2,6 @@
 
 # Copyright (C) 2023 Zero ASIC
 
-from argparse import ArgumentParser
 from switchboard import SbDut, UmiTxRx, random_umi_packet
 from umi import sumi
 
