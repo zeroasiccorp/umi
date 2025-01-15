@@ -3,7 +3,6 @@
 # Copyright (C) 2025 Zero ASIC
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
-import random
 import numpy as np
 from switchboard import SbDut, AxiLiteTxRx
 from umi import sumi
@@ -51,7 +50,7 @@ def main():
                       addr_width=8,
                       fresh=True)
 
-    np.set_printoptions(formatter={'int':hex})
+    np.set_printoptions(formatter={'int': hex})
 
     axi.write(0, np.uint8(0xef))
     read_data = axi.read(0, 4)
