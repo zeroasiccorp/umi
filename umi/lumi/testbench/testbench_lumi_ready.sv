@@ -94,7 +94,7 @@ module testbench(
     assign ionreset = nreset;
 
     // Req Umi Agent
-    umi_rx_sim #(
+    queue_to_umi_sim #(
         .VALID_MODE_DEFAULT(2),
         .DW(DW)
     ) umi_req_in_i (
@@ -108,7 +108,7 @@ module testbench(
         .ready      (umi_req_in_ready & initdone)
     );
 
-    umi_tx_sim #(
+    umi_to_queue_sim #(
         .READY_MODE_DEFAULT(2),
         .DW(DW)
     ) umi_req_out_i (
@@ -134,7 +134,7 @@ module testbench(
     end
 
     // Resp Umi Agent
-    umi_rx_sim #(
+    queue_to_umi_sim #(
         .VALID_MODE_DEFAULT(2),
         .DW(DW)
     ) umi_resp_in_i (
@@ -148,7 +148,7 @@ module testbench(
         .ready      (umi_resp_in_ready & initdone)
     );
 
-    umi_tx_sim #(
+    umi_to_queue_sim #(
         .READY_MODE_DEFAULT(2),
         .DW(DW)
     ) umi_resp_out_i (
