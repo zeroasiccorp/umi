@@ -95,7 +95,7 @@ module testbench (
    ///////////////////////////////////////////
    // Host side umi agents
    ///////////////////////////////////////////
-   umi_rx_sim #(
+   queue_to_umi_sim #(
                 .VALID_MODE_DEFAULT(2),
                 .DW(RW)
                 )
@@ -109,7 +109,7 @@ module testbench (
                  .valid(host_sb_req_valid)
                  );
 
-   umi_tx_sim #(
+   umi_to_queue_sim #(
                 .READY_MODE_DEFAULT(2),
                 .DW(RW)
                 )
@@ -123,7 +123,7 @@ module testbench (
                  .valid(host_sb_resp_valid)
                  );
 
-   umi_rx_sim #(
+   queue_to_umi_sim #(
                 .VALID_MODE_DEFAULT(2),
                 .DW(256)
                 )
@@ -139,7 +139,7 @@ module testbench (
 
 //   assign host_req_data[511:256] = 'h0;
 
-   umi_tx_sim #(
+   umi_to_queue_sim #(
                 .READY_MODE_DEFAULT(2),
                 .DW(256)
                 )

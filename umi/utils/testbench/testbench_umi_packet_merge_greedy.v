@@ -81,7 +81,7 @@ module testbench #(
         .umi_out_ready      (umi_dut2check_ready)
     );
 
-    umi_rx_sim #(
+    queue_to_umi_sim #(
         .VALID_MODE_DEFAULT(2)
     ) umi_rx_i (
         .clk        (clk),

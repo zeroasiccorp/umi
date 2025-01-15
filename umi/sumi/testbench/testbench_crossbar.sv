@@ -85,7 +85,8 @@ module testbench
    generate
       for(i=0;i<N;i=i+1)
         begin: portif
-           umi_rx_sim #(.VALID_MODE_DEFAULT(2),
+           queue_to_umi_sim #(
+                        .VALID_MODE_DEFAULT(2),
                         .DW(256))
            umi_rx_i (.clk(clk),
                      .data(umi_in_data[i*DW+:256]),
@@ -103,7 +104,8 @@ module testbench
                                                  (umi_in_dstaddr[i*AW+40+:16] == j);
              end
 
-           umi_tx_sim #(.READY_MODE_DEFAULT(2),
+           umi_to_queue_sim #(
+                        .READY_MODE_DEFAULT(2),
                         .DW(256))
            umi_tx_i (.clk(clk),
                      .data(umi_out_data[i*DW+:256]),

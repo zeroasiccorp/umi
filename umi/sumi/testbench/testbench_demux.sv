@@ -81,7 +81,7 @@ module testbench (
 
     genvar          i;
 
-    umi_rx_sim #(
+    queue_to_umi_sim #(
         .VALID_MODE_DEFAULT (2),
         .DW                 (DW)
     ) umi_rx_i (
@@ -107,7 +107,7 @@ module testbench (
 
     generate
     for(i = 0; i < M; i = i + 1) begin: demux_out
-        umi_tx_sim #(
+        umi_to_queue_sim #(
             .READY_MODE_DEFAULT (2),
             .DW                 (DW)
         ) umi_tx_i (
