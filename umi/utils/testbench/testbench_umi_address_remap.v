@@ -82,7 +82,7 @@ module testbench #(
         .umi_out_ready          (umi_dut2check_ready)
     );
 
-    umi_rx_sim #(
+    queue_to_umi_sim #(
         .VALID_MODE_DEFAULT(2)
     ) umi_rx_i (
         .clk        (clk),
@@ -95,7 +95,7 @@ module testbench #(
         .ready      (umi_stim2dut_ready)
     );
 
-    umi_tx_sim #(
+    umi_to_queue_sim #(
         .READY_MODE_DEFAULT(2)
     ) umi_tx_i (
         .clk        (clk),
