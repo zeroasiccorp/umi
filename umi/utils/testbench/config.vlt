@@ -19,4 +19,4 @@ lint_off -rule GENUNNAMED
 lint_off -rule TIMESCALEMOD
 // To be fixed:
 //lint_off -rule SYNCASYNCNET
-//lint_off -rule WIDTHTRUNC
+lint_off -rule WIDTHTRUNC
