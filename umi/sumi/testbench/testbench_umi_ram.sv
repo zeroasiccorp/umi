@@ -100,7 +100,8 @@ module testbench (
    genvar i;
    generate
    for (i = 0; i < N; i = i + 1) begin : UMI_AGENTS_GEN
-        umi_rx_sim #(.VALID_MODE_DEFAULT(2),
+        queue_to_umi_sim #(
+                     .VALID_MODE_DEFAULT(2),
                      .DW(DW)
                      )
         host_umi_rx_i (.clk(clk),
@@ -112,7 +113,8 @@ module testbench (
                        .ready(udev_req_ready[i] & initdone)
                        );
 
-        umi_tx_sim #(.READY_MODE_DEFAULT(2),
+        umi_to_queue_sim #(
+                     .READY_MODE_DEFAULT(2),
                      .DW(DW)
                      )
         host_umi_tx_i (.clk(clk),

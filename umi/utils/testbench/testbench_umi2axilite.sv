@@ -51,7 +51,7 @@ module testbench (
     wire            umi_req_ready;
 
     // UMI agents
-    umi_rx_sim #(
+    queue_to_umi_sim #(
        .VALID_MODE_DEFAULT  (2),
        .DW                  (DW)
     ) umi_rx_i (
@@ -71,7 +71,7 @@ module testbench (
     wire [DW-1:0]   umi_resp_data;
     wire            umi_resp_ready;
 
-    umi_tx_sim #(
+    umi_to_queue_sim #(
         .READY_MODE_DEFAULT (2),
         .DW                 (DW)
     ) umi_tx_i (

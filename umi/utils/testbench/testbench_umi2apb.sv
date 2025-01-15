@@ -147,7 +147,7 @@ module testbench (
    // Host side umi agents
    ///////////////////////////////////////////
 
-    umi_rx_sim #(
+    queue_to_umi_sim #(
         .VALID_MODE_DEFAULT (2),
         .DW                 (DW)
     ) host_umi_rx_i (
@@ -159,7 +159,7 @@ module testbench (
         .data       (udev_req_data[DW-1:0]),
         .ready      (udev_req_ready));
 
-    umi_tx_sim #(
+    umi_to_queue_sim #(
         .READY_MODE_DEFAULT (2),
         .DW                 (DW)
     ) host_umi_tx_i (
