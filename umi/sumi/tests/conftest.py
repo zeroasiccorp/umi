@@ -12,7 +12,6 @@ def pytest_collection_modifyitems(items):
             item.add_marker("switchboard")
             pass
 
-
 @pytest.fixture
 def build_dir(pytestconfig):
     return pytestconfig.cache.mkdir('sumi_build')
@@ -20,7 +19,14 @@ def build_dir(pytestconfig):
 
 @pytest.fixture
 def sumi_dut(build_dir, request):
-    dut = SbDut('testbench', default_main=True, trace=False)
+
+    extra_args = {
+        '--vldmode': dict(type=int, default=1, help='Valid mode'),
+        '--rdymode': dict(type=int, default=1, help='Ready mode'),
+    }
+
+    dut = SbDut('testbench', cmdline=True, extra_args=extra_args,
+                default_main=True, trace_type='fst', trace=True)
 
     dut.use(sumi)
 
