@@ -12,6 +12,7 @@ def pytest_collection_modifyitems(items):
             item.add_marker("switchboard")
             pass
 
+
 @pytest.fixture
 def build_dir(pytestconfig):
     return pytestconfig.cache.mkdir('sumi_build')
