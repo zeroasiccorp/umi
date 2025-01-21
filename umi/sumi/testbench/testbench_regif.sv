@@ -35,7 +35,7 @@ module testbench (
    parameter integer AW=64;
    parameter integer CW=32;
    parameter integer CTRLW=8;
-   parameter integer RAMDEPTH=512;
+   parameter integer REGS=512;
 
    localparam PERIOD_CLK   = 10;
    localparam RST_CYCLES   = 16;
@@ -62,6 +62,9 @@ module testbench (
    always @(negedge clk) nreset_vec <= {nreset_vec[RST_CYCLES-1:0], 1'b1};
 
    /*AUTOWIRE*/
+   // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   wire [1:0]           reg_prot;
+   // End of automatics
 
    wire [AW-1:0]        reg_addr;
    wire [RW-1:0]        reg_rddata;
@@ -112,7 +115,10 @@ module testbench (
                   .valid(udev_resp_valid & initdone)
                   );
 
-   // instantiate dut with UMI ports
+   ///////////////////////////////////////////
+   // DUT
+   ///////////////////////////////////////////
+
    /* umi_regif AUTO_TEMPLATE(
     .udev_req_valid     (udev_req_valid & initdone),
     .udev_resp_ready    (udev_resp_ready & initdone),
@@ -124,7 +130,9 @@ module testbench (
                .AW(AW),
                .DW(DW),
                .RW(RW))
-   umi_regif_i(/*AUTOINST*/
+   umi_regif_i(.reg_ready       (1'b1),
+               .reg_err         (2'b0),
+               /*AUTOINST*/
                // Outputs
                .udev_req_ready  (udev_req_ready),
                .udev_resp_valid (udev_resp_valid),
@@ -132,43 +140,38 @@ module testbench (
                .udev_resp_dstaddr(udev_resp_dstaddr[AW-1:0]),
                .udev_resp_srcaddr(udev_resp_srcaddr[AW-1:0]),
                .udev_resp_data  (udev_resp_data[DW-1:0]),
-               .reg_addr        (reg_addr[AW-1:0]),
                .reg_write       (reg_write),
                .reg_read        (reg_read),
-               .reg_opcode      (),                      // Templated
-               .reg_size        (),                      // Templated
-               .reg_len         (),                      // Templated
+               .reg_addr        (reg_addr[AW-1:0]),
                .reg_wrdata      (reg_wrdata[RW-1:0]),
+               .reg_prot        (reg_prot[1:0]),
                // Inputs
                .clk             (clk),
                .nreset          (nreset),
-               .udev_req_valid  (udev_req_valid & initdone),
+               .udev_req_valid  (udev_req_valid & initdone), // Templated
                .udev_req_cmd    (udev_req_cmd[CW-1:0]),
                .udev_req_dstaddr(udev_req_dstaddr[AW-1:0]),
                .udev_req_srcaddr(udev_req_srcaddr[AW-1:0]),
                .udev_req_data   (udev_req_data[DW-1:0]),
-               .udev_resp_ready (udev_resp_ready & initdone),
+               .udev_resp_ready (udev_resp_ready & initdone), // Templated
                .reg_rddata      (reg_rddata[RW-1:0]));
 
-   la_spram #(.DW    (RW),               // Memory width
-              .AW    ($clog2(RAMDEPTH)), // Address width (derived)
-              .CTRLW (CTRLW),            // Width of asic ctrl interface
-              .TESTW (128)               // Width of asic test interface
-              )
-   la_spram_i(// Outputs
-              .dout             (reg_rddata[RW-1:0]),
-              // Inputs
-              .clk              (clk),
-              .ce               (reg_read | reg_write),
-              .we               (reg_write),
-              .wmask            ({RW{1'b1}}),
-              .addr             (reg_addr[2+:$clog2(RAMDEPTH)]),
-              .din              (reg_wrdata[RW-1:0]),
-              .vss              (1'b0),
-              .vdd              (1'b1),
-              .vddio            (1'b1),
-              .ctrl             (sram_ctrl),
-              .test             (128'h0));
+   ///////////////////////////////////////////
+   // Support circutry
+   ///////////////////////////////////////////
+
+   // Register array
+   reg     [RW-1:0] regs[REGS-1:0];
+
+    always @(posedge clk)
+      if(reg_write)
+        regs[reg_addr[2+:$clog2(REGS)]] <= reg_wrdata[RW-1:0];
+
+   assign reg_rddata[RW-1:0] = regs[reg_addr[2+:$clog2(REGS)]];
+
+   ///////////////////////////////////////////
+   // Switchboard setup
+   ///////////////////////////////////////////
 
    // Initialize UMI
    integer valid_mode, ready_mode;
