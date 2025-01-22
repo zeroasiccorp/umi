@@ -7,6 +7,7 @@ import numpy as np
 from switchboard import SbDut, UmiTxRx
 from umi import sumi
 
+
 def main():
     # build the simulator
     dut = build_testbench()
@@ -23,7 +24,6 @@ def main():
     umi = UmiTxRx('host2dut_0.q', 'dut2host_0.q', fresh=True)
 
     np.set_printoptions(formatter={'int': hex})
-
 
     print("### Starting test ###")
     # regif accesses are all 32b wide and aligned
@@ -46,6 +46,7 @@ def main():
 
     read_data = umi.read(0, 4)
     print(f'Read addr=0 data={read_data}')
+
 
 def build_testbench(fast=False):
 
