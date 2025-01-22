@@ -1,4 +1,4 @@
-/*******************************************************************************
+/**************************************************************************
  * Copyright 2023 Zero ASIC Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
  * Documentation:
  * - LUMI Control Registers
  *
- ******************************************************************************/
+ *************************************************************************/
 
 module lumi_regs
   #(parameter TARGET = "DEFAULT",                         // LUMI type
@@ -90,10 +90,8 @@ module lumi_regs
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [7:0]           reg_len;
-   wire [4:0]           reg_opcode;
+   wire [1:0]           reg_prot;
    wire                 reg_read;
-   wire [2:0]           reg_size;
    // End of automatics
 
    // registers
@@ -266,7 +264,9 @@ module lumi_regs
                .GRPOFFSET(GRPOFFSET),
                .GRPAW(GRPAW),
                .GRPID(GRPID))
-   umi_regif (/*AUTOINST*/
+   umi_regif (.reg_err          (2'b0),
+              .reg_ready        (1'b1),
+              /*AUTOINST*/
               // Outputs
               .udev_req_ready   (udev_req_ready),
               .udev_resp_valid  (udev_resp_valid),
@@ -274,13 +274,11 @@ module lumi_regs
               .udev_resp_dstaddr(udev_resp_dstaddr[AW-1:0]),
               .udev_resp_srcaddr(udev_resp_srcaddr[AW-1:0]),
               .udev_resp_data   (udev_resp_data[RW-1:0]), // Templated
-              .reg_addr         (reg_addr[AW-1:0]),
               .reg_write        (reg_write),
               .reg_read         (reg_read),
-              .reg_opcode       (reg_opcode[4:0]),
-              .reg_size         (reg_size[2:0]),
-              .reg_len          (reg_len[7:0]),
+              .reg_addr         (reg_addr[AW-1:0]),
               .reg_wrdata       (reg_wrdata[RW-1:0]),
+              .reg_prot         (reg_prot[1:0]),
               // Inputs
               .clk              (clk),
               .nreset           (nreset),
@@ -322,5 +320,5 @@ module lumi_regs
 
 endmodule
 // Local Variables:
-// verilog-library-directories:("." "../../../umi/umi/rtl/")
+// verilog-library-directories:("." "../../sumi/rtl/")
 // End:
