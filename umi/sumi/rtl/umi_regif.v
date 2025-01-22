@@ -39,6 +39,7 @@ module umi_regif
     parameter GRPOFFSET = 24, // group address offset
     parameter GRPAW = 0,      // group address width
     parameter GRPID = 0,      // group ID
+    parameter SAFE = 1,       // 1: no combinatorial path, low performance
     // umi standard parameters
     parameter CW = 32,        // command width
     parameter AW = 64,        // address width
@@ -73,6 +74,10 @@ module umi_regif
 
 `include "umi_messages.vh"
 
+   // local state
+   reg udev_req_safe_ready;
+
+
    // local wires
    wire [CW-1:0] resp_cmd;
    wire          cmd_read;
@@ -102,6 +107,22 @@ module umi_regif
    assign udev_req_ready = reg_ready & (udev_resp_ready | ~udev_resp_valid);
    assign beat = udev_req_valid & udev_req_ready;
 
+    // single cycle stall on every ready
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
+       udev_req_safe_ready <= 1'b0;
+     else if (udev_req_valid & udev_req_ready)
+       udev_req_safe_ready <= 1'b0;
+     else
+       udev_req_safe_ready <= 1'b1;
+
+   // The unsafe combinatorial path from resp_ready-->req_ready has the
+   // potential of causing cominatiro loops in designs if the that are
+   if(SAFE)
+     assign udev_req_ready = reg_ready & udev_req_safe_ready;
+   else
+     assign udev_req_ready = reg_ready & (udev_resp_ready|~udev_resp_valid);
+
    //######################################
    // Register Interface
    //######################################
@@ -116,13 +137,15 @@ module umi_regif
    // UMI Response
    //######################################
 
-   // keep valid high while there is an input beat
+   //1. Set on incoming valid read
+   //2. Keep high as long as incoming read is set
+   //3. If no incoming read and output is ready, clear
    always @(posedge clk or negedge nreset)
      if (!nreset)
        udev_resp_valid <= 1'b0;
      else if (beat & (cmd_write | cmd_read))
        udev_resp_valid <= 1'b1;
-     else if (udev_resp_ready)
+     else if (udev_resp_valid & udev_resp_ready)
        udev_resp_valid <= 1'b0;
 
    // read/write responses
