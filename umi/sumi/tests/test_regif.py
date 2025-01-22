@@ -38,5 +38,6 @@ def test_regif(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
             print(f"ERROR umi read from addr 0x{addr:08x} expected {data} actual {val}")
             assert (val == data)
 
+
 if __name__ == '__main__':
     pytest.main(['-s', '-q', __file__])
