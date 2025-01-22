@@ -19,7 +19,6 @@
  * - Simple register interface testbench
  *
  ******************************************************************************/
-
 `default_nettype none
 
 module testbench (
@@ -122,15 +121,12 @@ module testbench (
    /* umi_regif AUTO_TEMPLATE(
     .udev_req_valid     (udev_req_valid & initdone),
     .udev_resp_ready    (udev_resp_ready & initdone),
-    .reg_opcode         (), // Future use
-    .reg_size           (), // Future use
-    .reg_len            (), // Future use
     );*/
    umi_regif #(.CW(CW),
                .AW(AW),
                .DW(DW),
                .RW(RW))
-   umi_regif_i(.reg_ready       (1'b1),
+   umi_regif(.reg_ready       (1'b1),
                .reg_err         (2'b0),
                /*AUTOINST*/
                // Outputs
@@ -186,12 +182,15 @@ module testbench (
          ready_mode = 2;  // default if not provided as a plusarg
       end
 
+      /* verilator lint_on IGNOREDRETURN */
+   end
+
+   initial begin
       host_umi_rx_i.init("host2dut_0.q");
       host_umi_rx_i.set_valid_mode(valid_mode);
 
       host_umi_tx_i.init("dut2host_0.q");
       host_umi_tx_i.set_ready_mode(ready_mode);
-      /* verilator lint_on IGNOREDRETURN */
    end
 
    // waveform dump
@@ -204,5 +203,3 @@ endmodule
 // Local Variables:
 // verilog-library-directories:("../rtl")
 // End:
-
-`default_nettype wire
