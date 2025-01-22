@@ -18,7 +18,11 @@ def build_dir(pytestconfig):
 
 @pytest.fixture
 def lumi_dut(build_dir, request):
+
     dut = SbDut('testbench', default_main=True, trace=False)
+
+    #dut = SbDut('testbench', cmdline=True,
+    #            default_main=True, trace=True, trace_type='vcd')
 
     dut.use(lumi)
 
