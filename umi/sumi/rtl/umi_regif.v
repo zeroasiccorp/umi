@@ -79,6 +79,8 @@ module umi_regif
    wire          cmd_write;
    wire          cmd_posted;
    wire          cmd_atomic;
+   wire          match;
+   wire          beat;
 
    //######################################
    // UMI Request
@@ -97,7 +99,7 @@ module umi_regif
    assign cmd_atomic = (udev_req_cmd[4:0]==UMI_REQ_ATOMIC);
 
    // back pressure (note feedback from resp-->req ready)
-   assign udev_req_ready = reg_ready & udev_resp_ready;
+   assign udev_req_ready = reg_ready & (udev_resp_ready | ~udev_resp_valid);
    assign beat = udev_req_valid & udev_req_ready;
 
    //######################################
