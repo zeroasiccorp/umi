@@ -1,4 +1,4 @@
-/*******************************************************************************
+/**************************************************************************
  * Copyright 2020 Zero ASIC Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
  * Documentation:
  * - Simple register interface testbench
  *
- ******************************************************************************/
+ *************************************************************************/
 `default_nettype none
 
 module testbench (
@@ -126,34 +126,34 @@ module testbench (
                .AW(AW),
                .DW(DW),
                .RW(RW))
-   umi_regif(.reg_ready       (1'b1),
-               .reg_err         (2'b0),
-               /*AUTOINST*/
-               // Outputs
-               .udev_req_ready  (udev_req_ready),
-               .udev_resp_valid (udev_resp_valid),
-               .udev_resp_cmd   (udev_resp_cmd[CW-1:0]),
-               .udev_resp_dstaddr(udev_resp_dstaddr[AW-1:0]),
-               .udev_resp_srcaddr(udev_resp_srcaddr[AW-1:0]),
-               .udev_resp_data  (udev_resp_data[DW-1:0]),
-               .reg_write       (reg_write),
-               .reg_read        (reg_read),
-               .reg_addr        (reg_addr[AW-1:0]),
-               .reg_wrdata      (reg_wrdata[RW-1:0]),
-               .reg_prot        (reg_prot[1:0]),
-               // Inputs
-               .clk             (clk),
-               .nreset          (nreset),
-               .udev_req_valid  (udev_req_valid & initdone), // Templated
-               .udev_req_cmd    (udev_req_cmd[CW-1:0]),
-               .udev_req_dstaddr(udev_req_dstaddr[AW-1:0]),
-               .udev_req_srcaddr(udev_req_srcaddr[AW-1:0]),
-               .udev_req_data   (udev_req_data[DW-1:0]),
-               .udev_resp_ready (udev_resp_ready & initdone), // Templated
-               .reg_rddata      (reg_rddata[RW-1:0]));
+   umi_regif(.reg_ready       (1'b1), // no bw to test for this rare feature
+             .reg_err         (2'b0), // TODO: implement when needed
+             /*AUTOINST*/
+             // Outputs
+             .udev_req_ready    (udev_req_ready),
+             .udev_resp_valid   (udev_resp_valid),
+             .udev_resp_cmd     (udev_resp_cmd[CW-1:0]),
+             .udev_resp_dstaddr (udev_resp_dstaddr[AW-1:0]),
+             .udev_resp_srcaddr (udev_resp_srcaddr[AW-1:0]),
+             .udev_resp_data    (udev_resp_data[DW-1:0]),
+             .reg_write         (reg_write),
+             .reg_read          (reg_read),
+             .reg_addr          (reg_addr[AW-1:0]),
+             .reg_wrdata        (reg_wrdata[RW-1:0]),
+             .reg_prot          (reg_prot[1:0]),
+             // Inputs
+             .clk               (clk),
+             .nreset            (nreset),
+             .udev_req_valid    (udev_req_valid & initdone), // Templated
+             .udev_req_cmd      (udev_req_cmd[CW-1:0]),
+             .udev_req_dstaddr  (udev_req_dstaddr[AW-1:0]),
+             .udev_req_srcaddr  (udev_req_srcaddr[AW-1:0]),
+             .udev_req_data     (udev_req_data[DW-1:0]),
+             .udev_resp_ready   (udev_resp_ready & initdone), // Templated
+             .reg_rddata        (reg_rddata[RW-1:0]));
 
    ///////////////////////////////////////////
-   // Support circutry
+   // Support circuitry
    ///////////////////////////////////////////
 
    // Register array
