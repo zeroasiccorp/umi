@@ -27,7 +27,7 @@ def sumi_dut(build_dir, request):
     }
 
     dut = SbDut('testbench', cmdline=True, extra_args=extra_args,
-                default_main=True, trace_type='fst', trace=True)
+                default_main=True)
 
     dut.use(sumi)
 
