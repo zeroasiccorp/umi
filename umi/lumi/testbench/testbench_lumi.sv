@@ -458,7 +458,7 @@ module testbench (
      begin
         if ($test$plusargs("trace"))
           begin
-             $dumpfile("testbench.fst");
+             $dumpfile("testbench.vcd");
              $dumpvars(0, testbench);
           end
      end
