@@ -103,10 +103,6 @@ module umi_regif
    assign cmd_posted = (udev_req_cmd[4:0]==UMI_REQ_POSTED);
    assign cmd_atomic = (udev_req_cmd[4:0]==UMI_REQ_ATOMIC);
 
-   // back pressure (note feedback from resp-->req ready)
-   assign udev_req_ready = reg_ready & (udev_resp_ready | ~udev_resp_valid);
-   assign beat = udev_req_valid & udev_req_ready;
-
     // single cycle stall on every ready
    always @ (posedge clk or negedge nreset)
      if(!nreset)
@@ -122,6 +118,9 @@ module umi_regif
      assign udev_req_ready = reg_ready & udev_req_safe_ready;
    else
      assign udev_req_ready = reg_ready & (udev_resp_ready|~udev_resp_valid);
+
+   // request accepted
+   assign beat = udev_req_valid & udev_req_ready;
 
    //######################################
    // Register Interface
