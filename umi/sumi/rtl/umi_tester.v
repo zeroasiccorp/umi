@@ -17,12 +17,14 @@
  *
  * Documentation:
  *
- * - This module drives out valid UMI host transactions from memory,
- *   incrementing the memory read address and sending a UMI
- *   transaction whnile 'go' is held high.
+ * - This module is a synthesizable module that generate host requests
+ *   based on UMI transactions stored in a local RAM.
+ *
+ * - Valid UMI host transactions from memory, incrementing the memory
+ *   read address and sending a UMI transaction whnile 'go' is held high.
  *
  * - The local memory has one host transaction per memory address,
- *   with the following format:
+ *   with the following format: [MSB..LSB]
  *   {data, srcaddr, dstaddr, cmd, ctrl}
  *
  * - The data, srcaddr, dstaddr, cmd, ctrl widths are parametrized
@@ -34,10 +36,8 @@
  * - Memory read address loops to zero when it reaches the end of
  *   the memory.
  *
- * - The FILENAME is loaded into memory if non-empty
- *
  * - The APB access port can be used by an external host to
- *   to read/write from memory.
+ *   to read/write from the memory.
  *
  * - The memory access priority is:
  *   - apb (highest)
@@ -46,12 +46,12 @@
  *
  * Demo:
  *
- * >> iverilog umi_stimulus.v -DTB_UMI_STIMULUS -y . -I.
+ * >> iverilog umi_stimulus.v -DTB_UMI_TESTER -y . -I.
  * >> ./a.out +hexfile="./test0.memh"
  *
  *************************************************************************/
 
-module umi_stimulus
+module umi_tester
   #(parameter DW = 256,           // umi data width
     parameter AW = 64,            // umi addr width
     parameter CW = 32,            // umi ctrl width
@@ -106,7 +106,7 @@ module umi_stimulus
        $readmemh(memhfile, la_spram.memory.ram);
 
    //#################################
-   // Access Arbiter
+   // Memory Access Arbiter
    //#################################
 
    assign mem_ce = apb_penable | uhost_req_valid | uhost_resp_valid;
@@ -127,7 +127,7 @@ module umi_stimulus
 
 
    //#################################
-   // Generator Statemachine
+   // Generator Statem Machine
    //#################################
 
 
@@ -163,7 +163,7 @@ endmodule
 // A SIMPLE TESTBENCH
 //#####################################################################
 
-`ifdef TB_UMI_STIMULUS
+`ifdef TB_UMI_TESTER
 
 module tb();
 
@@ -190,7 +190,7 @@ module tb();
         $finish;
      end
 
-   // reset init
+   // control sequence
    reg             nreset;
    reg             clk;
    initial
@@ -198,23 +198,23 @@ module tb();
         #(1)
         nreset = 'b0;
         clk = 'b0;
+        go = 'b0;
         #(PERIOD * 10)
         nreset = 1'b1;
+        #(PERIOD * 10)
+        go = 1'b1;
      end
 
    // clock
    always
      #(PERIOD/2) clk = ~clk;
 
-
-
-
    //######################################
    // DUT
    //######################################
 
 
-   /* umi_stimulus AUTO_TEMPLATE(
+   /* umi_tester AUTO_TEMPLATE(
     .uhost_req_\(.*\) (uhost_req_\1[]),
     .\(.*\)           (@"(if (equal vl-dir \\"output\\")  \\"\\" (concat vl-width \\"'b0\\") )"),
     );*/
@@ -227,36 +227,36 @@ module tb();
    wire [AW-1:0]        uhost_req_srcaddr;
    wire                 uhost_req_valid;
    // End of automatics
-   umi_stimulus #(.AW(AW),
+   umi_tester #(.AW(AW),
                   .DW(DW),
                   .RW(CW))
-   stim (/*AUTOINST*/
-         // Outputs
-         .apb_pready            (),                      // Templated
-         .apb_prdata            (),                      // Templated
-         .uhost_req_valid       (uhost_req_valid),       // Templated
-         .uhost_req_cmd         (uhost_req_cmd[CW-1:0]), // Templated
-         .uhost_req_dstaddr     (uhost_req_dstaddr[AW-1:0]), // Templated
-         .uhost_req_srcaddr     (uhost_req_srcaddr[AW-1:0]), // Templated
-         .uhost_req_data        (uhost_req_data[DW-1:0]), // Templated
-         .uhost_resp_ready      (),                      // Templated
-         // Inputs
-         .nreset                (1'b0),                  // Templated
-         .clk                   (1'b0),                  // Templated
-         .go                    (1'b0),                  // Templated
-         .apb_paddr             (AW'b0),                 // Templated
-         .apb_penable           (1'b0),                  // Templated
-         .apb_pwrite            (1'b0),                  // Templated
-         .apb_pwdata            (RW'b0),                 // Templated
-         .apb_pstrb             (4'b0),                  // Templated
-         .apb_pprot             (3'b0),                  // Templated
-         .apb_psel              (1'b0),                  // Templated
-         .uhost_req_ready       (uhost_req_ready),       // Templated
-         .uhost_resp_valid      (1'b0),                  // Templated
-         .uhost_resp_cmd        (CW'b0),                 // Templated
-         .uhost_resp_dstaddr    (AW'b0),                 // Templated
-         .uhost_resp_srcaddr    (AW'b0),                 // Templated
-         .uhost_resp_data       (DW'b0));                // Templated
+   umi_tester (/*AUTOINST*/
+               // Outputs
+               .apb_pready      (),                      // Templated
+               .apb_prdata      (),                      // Templated
+               .uhost_req_valid (uhost_req_valid),       // Templated
+               .uhost_req_cmd   (uhost_req_cmd[CW-1:0]), // Templated
+               .uhost_req_dstaddr(uhost_req_dstaddr[AW-1:0]), // Templated
+               .uhost_req_srcaddr(uhost_req_srcaddr[AW-1:0]), // Templated
+               .uhost_req_data  (uhost_req_data[DW-1:0]), // Templated
+               .uhost_resp_ready(),                      // Templated
+               // Inputs
+               .nreset          (1'b0),                  // Templated
+               .clk             (1'b0),                  // Templated
+               .go              (1'b0),                  // Templated
+               .apb_paddr       (AW'b0),                 // Templated
+               .apb_penable     (1'b0),                  // Templated
+               .apb_pwrite      (1'b0),                  // Templated
+               .apb_pwdata      (RW'b0),                 // Templated
+               .apb_pstrb       (4'b0),                  // Templated
+               .apb_pprot       (3'b0),                  // Templated
+               .apb_psel        (1'b0),                  // Templated
+               .uhost_req_ready (uhost_req_ready),       // Templated
+               .uhost_resp_valid(1'b0),                  // Templated
+               .uhost_resp_cmd  (CW'b0),                 // Templated
+               .uhost_resp_dstaddr(AW'b0),               // Templated
+               .uhost_resp_srcaddr(AW'b0),               // Templated
+               .uhost_resp_data (DW'b0));                // Templated
 
 endmodule
 
