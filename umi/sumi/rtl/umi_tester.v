@@ -81,7 +81,7 @@ module umi_tester
     input [TCW-1:0]  gpio_in,     // gpio inputs to response RAM
     output [TCW-1:0] gpio_out,    // gpio outputs from request RAM
     // apb load interface (optional)
-    input [AW-1:0]   apb_paddr,   // address bus
+    input [RAW-1:0]  apb_paddr,   // apb address bus
     input            apb_penable, // goes high for cycle 2:n of transfer
     input            apb_pwrite,  // 1=write, 0=read
     input [RW-1:0]   apb_pwdata,  // write data (8, 16, 32b)
@@ -117,7 +117,8 @@ module umi_tester
    reg [8*128-1:0] memhresp;
 
    // local state
-   reg [MAW-1:0]  test_addr;
+   reg [MAW-1:0]  req_addr;
+   reg [MAW-1:0]  resp_addr;
 
    // local wires
    wire [MW-1:0]  mem_req_dout;
@@ -137,6 +138,7 @@ module umi_tester
    wire           apb_req_beat;
    wire           apb_resp_beat;
 
+   wire [MW-1:0]  resp_din;
 
    //#####################################################
    // Initialize RAM
@@ -157,21 +159,21 @@ module umi_tester
    // 2. Not ready creates a valid bubble at addr stage
    // 3. Stall valid on requst ready signal
 
-   assign test_beat = en_req & uhost_req_ready & ~apb_penable;
+   assign req_beat = en_req & uhost_req_ready & ~apb_penable;
 
    // memory read address
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       test_addr[MAW-1:0] <= 'b0;
+       req_addr[MAW-1:0] <= 'b0;
      else
-       test_addr[MAW-1:0] <= test_addr[MAW-1:0] + test_beat;
+       req_addr[MAW-1:0] <= req_addr[MAW-1:0] + req_beat;
 
    // requests driven on next clock cycle by RAM
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        uhost_req_valid <= 'b0;
-     else if(uhost_req_valid & uhost_req_ready)
-       uhost_req_valid <= test_beat;
+     else if(uhost_req_ready)
+       uhost_req_valid <= req_beat;
 
    // assigning RAM output to UMI signals
    assign gpio_out[TCW-1:0]          = mem_req_dout[0+:TCW];
@@ -179,6 +181,28 @@ module umi_tester
    assign uhost_req_dstaddr[AW-1:0]  = mem_req_dout[(TCW+CW)+:AW];
    assign uhost_req_srcaddr[AW-1:0]  = mem_req_dout[(TCW+CW+AW)+:AW];
    assign uhost_req_data[DW-1:0]     = mem_req_dout[(TCW+CW+2*AW)+:DW];
+
+   //####################################################
+   // Response Tracker
+   //####################################################
+
+   assign  uhost_resp_ready = ~apb_resp_beat;
+
+
+   assign resp_beat = uhost_resp_valid & uhost_resp_ready;
+
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
+       resp_addr[MAW-1:0] <= 'b0;
+     else
+       resp_addr[MAW-1:0] <= resp_addr[MAW-1:0] + resp_beat;
+
+   assign resp_din[0]                 = resp_beat;
+   assign resp_din[TCW-1:1]           = gpio_in[TCW-1:1];
+   assign resp_din[TCW+:CW]           = uhost_resp_cmd[CW-1:0];
+   assign resp_din[(TCW+CW)+:AW]      = uhost_resp_cmd[AW-1:0];
+   assign resp_din[(TCW+CW+AW)+:AW]   = uhost_resp_cmd[AW-1:0];
+   assign resp_din[(TCW+CW+2*AW)+:DW] = uhost_resp_cmd[DW-1:0];
 
    //####################################################
    // APB Port
@@ -199,8 +223,7 @@ module umi_tester
                             apb_paddr[$clog2(MAXWIDTH)-1:0];
 
    // TODO: implement
-   assign apb_wmask[MW-1:0] = {8{apb_pstrb[3:0]}} <<
-                              apb_paddr[LAW-1:0];
+   assign apb_wmask[MW-1:0] = {8{apb_pstrb[3:0]}} << apb_paddr[LAW-1:0];
 
    // TODO: implement
    assign apb_prdata[RW-1:0] = mem_req_dout[RW-1:0];
@@ -211,12 +234,12 @@ module umi_tester
    // REQUEST RAM
    //######################################################
 
-   assign mem_req_ce = apb_req_beat | test_beat;
+   assign mem_req_ce = apb_req_beat | req_beat;
 
    assign mem_req_we = apb_req_beat ? apb_pwrite : 1'b0;
 
    assign mem_req_addr[MAW-1:0] = apb_req_beat ? apb_paddr[LAW+:MAW]:
-                                                 test_addr[MAW-1:0];
+                                                 req_addr[MAW-1:0];
 
    assign mem_req_din[MW-1:0] = apb_din;
 
@@ -243,6 +266,19 @@ module umi_tester
    //#########################################################
    // RESPONSE RAM
    //#########################################################
+
+   assign mem_resp_ce = apb_resp_beat | uhost_resp_valid;
+
+   assign mem_resp_we = apb_resp_beat ? apb_pwrite : 1'b1;
+
+   assign mem_resp_addr[MAW-1:0] = apb_resp_beat ? apb_paddr[LAW+:MAW]:
+                                                   resp_addr;
+
+   assign mem_resp_din[MW-1:0] = apb_resp_beat ? apb_din :
+                                                 resp_din;
+
+   assign mem_resp_wmask[MW-1:0] = apb_resp_beat ? apb_wmask :
+                                                   {{MW}{1'b1}};
 
    la_spram #(.DW    (MW),   // Memory width
               .AW    (MAW))  // Address width (derived)
@@ -275,9 +311,11 @@ endmodule
 module tb();
 
    parameter integer RW = 32;
+   parameter integer RAW = 32;
    parameter integer DW = 64;
    parameter integer AW = 64;
    parameter integer CW = 32;
+   parameter integer TCW = 8;
    parameter integer CTRLW = 8;
    parameter integer REGS = 512;
    parameter integer PERIOD = 2;
@@ -300,16 +338,20 @@ module tb();
    // control sequence
    reg             nreset;
    reg             clk;
+   reg             en_resp;
+   reg             en_req;
+
    initial
      begin
         #(1)
         nreset = 'b0;
         clk = 'b0;
-        go = 'b0;
+        en_req = 'b0;
+        en_resp = 'b0;
         #(PERIOD * 10)
         nreset = 1'b1;
         #(PERIOD * 10)
-        go = 1'b1;
+        en_req = 1'b1;
      end
 
    // clock
@@ -323,52 +365,59 @@ module tb();
 
    /* umi_tester AUTO_TEMPLATE(
     .uhost_req_\(.*\)  (uhost_req_\1[]),
-    .uhost_resp_\(.*\) (uhost_resp_\1[]),
-    .\(.*\)            (@"(if (equal vl-dir \\"output\\")  \\"\\" (concat vl-width \\"'b0\\") )"),
+    .uhost_resp_\(.*\) (uhost_req_\1[]),
+    .apb_paddr         ({{RAW}{1'b0}}),
+    .apb_pwdata        ({{RW}{1'b0}}),
+    .gpio_in           ({{TCW}{1'b0}}),
+    .en_req            (en_req),
+    .en_resp           (en_resp),
     );*/
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
+   wire [RW-1:0]        apb_prdata;
+   wire                 apb_pready;
+   wire [TCW-1:0]       gpio_out;
    wire [CW-1:0]        uhost_req_cmd;
    wire [DW-1:0]        uhost_req_data;
    wire [AW-1:0]        uhost_req_dstaddr;
+   wire                 uhost_req_ready;
    wire [AW-1:0]        uhost_req_srcaddr;
    wire                 uhost_req_valid;
-   wire                 uhost_resp_ready;
    // End of automatics
    umi_tester #(.AW(AW),
-                  .DW(DW),
-                  .RW(CW))
-   umi_tester (/*AUTOINST*/
+                .DW(DW),
+                .RW(CW))
+   umi_tester (.gpio_in         ({{TCW}{1'b0}}),
+               .apb_paddr       ({{RAW}{1'b0}}),
+               .apb_penable     (1'b0),
+               .apb_pwrite      (1'b0),
+               .apb_pwdata      ({{RW}{1'b0}}),
+               .apb_pstrb       (4'b0),
+               .apb_pprot       (3'b0),
+               .apb_psel        (1'b0),
+               /*AUTOINST*/
                // Outputs
-               .gpio_out        (),                      // Templated
-               .apb_pready      (),                      // Templated
-               .apb_prdata      (),                      // Templated
+               .gpio_out        (gpio_out[TCW-1:0]),
+               .apb_pready      (apb_pready),
+               .apb_prdata      (apb_prdata[RW-1:0]),
                .uhost_req_valid (uhost_req_valid),       // Templated
                .uhost_req_cmd   (uhost_req_cmd[CW-1:0]), // Templated
                .uhost_req_dstaddr(uhost_req_dstaddr[AW-1:0]), // Templated
                .uhost_req_srcaddr(uhost_req_srcaddr[AW-1:0]), // Templated
                .uhost_req_data  (uhost_req_data[DW-1:0]), // Templated
-               .uhost_resp_ready(uhost_resp_ready),      // Templated
+               .uhost_resp_ready(uhost_req_ready),       // Templated
                // Inputs
-               .nreset          (1'b0),                  // Templated
-               .clk             (1'b0),                  // Templated
-               .en_req          (1'b0),                  // Templated
-               .en_resp         (1'b0),                  // Templated
-               .gpio_in         (TCW'b0),                // Templated
-               .apb_paddr       (AW'b0),                 // Templated
-               .apb_penable     (1'b0),                  // Templated
-               .apb_pwrite      (1'b0),                  // Templated
-               .apb_pwdata      (RW'b0),                 // Templated
-               .apb_pstrb       (4'b0),                  // Templated
-               .apb_pprot       (3'b0),                  // Templated
-               .apb_psel        (1'b0),                  // Templated
+               .nreset          (nreset),
+               .clk             (clk),
+               .en_req          (en_req),                // Templated
+               .en_resp         (en_resp),               // Templated
                .uhost_req_ready (uhost_req_ready),       // Templated
-               .uhost_resp_valid(uhost_resp_valid),      // Templated
-               .uhost_resp_cmd  (uhost_resp_cmd[CW-1:0]), // Templated
-               .uhost_resp_dstaddr(uhost_resp_dstaddr[AW-1:0]), // Templated
-               .uhost_resp_srcaddr(uhost_resp_srcaddr[AW-1:0]), // Templated
-               .uhost_resp_data (uhost_resp_data[DW-1:0])); // Templated
+               .uhost_resp_valid(uhost_req_valid),       // Templated
+               .uhost_resp_cmd  (uhost_req_cmd[CW-1:0]), // Templated
+               .uhost_resp_dstaddr(uhost_req_dstaddr[AW-1:0]), // Templated
+               .uhost_resp_srcaddr(uhost_req_srcaddr[AW-1:0]), // Templated
+               .uhost_resp_data (uhost_req_data[DW-1:0])); // Templated
 
 endmodule
 
