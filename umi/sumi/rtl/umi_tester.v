@@ -1,4 +1,4 @@
-/**************************************************************************
+/****************************************************************************
  * Copyright 2020 Zero ASIC Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +49,7 @@
  * >> iverilog umi_stimulus.v -DTB_UMI_TESTER -y . -I.
  * >> ./a.out +hexfile="./test0.memh"
  *
- *************************************************************************/
+ ****************************************************************************/
 
 module umi_tester
   #(parameter DW = 256,           // umi data width
@@ -58,14 +58,14 @@ module umi_tester
     parameter TCW = 8,            // test ctrl width
     parameter DEPTH = 128 ,       // memory depth
     parameter RAW = 32,           // apb address width
-    parameter ARGNAME = "hexfile" // $plusargs name (optional)
+    parameter LOOP = 0,           // loop to zero when end reached
+    parameter ARGNAME = "hexfile" // $plusargs for memh init (optional)
     )
    (
     // control
     input               nreset,      // async active low reset
     input               clk,         // clk
-    input               go,          // drive stimulus
-    input
+    input               go,          // read memory
     // apb load interface (optional)
     input [AW-1:0]      apb_paddr,   // address bus
     input               apb_penable, // goes high for cycle 2:n of transfer
@@ -74,7 +74,7 @@ module umi_tester
     input [3:0]         apb_pstrb,   // (optional) write strobe byte lanes
     input [2:0]         apb_pprot,   // (optional) level of access
     input               apb_psel,    // select signal for each device
-    output              apb_pready,  // "wait" signal asserted by device
+    output              apb_pready,  // device ready
     output reg [RW-1:0] apb_prdata   // read data (8, 16, 32b)
     // umi host interface
     output              uhost_req_valid,
@@ -91,6 +91,8 @@ module umi_tester
     output              uhost_resp_ready
     );
 
+`include "umi_messages.vh"
+
    // memory parameters
    localparam MAW = $clog2(DEPTH); // Memory address width
    localparam MW = DW+2*AW+CW+TCW;
@@ -106,53 +108,114 @@ module umi_tester
        $readmemh(memhfile, la_spram.memory.ram);
 
    //#################################
+   // Memory Read Generator
+   //#################################
+
+   assign test_beat = go & test_ready;
+
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
+       test_addr[MAW-1:0] <= 'b0;
+     else
+       test_addr[MAW-1:0] <= test_addr[MAW-1:0] + beat;
+
+
+
+   //#################################
+   // APB Port
+   //#################################
+
+   assign apb_pready = 1'b1;
+
+   assign apb_din[MW-1:0] = apb_pwdata[RW-1:0] << apb_paddr[10:0];
+
+   assign apb_wmask[MW-1:0] = {8{apb_pstrb[3:0]}} << apb_paddr[10:0];
+
+   // TODO: implement memory read
+   assign apb_prdata[RW-1:0] = 'b0;
+
+   //#################################
+   // UMI Request Port
+   //#################################
+
+
+
+   //#################################
+   // UMI Response Port
+   //#################################
+
+   //#################################
    // Memory Access Arbiter
    //#################################
 
    assign mem_ce = apb_penable | uhost_req_valid | uhost_resp_valid;
 
+   assign mem_addr[MAW-1:0] = apb_penable ? apb_paddr[AW-1:$clog2(UMI_MAXSIZE)]:
+                     uhost_resp_valid ? 1'b1       :
+                                        1'b0;
+
+
    assign mem_we = apb_penable      ? apb_pwrite :
                    uhost_resp_valid ? 1'b1       :
                                       1'b0;
 
+   assign mem_din[MW-1:0] = apb_penable ? apb_din :
+                                          uhost_resp_din;
 
-   assign mem_din[MW-1:0] = apb_penable ? MW'b0 : // TODO: implement
+   assign mem_wmask[MW-1:0] = apb_penable ? apb_wmask:
+                                            MW'b1;
 
 
 
+   // ready pushback
    assign apb_pready = 1'b1;
    assign uhost_resp_ready = ~apb_penable;
-   assign request_ready = uhost_req_ready &
-                          ~(uhost_resp_valid | apb_penable);
-
-
-   //#################################
-   // Generator Statem Machine
-   //#################################
-
-
-
+   assign test_ready = uhost_req_ready &
+                       ~(uhost_resp_valid | apb_penable);
 
    //#################################
-   // RAM
+   // REQUEST RAM
    //#################################
 
    la_spram #(.DW    (MW),      // Memory width
               .AW    (MAW))     // Address width (derived)
-   la_spram(// Outputs
-       .dout             (mem_rddata[DW-1:0]),
+   req_ram(// Outputs
+       .dout             (mem_dout[MW-1:0]),
        // Inputs
        .clk              (clk),
        .ce               (mem_ce),
        .we               (mem_we),
-       .wmask            (MW'b1),
-       .addr             (mem_addr[$clog2(DW/8)+:$clog2(RAMDEPTH)]),
-       .din              (mem_wrdata),
+       .wmask            (mem_wmask[MW-1:0]),
+       .addr             (mem_addr[MAW-1:0]),
+       .din              (mem_din[MW-1:0]),
        .vss              (1'b0),
        .vdd              (1'b1),
        .vddio            (1'b1),
-       .ctrl             (sram_ctrl),
-       .test             (128'h0));
+       .ctrl             (1'b0),
+       .test             (1'b0));
+
+   //#################################
+   // RESPONSE RAM
+   //#################################
+
+   la_spram #(.DW    (MW),      // Memory width
+              .AW    (MAW))     // Address width (derived)
+   resp_ram(// Outputs
+       .dout             (mem_dout[MW-1:0]),
+       // Inputs
+       .clk              (clk),
+       .ce               (mem_ce),
+       .we               (mem_we),
+       .wmask            (mem_wmask[MW-1:0]),
+       .addr             (mem_addr[MAW-1:0]),
+       .din              (mem_din[MW-1:0]),
+       .vss              (1'b0),
+       .vdd              (1'b1),
+       .vddio            (1'b1),
+       .ctrl             (1'b0),
+       .test             (1'b0));
+
+
 
 endmodule
 // Local Variables:
@@ -215,8 +278,9 @@ module tb();
 
 
    /* umi_tester AUTO_TEMPLATE(
-    .uhost_req_\(.*\) (uhost_req_\1[]),
-    .\(.*\)           (@"(if (equal vl-dir \\"output\\")  \\"\\" (concat vl-width \\"'b0\\") )"),
+    .uhost_req_\(.*\)  (uhost_req_\1[]),
+    .uhost_resp_\(.*\) (uhost_resp_\1[]),
+    .\(.*\)            (@"(if (equal vl-dir \\"output\\")  \\"\\" (concat vl-width \\"'b0\\") )"),
     );*/
 
    /*AUTOWIRE*/
@@ -226,6 +290,7 @@ module tb();
    wire [AW-1:0]        uhost_req_dstaddr;
    wire [AW-1:0]        uhost_req_srcaddr;
    wire                 uhost_req_valid;
+   wire                 uhost_resp_ready;
    // End of automatics
    umi_tester #(.AW(AW),
                   .DW(DW),
@@ -239,7 +304,7 @@ module tb();
                .uhost_req_dstaddr(uhost_req_dstaddr[AW-1:0]), // Templated
                .uhost_req_srcaddr(uhost_req_srcaddr[AW-1:0]), // Templated
                .uhost_req_data  (uhost_req_data[DW-1:0]), // Templated
-               .uhost_resp_ready(),                      // Templated
+               .uhost_resp_ready(uhost_resp_ready),      // Templated
                // Inputs
                .nreset          (1'b0),                  // Templated
                .clk             (1'b0),                  // Templated
@@ -252,11 +317,11 @@ module tb();
                .apb_pprot       (3'b0),                  // Templated
                .apb_psel        (1'b0),                  // Templated
                .uhost_req_ready (uhost_req_ready),       // Templated
-               .uhost_resp_valid(1'b0),                  // Templated
-               .uhost_resp_cmd  (CW'b0),                 // Templated
-               .uhost_resp_dstaddr(AW'b0),               // Templated
-               .uhost_resp_srcaddr(AW'b0),               // Templated
-               .uhost_resp_data (DW'b0));                // Templated
+               .uhost_resp_valid(uhost_resp_valid),      // Templated
+               .uhost_resp_cmd  (uhost_resp_cmd[CW-1:0]), // Templated
+               .uhost_resp_dstaddr(uhost_resp_dstaddr[AW-1:0]), // Templated
+               .uhost_resp_srcaddr(uhost_resp_srcaddr[AW-1:0]), // Templated
+               .uhost_resp_data (uhost_resp_data[DW-1:0])); // Templated
 
 endmodule
 
