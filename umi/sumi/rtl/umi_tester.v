@@ -66,7 +66,7 @@ module umi_tester
     parameter TCW = 8,             // ctrl interface width
     parameter MAXWIDTH = 512,      // bits [256, 512, 1024, 2048]
     // bus parameters
-    parameter DW = 256,            // umi data width
+    parameter DW = 64,             // umi data width
     parameter AW = 64,             // umi addr width
     parameter CW = 32,             // umi ctrl width
     parameter RW = 32,             // apb data width
@@ -91,7 +91,7 @@ module umi_tester
     output           apb_pready,  // device ready
     output [RW-1:0]  apb_prdata,  // read data (8, 16, 32b)
     // umi host interface
-    output reg       uhost_req_valid,
+    output           uhost_req_valid,
     output [CW-1:0]  uhost_req_cmd,
     output [AW-1:0]  uhost_req_dstaddr,
     output [AW-1:0]  uhost_req_srcaddr,
@@ -119,6 +119,8 @@ module umi_tester
    // local state
    reg [MAW-1:0]  req_addr;
    reg [MAW-1:0]  resp_addr;
+   reg            req_valid;
+
 
    // local wires
    wire [MW-1:0]  mem_req_dout;
@@ -140,6 +142,8 @@ module umi_tester
 
    wire [MW-1:0]  resp_din;
 
+   integer        i;
+
    //#####################################################
    // Initialize RAM
    //#####################################################
@@ -148,6 +152,7 @@ module umi_tester
      begin
         if($value$plusargs($sformatf("%s=%%s", ARGREQ), memhreq))
           $readmemh(memhreq, ram_req.memory.ram);
+        else
         if($value$plusargs($sformatf("%s=%%s", ARGRESP), memhresp))
           $readmemh(memhresp, ram_resp.memory.ram);
      end
@@ -171,12 +176,13 @@ module umi_tester
    // requests driven on next clock cycle by RAM
    always @ (posedge clk or negedge nreset)
      if(!nreset)
-       uhost_req_valid <= 'b0;
+       req_valid <= 'b0;
      else if(uhost_req_ready)
-       uhost_req_valid <= req_beat;
+       req_valid <= req_beat;
 
    // assigning RAM output to UMI signals
    assign gpio_out[TCW-1:0]          = mem_req_dout[0+:TCW];
+   assign uhost_req_valid            = req_valid & mem_req_dout[0];
    assign uhost_req_cmd[CW-1:0]      = mem_req_dout[TCW+:CW];
    assign uhost_req_dstaddr[AW-1:0]  = mem_req_dout[(TCW+CW)+:AW];
    assign uhost_req_srcaddr[AW-1:0]  = mem_req_dout[(TCW+CW+AW)+:AW];
@@ -317,9 +323,17 @@ module tb();
    parameter integer CW = 32;
    parameter integer TCW = 8;
    parameter integer CTRLW = 8;
-   parameter integer REGS = 512;
+   parameter integer DEPTH = 128;
    parameter integer PERIOD = 2;
-   parameter integer TIMEOUT = PERIOD * 100;
+   parameter integer TIMEOUT = PERIOD * 1000;
+   parameter         ARGREQ = "hexreq";
+   parameter         ARGRESP = "hexresp";
+   parameter integer MAXWIDTH = 512; // bits [256, 512, 1024, 2048]
+
+   // memory parameters
+   localparam MAW = $clog2(DEPTH);      // Memory address-width
+   localparam MW = DW+2*AW+CW+TCW;      // Memory data width
+   localparam LAW = $clog2(MAXWIDTH/8); // Per entry address width
 
    //######################################
    // TEST HARNESS
@@ -334,6 +348,25 @@ module tb();
         #(TIMEOUT)
         $finish;
      end
+
+   // load memory
+   reg [8*128-1:0] memhreq;
+   reg [8*128-1:0] memhresp;
+   integer         i;
+   initial
+     begin
+        if(!$value$plusargs($sformatf("%s=%%s", ARGREQ), memhreq))
+          for (i=0;i<DEPTH;i=i+1)
+            umi_tester.ram_req.memory.ram[i] ={{{(AW-32){1'b0}},i[31:0]},
+                                               {{(AW-32){1'b0}},i[31:0]},
+                                               {{(AW-32){1'b0}},i[31:0]},
+                                               32'b0,
+                                               8'b0};
+        if(!$value$plusargs($sformatf("%s=%%s", ARGRESP), memhresp))
+            for (i=0;i<DEPTH;i=i+1)
+              umi_tester.ram_resp.memory.ram[i] = 'b0;
+     end
+
 
    // control sequence
    reg             nreset;
@@ -387,7 +420,13 @@ module tb();
    // End of automatics
    umi_tester #(.AW(AW),
                 .DW(DW),
-                .RW(CW))
+                .CW(CW),
+                .TCW(TCW),
+                .RAW(RAW),
+                .RW(RW),
+                .DEPTH(DEPTH),
+                .ARGREQ(ARGREQ),
+                .ARGRESP(ARGRESP))
    umi_tester (.gpio_in         ({{TCW}{1'b0}}),
                .apb_paddr       ({{RAW}{1'b0}}),
                .apb_penable     (1'b0),
