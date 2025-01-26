@@ -54,7 +54,7 @@
  *
  * Demo:
  *
- * >> iverilog umi_stimulus.v -DTB_UMI_TESTER -y . -I. -y
+ * >> iverilog umi_stimulus.v -DTB_UMI_TESTER -y . -I. -y $LAMBDALIBPATH
  * >> ./a.out +hexfile="./test0.memh"
  *
  *****************************************************************************/
@@ -228,9 +228,9 @@ module umi_tester
    assign resp_din[0]                 = resp_beat;
    assign resp_din[TCW-1:1]           = gpio_in[TCW-1:1];
    assign resp_din[TCW+:CW]           = uhost_resp_cmd[CW-1:0];
-   assign resp_din[(TCW+CW)+:AW]      = uhost_resp_cmd[AW-1:0];
-   assign resp_din[(TCW+CW+AW)+:AW]   = uhost_resp_cmd[AW-1:0];
-   assign resp_din[(TCW+CW+2*AW)+:DW] = uhost_resp_cmd[DW-1:0];
+   assign resp_din[(TCW+CW)+:AW]      = uhost_resp_dstaddr[AW-1:0];
+   assign resp_din[(TCW+CW+AW)+:AW]   = uhost_resp_srcaddr[AW-1:0];
+   assign resp_din[(TCW+CW+2*AW)+:DW] = uhost_resp_data[DW-1:0];
 
    //####################################################
    // APB Port
