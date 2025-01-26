@@ -17,18 +17,20 @@
  *
  * Documentation:
  *
- * - This module is a synthesizable module that generate host requests
- *   based on UMI transactions stored in a local RAM.
- *
- * - Valid UMI host transactions from memory, incrementing the memory
+ * - This module is a UMI host transaction generator. The module reads
+ *   UMI transactions from memory at a rate of one transaction per
+ *   clock cycle and sends them out as uhost_req_*s. Valid UMI host
+ *   transactions from memory, incrementing the memory
  *   read address and sending a UMI transaction whnile 'go' is held high.
+ *
+ * - UMI responses are stored in the a separate response RAM.
  *
  * - The local memory has one host transaction per memory address,
  *   with the following format: [MSB..LSB]
  *   {data, srcaddr, dstaddr, cmd, ctrl}
  *
  * - The data, srcaddr, dstaddr, cmd, ctrl widths are parametrized
- *   via DW,AW,CW.
+ *   via DW, AW, CW.
  *
  * - Bit[0] of the ctrl field indicates a valid transaction. Bits
  *   [7:1] user bits driven out to to the interface
@@ -66,6 +68,7 @@ module umi_tester
     parameter ARGRESP = "hexresp", // $plusargs for resp memh  init (optional)
     parameter TCW = 8,             // ctrl interface width
     parameter MAXWIDTH = 512,      // bits [256, 512, 1024, 2048]
+    parameter DEBUG = 1,           // turn on debug messages
     // bus parameters
     parameter DW = 64,             // umi data width
     parameter AW = 64,             // umi addr width
@@ -118,8 +121,8 @@ module umi_tester
    localparam LAW = $clog2(MAXWIDTH/8); // Per entry address width
 
    // file names
-   reg [MW-1:0] memhreq;
-   reg [MW-1:0] memhresp;
+   reg [8*128-1:0] memhreq;
+   reg [8*128-1:0] memhresp;
 
    // local state
    reg [MAW-1:0]  req_addr;
@@ -160,6 +163,23 @@ module umi_tester
         if($value$plusargs($sformatf("%s=%%s", ARGRESP), memhresp))
           $readmemh(memhresp, ram_resp.memory.ram);
      end
+
+   //#####################################################
+   // Monitor Transactions
+   //#####################################################
+
+   if(DEBUG) begin
+      always @ (posedge clk) begin
+         if (uhost_req_valid & uhost_req_ready)
+           $display("(request)  data=%h srcaddr=%h dstaddr=%h cmd=%h",
+                    uhost_resp_data, uhost_resp_srcaddr,uhost_resp_dstaddr, uhost_resp_cmd);
+
+         if (uhost_resp_valid & uhost_resp_ready)
+           $display("(response) data=%h srcaddr=%h dstaddr=%h cmd=%h",
+                    uhost_resp_data, uhost_resp_srcaddr, uhost_resp_dstaddr, uhost_resp_cmd);
+      end
+   end
+
 
    //####################################################
    // Request Generator
@@ -357,8 +377,8 @@ module tb();
    localparam MW = DW+2*AW+CW+TCW;      // Memory data width
    localparam LAW = $clog2(MAXWIDTH/8); // Per entry address width
 
-   reg [MW-1:0] memhreq;
-   reg [MW-1:0] memhresp;
+   reg [128*8-1:0] memhreq;
+   reg [128*8-1:0] memhresp;
 
    //######################################
    // TEST HARNESS
@@ -413,6 +433,8 @@ module tb();
    // clock
    always
      #(PERIOD/2) clk = ~clk;
+
+
 
    //######################################
    // DUT
