@@ -39,13 +39,15 @@
  * - APB access port can be used by an external host to
  *   to read/write from the memory.
  *
- * - Address map is dictated by the MAXWIDTH:
- * - MAXWITH
- *
  * - The memory access priority is:
  *   - apb (highest)
  *   - response
  *   - request (lowest)
+ *
+ * - error[3:0]:
+ *   0000 = no error
+ *   0001 = timeout
+ *   0010 =
  *
  * Dependencies:
  *   - https://github.com/siliconcompiler/lambdalib
@@ -60,7 +62,6 @@
 module umi_tester
   #(// user parameters
     parameter DEPTH = 128,         // memory depth (entries)
-    parameter LOOP = 0,            // loop to zero when end reached
     parameter ARGREQ = "hexreq",   // $plusargs for req memh init (optional)
     parameter ARGRESP = "hexresp", // $plusargs for resp memh  init (optional)
     parameter TCW = 8,             // ctrl interface width
@@ -76,8 +77,12 @@ module umi_tester
     // control
     input            nreset,      // async active low reset
     input            clk,         // clk
-    input            en_req,      // enable request generation
-    input            en_resp,     // enable response capture
+    input            autoloop,    // loop req addr back to zero
+    input            req_en,      // enable request generation
+    output reg       req_done,    // all requests sent
+    input            resp_en,     // enable response capture
+    output reg       resp_done,   // all responses received
+    output [3:0]     error,       // tester error
     input [TCW-1:0]  gpio_in,     // gpio inputs to response RAM
     output [TCW-1:0] gpio_out,    // gpio outputs from request RAM
     // apb load interface (optional)
@@ -113,14 +118,13 @@ module umi_tester
    localparam LAW = $clog2(MAXWIDTH/8); // Per entry address width
 
    // file names
-   reg [8*128-1:0] memhreq;
-   reg [8*128-1:0] memhresp;
+   reg [MW-1:0] memhreq;
+   reg [MW-1:0] memhresp;
 
    // local state
    reg [MAW-1:0]  req_addr;
    reg [MAW-1:0]  resp_addr;
    reg            req_valid;
-
 
    // local wires
    wire [MW-1:0]  mem_req_dout;
@@ -164,13 +168,14 @@ module umi_tester
    // 2. Not ready creates a valid bubble at addr stage
    // 3. Stall valid on requst ready signal
 
-   assign req_beat = en_req & uhost_req_ready & ~apb_penable;
+   assign req_beat = req_en & ~req_done &
+                     uhost_req_ready & ~apb_penable;
 
    // memory read address
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        req_addr[MAW-1:0] <= 'b0;
-     else
+     else if (!req_done)
        req_addr[MAW-1:0] <= req_addr[MAW-1:0] + req_beat;
 
    // requests driven on next clock cycle by RAM
@@ -179,6 +184,15 @@ module umi_tester
        req_valid <= 'b0;
      else if(uhost_req_ready)
        req_valid <= req_beat;
+
+   // requests done
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
+       req_done <= 'b0;
+     else if(~req_en)
+       req_done <= 1'b0;
+     else if(&req_addr[MAW-1:0] &~autoloop)
+       req_done <= 1'b1;
 
    // assigning RAM output to UMI signals
    assign gpio_out[TCW-1:0]          = mem_req_dout[0+:TCW];
@@ -194,14 +208,22 @@ module umi_tester
 
    assign  uhost_resp_ready = ~apb_resp_beat;
 
-
    assign resp_beat = uhost_resp_valid & uhost_resp_ready;
 
    always @ (posedge clk or negedge nreset)
      if(!nreset)
        resp_addr[MAW-1:0] <= 'b0;
-     else
+     else if (!resp_done)
        resp_addr[MAW-1:0] <= resp_addr[MAW-1:0] + resp_beat;
+
+   // requests done
+   always @ (posedge clk or negedge nreset)
+     if(!nreset)
+       resp_done <= 'b0;
+     else if(~resp_en)
+       resp_done <= 1'b0;
+     else if(&resp_addr[MAW-1:0] &~autoloop)
+       resp_done <= 1'b1;
 
    assign resp_din[0]                 = resp_beat;
    assign resp_din[TCW-1:1]           = gpio_in[TCW-1:1];
@@ -323,7 +345,7 @@ module tb();
    parameter integer CW = 32;
    parameter integer TCW = 8;
    parameter integer CTRLW = 8;
-   parameter integer DEPTH = 128;
+   parameter integer DEPTH = 8;
    parameter integer PERIOD = 2;
    parameter integer TIMEOUT = PERIOD * 1000;
    parameter         ARGREQ = "hexreq";
@@ -334,6 +356,9 @@ module tb();
    localparam MAW = $clog2(DEPTH);      // Memory address-width
    localparam MW = DW+2*AW+CW+TCW;      // Memory data width
    localparam LAW = $clog2(MAXWIDTH/8); // Per entry address width
+
+   reg [MW-1:0] memhreq;
+   reg [MW-1:0] memhresp;
 
    //######################################
    // TEST HARNESS
@@ -350,8 +375,6 @@ module tb();
      end
 
    // load memory
-   reg [8*128-1:0] memhreq;
-   reg [8*128-1:0] memhresp;
    integer         i;
    initial
      begin
@@ -371,20 +394,20 @@ module tb();
    // control sequence
    reg             nreset;
    reg             clk;
-   reg             en_resp;
-   reg             en_req;
+   reg             resp_en;
+   reg             req_en;
 
    initial
      begin
         #(1)
         nreset = 'b0;
         clk = 'b0;
-        en_req = 'b0;
-        en_resp = 'b0;
+        req_en = 'b0;
+        resp_en = 'b0;
         #(PERIOD * 10)
         nreset = 1'b1;
         #(PERIOD * 10)
-        en_req = 1'b1;
+        req_en = 1'b1;
      end
 
    // clock
@@ -394,7 +417,6 @@ module tb();
    //######################################
    // DUT
    //######################################
-
 
    /* umi_tester AUTO_TEMPLATE(
     .uhost_req_\(.*\)  (uhost_req_\1[]),
@@ -410,7 +432,10 @@ module tb();
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire [RW-1:0]        apb_prdata;
    wire                 apb_pready;
+   wire [3:0]           error;
    wire [TCW-1:0]       gpio_out;
+   wire                 req_done;
+   wire                 resp_done;
    wire [CW-1:0]        uhost_req_cmd;
    wire [DW-1:0]        uhost_req_data;
    wire [AW-1:0]        uhost_req_dstaddr;
@@ -427,7 +452,8 @@ module tb();
                 .DEPTH(DEPTH),
                 .ARGREQ(ARGREQ),
                 .ARGRESP(ARGRESP))
-   umi_tester (.gpio_in         ({{TCW}{1'b0}}),
+   umi_tester (.autoloop        (1'b0),
+               .gpio_in         ({{TCW}{1'b0}}),
                .apb_paddr       ({{RAW}{1'b0}}),
                .apb_penable     (1'b0),
                .apb_pwrite      (1'b0),
@@ -437,6 +463,9 @@ module tb();
                .apb_psel        (1'b0),
                /*AUTOINST*/
                // Outputs
+               .req_done        (req_done),
+               .resp_done       (resp_done),
+               .error           (error[3:0]),
                .gpio_out        (gpio_out[TCW-1:0]),
                .apb_pready      (apb_pready),
                .apb_prdata      (apb_prdata[RW-1:0]),
@@ -449,8 +478,8 @@ module tb();
                // Inputs
                .nreset          (nreset),
                .clk             (clk),
-               .en_req          (en_req),                // Templated
-               .en_resp         (en_resp),               // Templated
+               .req_en          (req_en),
+               .resp_en         (resp_en),
                .uhost_req_ready (uhost_req_ready),       // Templated
                .uhost_resp_valid(uhost_req_valid),       // Templated
                .uhost_resp_cmd  (uhost_req_cmd[CW-1:0]), // Templated
