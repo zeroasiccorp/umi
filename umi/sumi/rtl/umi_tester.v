@@ -86,8 +86,8 @@ module umi_tester
     input            resp_en,     // enable response capture
     output reg       resp_done,   // all responses received
     output [3:0]     error,       // tester error
-    input [TCW-1:0]  gpio_in,     // gpio inputs to response RAM
-    output [TCW-1:0] gpio_out,    // gpio outputs from request RAM
+    input [TCW-2:0]  gpio_in,     // gpio inputs to response RAM
+    output [TCW-2:0] gpio_out,    // gpio outputs from request RAM
     // apb load interface (optional)
     input [RAW-1:0]  apb_paddr,   // apb address bus
     input            apb_penable, // goes high for cycle 2:n of transfer
@@ -215,7 +215,7 @@ module umi_tester
        req_done <= 1'b1;
 
    // assigning RAM output to UMI signals
-   assign gpio_out[TCW-1:0]          = mem_req_dout[0+:TCW];
+   assign gpio_out[TCW-2:0]          = mem_req_dout[1+:(TCW-1)];
    assign uhost_req_valid            = req_valid & mem_req_dout[0];
    assign uhost_req_cmd[CW-1:0]      = mem_req_dout[TCW+:CW];
    assign uhost_req_dstaddr[AW-1:0]  = mem_req_dout[(TCW+CW)+:AW];
@@ -246,7 +246,7 @@ module umi_tester
        resp_done <= 1'b1;
 
    assign resp_din[0]                 = resp_beat;
-   assign resp_din[TCW-1:1]           = gpio_in[TCW-1:1];
+   assign resp_din[TCW-1:1]           = gpio_in[TCW-2:0];
    assign resp_din[TCW+:CW]           = uhost_resp_cmd[CW-1:0];
    assign resp_din[(TCW+CW)+:AW]      = uhost_resp_dstaddr[AW-1:0];
    assign resp_din[(TCW+CW+AW)+:AW]   = uhost_resp_srcaddr[AW-1:0];
@@ -445,7 +445,6 @@ module tb();
     .uhost_resp_\(.*\) (uhost_req_\1[]),
     .apb_paddr         ({{RAW}{1'b0}}),
     .apb_pwdata        ({{RW}{1'b0}}),
-    .gpio_in           ({{TCW}{1'b0}}),
     .en_req            (en_req),
     .en_resp           (en_resp),
     );*/
@@ -455,7 +454,7 @@ module tb();
    wire [RW-1:0]        apb_prdata;
    wire                 apb_pready;
    wire [3:0]           error;
-   wire [TCW-1:0]       gpio_out;
+   wire [TCW-2:0]       gpio_out;
    wire                 req_done;
    wire                 resp_done;
    wire [CW-1:0]        uhost_req_cmd;
@@ -475,7 +474,7 @@ module tb();
                 .ARGREQ(ARGREQ),
                 .ARGRESP(ARGRESP))
    umi_tester (.autoloop        (1'b0),
-               .gpio_in         ({{TCW}{1'b0}}),
+               .gpio_in         ({(TCW-1){1'b0}}),
                .apb_paddr       ({{RAW}{1'b0}}),
                .apb_penable     (1'b0),
                .apb_pwrite      (1'b0),
@@ -488,7 +487,7 @@ module tb();
                .req_done        (req_done),
                .resp_done       (resp_done),
                .error           (error[3:0]),
-               .gpio_out        (gpio_out[TCW-1:0]),
+               .gpio_out        (gpio_out[TCW-2:0]),
                .apb_pready      (apb_pready),
                .apb_prdata      (apb_prdata[RW-1:0]),
                .uhost_req_valid (uhost_req_valid),       // Templated
