@@ -69,7 +69,7 @@ module umi_regif
     output [1:0]        reg_prot,  // protection
     input [RW-1:0]      reg_rdata, // read data
     input [1:0]         reg_err,   // device error
-    input               reg_ready, // device is ready
+    input               reg_ready  // device is ready
     );
 
 `include "umi_messages.vh"
