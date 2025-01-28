@@ -35,7 +35,8 @@
  *****************************************************************************/
 
 module umi_regif
-  #(parameter RW = 32,        // register width
+  #(parameter RW = 32,        // register data width (RW<=DW)
+    parameter RAW = 32,       // register address width (RAW<=AW)
     parameter GRPOFFSET = 24, // group address offset
     parameter GRPAW = 0,      // group address width
     parameter GRPID = 0,      // group ID
@@ -64,7 +65,7 @@ module umi_regif
     // single-port register interface
     output              reg_write, // write enable
     output              reg_read,  // read request
-    output [AW-1:0]     reg_addr,  // address
+    output [RAW-1:0]    reg_addr,  // address
     output [RW-1:0]     reg_wdata, // write data
     output [1:0]        reg_prot,  // protection
     input [RW-1:0]      reg_rdata, // read data
@@ -128,7 +129,7 @@ module umi_regif
 
    assign reg_write = (cmd_write | cmd_posted) & beat;
    assign reg_read = cmd_read & beat;
-   assign reg_addr[AW-1:0] = udev_req_dstaddr[AW-1:0];
+   assign reg_addr[RAW-1:0] = udev_req_dstaddr[RAW-1:0];
    assign reg_wdata[RW-1:0] = udev_req_data[RW-1:0];
    assign reg_prot[1:0] = udev_req_cmd[21:20];
 
@@ -179,6 +180,7 @@ module tb();
  `include "umi_messages.vh"
 
    parameter integer RW = 32;
+   parameter integer RAW = 32;
    parameter integer DW = 64;
    parameter integer AW = 64;
    parameter integer CW = 32;
@@ -285,7 +287,7 @@ module tb();
    wire [RW-1:0]       reg_rdata;
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
-   wire [AW-1:0]        reg_addr;
+   wire [RAW-1:0]       reg_addr;
    wire [1:0]           reg_prot;
    wire                 reg_read;
    wire [RW-1:0]        reg_wdata;
@@ -297,7 +299,9 @@ module tb();
    wire [AW-1:0]        udev_resp_srcaddr;
    wire                 udev_resp_valid;
    // End of automatics
-   umi_regif #(.AW(AW),
+   umi_regif #(.RAW(RAW),
+               .RW(RW),
+               .AW(AW),
                .DW(DW),
                .RW(CW))
    umi_regif (.reg_ready        (1'b1),
@@ -312,7 +316,7 @@ module tb();
               .udev_resp_data   (udev_resp_data[DW-1:0]),
               .reg_write        (reg_write),
               .reg_read         (reg_read),
-              .reg_addr         (reg_addr[AW-1:0]),
+              .reg_addr         (reg_addr[RAW-1:0]),
               .reg_wdata        (reg_wdata[RW-1:0]),
               .reg_prot         (reg_prot[1:0]),
               // Inputs
