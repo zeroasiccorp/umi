@@ -1,4 +1,4 @@
-/**************************************************************************
+/*****************************************************************************
  * Copyright 2023 Zero ASIC Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
  * Documentation:
  * - LUMI Control Registers
  *
- *************************************************************************/
+ *****************************************************************************/
 
 module lumi_regs
   #(parameter TARGET = "DEFAULT",                         // LUMI type
@@ -108,8 +108,8 @@ module lumi_regs
 
    // sb interface
    wire [AW-1:0] reg_addr;
-   wire [RW-1:0] reg_wrdata;
-   reg [RW-1:0]  reg_rddata;
+   wire [RW-1:0] reg_wdata;
+   reg [RW-1:0]  reg_rdata;
    wire          reg_write;
 
    wire          write_ctrl;
@@ -154,7 +154,7 @@ module lumi_regs
      if(!nreset)
        ctrl_reg[RW-1:0] <= 'b0;
      else if(write_ctrl)
-       ctrl_reg[RW-1:0] <= reg_wrdata[RW-1:0];
+       ctrl_reg[RW-1:0] <= reg_wdata[RW-1:0];
 
    assign csr_arbmode[1:0] = ctrl_reg[5:4];
 
@@ -187,7 +187,7 @@ module lumi_regs
                               4'b0001,         // 3 unused, credit enable
                               4'b0001};        // 3 unused, tx enable
      else if(write_txmode)
-       txmode_reg[RW-1:0] <= reg_wrdata[RW-1:0];
+       txmode_reg[RW-1:0] <= reg_wdata[RW-1:0];
 
    assign csr_txen           = linkactive & txmode_reg[0]; // tx enable
    assign csr_txcrdt_en      = txmode_reg[4];   // Enable sending credit updates
@@ -212,7 +212,7 @@ module lumi_regs
                               12'h000,         // Unused
                               4'b0001};        // 3 unused, rx enable
      else if(write_rxmode)
-       rxmode_reg[RW-1:0] <= reg_wrdata[RW-1:0];
+       rxmode_reg[RW-1:0] <= reg_wdata[RW-1:0];
 
    assign csr_rxen           = linkactive & rxmode_reg[0]; // rx enable
    assign csr_rxiowidth[7:0] = rxmode_reg[23:16];
@@ -233,7 +233,7 @@ module lumi_regs
        rxcrdt_init_reg[31:0] <= {TOTCRDT[15:0] >> phy_iow,
                                  TOTCRDT[15:0] >> phy_iow};
      else if(write_crdt_init)
-       rxcrdt_init_reg[31:0] <= reg_wrdata[31:0];
+       rxcrdt_init_reg[31:0] <= reg_wdata[31:0];
 
    assign csr_rxcrdt_req_init[15:0]  = rxcrdt_init_reg[15:0];
    assign csr_rxcrdt_resp_init[15:0] = rxcrdt_init_reg[31:16];
@@ -245,7 +245,7 @@ module lumi_regs
      if(!nreset)
        txcrdt_intrvl_reg[15:0] <= 16'h0010;
      else if(write_crdt_intrvl)
-       txcrdt_intrvl_reg[15:0] <= reg_wrdata[15:0];
+       txcrdt_intrvl_reg[15:0] <= reg_wdata[15:0];
 
    assign csr_txcrdt_intrvl[15:0]  = txcrdt_intrvl_reg[15:0];
 
@@ -277,7 +277,7 @@ module lumi_regs
               .reg_write        (reg_write),
               .reg_read         (reg_read),
               .reg_addr         (reg_addr[AW-1:0]),
-              .reg_wrdata       (reg_wrdata[RW-1:0]),
+              .reg_wdata        (reg_wdata[RW-1:0]),
               .reg_prot         (reg_prot[1:0]),
               // Inputs
               .clk              (clk),
@@ -288,35 +288,30 @@ module lumi_regs
               .udev_req_srcaddr (udev_req_srcaddr[AW-1:0]),
               .udev_req_data    (udev_req_data[RW-1:0]), // Templated
               .udev_resp_ready  (udev_resp_ready),
-              .reg_rddata       (reg_rddata[RW-1:0]));
+              .reg_rdata        (reg_rdata[RW-1:0]));
 
    // Write Decode
-   assign write_ctrl       = reg_write & (reg_addr[7:2]==LUMI_CTRL[7:2]);
-   assign write_status     = reg_write & (reg_addr[7:2]==LUMI_STATUS[7:2]);
-   assign write_txmode     = reg_write & (reg_addr[7:2]==LUMI_TXMODE[7:2]);
-   assign write_rxmode     = reg_write & (reg_addr[7:2]==LUMI_RXMODE[7:2]);
+   assign write_ctrl        = reg_write & (reg_addr[7:2]==LUMI_CTRL[7:2]);
+   assign write_status      = reg_write & (reg_addr[7:2]==LUMI_STATUS[7:2]);
+   assign write_txmode      = reg_write & (reg_addr[7:2]==LUMI_TXMODE[7:2]);
+   assign write_rxmode      = reg_write & (reg_addr[7:2]==LUMI_RXMODE[7:2]);
    assign write_crdt_init   = reg_write & (reg_addr[7:2]==LUMI_CRDTINIT[7:2]);
    assign write_crdt_intrvl = reg_write & (reg_addr[7:2]==LUMI_CRDTINTRVL[7:2]);
 
-   always @(posedge clk or negedge nreset)
-     if (~nreset)
-       reg_rddata[RW-1:0] <= {RW{1'b0}};
-     else
-       if (reg_read)
-         case (reg_addr[7:2])
-           LUMI_CTRL[7:2]             : reg_rddata[RW-1:0] <= ctrl_reg[RW-1:0];
-           LUMI_STATUS[7:2]           : reg_rddata[RW-1:0] <= status_reg[RW-1:0];
-           LUMI_TXMODE[7:2]           : reg_rddata[RW-1:0] <= txmode_reg[RW-1:0];
-           LUMI_RXMODE[7:2]           : reg_rddata[RW-1:0] <= rxmode_reg[RW-1:0];
-           LUMI_CRDTINIT[7:2]         : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},rxcrdt_init_reg[31:0]};
-           LUMI_CRDTINTRVL[7:2]       : reg_rddata[RW-1:0] <= {{RW-16{1'b0}},txcrdt_intrvl_reg[15:0]};
-           LUMI_REQCRDTSTALLCYC[7:2]  : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_stall_cycles[31:0]};
-           LUMI_RESPCRDTSTALLCYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_stall_cycles[31:0]};
-           LUMI_REQCRDTACTIVECYC[7:2] : reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_req_txcrdt_active_cycles[31:0]};
-           LUMI_RESPCRDTACTIVECYC[7:2]: reg_rddata[RW-1:0] <= {{RW-32{1'b0}},csr_resp_txcrdt_active_cycles[31:0]};
-           default:
-             reg_rddata[RW-1:0] <= 'b0;
-         endcase
+   always @ *
+     case (reg_addr[7:2])
+       LUMI_CTRL[7:2]             : reg_rdata[RW-1:0] = ctrl_reg[RW-1:0];
+       LUMI_STATUS[7:2]           : reg_rdata[RW-1:0] = status_reg[RW-1:0];
+       LUMI_TXMODE[7:2]           : reg_rdata[RW-1:0] = txmode_reg[RW-1:0];
+       LUMI_RXMODE[7:2]           : reg_rdata[RW-1:0] = rxmode_reg[RW-1:0];
+       LUMI_CRDTINIT[7:2]         : reg_rdata[RW-1:0] = {{RW-32{1'b0}},rxcrdt_init_reg[31:0]};
+       LUMI_CRDTINTRVL[7:2]       : reg_rdata[RW-1:0] = {{RW-16{1'b0}},txcrdt_intrvl_reg[15:0]};
+       LUMI_REQCRDTSTALLCYC[7:2]  : reg_rdata[RW-1:0] = {{RW-32{1'b0}},csr_req_txcrdt_stall_cycles[31:0]};
+       LUMI_RESPCRDTSTALLCYC[7:2] : reg_rdata[RW-1:0] = {{RW-32{1'b0}},csr_resp_txcrdt_stall_cycles[31:0]};
+       LUMI_REQCRDTACTIVECYC[7:2] : reg_rdata[RW-1:0] = {{RW-32{1'b0}},csr_req_txcrdt_active_cycles[31:0]};
+       LUMI_RESPCRDTACTIVECYC[7:2]: reg_rdata[RW-1:0] = {{RW-32{1'b0}},csr_resp_txcrdt_active_cycles[31:0]};
+       default:                     reg_rdata[RW-1:0] = 'b0;
+     endcase
 
 endmodule
 // Local Variables:
