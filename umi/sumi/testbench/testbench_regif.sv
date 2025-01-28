@@ -30,6 +30,7 @@ module testbench (
 `include "switchboard.vh"
 
    parameter integer RW=32;
+   parameter integer RAW=32;
    parameter integer DW=256;
    parameter integer AW=64;
    parameter integer CW=32;
@@ -127,6 +128,7 @@ module testbench (
    umi_regif #(.CW(CW),
                .AW(AW),
                .DW(DW),
+               .RAW(RAW),
                .RW(RW))
    umi_regif(.reg_ready       (1'b1), // no bw to test for this rare feature
              .reg_err         (2'b0), // TODO: implement when needed
@@ -140,7 +142,7 @@ module testbench (
              .udev_resp_data    (udev_resp_data[DW-1:0]),
              .reg_write         (reg_write),
              .reg_read          (reg_read),
-             .reg_addr          (reg_addr[AW-1:0]),
+             .reg_addr          (reg_addr[RAW-1:0]),
              .reg_wdata         (reg_wdata[RW-1:0]),
              .reg_prot          (reg_prot[1:0]),
              // Inputs
