@@ -1,4 +1,4 @@
-/**************************************************************************
+/******************************************************************************
  * Copyright 2020 Zero ASIC Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +32,7 @@
  * >> iverilog umi_regif.v -DTB_UMI_REGIF -y . -I.
  * >> ./a.out
  *
- *************************************************************************/
+ *****************************************************************************/
 
 module umi_regif
   #(parameter RW = 32,        // register width
@@ -46,8 +46,8 @@ module umi_regif
     parameter DW = 64         // data width
     )
    (// clk, reset
-    input               clk,        //clk
-    input               nreset,     //async active low reset
+    input               clk,       //clk
+    input               nreset,    //async active low reset
     // UMI transaction
     input               udev_req_valid,
     input [CW-1:0]      udev_req_cmd,
@@ -61,15 +61,15 @@ module umi_regif
     output reg [AW-1:0] udev_resp_srcaddr,
     output reg [DW-1:0] udev_resp_data,
     input               udev_resp_ready,
-    // register interface
-    output              reg_write,  // write enable
-    output              reg_read,   // read request
-    output [AW-1:0]     reg_addr,   // address
-    output [RW-1:0]     reg_wrdata, // write data
-    output [1:0]        reg_prot,   // protection
-    input               reg_ready,  // device is ready
-    input [RW-1:0]      reg_rddata, // read data
-    input [1:0]         reg_err     // device error
+    // single-port register interface
+    output              reg_write, // write enable
+    output              reg_read,  // read request
+    output [AW-1:0]     reg_addr,  // address
+    output [RW-1:0]     reg_wdata, // write data
+    output [1:0]        reg_prot,  // protection
+    input [RW-1:0]      reg_rdata, // read data
+    input [1:0]         reg_err,   // device error
+    input               reg_ready, // device is ready
     );
 
 `include "umi_messages.vh"
@@ -129,7 +129,7 @@ module umi_regif
    assign reg_write = (cmd_write | cmd_posted) & beat;
    assign reg_read = cmd_read & beat;
    assign reg_addr[AW-1:0] = udev_req_dstaddr[AW-1:0];
-   assign reg_wrdata[RW-1:0] = udev_req_data[RW-1:0];
+   assign reg_wdata[RW-1:0] = udev_req_data[RW-1:0];
    assign reg_prot[1:0] = udev_req_cmd[21:20];
 
    //######################################
@@ -164,13 +164,13 @@ module umi_regif
           udev_resp_dstaddr[AW-1:0] <= udev_req_srcaddr;
           udev_resp_srcaddr[AW-1:0] <= udev_req_dstaddr;
           udev_resp_data[DW-1:0]    <= {{(DW-RW){1'b0}},
-                                        reg_rddata[RW-1:0]};
+                                        reg_rdata[RW-1:0]};
        end
 
 endmodule
 
 //#####################################################################
-// A SIMPLE TESTBENCH
+// DEMO TESTBENCH
 //#####################################################################
 
 `ifdef TB_UMI_REGIF
@@ -282,13 +282,13 @@ module tb();
    // DUT
    //######################################
 
-   wire [RW-1:0]       reg_rddata;
+   wire [RW-1:0]       reg_rdata;
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
    wire [AW-1:0]        reg_addr;
    wire [1:0]           reg_prot;
    wire                 reg_read;
-   wire [RW-1:0]        reg_wrdata;
+   wire [RW-1:0]        reg_wdata;
    wire                 reg_write;
    wire                 udev_req_ready;
    wire [CW-1:0]        udev_resp_cmd;
@@ -313,7 +313,7 @@ module tb();
               .reg_write        (reg_write),
               .reg_read         (reg_read),
               .reg_addr         (reg_addr[AW-1:0]),
-              .reg_wrdata       (reg_wrdata[RW-1:0]),
+              .reg_wdata        (reg_wdata[RW-1:0]),
               .reg_prot         (reg_prot[1:0]),
               // Inputs
               .clk              (clk),
@@ -324,7 +324,7 @@ module tb();
               .udev_req_srcaddr (udev_req_srcaddr[AW-1:0]),
               .udev_req_data    (udev_req_data[DW-1:0]),
               .udev_resp_ready  (udev_resp_ready),
-              .reg_rddata       (reg_rddata[RW-1:0]));
+              .reg_rdata        (reg_rdata[RW-1:0]));
 
    //######################################
    // MEMORY
@@ -334,9 +334,9 @@ module tb();
 
    always @(posedge clk)
      if(reg_write)
-       regs[reg_addr[2+:$clog2(REGS)]] <= reg_wrdata[RW-1:0];
+       regs[reg_addr[2+:$clog2(REGS)]] <= reg_wdata[RW-1:0];
 
-   assign reg_rddata[RW-1:0] = regs[reg_addr[2+:$clog2(REGS)]];
+   assign reg_rdata[RW-1:0] = regs[reg_addr[2+:$clog2(REGS)]];
 
 endmodule
 
