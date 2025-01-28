@@ -7,6 +7,7 @@ import pytest
 import numpy as np
 from switchboard import UmiTxRx
 
+
 def test_regif(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
     np.random.seed(random_seed)
