@@ -171,12 +171,16 @@ module umi_tester
    if(DEBUG) begin
       always @ (posedge clk) begin
          if (uhost_req_valid & uhost_req_ready)
-           $display("(request)  data=%h srcaddr=%h dstaddr=%h cmd=%h",
-                    uhost_resp_data, uhost_resp_srcaddr,uhost_resp_dstaddr, uhost_resp_cmd);
+           $display("(request) data=%h srcaddr=%h dstaddr=%h cmd=%h (%0t)",
+                    uhost_req_data, uhost_req_srcaddr,
+                    uhost_req_dstaddr, uhost_req_cmd,
+                    $time);
 
          if (uhost_resp_valid & uhost_resp_ready)
-           $display("(response) data=%h srcaddr=%h dstaddr=%h cmd=%h",
-                    uhost_resp_data, uhost_resp_srcaddr, uhost_resp_dstaddr, uhost_resp_cmd);
+           $display("(response) data=%h srcaddr=%h dstaddr=%h cmd=%h (%0t)",
+                    uhost_resp_data, uhost_resp_srcaddr,
+                    uhost_resp_dstaddr, uhost_resp_cmd,
+                    $time);
       end
    end
 
