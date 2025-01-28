@@ -1,4 +1,4 @@
-/**************************************************************************
+/******************************************************************************
  * Copyright 2020 Zero ASIC Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
  * Documentation:
  * - Simple register interface testbench
  *
- *************************************************************************/
+ *****************************************************************************/
 `default_nettype none
 
 module testbench (
@@ -30,6 +30,7 @@ module testbench (
 `include "switchboard.vh"
 
    parameter integer RW=32;
+   parameter integer RAW=32;
    parameter integer DW=256;
    parameter integer AW=64;
    parameter integer CW=32;
@@ -66,9 +67,9 @@ module testbench (
    // End of automatics
 
    wire [AW-1:0]        reg_addr;
-   wire [RW-1:0]        reg_rddata;
+   wire [RW-1:0]        reg_rdata;
    wire                 reg_read;
-   wire [RW-1:0]        reg_wrdata;
+   wire [RW-1:0]        reg_wdata;
    wire                 reg_write;
    wire                 udev_resp_ready;
    wire [CW-1:0]        udev_resp_cmd;
@@ -127,6 +128,7 @@ module testbench (
    umi_regif #(.CW(CW),
                .AW(AW),
                .DW(DW),
+               .RAW(RAW),
                .RW(RW))
    umi_regif(.reg_ready       (1'b1), // no bw to test for this rare feature
              .reg_err         (2'b0), // TODO: implement when needed
@@ -140,8 +142,8 @@ module testbench (
              .udev_resp_data    (udev_resp_data[DW-1:0]),
              .reg_write         (reg_write),
              .reg_read          (reg_read),
-             .reg_addr          (reg_addr[AW-1:0]),
-             .reg_wrdata        (reg_wrdata[RW-1:0]),
+             .reg_addr          (reg_addr[RAW-1:0]),
+             .reg_wdata         (reg_wdata[RW-1:0]),
              .reg_prot          (reg_prot[1:0]),
              // Inputs
              .clk               (clk),
@@ -152,7 +154,7 @@ module testbench (
              .udev_req_srcaddr  (udev_req_srcaddr[AW-1:0]),
              .udev_req_data     (udev_req_data[DW-1:0]),
              .udev_resp_ready   (udev_resp_ready & initdone), // Templated
-             .reg_rddata        (reg_rddata[RW-1:0]));
+             .reg_rdata         (reg_rdata[RW-1:0]));
 
    ///////////////////////////////////////////
    // Support circuitry
@@ -163,9 +165,9 @@ module testbench (
 
     always @(posedge clk)
       if(reg_write)
-        regs[reg_addr[2+:$clog2(REGS)]] <= reg_wrdata[RW-1:0];
+        regs[reg_addr[2+:$clog2(REGS)]] <= reg_wdata[RW-1:0];
 
-   assign reg_rddata[RW-1:0] = regs[reg_addr[2+:$clog2(REGS)]];
+   assign reg_rdata[RW-1:0] = regs[reg_addr[2+:$clog2(REGS)]];
 
    ///////////////////////////////////////////
    // Switchboard setup
