@@ -22,9 +22,14 @@
  *
  ******************************************************************************/
 
+// Requests (host -> device)
+localparam UMI_MAXSIZE         = 1024;  // max word size per transaction
+localparam UMI_MAXLEN          = 256;   // max word transfers per transaction
+
+// Invalid transaction indicator (cmd[7:0])
 localparam UMI_INVALID         = 8'h00;
 
-// Requests (host -> device)
+// Requests (host -> device) (cmd[7:0])
 localparam UMI_REQ_READ        = 5'h01; // read/load
 localparam UMI_REQ_WRITE       = 5'h03; // write/store with ack
 localparam UMI_REQ_POSTED      = 5'h05; // posted write
@@ -34,7 +39,8 @@ localparam UMI_REQ_USER0       = 5'h0B; // reserved for user
 localparam UMI_REQ_FUTURE0     = 5'h0D; // reserved fur future use
 localparam UMI_REQ_ERROR       = 8'h0F; // reserved for error message
 localparam UMI_REQ_LINK        = 8'h2F; // reserved for link ctrl
-// Response (device -> host)
+
+// Response (device -> host) (cmd[7:0])
 localparam UMI_RESP_READ       = 5'h02; // response to read request
 localparam UMI_RESP_WRITE      = 5'h04; // response (ack) from write request
 localparam UMI_RESP_USER0      = 5'h06; // signal write without ack
@@ -43,6 +49,7 @@ localparam UMI_RESP_FUTURE0    = 5'h0A; // reserved for future use
 localparam UMI_RESP_FUTURE1    = 5'h0C; // reserved for future use
 localparam UMI_RESP_LINK       = 8'h0E; // reserved for link ctrl
 
+// Atomic command decode (cmd[15:8])
 localparam UMI_REQ_ATOMICADD   = 8'h00;
 localparam UMI_REQ_ATOMICAND   = 8'h01;
 localparam UMI_REQ_ATOMICOR    = 8'h02;
