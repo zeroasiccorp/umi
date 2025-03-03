@@ -30,8 +30,8 @@ version = {attr = "umi.__version__"}
 [project.optional-dependencies]
 test = [
     "switchboard-hw>=0.2.17",
-    "flake8==7.1.1",
-    "pytest==8.3.4",
+    "flake8==7.1.2",
+    "pytest==8.3.5",
     "pytest-xdist==3.6.1",
     "pytest-timeout==2.3.1"
 ]
