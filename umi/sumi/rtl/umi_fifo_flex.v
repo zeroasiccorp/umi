@@ -578,6 +578,7 @@ module umi_fifo_flex
         la_asyncfifo  #(.DW(CW+AW+AW+ODW),
                         .DEPTH(DEPTH))
         fifo  (// Outputs
+               .wr_almost_full(),
                .wr_full      (fifo_full_raw),
                .rd_dout      (fifo_dout[ODW+AW+AW+CW-1:0]),
                .rd_empty     (fifo_empty_raw),
@@ -600,7 +601,6 @@ module umi_fifo_flex
         la_syncfifo  #(.DW(CW+AW+AW+ODW),
                        .DEPTH(DEPTH))
         fifo  (// Outputs
-               .wr_almost_full (),
                .wr_full      (fifo_full_raw),
                .rd_dout      (fifo_dout[ODW+AW+AW+CW-1:0]),
                .rd_empty     (fifo_empty_raw),

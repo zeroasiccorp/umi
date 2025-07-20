@@ -782,6 +782,7 @@ module lumi_rx
                   .TESTW(1),              // width of asic test interface
                   .PROP("DEFAULT"))       // Pass through variable for hard macro
    req_syncfifo_i(// Outputs
+                  .wr_almost_full   (),
                   .wr_full          (sync_fifo_full[0]),
                   .rd_dout          (sync_fifo_dout[IOW-1:0]),
                   .rd_empty         (sync_fifo_empty[0]),
@@ -810,6 +811,7 @@ module lumi_rx
                   .TESTW(1),              // width of asic test interface
                   .PROP("DEFAULT"))       // Pass through variable for hard macro
    resp_syncfifo_i(// Outputs
+                   .wr_almost_full   (),
                    .wr_full          (sync_fifo_full[1]),
                    .rd_dout          (sync_fifo_dout[2*IOW-1:IOW]),
                    .rd_empty         (sync_fifo_empty[1]),
