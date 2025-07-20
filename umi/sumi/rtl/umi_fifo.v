@@ -88,6 +88,7 @@ module umi_fifo
    la_asyncfifo  #(.DW(CW+AW+AW+DW),
                    .DEPTH(DEPTH))
    fifo  (// Outputs
+          .wr_almost_full(),
           .wr_full      (fifo_full),
           .rd_dout      (fifo_dout[DW+AW+AW+CW-1:0]),
           .rd_empty     (fifo_empty),

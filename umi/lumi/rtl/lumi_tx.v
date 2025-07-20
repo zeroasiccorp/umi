@@ -631,6 +631,7 @@ module lumi_tx
                   .TESTW(1),         // width of asic test interface
                   .PROP("DEFAULT"))  // Pass through variable for hard macro
    phy_fifo_i(// Outputs
+               .wr_almost_full  (),
               .wr_full          (phy_fifo_full),
               .rd_dout          (phy_txdata[IOW-1:0]),
               .rd_empty         (phy_fifo_empty),

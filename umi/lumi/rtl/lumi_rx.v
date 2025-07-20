@@ -662,6 +662,7 @@ module lumi_rx
                   .TESTW(1),  // width of asic test interface
                   .PROP("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
+              .wr_almost_full   (),
               .wr_full          (),
               .rd_dout          (lnk_fifo_dout[CW-1:0]),
               .rd_empty         (lnk_fifo_empty),
