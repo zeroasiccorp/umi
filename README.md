@@ -82,6 +82,7 @@ Basic UMI read/write transaction involves the transfer of LEN+1 words of data of
 * Device and source addresses must be aligned to the native word size.
 * Requests with the same HOSTID arrive at the target device in the same order that they left the host.
 * Responses with the same HOSTID return to the host in the same order that they left the device.
+* If requests and responses are serialized over a single combined channel, responses must take priority.
 
 ### 3.2 Message Format
 
