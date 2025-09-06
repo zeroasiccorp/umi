@@ -28,7 +28,7 @@ module testbench (
     input clk
 );
 
-    parameter integer APB_AW    = 32;
+    parameter integer RAW       = 32;
     parameter integer AW        = 64;
     parameter integer CW        = 32;
     parameter integer DW        = 256;
@@ -62,7 +62,7 @@ module testbench (
     wire [DW-1:0]       udev_resp_data;
     wire                udev_resp_ready;
 
-    wire [APB_AW-1:0]   paddr;
+    wire [RAW-1:0]      paddr;
     wire [2:0]          pprot;
     wire                psel;
     wire                penable;
@@ -75,7 +75,7 @@ module testbench (
     reg                 randomize_ready;
 
     umi2apb #(
-        .APB_AW (APB_AW),
+        .RAW    (RAW),
         .AW     (AW),
         .CW     (CW),
         .DW     (DW),
@@ -98,16 +98,16 @@ module testbench (
         .udev_resp_data     (udev_resp_data),
         .udev_resp_ready    (udev_resp_ready),
 
-        .paddr              (paddr),
-        .pprot              (pprot),
-        .psel               (psel),
-        .penable            (penable),
-        .pwrite             (pwrite),
-        .pwdata             (pwdata),
-        .pstrb              (pstrb),
-        .pready             (pready),
-        .prdata             (prdata),
-        .pslverr            (pslverr));
+        .apb_paddr          (paddr),
+        .apb_pprot          (pprot),
+        .apb_psel           (psel),
+        .apb_penable        (penable),
+        .apb_pwrite         (pwrite),
+        .apb_pwdata         (pwdata),
+        .apb_pstrb          (pstrb),
+        .apb_pready         (pready),
+        .apb_prdata         (prdata),
+        .apb_pslverr        (pslverr));
 
     wire [CTRLW-1:0]  sram_ctrl = 8'b0;
 
