@@ -57,6 +57,7 @@ module umi2apb #(parameter AW = 64,        // UMI address width
     output [DW-1:0]   udev_resp_data,
     input             udev_resp_ready,
     // APB interface
+    input             apb_pclk,    // apb clock (freq<=clk)
     output reg        apb_penable, // enable
     output            apb_pwrite,  // 0=read, 1=write
     output [RAW-1:0]  apb_paddr,   // register address

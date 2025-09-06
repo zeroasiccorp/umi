@@ -97,7 +97,7 @@ module testbench (
         .udev_resp_srcaddr  (udev_resp_srcaddr),
         .udev_resp_data     (udev_resp_data),
         .udev_resp_ready    (udev_resp_ready),
-
+        .apb_pclk           (1'b0), // TODO: fix once implemented!
         .apb_paddr          (paddr),
         .apb_pprot          (pprot),
         .apb_psel           (psel),
