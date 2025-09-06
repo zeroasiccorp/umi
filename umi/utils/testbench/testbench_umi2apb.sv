@@ -98,16 +98,16 @@ module testbench (
         .udev_resp_data     (udev_resp_data),
         .udev_resp_ready    (udev_resp_ready),
 
-        .paddr              (paddr),
-        .pprot              (pprot),
-        .psel               (psel),
-        .penable            (penable),
-        .pwrite             (pwrite),
-        .pwdata             (pwdata),
-        .pstrb              (pstrb),
-        .pready             (pready),
-        .prdata             (prdata),
-        .pslverr            (pslverr));
+        .apb_paddr          (paddr),
+        .apb_pprot          (pprot),
+        .apb_psel           (psel),
+        .apb_penable        (penable),
+        .apb_pwrite         (pwrite),
+        .apb_pwdata         (pwdata),
+        .apb_pstrb          (pstrb),
+        .apb_pready         (pready),
+        .apb_prdata         (prdata),
+        .apb_pslverr        (pslverr));
 
     wire [CTRLW-1:0]  sram_ctrl = 8'b0;
 

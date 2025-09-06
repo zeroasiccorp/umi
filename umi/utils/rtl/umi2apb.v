@@ -42,8 +42,8 @@ module umi2apb #(parameter AW = 64,        // UMI address width
                  parameter GRPID = 0       // group ID
                  )
    (// UMI interface
-    input             clk,     //clk
-    input             nreset,  //async active low reset
+    input             clk,         //clk
+    input             nreset,      //async active low reset
     input             udev_req_valid,
     input [CW-1:0]    udev_req_cmd,
     input [AW-1:0]    udev_req_dstaddr,
@@ -57,16 +57,16 @@ module umi2apb #(parameter AW = 64,        // UMI address width
     output [DW-1:0]   udev_resp_data,
     input             udev_resp_ready,
     // APB interface
-    output reg        penable, // enable
-    output            pwrite,  // 0=read, 1=write
-    output [RAW-1:0]  paddr,   // register address
-    output [RW-1:0]   pwdata,  // write data
-    output [RW/8-1:0] pstrb,   // strobe
-    output [2:0]      pprot,   // protection type
-    output            psel,    // select
-    input             pready,  // ready
-    input [RW-1:0]    prdata,  // read data
-    input             pslverr  // error
+    output reg        apb_penable, // enable
+    output            apb_pwrite,  // 0=read, 1=write
+    output [RAW-1:0]  apb_paddr,   // register address
+    output [RW-1:0]   apb_pwdata,  // write data
+    output [RW/8-1:0] apb_pstrb,   // strobe
+    output [2:0]      apb_pprot,   // protection type
+    output            apb_psel,    // select
+    input             apb_pready,  // ready
+    input [RW-1:0]    apb_prdata,  // read data
+    input             apb_pslverr  // error
     );
 
 `include "umi_messages.vh"
@@ -143,36 +143,34 @@ module umi2apb #(parameter AW = 64,        // UMI address width
 
    assign incoming_req  = udev_req_valid & udev_req_ready & group_match;
 
+   always @(posedge clk or negedge nreset) begin
+      if (~nreset) begin
+         udev_req_cmd_r     <= {CW{1'b0}};
+         udev_req_dstaddr_r <= {AW{1'b0}};
+         udev_req_srcaddr_r <= {AW{1'b0}};
+         udev_req_data_r    <= {RW{1'b0}};
+      end
+      else if (incoming_req) begin
+         udev_req_cmd_r     <= udev_req_cmd;
+         udev_req_dstaddr_r <= udev_req_dstaddr;
+         udev_req_srcaddr_r <= udev_req_srcaddr;
+         udev_req_data_r    <= udev_req_data[RW-1:0];
+      end
+   end
 
-
-    always @(posedge clk or negedge nreset) begin
-        if (~nreset) begin
-            udev_req_cmd_r     <= {CW{1'b0}};
-            udev_req_dstaddr_r <= {AW{1'b0}};
-            udev_req_srcaddr_r <= {AW{1'b0}};
-            udev_req_data_r    <= {RW{1'b0}};
-        end
-        else if (incoming_req) begin
-            udev_req_cmd_r     <= udev_req_cmd;
-            udev_req_dstaddr_r <= udev_req_dstaddr;
-            udev_req_srcaddr_r <= udev_req_srcaddr;
-            udev_req_data_r    <= udev_req_data[RW-1:0];
-        end
-    end
-
-    /* umi_unpack AUTO_TEMPLATE(
-     .cmd_\(.*\)     (req_\1[]),
-     );*/
-    umi_unpack #(.CW(CW))
-    umi_unpack(/*AUTOINST*/
-               // Outputs
-               .cmd_opcode       (req_opcode[4:0]),       // Templated
-               .cmd_size         (req_size[2:0]),         // Templated
-               .cmd_len          (req_len[7:0]),          // Templated
-               .cmd_atype        (req_atype[7:0]),        // Templated
-               .cmd_qos          (req_qos[3:0]),          // Templated
-               .cmd_prot         (req_prot[1:0]),         // Templated
-               .cmd_eom          (req_eom),               // Templated
+   /* umi_unpack AUTO_TEMPLATE(
+    .cmd_\(.*\)     (req_\1[]),
+    );*/
+   umi_unpack #(.CW(CW))
+   umi_unpack(/*AUTOINST*/
+              // Outputs
+              .cmd_opcode       (req_opcode[4:0]),       // Templated
+              .cmd_size         (req_size[2:0]),         // Templated
+              .cmd_len          (req_len[7:0]),          // Templated
+              .cmd_atype        (req_atype[7:0]),        // Templated
+              .cmd_qos          (req_qos[3:0]),          // Templated
+              .cmd_prot         (req_prot[1:0]),         // Templated
+              .cmd_eom          (req_eom),               // Templated
                .cmd_eof          (req_eof),               // Templated
                .cmd_ex           (req_ex),                // Templated
                .cmd_user         (req_user[1:0]),         // Templated
@@ -226,24 +224,24 @@ module umi2apb #(parameter AW = 64,        // UMI address width
    //# APB Mapping
    //############################
 
-   assign paddr      = incoming_req ? udev_req_dstaddr[RAW-1:0] :
-                                      udev_req_dstaddr_r[RAW-1:0];
+   assign apb_paddr   = incoming_req ? udev_req_dstaddr[RAW-1:0] :
+                                       udev_req_dstaddr_r[RAW-1:0];
 
-   assign pprot      = {1'b0, req_prot};
-   assign pwrite     = cmd_write | cmd_write_posted;
-   assign pwdata     = incoming_req ? udev_req_data[RW-1:0] : udev_req_data_r[RW-1:0];
-   assign pstrb      = {(RW/8){1'b1}}; // TODO: Support strobe
-   assign psel       = incoming_req | penable;
+   assign apb_pprot   = {1'b0, req_prot};
+   assign apb_pwrite  = cmd_write | cmd_write_posted;
+   assign apb_pwdata  = incoming_req ? udev_req_data[RW-1:0] : udev_req_data_r[RW-1:0];
+   assign apb_pstrb   = {(RW/8){1'b1}}; // TODO: Support strobe
+   assign apb_psel    = incoming_req | apb_penable;
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
-       penable <= 1'b0;
+       apb_penable <= 1'b0;
      else if (incoming_req)
-       penable <= 1'b1;
-     else if (pready)
-       penable <= 1'b0;
+       apb_penable <= 1'b1;
+     else if (apb_pready)
+       apb_penable <= 1'b0;
 
-   assign udev_req_ready = ~penable;
+   assign udev_req_ready = ~apb_penable;
 
    //############################
    //# UMI Response
@@ -253,14 +251,13 @@ module umi2apb #(parameter AW = 64,        // UMI address width
    assign udev_resp_srcaddr[AW-1:0] = udev_req_dstaddr_r[AW-1:0];
    assign udev_resp_data[DW-1:0]    = {{(DW-RW){1'b0}}, prdata_r[RW-1:0]};
 
-
    assign outgoing_resp = (udev_resp_valid & udev_resp_ready) |
-                          (penable & pready & cmd_write_posted);
+                          (cmd_write_posted & apb_penable & apb_pready);
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
        udev_resp_valid <= 1'b0;
-     else if (penable & pready & ~cmd_write_posted)
+     else if (apb_penable & apb_pready & ~cmd_write_posted)
        udev_resp_valid <= 1'b1;
      else if (outgoing_resp)
        udev_resp_valid <= 1'b0;
@@ -270,14 +267,14 @@ module umi2apb #(parameter AW = 64,        // UMI address width
    always @(posedge clk or negedge nreset)
      if (~nreset)
        prdata_r <= 'b0;
-     else if (penable & pready)
-       prdata_r <= prdata;
+     else if (apb_penable & apb_pready)
+       prdata_r <= apb_prdata;
 
    always @(posedge clk or negedge nreset)
      if (~nreset)
        pslverr_r <= 'b0;
-     else if (penable & pready)
-       pslverr_r <= {pslverr, 1'b0};
+     else if (apb_penable & apb_pready)
+       pslverr_r <= {apb_pslverr, 1'b0};
 
    /*umi_pack AUTO_TEMPLATE(
     .packet_cmd (udev_resp_cmd[]),
