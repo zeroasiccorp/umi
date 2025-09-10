@@ -123,9 +123,11 @@ module umi_tester
    // file names
    reg [8*128-1:0] memhreq;
    reg [8*128-1:0] memhresp;
+   reg [8*32-1:0]  req_opcode;
+   reg [8*32-1:0]  resp_opcode;
 
    // local state
-   reg [MAW-1:0]  req_addr;
+   reg [MAW-1:0]   req_addr;
    reg [MAW-1:0]  resp_addr;
    reg            req_valid;
 
@@ -168,19 +170,37 @@ module umi_tester
    // Monitor Transactions
    //#####################################################
 
+   always @*
+     case(uhost_req_cmd[4:0])
+       UMI_REQ_READ   : req_opcode = "READ";
+       UMI_REQ_WRITE  : req_opcode = "WRITE";
+       UMI_REQ_POSTED : req_opcode = "POSTED";
+       UMI_REQ_ATOMIC : req_opcode = "ATOMIC";
+       UMI_INVALID    : req_opcode = "INVALID";
+       default: req_opcode = "UNKNOWN";
+     endcase
+
+   always @*
+     case(uhost_resp_cmd[4:0])
+       UMI_RESP_READ   : resp_opcode = "READ-RESP";
+       UMI_RESP_WRITE  : resp_opcode = "WRITE-RESP";
+       UMI_INVALID     : resp_opcode = "INVALID";
+       default: resp_opcode = "UNKNOWN";
+     endcase
+
    if(DEBUG) begin
       always @ (posedge clk) begin
          if (uhost_req_valid & uhost_req_ready)
-           $display("(request) data=%h srcaddr=%h dstaddr=%h cmd=%h (%0t)",
+           $display("data=%h srcaddr=%h dstaddr=%h cmd=%h (%0t) (%0s)",
                     uhost_req_data, uhost_req_srcaddr,
                     uhost_req_dstaddr, uhost_req_cmd,
-                    $time);
+                    $time, req_opcode);
 
          if (uhost_resp_valid & uhost_resp_ready)
-           $display("(response) data=%h srcaddr=%h dstaddr=%h cmd=%h (%0t)",
+           $display("data=%h srcaddr=%h dstaddr=%h cmd=%h (%0t) (%0s)",
                     uhost_resp_data, uhost_resp_srcaddr,
                     uhost_resp_dstaddr, uhost_resp_cmd,
-                    $time);
+                    $time, resp_opcode);
       end
    end
 
