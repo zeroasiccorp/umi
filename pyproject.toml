@@ -17,8 +17,8 @@ urls = {Homepage = "https://github.com/zeroasiccorp/umi"}
 requires-python = ">= 3.8"
 license = {file = "LICENSE"}
 dependencies = [
-    "siliconcompiler>=0.27.0",
-    "lambdalib>=0.2.10, <0.4.0"
+    "siliconcompiler @ git+https://github.com/siliconcompiler/siliconcompiler.git@main",
+    "lambdalib @ git+https://github.com/siliconcompiler/lambdalib.git@main"
 ]
 dynamic = [
     "version"
