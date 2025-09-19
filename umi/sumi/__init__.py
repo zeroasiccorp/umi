@@ -1,3 +1,7 @@
+
+from .la_and2.la_and2 import And2
+
+
 from siliconcompiler import Library
 from lambdalib import auxlib, ramlib, vectorlib
 

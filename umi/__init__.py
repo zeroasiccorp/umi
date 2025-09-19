@@ -1,11 +1,13 @@
 from umi import sumi, lumi
 
+from umi import sumi
+from umi import lumi
+from umi import utils
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
-
-def setup():
-    return [
-        sumi.setup(),
-        lumi.setup()
-    ]
+__all__ = [
+    "sumi",
+    "lumi",
+    "utils"
+]
