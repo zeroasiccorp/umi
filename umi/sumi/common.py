@@ -1,6 +1,7 @@
 from pathlib import Path
-from typing import Union, List
+from typing import List
 from siliconcompiler import Design
+
 
 ##################################################
 # Helper Class (saves typing)
