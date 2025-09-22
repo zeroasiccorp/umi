@@ -9,7 +9,6 @@ build-backend = "setuptools.build_meta"
 include-package-data = true
 packages = ["umi"]
 
-
 [project]
 name = "umi"
 authors = [{name = "Zero ASIC"}]
@@ -19,8 +18,8 @@ urls = {Homepage = "https://github.com/zeroasiccorp/umi"}
 requires-python = ">= 3.9"
 license = {file = "LICENSE"}
 dependencies = [
-    "siliconcompiler @ git+https://github.com/siliconcompiler/siliconcompiler.git@main",
-    "lambdalib @ git+https://github.com/siliconcompiler/lambdalib.git@main"
+    "siliconcompiler >= 0.34.3",
+    "lambdalib >= 0.4.0"
 ]
 dynamic = ["version"]
 
