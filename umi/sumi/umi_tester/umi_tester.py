@@ -1,10 +1,12 @@
 from umi.sumi.common import Sumi
 
+
 class Tester(Sumi):
     def __init__(self):
         name = 'umi_tester'
         sources = 'rtl/umi_tester.v'
         super().__init__(name, sources)
+
 
 if __name__ == "__main__":
     d = Tester()
