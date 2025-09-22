@@ -19,6 +19,8 @@
  *
  * - Packs ctrl fields into a single 32-bit command
  *
+ * - TODO: cleanup!!!!
+ *
  ******************************************************************************/
 
 module umi_pack #(parameter CW = 32)
@@ -74,6 +76,9 @@ module umi_pack #(parameter CW = 32)
                            cmd_response      ? cmd_err[1:0]             :
                                                cmd_user[1:0];
    assign cmd_out[31:27] = (cmd_error | ~extended_user_sel) ? cmd_hostid[4:0] : cmd_user_extended[23:19];
+
+
+
 
    /*umi_decode AUTO_TEMPLATE(
     .cmd_atomic     (cmd_atomic[]),
