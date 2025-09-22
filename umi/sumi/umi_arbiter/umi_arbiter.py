@@ -1,4 +1,5 @@
 from umi.sumi.common import Sumi
+from lambdalib.veclib import Vpriority
 
 
 class Arbiter(Sumi):
@@ -6,6 +7,7 @@ class Arbiter(Sumi):
         name = 'umi_arbiter'
         sources = 'rtl/umi_arbiter.v'
         super().__init__(name, sources)
+        self.add_depfileset(Vpriority(), fileset='rtl')
 
 
 if __name__ == "__main__":
