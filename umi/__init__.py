@@ -1,5 +1,3 @@
-from umi import sumi, lumi
-
 from umi import sumi
 from umi import lumi
 from umi import utils
