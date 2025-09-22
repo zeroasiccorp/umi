@@ -111,23 +111,21 @@ module umi_ram
    assign udev_resp_srcaddr[N*AW-1:0] = {N{mem_resp_srcaddr[AW-1:0]}};
    assign udev_resp_data[N*DW-1:0]    = {N{mem_resp_data[DW-1:0]}};
 
-   umi_mem_agent #(.CW(CW),
-                   .AW(AW),
-                   .DW(DW),
-                   .RAMDEPTH(RAMDEPTH),
-                   .CTRLW(CTRLW),
-                   .SRAMTYPE(SRAMTYPE))
-   umi_mem_agent(.clk                   (clk),
+   umi_memagent #(.CW(CW),
+                  .AW(AW),
+                  .DW(DW),
+                  .RAMDEPTH(RAMDEPTH),
+                  .CTRLW(CTRLW),
+                  .SRAMTYPE(SRAMTYPE))
+   umi_memagent (.clk                   (clk),
                  .nreset                (nreset),
                  .sram_ctrl             (sram_ctrl),
-
                  .udev_req_valid        (umi_out_valid),
                  .udev_req_cmd          (umi_out_cmd[CW-1:0]),
                  .udev_req_dstaddr      (umi_out_dstaddr[AW-1:0]),
                  .udev_req_srcaddr      (umi_out_srcaddr[AW-1:0]),
                  .udev_req_data         (umi_out_data[DW-1:0]),
                  .udev_req_ready        (umi_out_ready),
-
                  .udev_resp_valid       (mem_resp_valid),
                  .udev_resp_cmd         (mem_resp_cmd[CW-1:0]),
                  .udev_resp_dstaddr     (mem_resp_dstaddr[AW-1:0]),

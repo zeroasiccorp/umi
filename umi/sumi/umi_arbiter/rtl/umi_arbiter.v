@@ -81,11 +81,11 @@ module umi_arbiter
                            requests[N-1:0];
 
    // Priority Selection Using Masked Inputs
-   umi_priority #(.N(N))
-   umi_priority(// Outputs
-                .grants   (grants[N-1:0]),
-                // Inputs
-                .requests (spec_requests[N-1:0]));
+   la_vpriority #(.N(N))
+   la_vriority(// Outputs
+               .grants   (grants[N-1:0]),
+               // Inputs
+               .requests (spec_requests[N-1:0]));
 
    // Detect collision on pushback
    assign collision = |(requests[N-1:0] & ~grants[N-1:0]);
