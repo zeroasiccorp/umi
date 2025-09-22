@@ -1,4 +1,4 @@
-from umi.sumi.sumi import Sumi
+from umi.sumi.common import Sumi
 
 class Decode(Sumi):
     def __init__(self):

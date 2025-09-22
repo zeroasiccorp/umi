@@ -1,5 +1,5 @@
-from umi.sumi.sumi import Sumi
-from umi.sumi import Decode
+from umi.sumi.common import Sumi
+from umi.sumi.umi_decode.umi_decode import Decode
 
 class Pack(Sumi):
     def __init__(self):
