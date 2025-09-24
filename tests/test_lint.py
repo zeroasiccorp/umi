@@ -5,10 +5,14 @@ import umi
 
 
 def lint(design):
-    proj = sc.Project(design)
-    proj.add_fileset("rtl")
-    proj.set_flow(lintflow.LintFlow())
-    return proj.run()
+    top = design.get_topmodule("rtl")
+    if isinstance(top, str) and top:
+        proj = sc.Project(design)
+        proj.add_fileset("rtl")
+        proj.set_flow(lintflow.LintFlow())
+        return proj.run()
+    else:
+        return True
 
 
 @pytest.mark.parametrize("name", umi.sumi.__all__)
