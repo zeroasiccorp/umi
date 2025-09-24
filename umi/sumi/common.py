@@ -22,3 +22,13 @@ class Sumi(Design):
                 sources = [sources]
             for item in sources:
                 self.add_file(base_dir / name / item)
+
+##################################################
+# Standard Definition
+##################################################
+class Standard(Design):
+    def __init__(self):
+        super().__init__("umi_standard")
+        base_dir = Path(__file__).resolve().parent
+        with self.active_fileset("rtl"):
+            self.add_idir(base_dir / 'include')
