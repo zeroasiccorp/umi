@@ -23,7 +23,7 @@
 `default_nettype none
 `include "tl-uh.vh"
 
-module umi2tl_np #(
+module umi2tl #(
     parameter CW    = 32,   // UMI command width
     parameter AW    = 64,   // UMI address width
     parameter IDW   = 128,  // UMI data width
@@ -94,14 +94,14 @@ module umi2tl_np #(
     wire [ODW-1:0]  fifoflex_out_req_data;
     wire            fifoflex_out_req_ready;
 
-    umi_fifo_flex #(.TARGET         ("DEFAULT"),
-                    .ASYNC          (0),
-                    .DEPTH          (0),
-                    .CW             (CW),
-                    .AW             (AW),
-                    .IDW            (IDW),
-                    .ODW            (ODW)
-    ) umi2tl_req_fifo_flex (
+    umi_fifoflex #(.TARGET         ("DEFAULT"),
+                   .ASYNC          (0),
+                   .DEPTH          (0),
+                   .CW             (CW),
+                   .AW             (AW),
+                   .IDW            (IDW),
+                   .ODW            (ODW)
+    ) umi2tl_req_fifoflex (
         .bypass         (1'b1),
         .chaosmode      (1'b0),
         .fifo_full      (),

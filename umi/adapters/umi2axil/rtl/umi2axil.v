@@ -22,7 +22,7 @@
 
 `default_nettype wire
 
-module umi2axilite #(
+module umi2axil #(
     parameter CW    = 32,   // command width
     parameter AW    = 64,   // address width
     parameter DW    = 64    // umi packet width
@@ -93,7 +93,7 @@ module umi2axilite #(
     wire [DW-1:0]       ff_out_req_data;
     wire                ff_out_req_ready;
 
-    umi_fifo_flex #(
+    umi_fifoflex #(
         .TARGET         ("DEFAULT"),
         .ASYNC          (0),
         .SPLIT          (1),
@@ -102,7 +102,7 @@ module umi2axilite #(
         .AW             (AW),
         .IDW            (DW),
         .ODW            (DW)
-    ) umi2axilite_req_fifo_flex (
+    ) umi2axilite_req_fifoflex (
         .bypass         (1'b1),
         .chaosmode      (1'b0),
         .fifo_full      (),

@@ -101,13 +101,13 @@ module tl2umi_np #(
     wire [63:0]     fifoflex2dataag_resp_data;
     wire            fifoflex2dataag_resp_ready;
 
-    umi_fifo_flex #(.TARGET         ("DEFAULT"),
-                    .ASYNC          (0),
-                    .DEPTH          (0),
-                    .CW             (CW),
-                    .AW             (AW),
-                    .IDW            (DW),
-                    .ODW            (64)
+    umi_fifoflex #(.TARGET         ("DEFAULT"),
+                   .ASYNC          (0),
+                   .DEPTH          (0),
+                   .CW             (CW),
+                   .AW             (AW),
+                   .IDW            (DW),
+                   .ODW            (64)
     ) tl2umi_resp_fifo_flex (
         .bypass         (1'b1),
         .chaosmode      (1'b0),
