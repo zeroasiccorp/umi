@@ -30,6 +30,7 @@ module lumi_regs
     parameter AW = 64,                                    // address width
     parameter DW = 128,                                   // register width
     parameter RW = 32,                                    // register width
+    parameter RAW = 32,                                   // register addr width
     parameter IDW = 16,                                   // chipid width
     parameter IOW = 64,                                   // phy-lumi IO width
     parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
@@ -261,6 +262,7 @@ module lumi_regs
                .AW(AW),
                .CW(CW),
                .RW(RW),
+               .RAW(RAW),
                .GRPOFFSET(GRPOFFSET),
                .GRPAW(GRPAW),
                .GRPID(GRPID))
@@ -276,7 +278,7 @@ module lumi_regs
               .udev_resp_data   (udev_resp_data[RW-1:0]), // Templated
               .reg_write        (reg_write),
               .reg_read         (reg_read),
-              .reg_addr         (reg_addr[AW-1:0]),
+              .reg_addr         (reg_addr[RAW-1:0]),
               .reg_wdata        (reg_wdata[RW-1:0]),
               .reg_prot         (reg_prot[1:0]),
               // Inputs
