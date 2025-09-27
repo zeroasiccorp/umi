@@ -19,6 +19,9 @@ def lint(design):
 def test_lint_sumi(name):
     assert lint(getattr(umi.sumi, name)())
 
+#@pytest.mark.parametrize("name", umi.lumi.__all__)
+#def test_lint_lumi(name):
+#    assert lint(getattr(umi.lumi, name)())
 
 @pytest.mark.parametrize("name", umi.adapters.__all__)
 def test_lint_adapters(name):
