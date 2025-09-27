@@ -1,13 +1,13 @@
-from umi.sumi.common import Sumi
+from umi.common import UMI
 
 
-class Pipeline(Sumi):
+class Pipeline(UMI):
     def __init__(self):
-        name = 'umi_pipeline'
-        sources = 'rtl/umi_pipeline.v'
-        super().__init__(name, sources)
+        super().__init__('umi_pipeline',
+                         files=['rtl/umi_pipeline.v'],
+                         deps=[])
 
 
 if __name__ == "__main__":
     d = Pipeline()
-    d.write_fileset("umi_pipeline.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")

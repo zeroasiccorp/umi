@@ -1,15 +1,13 @@
-from umi.sumi.common import Sumi
+from umi.common import UMI
 from lambdalib.veclib import Vpriority
 
-
-class Arbiter(Sumi):
+class Arbiter(UMI):
     def __init__(self):
-        name = 'umi_arbiter'
-        sources = 'rtl/umi_arbiter.v'
-        super().__init__(name, sources)
-        self.add_depfileset(Vpriority(), fileset='rtl')
+        super().__init__('umi_arbiter',
+                         files=['rtl/umi_arbiter.v'],
+                         deps=[Vpriority()])
 
 
 if __name__ == "__main__":
     d = Arbiter()
-    d.write_fileset("umi_arbiter.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")

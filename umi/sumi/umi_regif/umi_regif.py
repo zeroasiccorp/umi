@@ -3,7 +3,7 @@ from umi.common import UMI
 
 class Regif(UMI):
     def __init__(self):
-        super().__init__(topmodule='umi_regif',
+        super().__init__('umi_regif',
                          files=['rtl/umi_regif.v'],
                          deps=[])
 

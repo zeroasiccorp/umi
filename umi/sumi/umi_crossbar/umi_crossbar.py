@@ -1,18 +1,16 @@
+from umi.common import UMI
 from lambdalib.veclib import Vmux
-from umi.sumi.common import Sumi
 from umi.sumi.umi_arbiter.umi_arbiter import Arbiter
 
 
-class Crossbar(Sumi):
+class Crossbar(UMI):
     def __init__(self):
-        name = 'umi_crossbar'
-        sources = 'rtl/umi_crossbar.v'
-        super().__init__(name, sources)
-        with self.active_fileset('rtl'):
-            self.add_depfileset(Arbiter())
-            self.add_depfileset(Vmux())
+        super().__init__('umi_crossbar',
+                         files=['rtl/umi_crossbar.v'],
+                         deps=[Vmux(),
+                               Arbiter()])
 
 
 if __name__ == "__main__":
     d = Crossbar()
-    d.write_fileset("umi_crossbar.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")

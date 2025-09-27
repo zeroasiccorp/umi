@@ -1,13 +1,13 @@
-from umi.sumi.common import Sumi
+from umi.common import UMI
 
 
-class Unpack(Sumi):
+class Unpack(UMI):
     def __init__(self):
-        name = 'umi_unpack'
-        sources = 'rtl/umi_unpack.v'
-        super().__init__(name, sources)
+        super().__init__('umi_unpack',
+                         files=['rtl/umi_unpack.v'],
+                         deps=[])
 
 
 if __name__ == "__main__":
     d = Unpack()
-    d.write_fileset("umi_unpack.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")
