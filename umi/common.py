@@ -6,7 +6,7 @@ from siliconcompiler import Design
 
 class UMI(Design):
     def __init__(self,
-                 topmodule: str = None,
+                 name: str,
                  files: List[str] = None,
                  idirs: List[str] = None,
                  deps: List[Design] = None,
@@ -14,7 +14,7 @@ class UMI(Design):
                  undefines: List[str] = None,
                  params: List[Tuple] = None):
 
-        super().__init__(topmodule)
+        super().__init__(name)
 
         # move this
         cls = self.__class__
@@ -39,7 +39,7 @@ class UMI(Design):
 
         # Setting RTL list, others outside
         with self.active_fileset('rtl'):
-            self.set_topmodule(topmodule)
+            self.set_topmodule(name)
             self.add_idir(globalpath / 'sumi' / 'include')
             for item in files:
                 self.add_file(item)
