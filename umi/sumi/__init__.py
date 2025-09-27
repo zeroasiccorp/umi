@@ -1,7 +1,3 @@
-# UMI standard
-from .common import Standard
-
-# Design objects
 from .umi_arbiter.umi_arbiter import Arbiter
 from .umi_crossbar.umi_crossbar import Crossbar
 from .umi_decode.umi_decode import Decode
@@ -33,7 +29,6 @@ __all__ = ['Arbiter',
            'Pipeline',
            'RAM',
            'Regif',
-           'Standard',
            'Switch',
            'Tester',
            'Unpack']
