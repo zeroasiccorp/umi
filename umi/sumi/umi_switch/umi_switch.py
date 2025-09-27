@@ -1,16 +1,14 @@
-from umi.sumi.common import Sumi
+from umi.common import UMI
 from umi.sumi.umi_mux.umi_mux import Mux
 
 
-class Switch(Sumi):
+class Switch(UMI):
     def __init__(self):
-        name = 'umi_switch'
-        sources = 'rtl/umi_switch.v'
-        super().__init__(name, sources)
-        with self.active_fileset('rtl'):
-            self.add_depfileset(Mux())
+        super().__init__('umi_switch',
+                         files=['rtl/umi_switch.v'],
+                         deps=[Mux()])
 
 
 if __name__ == "__main__":
     d = Switch()
-    d.write_fileset("umi_switch.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")

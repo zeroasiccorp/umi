@@ -1,13 +1,13 @@
-from umi.sumi.common import Sumi
+from umi.common import UMI
 
 
-class Decode(Sumi):
+class Decode(UMI):
     def __init__(self):
-        name = 'umi_decode'
-        sources = 'rtl/umi_decode.v'
-        super().__init__(name, sources)
+        super().__init__('umi_decode',
+                         files=['rtl/umi_decode.v'],
+                         deps=[])
 
 
 if __name__ == "__main__":
     d = Decode()
-    d.write_fileset("umi_decode.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")

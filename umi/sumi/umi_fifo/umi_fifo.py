@@ -1,20 +1,14 @@
+from umi.common import UMI
 from lambdalib.ramlib import Asyncfifo
-from umi.sumi.common import Sumi
-from umi.sumi.umi_pack.umi_pack import Pack
-from umi.sumi.umi_unpack.umi_unpack import Unpack
 
 
-class Fifo(Sumi):
+class Fifo(UMI):
     def __init__(self):
-        name = 'umi_fifo'
-        sources = 'rtl/umi_fifo.v'
-        super().__init__(name, sources)
-        with self.active_fileset('rtl'):
-            self.add_depfileset(Pack())
-            self.add_depfileset(Unpack())
-            self.add_depfileset(Asyncfifo())
+        super().__init__('umi_fifo',
+                         files=['rtl/umi_fifo.v'],
+                         deps=[Asyncfifo()])
 
 
 if __name__ == "__main__":
     d = Fifo()
-    d.write_fileset("umi_fifo.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")

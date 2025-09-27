@@ -1,20 +1,16 @@
-from lambdalib.ramlib import Spram
-from umi.sumi.common import Sumi
+from umi.common import UMI
 from umi.sumi.umi_endpoint.umi_endpoint import Endpoint
 from umi.sumi.umi_fifoflex.umi_fifoflex import FifoFlex
+from lambdalib.ramlib import Spram
 
-
-class MemAgent(Sumi):
+class MemAgent(UMI):
     def __init__(self):
-        name = 'umi_memagent'
-        sources = 'rtl/umi_memagent.v'
-        super().__init__(name, sources)
-        with self.active_fileset('rtl'):
-            self.add_depfileset(FifoFlex())
-            self.add_depfileset(Spram())
-            self.add_depfileset(Endpoint())
-
+        super().__init__('umi_memagent',
+                         files=['rtl/umi_memagent.v'],
+                         deps=[FifoFlex(),
+                               Spram(),
+                               Endpoint()])
 
 if __name__ == "__main__":
     d = MemAgent()
-    d.write_fileset("umi_memagent.f", fileset="rtl")
+    d.write_fileset(f"{d.name}.f", fileset="rtl")
