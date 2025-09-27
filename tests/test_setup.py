@@ -6,6 +6,9 @@ import umi
 def test_setup_sumi(name):
     assert getattr(umi.sumi, name)().check_filepaths()
 
+@pytest.mark.parametrize("name", umi.lumi.__all__)
+def test_setup_lumi(name):
+    assert getattr(umi.lumi, name)().check_filepaths()
 
 @pytest.mark.parametrize("name", umi.adapters.__all__)
 def test_setup_adapters(name):
