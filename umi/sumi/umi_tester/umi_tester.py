@@ -1,6 +1,7 @@
 from umi.common import UMI
 from lambdalib.ramlib import Spram
 
+
 class Tester(UMI):
     def __init__(self):
         super().__init__('umi_tester',

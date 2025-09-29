@@ -4,6 +4,7 @@ from umi.sumi import FifoFlex
 from umi.sumi import Unpack
 from umi.sumi import Pack
 
+
 class TL2UMI(UMI):
     def __init__(self):
         super().__init__('tl2umi',

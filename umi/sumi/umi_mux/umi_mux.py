@@ -2,6 +2,7 @@ from umi.common import UMI
 from lambdalib.veclib import Vmux
 from umi.sumi.umi_arbiter.umi_arbiter import Arbiter
 
+
 class Mux(UMI):
     def __init__(self):
         super().__init__('umi_mux',

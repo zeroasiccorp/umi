@@ -1,7 +1,6 @@
-import sys
 from pathlib import Path
-from typing import List, Tuple
 from siliconcompiler import Design
+
 
 ##################################################
 # Standard Definitions

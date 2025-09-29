@@ -1,6 +1,7 @@
 from umi.common import UMI
 from lambdalib.veclib import Vpriority
 
+
 class Arbiter(UMI):
     def __init__(self):
         super().__init__('umi_arbiter',
