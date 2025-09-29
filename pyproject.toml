@@ -31,9 +31,7 @@ test = [
     "flake8 >= 7.3.0",
     "pytest >= 8.4.2",
     "pytest-xdist >= 3.8.0",
-    "pytest-timeout >= 2.4.0",
-    "pytest-asyncio >= 1.2.0",
-    "pytest-cov >= 7.0.0"
+    "pytest-timeout >= 2.4.0"
 ]
 
 [tool.check-wheel-contents]
