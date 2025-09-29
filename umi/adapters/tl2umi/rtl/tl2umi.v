@@ -33,7 +33,7 @@
 `default_nettype wire
 `include "tl-uh.vh"
 
-module tl2umi_np #(
+module tl2umi #(
     parameter CW    = 32,   // command width
     parameter AW    = 64,   // address width
     parameter DW    = 64,   // umi packet width
