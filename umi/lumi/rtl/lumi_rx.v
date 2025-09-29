@@ -29,7 +29,7 @@ module lumi_rx
     parameter CW = 32,                                    // umi data width
     parameter AW = 64,                                    // address width
     parameter ASYNCFIFODEPTH = 8,                         // depth of async fifo
-    parameter RXFIFOW = 8,                                // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
+    parameter RXFIFOW = 64,                               // width of Rx fifo (in bits) - cannot be smaller than IOW!!!
     parameter NFIFO = IOW/RXFIFOW,                        // number of parallel fifo's
     parameter CRDTDEPTH = 1+((DW+AW+AW+CW)/RXFIFOW)/NFIFO // total fifo depth, eq is minimum
     )
