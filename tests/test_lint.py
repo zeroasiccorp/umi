@@ -1,13 +1,14 @@
 import pytest
 import siliconcompiler as sc
 from siliconcompiler.flows import lintflow
+from siliconcompiler import LintProject
 import umi
 
 
 def lint(design):
     top = design.get_topmodule("rtl")
     if isinstance(top, str) and top:
-        proj = sc.Project(design)
+        proj = sc.LintProject(design)
         proj.add_fileset("rtl")
         proj.set_flow(lintflow.LintFlow())
         return proj.run()
