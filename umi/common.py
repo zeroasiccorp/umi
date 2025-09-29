@@ -1,4 +1,4 @@
-import sys
+import inspect
 from pathlib import Path
 from typing import List, Tuple
 from siliconcompiler import Design
@@ -18,8 +18,8 @@ class UMI(Design):
 
         # move this
         cls = self.__class__
-        module = sys.modules[cls.__module__]
-        localpath = Path(getattr(module, "__file__")).resolve().parent
+        module = inspect.getmodule(cls)
+        localpath = Path(inspect.getfile(module)).resolve().parent
         globalpath = Path(__file__).resolve().parent
 
         # Taking care of Nones
@@ -53,6 +53,7 @@ class UMI(Design):
                 self.add_undefine(item)
             for item in params:
                 self.add_param(item[0], item[1])
+
 
 ##################################################
 # Standard Definition

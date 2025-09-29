@@ -1,6 +1,7 @@
 from umi.common import UMI
 from umi.sumi.umi_decode.umi_decode import Decode
 
+
 class Pack(UMI):
     def __init__(self):
         super().__init__('umi_pack',

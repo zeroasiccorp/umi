@@ -6,7 +6,7 @@ from .tl2umi.tl2umi import TL2UMI
 from .umi2tl.umi2tl import UMI2TL
 
 __all__ = ['AXIL2UMI',
+           'TL2UMI',
            'UMI2APB',
            'UMI2AXIL',
-           'AXIL2UMI',
-           'UMI2APB']
+           'UMI2TL']

@@ -2,6 +2,7 @@ from umi.common import UMI
 from umi.sumi.umi_mux.umi_mux import Mux
 from umi.sumi.umi_memagent.umi_memagent import MemAgent
 
+
 class RAM(UMI):
     def __init__(self):
         super().__init__('umi_ram',
