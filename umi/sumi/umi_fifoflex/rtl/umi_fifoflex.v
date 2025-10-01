@@ -28,7 +28,7 @@
  *
  ******************************************************************************/
 
-module umi_fifo_flex
+module umi_fifoflex
   #(parameter TARGET = "DEFAULT", // implementation target
     parameter ASYNC = 0,
     parameter SPLIT = 0,

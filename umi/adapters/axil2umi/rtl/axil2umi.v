@@ -22,7 +22,7 @@
 
 `default_nettype wire
 
-module axilite2umi #(
+module axil2umi #(
     parameter CW    = 32,   // command width
     parameter AW    = 64,   // address width
     parameter DW    = 64,   // umi packet width

@@ -20,7 +20,7 @@
  *
  ******************************************************************************/
 
-module umi_mem_agent
+module umi_memagent
   #(parameter DW = 256,           // umi packet width
     parameter AW = 64,            // address width
     parameter CW = 32,            // command width
@@ -60,20 +60,19 @@ module umi_mem_agent
     wire [DW-1:0]   ff2ep_req_data;
     wire            ff2ep_req_ready;
 
-    umi_fifo_flex #(
-        .ASYNC  (0),
-        .SPLIT  (1),
-        .DEPTH  (0),
-        .CW     (CW),
-        .AW     (AW),
-        .IDW    (DW),
-        .ODW    (DW))
-    umi_fifo_flex_ (
+    umi_fifoflex #(
+                   .ASYNC  (0),
+                   .SPLIT  (1),
+                   .DEPTH  (0),
+                   .CW     (CW),
+                   .AW     (AW),
+                   .IDW    (DW),
+                   .ODW    (DW))
+   umi_fifoflex (
         .bypass             (1'b1),
         .chaosmode          (1'b0),
         .fifo_full          (),
         .fifo_empty         (),
-
         .umi_in_clk         (clk),
         .umi_in_nreset      (nreset),
         .umi_in_valid       (udev_req_valid),
@@ -82,7 +81,6 @@ module umi_mem_agent
         .umi_in_srcaddr     (udev_req_srcaddr),
         .umi_in_data        (udev_req_data),
         .umi_in_ready       (udev_req_ready),
-
         .umi_out_clk        (clk),
         .umi_out_nreset     (nreset),
         .umi_out_valid      (ff2ep_req_valid),
@@ -91,7 +89,6 @@ module umi_mem_agent
         .umi_out_srcaddr    (ff2ep_req_srcaddr),
         .umi_out_data       (ff2ep_req_data),
         .umi_out_ready      (ff2ep_req_ready),
-
         .vdd                (),
         .vss                ()
     );
