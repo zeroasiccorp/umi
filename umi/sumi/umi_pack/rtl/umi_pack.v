@@ -17,57 +17,84 @@
  *
  * ##Documentation##
  *
- * - Unpacks 32b command into separate ctrl fields
+ * - Packs ctrl fields into a single 32-bit command
+ *
+ * - TODO: cleanup!!!!
  *
  ******************************************************************************/
 
-module umi_unpack
-  #(parameter CW = 32)
+module umi_pack #(parameter CW = 32)
    (
-    // Input packet
-    input [CW-1:0] packet_cmd,
-
-    // output fields
-    output [4:0]   cmd_opcode,
-    output [2:0]   cmd_size,
-    output [7:0]   cmd_len,
-    output [7:0]   cmd_atype,
-    output [3:0]   cmd_qos,
-    output [1:0]   cmd_prot,
-    output         cmd_eom,
-    output         cmd_eof,
-    output         cmd_ex,
-    output [1:0]   cmd_user,
-    output [23:0]  cmd_user_extended,
-    output [1:0]   cmd_err,
-    output [4:0]   cmd_hostid
+    // Command inputs
+    input [4:0]     cmd_opcode,
+    input [2:0]     cmd_size,
+    input [7:0]     cmd_len,
+    input [7:0]     cmd_atype,
+    input [1:0]     cmd_prot,
+    input [3:0]     cmd_qos,
+    input           cmd_eom,
+    input           cmd_eof,
+    input [1:0]     cmd_user,
+    input [1:0]     cmd_err,
+    input           cmd_ex,
+    input [4:0]     cmd_hostid,
+    input [23:0]    cmd_user_extended,
+    // Output packet
+    output [CW-1:0] packet_cmd
     );
 
-`include "umi_messages.vh"
+   wire [31:0] cmd_out;
+   wire [31:0] cmd_in;
+   wire        cmd_error;
+   wire        cmd_response;
+   wire        cmd_link;
+   wire        cmd_link_resp;
+   wire        cmd_atomic;
+   wire        extended_user_sel;
 
-   // data field unpacker
-   wire cmd_request;
-   wire cmd_response;
-   wire cmd_atomic;
-   wire cmd_error;
-   wire cmd_link;
-   wire cmd_link_resp;
+   assign extended_user_sel = cmd_link | cmd_link_resp | cmd_error;
+
+   // Take only the required fields for the decode
+   assign cmd_in[31:0] = {24'h00_0000,cmd_size[2:0],cmd_opcode[4:0]};
+
+   // command packer
+   assign cmd_out[4:0]   = cmd_opcode[4:0];
+
+   assign cmd_out[7:5]   = cmd_link      ? 3'h1 :
+                           cmd_link_resp ? 3'h0 :
+                           cmd_error     ? 3'h0 :
+                                           cmd_size[2:0];
+
+   assign cmd_out[15:8]  = cmd_atomic        ? cmd_atype[7:0] :
+                           extended_user_sel ? cmd_user_extended[7:0]  :
+                                               cmd_len[7:0];
+
+   assign cmd_out[19:16] = extended_user_sel ? cmd_user_extended[11:8]  : cmd_qos[3:0];
+   assign cmd_out[21:20] = extended_user_sel ? cmd_user_extended[13:12] : cmd_prot[1:0];
+   assign cmd_out[24:22] = extended_user_sel ? cmd_user_extended[16:14] : {cmd_ex,cmd_eof,cmd_eom};
+   assign cmd_out[26:25] = extended_user_sel ? cmd_user_extended[18:17] :
+                           cmd_response      ? cmd_err[1:0]             :
+                                               cmd_user[1:0];
+   assign cmd_out[31:27] = (cmd_error | ~extended_user_sel) ? cmd_hostid[4:0] : cmd_user_extended[23:19];
+
+
+
 
    /*umi_decode AUTO_TEMPLATE(
-    .cmd_error      (cmd_error[]),
-    .cmd_request    (cmd_request[]),
-    .cmd_response   (cmd_response[]),
     .cmd_atomic     (cmd_atomic[]),
+    .cmd_error      (cmd_error[]),
+    .cmd_response   (cmd_response[]),
     .cmd_link\(.*\) (cmd_link\1[]),
-    .command        (packet_cmd[]),
+    .command        (cmd_in[]),
     .cmd_.*         (),
     );*/
 
+   // Command decode
    umi_decode #(.CW(CW))
    umi_decode(/*AUTOINST*/
               // Outputs
               .cmd_invalid      (),                      // Templated
-              .cmd_request      (cmd_request),           // Templated
+              .cmd_request      (),                      // Templated
               .cmd_response     (cmd_response),          // Templated
               .cmd_read         (),                      // Templated
               .cmd_write        (),                      // Templated
@@ -95,22 +122,12 @@ module umi_unpack
               .cmd_atomic_minu  (),                      // Templated
               .cmd_atomic_swap  (),                      // Templated
               // Inputs
-              .command          (packet_cmd[CW-1:0]));   // Templated
+              .command          (cmd_in[CW-1:0]));       // Templated
 
-   // Command fields - TODO: should we qualify these with the command type?
-   assign cmd_opcode[4:0] = packet_cmd[4:0];
-   assign cmd_size[2:0]   = packet_cmd[7:5];  // Ignore for error and link
-   assign cmd_len[7:0]    = cmd_atomic ? 8'd0 : packet_cmd[15:8]; // Ignore for error and link
-   assign cmd_atype[7:0]  = packet_cmd[15:8];
-   assign cmd_qos[3:0]    = packet_cmd[19:16];// Ignore for link
-   assign cmd_prot[1:0]   = packet_cmd[21:20];// Ignore for link
-   assign cmd_eom         = packet_cmd[22];
-   assign cmd_eof         = packet_cmd[23];   // Ignore for error and responses
-   assign cmd_ex          = packet_cmd[24];   // Ignore for error and responses
-   assign cmd_hostid[4:0] = packet_cmd[31:27];
-   assign cmd_user[1:0]   = packet_cmd[26:25];
-   assign cmd_err[1:0]    = cmd_response ? packet_cmd[26:25] : 2'h0;
+   assign packet_cmd[31:0] = cmd_out[31:0];
 
-   assign cmd_user_extended[23:0] = packet_cmd[31:8];
+endmodule
 
-endmodule // umi_unpack
+// Local Variables:
+// verilog-library-directories:(".")
+// End:

@@ -236,7 +236,7 @@ module lumi
 
    // synchronization fifo
    // The clink/phy works on a different clock so need a fifo
-   /* umi_fifo_flex AUTO_TEMPLATE(
+   /* umi_fifoflex AUTO_TEMPLATE(
     .umi_in_clk     (phy_clk),
     .umi_in_nreset  (phy_nreset),
     .umi_out_clk    (clk),
@@ -249,13 +249,13 @@ module lumi
     .bypass         (1'b0),
     .chaosmode      (1'b0),
     );*/
-   umi_fifo_flex #(.ASYNC(1),
-                   .DEPTH(4),
-                   .SPLIT(0),
-                   .CW(CW),
-                   .AW(AW),
-                   .IDW(RW),
-                   .ODW(RW))
+   umi_fifoflex #(.ASYNC(1),
+                  .DEPTH(4),
+                  .SPLIT(0),
+                  .CW(CW),
+                  .AW(AW),
+                  .IDW(RW),
+                  .ODW(RW))
    fifo_phy2lumi(/*AUTOINST*/
                  // Outputs
                  .fifo_full             (),                      // Templated
@@ -282,7 +282,7 @@ module lumi
                  .vdd                   (vdd),
                  .vss                   (vss));
 
-   /* umi_fifo_flex AUTO_TEMPLATE(
+   /* umi_fifoflex AUTO_TEMPLATE(
     .umi_in_clk     (clk),
     .umi_in_nreset  (nreset),
     .umi_out_clk    (phy_clk),
@@ -295,13 +295,13 @@ module lumi
     .bypass         (1'b0),
     .chaosmode      (1'b0),
     );*/
-   umi_fifo_flex #(.ASYNC(1),
-                   .DEPTH(4),
-                   .SPLIT(0),
-                   .CW(CW),
-                   .AW(AW),
-                   .IDW(RW),
-                   .ODW(RW))
+   umi_fifoflex #(.ASYNC(1),
+                  .DEPTH(4),
+                  .SPLIT(0),
+                  .CW(CW),
+                  .AW(AW),
+                  .IDW(RW),
+                  .ODW(RW))
    fifo_lumi2phy(/*AUTOINST*/
                  // Outputs
                  .fifo_full             (),                      // Templated
