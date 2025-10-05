@@ -7,7 +7,7 @@ import umi
 def lint(design):
     top = design.get_topmodule("rtl")
     if isinstance(top, str) and top:
-        proj = sc.LintProject(design)
+        proj = sc.Lint(design)
         proj.add_fileset("rtl")
         proj.set_flow(lintflow.LintFlow())
         return proj.run()
