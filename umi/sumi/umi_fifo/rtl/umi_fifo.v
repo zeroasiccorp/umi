@@ -23,16 +23,18 @@
  ******************************************************************************/
 
 module umi_fifo
-  #(parameter TARGET  = "DEFAULT", // implementation target
-    parameter DEPTH   = 4,         // FIFO depth
-    parameter AW      = 64,        // UMI width
-    parameter CW      = 32,        // UMI width
-    parameter DW      = 256        // UMI width
+  #(parameter TARGET      = "DEFAULT", // implementation target
+    parameter DEPTH       = 4,         // FIFO depth
+    parameter ALMOSTFULL  = 0,         // Almost full threshold
+    parameter AW          = 64,        // UMI width
+    parameter CW          = 32,        // UMI width
+    parameter DW          = 256        // UMI width
     )
    (// control/status signals
     input           bypass, // bypass FIFO
     input           chaosmode, // enable "random" fifo pushback
     output          fifo_full,
+    output          fifo_almost_full,
     output          fifo_empty,
     // Input
     input           umi_in_clk,
@@ -86,24 +88,26 @@ module umi_fifo
    //#################################
 
    la_asyncfifo  #(.DW(CW+AW+AW+DW),
-                   .DEPTH(DEPTH))
+                   .DEPTH(DEPTH),
+                   .ALMOSTFULL(ALMOSTFULL))
    fifo  (// Outputs
-          .wr_full      (fifo_full),
-          .rd_dout      (fifo_dout[DW+AW+AW+CW-1:0]),
-          .rd_empty     (fifo_empty),
+          .wr_full        (fifo_full),
+          .wr_almost_full (fifo_almost_full),
+          .rd_dout        (fifo_dout[DW+AW+AW+CW-1:0]),
+          .rd_empty       (fifo_empty),
           // Inputs
-          .wr_clk       (umi_in_clk),
-          .wr_nreset    (umi_in_nreset),
-          .wr_din       ({umi_in_data[DW-1:0],umi_in_srcaddr[AW-1:0],umi_in_dstaddr[AW-1:0],umi_in_cmd[CW-1:0]}),
-          .wr_en        (umi_in_valid),
-          .wr_chaosmode (chaosmode),
-          .rd_clk       (umi_out_clk),
-          .rd_nreset    (umi_out_nreset),
-          .rd_en        (fifo_read),
-          .vss          (vss),
-          .vdd          (vdd),
-          .ctrl         (1'b0),
-          .test         (1'b0));
+          .wr_clk         (umi_in_clk),
+          .wr_nreset      (umi_in_nreset),
+          .wr_din         ({umi_in_data[DW-1:0],umi_in_srcaddr[AW-1:0],umi_in_dstaddr[AW-1:0],umi_in_cmd[CW-1:0]}),
+          .wr_en          (umi_in_valid),
+          .wr_chaosmode   (chaosmode),
+          .rd_clk         (umi_out_clk),
+          .rd_nreset      (umi_out_nreset),
+          .rd_en          (fifo_read),
+          .vss            (vss),
+          .vdd            (vdd),
+          .ctrl           (1'b0),
+          .test           (1'b0));
 
    //#################################
    // FIFO Bypass
