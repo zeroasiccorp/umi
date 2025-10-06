@@ -54,7 +54,7 @@ module umi_unpack
    // outputs
    assign cmd_opcode[4:0] = packet_cmd[4:0];
    assign cmd_size[2:0]   = packet_cmd[7:5];
-   assign cmd_len[7:0]    = {8{cmd_atomic}} & packet_cmd[15:8];
+   assign cmd_len[7:0]    = {8{~cmd_atomic}} & packet_cmd[15:8];
    assign cmd_atype[7:0]  = packet_cmd[15:8];
    assign cmd_qos[3:0]    = packet_cmd[19:16];
    assign cmd_prot[1:0]   = packet_cmd[21:20];
