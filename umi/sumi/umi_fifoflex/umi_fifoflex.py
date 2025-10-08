@@ -1,7 +1,7 @@
 from umi.common import UMI
 from umi.sumi.umi_pack.umi_pack import Pack
 from umi.sumi.umi_unpack.umi_unpack import Unpack
-from lambdalib.ramlib import Syncfifo
+from lambdalib.ramlib import Syncfifo, Asyncfifo
 
 
 class FifoFlex(UMI):
@@ -10,7 +10,8 @@ class FifoFlex(UMI):
                          files=['rtl/umi_fifoflex.v'],
                          deps=[Pack(),
                                Unpack(),
-                               Syncfifo()])
+                               Syncfifo(),
+                               Asyncfifo()])
 
 
 if __name__ == "__main__":
