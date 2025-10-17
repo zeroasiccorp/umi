@@ -579,7 +579,6 @@ module umi_fifoflex
                         .DEPTH(DEPTH))
         fifo  (// Outputs
                .wr_full         (fifo_full_raw),
-               // TODO: Should almost full signal be exposed?
                .wr_almost_full  (),
                .rd_dout         (fifo_dout[ODW+AW+AW+CW-1:0]),
                .rd_empty        (fifo_empty_raw),
