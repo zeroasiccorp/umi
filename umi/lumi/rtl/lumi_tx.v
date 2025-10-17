@@ -632,6 +632,7 @@ module lumi_tx
                   .PROP("DEFAULT"))  // Pass through variable for hard macro
    phy_fifo_i(// Outputs
               .wr_full          (phy_fifo_full),
+              .wr_almost_full   (),
               .rd_dout          (phy_txdata[IOW-1:0]),
               .rd_empty         (phy_fifo_empty),
               // Inputs

@@ -663,6 +663,7 @@ module lumi_rx
                   .PROP("DEFAULT")) // Pass through variable for hard macro
    lnk_fifo_i(// Outputs
               .wr_full          (),
+              .wr_almost_full   (),
               .rd_dout          (lnk_fifo_dout[CW-1:0]),
               .rd_empty         (lnk_fifo_empty),
               // Inputs
@@ -782,6 +783,7 @@ module lumi_rx
                   .PROP("DEFAULT"))       // Pass through variable for hard macro
    req_syncfifo_i(// Outputs
                   .wr_full          (sync_fifo_full[0]),
+                  .wr_almost_full   (),
                   .rd_dout          (sync_fifo_dout[IOW-1:0]),
                   .rd_empty         (sync_fifo_empty[0]),
                   // Inputs
@@ -810,6 +812,7 @@ module lumi_rx
                   .PROP("DEFAULT"))       // Pass through variable for hard macro
    resp_syncfifo_i(// Outputs
                    .wr_full          (sync_fifo_full[1]),
+                   .wr_almost_full   (),
                    .rd_dout          (sync_fifo_dout[2*IOW-1:IOW]),
                    .rd_empty         (sync_fifo_empty[1]),
                    // Inputs
