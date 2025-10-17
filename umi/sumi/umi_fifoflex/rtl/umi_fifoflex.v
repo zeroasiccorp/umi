@@ -578,22 +578,24 @@ module umi_fifoflex
         la_asyncfifo  #(.DW(CW+AW+AW+ODW),
                         .DEPTH(DEPTH))
         fifo  (// Outputs
-               .wr_full      (fifo_full_raw),
-               .rd_dout      (fifo_dout[ODW+AW+AW+CW-1:0]),
-               .rd_empty     (fifo_empty_raw),
+               .wr_full         (fifo_full_raw),
+               // TODO: Should almost full signal be exposed?
+               .wr_almost_full  (),
+               .rd_dout         (fifo_dout[ODW+AW+AW+CW-1:0]),
+               .rd_empty        (fifo_empty_raw),
                // Inputs
-               .wr_clk       (umi_in_clk),
-               .wr_nreset    (umi_in_nreset),
-               .wr_din       (fifo_din[ODW+AW+AW+CW-1:0]),
-               .wr_en        (fifo_write),
-               .wr_chaosmode (chaosmode),
-               .rd_clk       (umi_out_clk),
-               .rd_nreset    (umi_out_nreset),
-               .rd_en        (fifo_read),
-               .vss          (vss),
-               .vdd          (vdd),
-               .ctrl         (1'b0),
-               .test         (1'b0));
+               .wr_clk          (umi_in_clk),
+               .wr_nreset       (umi_in_nreset),
+               .wr_din          (fifo_din[ODW+AW+AW+CW-1:0]),
+               .wr_en           (fifo_write),
+               .wr_chaosmode    (chaosmode),
+               .rd_clk          (umi_out_clk),
+               .rd_nreset       (umi_out_nreset),
+               .rd_en           (fifo_read),
+               .vss             (vss),
+               .vdd             (vdd),
+               .ctrl            (1'b0),
+               .test            (1'b0));
      end
    else if (|DEPTH)
      begin
