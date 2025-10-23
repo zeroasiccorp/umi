@@ -20,10 +20,9 @@
  *
  ******************************************************************************/
 
-module umi_arbiter
-  #(parameter N      = 4,         // number of inputs
-    parameter TARGET = "DEFAULT"  // SIM, ASIC, FPGA, ...
-    )
+module umi_arbiter #(parameter N = 4,    // number of inputs
+                     parameter PROP = "" // cell selector
+                     )
    (// controls
     input          clk,
     input          nreset,
@@ -36,7 +35,8 @@ module umi_arbiter
    wire                collision;
    reg [N-1:0]         thermometer;
    wire [N-1:0]        spec_requests;
-   genvar              i;
+   wire [N-1:0]        block;
+   genvar              i,j;
 
    // NOTE: The thermometer mask works correctly in case of a collision
    // that is followed by a single request from a masked source.
@@ -80,12 +80,14 @@ module umi_arbiter
                           ~thermometer[N-1:0] &
                            requests[N-1:0];
 
-   // Priority Selection Using Masked Inputs
-   la_vpriority #(.N(N))
-   la_vriority(// Outputs
-               .grants   (grants[N-1:0]),
-               // Inputs
-               .requests (spec_requests[N-1:0]));
+   // Priority block
+   assign block[0] = 1'b0;
+   for (j=N-1; j>=1; j=j-1)
+     begin : ipri
+        assign block[j] = |spec_requests[j-1:0];
+     end
+
+   assign grants[N-1:0] = spec_requests[N-1:0] & ~block[N-1:0];
 
    // Detect collision on pushback
    assign collision = |(requests[N-1:0] & ~grants[N-1:0]);
