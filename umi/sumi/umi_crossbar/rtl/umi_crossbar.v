@@ -73,8 +73,7 @@ module umi_crossbar
 
    for (i=0;i<N;i=i+1)
      begin
-        umi_arbiter #(.TARGET(TARGET),
-                      .N(N))
+        umi_arbiter #(.N(N))
         umi_arbiter (// Outputs
                      .grants   (grants[N*i+:N]),
                      // Inputs
