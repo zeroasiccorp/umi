@@ -4,6 +4,7 @@ from .umi_decode.umi_decode import Decode
 from .umi_endpoint.umi_endpoint import Endpoint
 from .umi_fifo.umi_fifo import Fifo
 from .umi_fifoflex.umi_fifoflex import FifoFlex
+from .umi_isolate.umi_isolate import Isolate
 from .umi_memagent.umi_memagent import MemAgent
 from .umi_mux.umi_mux import Mux
 from .umi_mux2.umi_mux2 import Mux2
@@ -22,6 +23,7 @@ __all__ = ['Arbiter',
            'Endpoint',
            'Fifo',
            'FifoFlex',
+           'Isolate',
            'MemAgent',
            'Mux',
            'Mux2',
