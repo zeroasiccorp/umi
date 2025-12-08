@@ -101,6 +101,7 @@ module testbench (
                 )
    host_sb_rx_i (
                  .clk(clk),
+                 .reset(~nreset),
                  .data(host_sb_req_data),
                  .srcaddr(host_sb_req_srcaddr),
                  .dstaddr(host_sb_req_dstaddr),
@@ -115,6 +116,7 @@ module testbench (
                 )
    host_sb_tx_i (
                  .clk(clk),
+                 .reset(~nreset),
                  .data(host_sb_resp_data),
                  .srcaddr(host_sb_resp_srcaddr),
                  .dstaddr(host_sb_resp_dstaddr),
@@ -129,6 +131,7 @@ module testbench (
                 )
    host_umi_rx_i (
              .clk(clk),
+             .reset(~nreset),
              .data(host_req_data[255:0]),
              .srcaddr(host_req_srcaddr),
              .dstaddr(host_req_dstaddr),
@@ -145,6 +148,7 @@ module testbench (
                 )
    host_umi_tx_i (
              .clk(clk),
+             .reset(~nreset),
              .data(host_resp_data[255:0]),
              .srcaddr(host_resp_srcaddr),
              .dstaddr(host_resp_dstaddr),
@@ -387,11 +391,11 @@ module testbench (
               .vss              (),                      // Templated
               .vdd              ());                     // Templated
 
-   umi_mem_agent #(.DW(DW),
+   umi_memagent #(.DW(DW),
                    .AW(AW),
                    .CW(CW),
                    .CTRLW(8))
-   umi_mem_agent_i(.sram_ctrl           (8'b010_01_0_0_0),
+   umi_memagent_i(.sram_ctrl           (8'b010_01_0_0_0),
                    /*AUTOINST*/
                    // Outputs
                    .udev_req_ready      (udev_req_ready),
