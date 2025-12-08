@@ -22,6 +22,35 @@
  *
  ******************************************************************************/
 
+// Decode fields
+
+localparam int UMI_OPCODE_LSB = 0;
+localparam int UMI_OPCODE_MSB = 4;
+
+localparam int UMI_SIZE_LSB   = 5;
+localparam int UMI_SIZE_MSB   = 7;
+
+localparam int UMI_LEN_LSB    = 8;
+localparam int UMI_LEN_MSB    = 15;
+
+localparam int UMI_QOS_LSB    = 16;
+localparam int UMI_QOS_MSB    = 19;
+
+localparam int UMI_PROT_LSB   = 20;
+localparam int UMI_PROT_MSB   = 21;
+
+localparam int UMI_EOM_BIT    = 22;
+localparam int UMI_EOF_BIT    = 23;
+
+localparam int UMI_EX_BIT     = 24;
+
+localparam int UMI_USER_LSB   = 25;
+localparam int UMI_USER_MSB   = 26;
+
+localparam int UMI_HOSTID_LSB = 27;
+localparam int UMI_HOSTID_MSB = 31;
+
+
 // Requests (host -> device)
 localparam UMI_MAXSIZE         = 1024;  // max word size per transaction
 localparam UMI_MAXLEN          = 256;   // max word transfers per transaction
