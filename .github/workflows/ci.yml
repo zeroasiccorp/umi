@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zeroasiccorp/sbtest:latest
-    timeout-minutes: 10
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
