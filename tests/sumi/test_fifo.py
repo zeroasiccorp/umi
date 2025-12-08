@@ -9,10 +9,7 @@ import numpy as np
 from switchboard import UmiTxRx
 
 
-def test_fifo(sumi_dut, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
-
-    random.seed(random_seed)
-    np.random.seed(random_seed)
+def test_fifo(sumi_dut, sb_umi_valid_mode, sb_umi_ready_mode):
 
     # launch the simulation
     sumi_dut.simulate(plusargs=[('valid_mode', sb_umi_valid_mode), ('ready_mode', sb_umi_ready_mode)])

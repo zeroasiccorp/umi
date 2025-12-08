@@ -89,6 +89,7 @@ module testbench
                         .VALID_MODE_DEFAULT(2),
                         .DW(256))
            umi_rx_i (.clk(clk),
+                     .reset(~nreset),
                      .data(umi_in_data[i*DW+:256]),
                      .srcaddr(umi_in_srcaddr[i*AW+:AW]),
                      .dstaddr(umi_in_dstaddr[i*AW+:AW]),
@@ -108,6 +109,7 @@ module testbench
                         .READY_MODE_DEFAULT(2),
                         .DW(256))
            umi_tx_i (.clk(clk),
+                     .reset(~nreset),
                      .data(umi_out_data[i*DW+:256]),
                      .srcaddr(umi_out_srcaddr[i*AW+:AW]),
                      .dstaddr(umi_out_dstaddr[i*AW+:AW]),
@@ -190,7 +192,7 @@ module testbench
      end
 
    // waveform dump
-   `SB_SETUP_PROBES
+   `SB_SETUP_PROBES();
 
    // auto-stop
 

@@ -81,8 +81,8 @@ module testbench (
         .DW     (DW),
         .RW     (RW)
     ) dut (
-        .clk                (clk),
-        .nreset             (nreset),
+        .apb_pclk           (clk),
+        .apb_nreset         (nreset),
 
         .udev_req_valid     (udev_req_valid),
         .udev_req_cmd       (udev_req_cmd),
@@ -97,7 +97,7 @@ module testbench (
         .udev_resp_srcaddr  (udev_resp_srcaddr),
         .udev_resp_data     (udev_resp_data),
         .udev_resp_ready    (udev_resp_ready),
-        .apb_pclk           (1'b0), // TODO: fix once implemented!
+
         .apb_paddr          (paddr),
         .apb_pprot          (pprot),
         .apb_psel           (psel),
@@ -152,6 +152,7 @@ module testbench (
         .DW                 (DW)
     ) host_umi_rx_i (
         .clk        (clk),
+        .reset      (~nreset),
         .valid      (udev_req_valid),
         .cmd        (udev_req_cmd[CW-1:0]),
         .dstaddr    (udev_req_dstaddr[AW-1:0]),
@@ -164,6 +165,7 @@ module testbench (
         .DW                 (DW)
     ) host_umi_tx_i (
         .clk        (clk),
+        .reset      (~nreset),
         .valid      (udev_resp_valid),
         .cmd        (udev_resp_cmd[CW-1:0]),
         .dstaddr    (udev_resp_dstaddr[AW-1:0]),
@@ -192,7 +194,7 @@ module testbench (
     end
 
     // control block
-    `SB_SETUP_PROBES
+    `SB_SETUP_PROBES();
 
     // auto-stop
     auto_stop_sim auto_stop_sim_i (.clk(clk));
