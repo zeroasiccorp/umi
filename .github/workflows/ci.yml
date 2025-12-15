@@ -23,7 +23,7 @@ jobs:
           . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
-          pytest -m "switchboard" -x --verbose --durations=0
+          pytest -m "switchboard" -x -n logical --verbose --durations=0
 
   python_ci:
     name: "Python + Tools CI"
