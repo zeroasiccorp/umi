@@ -1,3 +1,4 @@
+import os
 import pytest
 from switchboard import SbDut, UmiTxRx, random_umi_packet
 from pathlib import Path
@@ -97,9 +98,11 @@ def sumi_dut(build_dir, request):
 
 
 @pytest.fixture
-def umi_send():
+def umi_send(random_seed):
 
     def setup(host_num, num_packets_to_send, num_out_ports):
+        np.random.seed(random_seed)
+
         umi = UmiTxRx(f'client2rtl_{host_num}.q', '')
         tee = UmiTxRx(f'tee_{host_num}.q', '')
 
@@ -164,3 +167,15 @@ def apply_atomic():
         return tempval
 
     return setup
+
+
+@pytest.fixture
+def random_seed(request):
+    fixed_seed = request.config.getoption("--seed")
+    if fixed_seed is not None:
+        test_seed = fixed_seed
+    else:
+        test_seed = os.getpid()
+    print(f'Random seed used: {test_seed}')
+    yield test_seed
+    print(f'Random seed used: {test_seed}')
