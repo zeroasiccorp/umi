@@ -1,5 +1,6 @@
 from umi.common import UMI
 
+
 class Arbiter(UMI):
     def __init__(self):
         super().__init__('umi_arbiter',
