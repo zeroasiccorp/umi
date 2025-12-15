@@ -49,6 +49,9 @@ def lumi_dut(build_dir, request):
                 self.add_depfileset(self, "rtl")
                 self.add_depfileset(SwitchboardSim())
 
+    import os
+    print(f"CUR DIR {os.getcwd()}\n\n\n")
+
     dut = SbDut(
         design=TB(),
         fileset="verilator",

@@ -49,4 +49,4 @@ testpaths = [
     "umi/sumi/tests",
     "umi/lumi/tests"
 ]
-timeout = "360"
+timeout = "30"
