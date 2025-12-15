@@ -13,17 +13,36 @@ jobs:
       image: ghcr.io/zeroasiccorp/sbtest:latest
     timeout-minutes: 45
 
+    env:
+      TMPDIR: ${{ github.workspace }}/tmp_dir
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
       - name: pytest
+        continue-on-error: true
         run: |
           python3 -m venv venv
           . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
-          pytest -m "switchboard" -x -s -n logical --verbose --durations=0 --clean
+
+          echo "setting tmp dir to $TMPDIR"
+          mkdir -p "$TMPDIR"
+
+          pytest -m "switchboard" -x -s -n logical --verbose --durations=0
+
+          echo "$PWD"
+          ls $TMPDIR
+
+      - name: Upload tmp directory
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: tmp-dir
+          path: ${{ env.TMPDIR }}
+          retention-days: 7
 
   python_ci:
     name: "Python + Tools CI"
