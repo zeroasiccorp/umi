@@ -29,6 +29,9 @@ def test_lumi(lumi_dut, chip_topo, random_seed, sb_umi_valid_mode, sb_umi_ready_
         args=['+verilator+seed+100']
     )
 
+    import time
+    time.sleep(5)
+
     print("hi")
     import os
     print(f"TEST DIR {os.getcwd()}\n\n\n")
