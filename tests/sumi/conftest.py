@@ -1,9 +1,7 @@
-import os
 import pytest
 from switchboard import SbDut, UmiTxRx, random_umi_packet
 from pathlib import Path
 from umi import sumi
-from fasteners import InterProcessLock
 import numpy as np
 from siliconcompiler import Design
 from switchboard.verilog.sim.switchboard_sim import SwitchboardSim
@@ -87,10 +85,7 @@ def sumi_dut(build_dir, request):
     )
 
     # Build simulator
-    with InterProcessLock(build_dir / f'{test_file_name}.lock'):
-        # ensure build only happens once
-        # https://github.com/pytest-dev/pytest-xdist/blob/v3.6.1/docs/how-to.rst#making-session-scoped-fixtures-execute-only-once
-        dut.build(fast=True)
+    dut.build()
 
     yield dut
 
@@ -167,15 +162,3 @@ def apply_atomic():
         return tempval
 
     return setup
-
-
-@pytest.fixture
-def random_seed(request):
-    fixed_seed = request.config.getoption("--seed")
-    if fixed_seed is not None:
-        test_seed = fixed_seed
-    else:
-        test_seed = os.getpid()
-    print(f'Random seed used: {test_seed}')
-    yield test_seed
-    print(f'Random seed used: {test_seed}')
