@@ -29,6 +29,11 @@ def test_lumi(lumi_dut, chip_topo, random_seed, sb_umi_valid_mode, sb_umi_ready_
         args=['+verilator+seed+100']
     )
 
+    print("hi")
+    import os
+    print(f"TEST DIR {os.getcwd()}\n\n\n")
+
+
     # instantiate TX and RX queues.  note that these can be instantiated without
     # specifying a URI, in which case the URI can be specified later via the
     # "init" method
