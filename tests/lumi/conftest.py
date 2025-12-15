@@ -1,7 +1,11 @@
+import os
 import pytest
 from switchboard import SbDut
-from umi import lumi
+from umi.lumi import LUMI
+from umi.sumi import MemAgent
 from fasteners import InterProcessLock
+from siliconcompiler import Design
+from switchboard.verilog.sim.switchboard_sim import SwitchboardSim
 
 
 def pytest_collection_modifyitems(items):
@@ -19,23 +23,44 @@ def build_dir(pytestconfig):
 @pytest.fixture
 def lumi_dut(build_dir, request):
 
-    dut = SbDut('testbench', default_main=True, trace=False)
+    class TB(Design):
 
-    # dut = SbDut('testbench', cmdline=True,
-    #             default_main=True, trace=True, trace_type='vcd')
+        def __init__(self):
+            top_module = "testbench"
+            super().__init__("TB")
+            self.set_dataroot('localroot', __file__)
 
-    dut.use(lumi)
+            deps = [
+                LUMI(),
+                MemAgent()
+            ]
 
-    # Add testbench
-    dut.input('lumi/testbench/testbench_lumi.sv', package='umi')
+            with self.active_fileset('rtl'):
+                self.set_topmodule(top_module)
+                self.add_file("../../umi/lumi/testbench/testbench_lumi.sv")
+                for item in deps:
+                    self.add_depfileset(item)
 
-    # Verilator configuration
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'lumi/testbench/config.vlt',
-            package='umi')
+            with self.active_fileset('verilator'):
+                self.set_topmodule(top_module)
+                self.add_depfileset(self, "rtl")
+                self.add_depfileset(SwitchboardSim())
+
+            with self.active_fileset('icarus'):
+                self.set_topmodule(top_module)
+                self.add_depfileset(self, "rtl")
+                self.add_depfileset(SwitchboardSim())
+
+    dut = SbDut(
+        design=TB(),
+        fileset="verilator",
+        tool="verilator",
+        default_main=True,
+        trace=False
+    )
 
     # Build simulator
-    dut.set('option', 'builddir', build_dir / lumi.__name__)
-    with InterProcessLock(build_dir / f'{lumi.__name__}.lock'):
+    with InterProcessLock(build_dir / f'{TB.__name__}.lock'):
         # ensure build only happens once
         # https://github.com/pytest-dev/pytest-xdist/blob/v3.6.1/docs/how-to.rst#making-session-scoped-fixtures-execute-only-once
         dut.build(fast=True)
@@ -48,3 +73,15 @@ def lumi_dut(build_dir, request):
 @pytest.fixture(params=("2d", "3d"))
 def chip_topo(request):
     return request.param
+
+
+@pytest.fixture
+def random_seed(request):
+    fixed_seed = request.config.getoption("--seed")
+    if fixed_seed is not None:
+        test_seed = fixed_seed
+    else:
+        test_seed = os.getpid()
+    print(f'Random seed used: {test_seed}')
+    yield test_seed
+    print(f'Random seed used: {test_seed}')

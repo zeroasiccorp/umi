@@ -108,6 +108,7 @@ module testbench (
                 .DW(IDW)
                 )
    host_umi_rx_i (.clk(clk),
+                  .reset(~nreset),
                   .data(umi_req_in_data[IDW-1:0]),
                   .srcaddr(umi_req_in_srcaddr[AW-1:0]),
                   .dstaddr(umi_req_in_dstaddr[AW-1:0]),
@@ -121,6 +122,7 @@ module testbench (
                 .DW(IDW)
                 )
    host_umi_tx_i (.clk(clk),
+                  .reset(~nreset),
                   .data(umi_resp_out_data[IDW-1:0]),
                   .srcaddr(umi_resp_out_srcaddr[AW-1:0]),
                   .dstaddr(umi_resp_out_dstaddr[AW-1:0]),
@@ -133,7 +135,7 @@ module testbench (
    wire chaosmode = 0;
 
    // instantiate dut with UMI ports
-   /* umi_fifo_flex AUTO_TEMPLATE(
+   /* umi_fifoflex AUTO_TEMPLATE(
     .umi_.*_clk     (clk),
     .umi_.*_nreset  (nreset),
     .umi_in_valid   (umi_req_in_valid & initdone),
@@ -142,14 +144,14 @@ module testbench (
     .v.*            (),
     .fifo_.*        (),
     );*/
-   umi_fifo_flex #(.ASYNC(ASYNC),
+   umi_fifoflex #(.ASYNC(ASYNC),
                    .SPLIT(`SPLIT),
                    .IDW(IDW),
                    .ODW(ODW),
                    .CW(CW),
                    .AW(AW),
                    .DEPTH(DEPTH))
-   umi_fifo_flex_rx_i(/*AUTOINST*/
+   umi_fifoflex_rx_i(/*AUTOINST*/
                       // Outputs
                       .fifo_full        (),                      // Templated
                       .fifo_empty       (),                      // Templated
@@ -175,18 +177,18 @@ module testbench (
                       .vdd              (),                      // Templated
                       .vss              ());                     // Templated
 
-   /* umi_mem_agent AUTO_TEMPLATE(
+   /* umi_memagent AUTO_TEMPLATE(
     .udev_req_data    (umi_req_out_data[ODW-1:0]),
     .udev_req_\(.*\)  (umi_req_out_\1[]),
     .udev_resp_data   (umi_resp_in_data[ODW-1:0]),
     .udev_resp_\(.*\) (umi_resp_in_\1[]),
     );*/
 
-   umi_mem_agent #(.CW(CW),
+   umi_memagent #(.CW(CW),
                    .AW(AW),
                    .DW(ODW),
                    .CTRLW(CTRLW))
-   umi_mem_agent_i(/*AUTOINST*/
+   umi_memagent_i(/*AUTOINST*/
                    // Outputs
                    .udev_req_ready      (umi_req_out_ready),     // Templated
                    .udev_resp_valid     (umi_resp_in_valid),     // Templated
@@ -205,7 +207,7 @@ module testbench (
                    .udev_req_data       (umi_req_out_data[ODW-1:0]), // Templated
                    .udev_resp_ready     (umi_resp_in_ready));    // Templated
 
-   /* umi_fifo_flex AUTO_TEMPLATE(
+   /* umi_fifoflex AUTO_TEMPLATE(
     .umi_.*_clk     (clk),
     .umi_.*_nreset  (nreset),
     .umi_in_data    (umi_resp_in_data[ODW-1:0]),
@@ -216,14 +218,14 @@ module testbench (
     .v.*            (),
     .fifo_.*        (),
     );*/
-   umi_fifo_flex #(.ASYNC(ASYNC),
+   umi_fifoflex #(.ASYNC(ASYNC),
                    .SPLIT(`SPLIT),
                    .IDW(ODW),
                    .ODW(IDW),
                    .CW(CW),
                    .AW(AW),
                    .DEPTH(DEPTH))
-   umi_fifo_flex_tx_i(/*AUTOINST*/
+   umi_fifoflex_tx_i(/*AUTOINST*/
                       // Outputs
                       .fifo_full        (),                      // Templated
                       .fifo_empty       (),                      // Templated
@@ -271,7 +273,7 @@ module testbench (
    end
 
    // waveform dump
-   `SB_SETUP_PROBES
+   `SB_SETUP_PROBES();
 
    // auto-stop
    auto_stop_sim auto_stop_sim_i (.clk(clk));

@@ -15,6 +15,7 @@ from .umi_regif.umi_regif import Regif
 from .umi_switch.umi_switch import Switch
 from .umi_tester.umi_tester import Tester
 from .umi_unpack.umi_unpack import Unpack
+from .umi_demux.umi_demux import Demux
 
 
 __all__ = ['Arbiter',
@@ -33,4 +34,5 @@ __all__ = ['Arbiter',
            'Regif',
            'Switch',
            'Tester',
-           'Unpack']
+           'Unpack',
+           'Demux']

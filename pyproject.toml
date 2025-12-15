@@ -31,7 +31,8 @@ test = [
     "pytest == 8.4.2",
     "pytest-xdist == 3.8.0",
     "pytest-timeout == 2.4.0",
-    "flake8 == 7.3.0"
+    "flake8 == 7.3.0",
+    "switchboard-hw == 0.3.0"
 ]
 
 [tool.check-wheel-contents]
@@ -48,4 +49,4 @@ testpaths = [
     "umi/sumi/tests",
     "umi/lumi/tests"
 ]
-timeout = "300"
+timeout = "360"

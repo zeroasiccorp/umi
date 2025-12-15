@@ -107,7 +107,7 @@ module testbench #(
     end
 
     // control block
-    `SB_SETUP_PROBES
+    `SB_SETUP_PROBES();
 
     // auto-stop
     auto_stop_sim #(.CYCLES(50000)) auto_stop_sim_i (.clk(clk));

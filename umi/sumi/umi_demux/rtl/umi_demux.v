@@ -19,7 +19,7 @@
  *
  * - Select signal selects output port
  * - Inputs broadcasted to all outputs
- * - Ready signal aggregated from otuputs
+ * - Ready signal aggregated from outputs
  *
  * Testing:
  *

@@ -1,9 +1,13 @@
+import os
 import pytest
 from switchboard import SbDut, UmiTxRx, random_umi_packet
 from pathlib import Path
 from umi import sumi
 from fasteners import InterProcessLock
 import numpy as np
+from siliconcompiler import Design
+from switchboard.verilog.sim.switchboard_sim import SwitchboardSim
+from lambdalib.auxlib import Isolo
 
 
 def pytest_collection_modifyitems(items):
@@ -21,31 +25,68 @@ def build_dir(pytestconfig):
 @pytest.fixture
 def sumi_dut(build_dir, request):
 
+    class TB(Design):
+
+        def __init__(
+            self,
+            testbench_path: str,
+            top_module: str = "testbench"
+        ):
+            super().__init__("TB")
+            self.set_dataroot('localroot', __file__)
+
+            deps = [
+                Isolo(),
+                sumi.Crossbar(),
+                sumi.Demux(),
+                sumi.FifoFlex(),
+                sumi.MemAgent(),
+                sumi.Fifo(),
+                sumi.Isolate(),
+                sumi.Mux(),
+                sumi.Regif(),
+                sumi.Switch(),
+                sumi.RAM()
+            ]
+
+            with self.active_fileset('rtl'):
+                self.set_topmodule(top_module)
+                self.add_file(testbench_path)
+                for item in deps:
+                    self.add_depfileset(item)
+
+            with self.active_fileset('verilator'):
+                self.set_topmodule(top_module)
+                self.add_depfileset(self, "rtl")
+                self.add_depfileset(SwitchboardSim())
+
+            with self.active_fileset('icarus'):
+                self.set_topmodule(top_module)
+                self.add_depfileset(self, "rtl")
+                self.add_depfileset(SwitchboardSim())
+
     extra_args = {
         '--vldmode': dict(type=int, default=1, help='Valid mode'),
         '--rdymode': dict(type=int, default=1, help='Ready mode'),
     }
 
-    dut = SbDut('testbench', cmdline=True, extra_args=extra_args,
-                default_main=True)
-
-    dut.use(sumi)
-
     # Add testbench
     test_file_name = Path(request.fspath).stem
     assert (test_file_name[:5] == 'test_'), "Test file name must start with test_"
-    testbench_name = f'sumi/testbench/testbench_{test_file_name[5:]}.sv'
-    dut.input(testbench_name, package='umi')
+    testbench_path = f'../../umi/sumi/testbench/testbench_{test_file_name[5:]}.sv'
 
-    # TODO: How to add module/testbench specific parameters
-    # dut.add('option', 'define', f'SPLIT={int(split)}')
-
-    # Verilator configuration
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'sumi/testbench/config.vlt',
-            package='umi')
+    dut = SbDut(
+        fileset="verilator",
+        tool="verilator",
+        design=TB(
+            testbench_path=testbench_path
+        ),
+        cmdline=True,
+        extra_args=extra_args,
+        default_main=True
+    )
 
     # Build simulator
-    dut.set('option', 'builddir', build_dir / test_file_name)
     with InterProcessLock(build_dir / f'{test_file_name}.lock'):
         # ensure build only happens once
         # https://github.com/pytest-dev/pytest-xdist/blob/v3.6.1/docs/how-to.rst#making-session-scoped-fixtures-execute-only-once
@@ -126,3 +167,15 @@ def apply_atomic():
         return tempval
 
     return setup
+
+
+@pytest.fixture
+def random_seed(request):
+    fixed_seed = request.config.getoption("--seed")
+    if fixed_seed is not None:
+        test_seed = fixed_seed
+    else:
+        test_seed = os.getpid()
+    print(f'Random seed used: {test_seed}')
+    yield test_seed
+    print(f'Random seed used: {test_seed}')
