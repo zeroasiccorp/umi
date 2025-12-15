@@ -8,10 +8,12 @@ import numpy as np
 from switchboard import UmiTxRx
 
 
-def test_umi_ram(sumi_dut, apply_atomic, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_umi_ram(sumi_dut, apply_atomic, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
 
     ports = 5  # Number of input ports of umi_ram. Must match testbench
     n = 100  # Number of reads, atomic txns and writes each from the umi_ram
+
+    np.random.seed(random_seed)
 
     # launch the simulation
     sumi_dut.simulate(

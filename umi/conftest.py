@@ -27,7 +27,7 @@ def pytest_addoption(parser):
     parser.addoption("--seed", type=int, action="store", help="Provide a fixed seed")
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def random_seed(request):
     fixed_seed = request.config.getoption("--seed")
     if fixed_seed is not None:

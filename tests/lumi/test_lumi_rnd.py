@@ -10,7 +10,9 @@ from switchboard import UmiTxRx
 import pytest
 
 
-def test_lumi_rnd(lumi_dut, chip_topo, sb_umi_valid_mode, sb_umi_ready_mode):
+def test_lumi_rnd(lumi_dut, chip_topo, random_seed, sb_umi_valid_mode, sb_umi_ready_mode):
+
+    np.random.seed(random_seed)
 
     hostdly = np.random.randint(500)
     devdly = np.random.randint(500)

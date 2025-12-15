@@ -1,3 +1,4 @@
+import os
 import pytest
 from switchboard import SbDut
 from umi.lumi import LUMI
@@ -72,3 +73,15 @@ def lumi_dut(build_dir, request):
 @pytest.fixture(params=("2d", "3d"))
 def chip_topo(request):
     return request.param
+
+
+@pytest.fixture
+def random_seed(request):
+    fixed_seed = request.config.getoption("--seed")
+    if fixed_seed is not None:
+        test_seed = fixed_seed
+    else:
+        test_seed = os.getpid()
+    print(f'Random seed used: {test_seed}')
+    yield test_seed
+    print(f'Random seed used: {test_seed}')
