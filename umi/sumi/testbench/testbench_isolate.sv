@@ -84,7 +84,7 @@ module testbench (
         .DW(DW)
     ) host_umi_rx_i (
         .clk        (clk),
-
+        .reset      (~nreset),
         .valid      (umi_valid),
         .cmd        (umi_cmd[CW-1:0]),
         .dstaddr    (umi_dstaddr[AW-1:0]),
@@ -98,7 +98,7 @@ module testbench (
         .DW(DW)
     ) host_umi_tx_i (
         .clk        (clk),
-
+        .reset      (~nreset),
         .valid      (umi_valid_iso & initdone),
         .cmd        (umi_cmd_iso[CW-1:0]),
         .dstaddr    (umi_dstaddr_iso[AW-1:0]),
@@ -153,7 +153,7 @@ module testbench (
     end
 
     // waveform dump
-    `SB_SETUP_PROBES
+    `SB_SETUP_PROBES();
 
     // auto-stop
     auto_stop_sim auto_stop_sim_i (.clk(clk));

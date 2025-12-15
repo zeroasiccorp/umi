@@ -193,7 +193,7 @@ module testbench (
    end
 
    // waveform dump
-   `SB_SETUP_PROBES
+   `SB_SETUP_PROBES();
 
    // auto-stop
    auto_stop_sim auto_stop_sim_i (.clk(clk));

@@ -154,7 +154,7 @@ module tb_tl2umi_np #(
         .uhost_resp_ready   (uhost_resp_ready)
     );
 
-    umi_mem_agent #(
+    umi_memagent #(
         .DW         (DW),
         .AW         (AW),
         .CW         (CW),

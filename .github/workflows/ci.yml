@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zeroasiccorp/sbtest:latest
-    timeout-minutes: 10
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -23,7 +23,7 @@ jobs:
           . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
-          pytest -m "switchboard"
+          pytest -m "switchboard" -n logical --verbose --durations=0
 
   python_ci:
     name: "Python + Tools CI"
@@ -42,4 +42,4 @@ jobs:
           . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
-          pytest -m "not switchboard" -n auto
+          pytest -m "not switchboard" -n logical --verbose

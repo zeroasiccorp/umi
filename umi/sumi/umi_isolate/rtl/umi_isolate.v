@@ -45,38 +45,38 @@ module umi_isolate
     output [DW-1:0] umi_data_iso
     );
 
+   genvar i;
+
    generate
       if(ISO)
         begin : g0
-           la_visolo #(.N(1))
-           i_ready (.in(umi_ready),
-                    .out(umi_ready_iso),
-                    .iso(isolate));
+           la_isolo i_ready (.in(umi_ready),
+                             .out(umi_ready_iso),
+                             .iso(isolate));
 
-           la_visolo #(.N(1))
-           i_valid (.in(umi_valid),
-                    .out(umi_valid_iso),
-                    .iso(isolate));
+           la_isolo i_valid (.in(umi_valid),
+                             .out(umi_valid_iso),
+                             .iso(isolate));
 
-           la_visolo #(.N(CW))
-           i_cmd (.in(umi_cmd[CW-1:0]),
-                  .out(umi_cmd_iso[CW-1:0]),
-                  .iso(isolate));
+           for (i = 0; i < CW; i = i + 1)
+             la_isolo i_cmd (.in(umi_cmd[i]),
+                             .out(umi_cmd_iso[i]),
+                             .iso(isolate));
 
-           la_visolo #(.N(AW))
-           i_dstaddr (.in(umi_dstaddr[AW-1:0]),
-                      .out(umi_dstaddr_iso[AW-1:0]),
-                      .iso(isolate));
+           for (i = 0; i < AW; i = i + 1)
+             la_isolo i_dstaddr (.in(umi_dstaddr[i]),
+                                 .out(umi_dstaddr_iso[i]),
+                                 .iso(isolate));
 
-           la_visolo #(.N(AW))
-           i_srcaddr (.in(umi_srcaddr[AW-1:0]),
-                      .out(umi_srcaddr_iso[AW-1:0]),
-                      .iso(isolate));
+           for (i = 0; i < AW; i = i + 1)
+             la_isolo i_srcaddr (.in(umi_srcaddr[i]),
+                                 .out(umi_srcaddr_iso[i]),
+                                 .iso(isolate));
 
-           la_visolo #(.N(DW))
-           i_data (.in(umi_data[DW-1:0]),
-                   .out(umi_data_iso[DW-1:0]),
-                   .iso(isolate));
+           for (i = 0; i < DW; i = i + 1)
+             la_isolo i_data (.in(umi_data[i]),
+                              .out(umi_data_iso[i]),
+                              .iso(isolate));
         end
       else
         begin : g0

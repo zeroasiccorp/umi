@@ -233,7 +233,7 @@ module testbench (
 
     wire [CTRLW-1:0]    sram_ctrl = 8'b0;
 
-    umi_mem_agent #(
+    umi_memagent #(
         .DW                 (DW),
         .AW                 (AW),
         .CW                 (CW),
@@ -282,7 +282,7 @@ module testbench (
     end
 
     // control block
-    `SB_SETUP_PROBES
+    `SB_SETUP_PROBES();
 
     // auto-stop
     auto_stop_sim auto_stop_sim_i (.clk(clk));

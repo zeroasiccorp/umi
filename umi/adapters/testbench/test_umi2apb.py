@@ -6,7 +6,46 @@
 import random
 import numpy as np
 from switchboard import SbDut, UmiTxRx
-from umi import sumi
+from switchboard.verilog.sim.switchboard_sim import SwitchboardSim
+from siliconcompiler import Design
+from umi.adapters import UMI2APB
+from lambdalib.ramlib import Spram
+
+
+class Umi2ApbTb(Design):
+
+    def __init__(self):
+        super().__init__("Umi2ApbTb")
+
+        top_module = "testbench"
+
+        self.set_dataroot('localroot', __file__)
+
+        files = [
+            "testbench_umi2apb.sv"
+        ]
+
+        deps = [
+            UMI2APB(),
+            Spram()
+        ]
+
+        with self.active_fileset('rtl'):
+            self.set_topmodule(top_module)
+            for item in files:
+                self.add_file(item)
+            for item in deps:
+                self.add_depfileset(item)
+
+        with self.active_fileset('verilator'):
+            self.set_topmodule(top_module)
+            self.add_depfileset(self, "rtl")
+            self.add_depfileset(SwitchboardSim())
+
+        with self.active_fileset('icarus'):
+            self.set_topmodule(top_module)
+            self.add_depfileset(self, "rtl")
+            self.add_depfileset(SwitchboardSim())
 
 
 def main():
@@ -18,16 +57,14 @@ def main():
                    'to send during the test.')
     }
 
-    dut = SbDut('testbench', cmdline=True, extra_args=extra_args, trace=False, default_main=True)
-
-    # Set up inputs
-    dut.input('utils/testbench/testbench_umi2apb.sv', package='umi')
-
-    dut.use(sumi)
-
-    # Verilator configuration
-    dut.set('tool', 'verilator', 'task', 'compile', 'file', 'config', 'utils/testbench/config.vlt',
-            package='umi')
+    dut = SbDut(
+        design=Umi2ApbTb(),
+        fileset="verilator",
+        tool="verilator",
+        cmdline=True,
+        extra_args=extra_args,
+        trace=False
+    )
 
     dut.build()
 
