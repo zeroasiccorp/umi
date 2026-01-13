@@ -1,0 +1,76 @@
+set = "UMI"
+width = 32
+
+[formats]
+names = ["umi_cmd"]
+# parts define the visual order and bit-widths (Name, Width, Type)
+# Total width must equal 32 bits
+parts = [
+    ["user",   2, "u8",],
+    ["hostid", 5, "u8",],
+    ["ex",     1, "u8",],
+    ["eof",    1, "u8",],
+    ["eom",    1, "u8",],
+    ["prot",   2, "u8",],
+    ["qos",    4, "u8",],
+    ["len",    8, "u8",],
+    ["size",   3, "UMI_SIZE",],
+    ["opcode", 5, "UMI_OP_CODE",],
+]
+
+[types]
+names = ["UMI_CMD"]
+# UMI_CMD defines the bit-slicing logic (top/bot are inclusive)
+UMI_CMD = [
+    { name = "hostid", top = 4, bot = 0 }, # Bits [31:27] (Width 5)
+    { name = "user",   top = 1, bot = 0 }, # Bits [26:25] (Width 2)
+    { name = "ex",     top = 0, bot = 0 }, # Bit  [24]    (Width 1)
+    { name = "eof",    top = 0, bot = 0 }, # Bit  [23]    (Width 1)
+    { name = "eom",    top = 0, bot = 0 }, # Bit  [22]    (Width 1)
+    { name = "prot",   top = 1, bot = 0 }, # Bits [21:20] (Width 2)
+    { name = "qos",    top = 3, bot = 0 }, # Bits [19:16] (Width 4)
+    { name = "len",    top = 7, bot = 0 }, # Bits [15:8]  (Width 8)
+    { name = "size",   top = 2, bot = 0 }, # Bits [7:5]   (Width 3)
+    { name = "opcode", top = 4, bot = 0 }, # Bits [4:0]   (Width 5)
+]
+
+[umi_cmd]
+type = "UMI_CMD"
+[umi_cmd.repr]
+# This defines how the final string appears in the waveform viewer
+default = "OP:%opcode% SZ:%size% LEN:%len% Q:%qos% P:%prot% EOM:%eom% EOF:%eof% EX:%ex% USR:%user% HST:%hostid%"
+
+[umi_cmd.instructions]
+# mask/match 0 ensures all 32-bit values are captured by this decoder
+umi_cmd = { mask = 0, match = 0 }
+
+[mappings]
+names = ["UMI_OP_CODE", "UMI_SIZE"]
+
+[mappings.UMI_OP_CODE]
+0x00 = "INVALID"
+0x01 = "REQ_RD"
+0x02 = "RESP_RD"
+0x03 = "REQ_WR"
+0x04 = "RESP_WR"
+0x05 = "REQ_WRPOSTED"
+0x06 = "RESP_USER0"
+0x07 = "REQ_RDMA"
+0x08 = "RESP_USER1"
+0x09 = "REQ_ATOMIC"
+0x0A = "RESP_FUTURE0"
+0x0B = "REQ_USER0"
+0x0C = "RESP_FUTURE1"
+0x0D = "REQ_FUTURE0"
+0x0E = "RESP_LINK"
+0x0F = "REQ_ERROR/LINK"
+
+[mappings.UMI_SIZE]
+0 = "1B"
+1 = "2B"
+2 = "4B"
+3 = "8B"
+4 = "16B"
+5 = "32B"
+6 = "64B"
+7 = "128B"
