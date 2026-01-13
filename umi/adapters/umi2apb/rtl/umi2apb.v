@@ -182,9 +182,9 @@ module umi2apb #(parameter AW = 64,        // UMI address width
        pslverr_r <= {apb_pslverr, 1'b0};
 
    assign udev_resp_cmd[4:0]   = cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE;
-   assign udev_resp_cmd[24:5]  = udev_req_cmd[24:5];
+   assign udev_resp_cmd[24:5]  = udev_req_cmd_r[24:5];
    assign udev_resp_cmd[26:25] = pslverr_r[1:0];
-   assign udev_resp_cmd[31:27] = udev_req_cmd[31:27];
+   assign udev_resp_cmd[31:27] = udev_req_cmd_r[31:27];
 
    assign udev_resp_dstaddr[AW-1:0] = udev_req_srcaddr_r[AW-1:0];
 
