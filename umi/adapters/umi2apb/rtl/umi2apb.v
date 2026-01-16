@@ -94,6 +94,7 @@ module umi2apb #(parameter AW = 64,        // UMI address width
 
    reg [1:0]       pslverr_r;
    reg [RW-1:0]    prdata_r;
+   reg cmd_read_r;
 
    //############################
    //# UMI Request
@@ -120,6 +121,8 @@ module umi2apb #(parameter AW = 64,        // UMI address width
          udev_req_dstaddr_r <= udev_req_dstaddr;
          udev_req_srcaddr_r <= udev_req_srcaddr;
          udev_req_data_r    <= udev_req_data[RW-1:0];
+
+         cmd_read_r   <= (udev_req_cmd[UMI_OPCODE_MSB:UMI_OPCODE_LSB] == UMI_REQ_READ);
       end
    end
 
@@ -181,7 +184,7 @@ module umi2apb #(parameter AW = 64,        // UMI address width
      else if (apb_penable & apb_pready)
        pslverr_r <= {apb_pslverr, 1'b0};
 
-   assign udev_resp_cmd[4:0]   = cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE;
+   assign udev_resp_cmd[4:0]   = cmd_read_r ? UMI_RESP_READ : UMI_RESP_WRITE;
    assign udev_resp_cmd[24:5]  = udev_req_cmd_r[24:5];
    assign udev_resp_cmd[26:25] = pslverr_r[1:0];
    assign udev_resp_cmd[31:27] = udev_req_cmd_r[31:27];
