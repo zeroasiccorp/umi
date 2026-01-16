@@ -1,6 +1,9 @@
 import pytest
 import os
+import sys
 import multiprocessing
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 
 @pytest.fixture(autouse=True)
