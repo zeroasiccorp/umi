@@ -77,5 +77,3 @@ async def test_backpressure(dut: SimHandleBase):
 
     print("\n=== Backpressure Test PASSED ===")
     raise env.scoreboard.result
-    
-
