@@ -1,6 +1,5 @@
 import math
 import cocotb
-from cocotb.triggers import ClockCycles
 
 from adapters.umi2apb.env import UMI2APBEnv
 from cocotblib.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
@@ -89,3 +88,4 @@ async def test_full_throughput(dut):
 
     print(f" All {num_transactions} back-to-back transactions completed successfully!")
     raise env.scoreboard.result
+

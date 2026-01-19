@@ -2,7 +2,6 @@ import math
 import cocotb
 
 from cocotb.handle import SimHandleBase
-from cocotb.triggers import ClockCycles
 
 from cocotblib.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
@@ -99,3 +98,4 @@ async def test_basic_WR(dut: SimHandleBase):
 
     # Check scoreboard results
     raise env.scoreboard.result
+

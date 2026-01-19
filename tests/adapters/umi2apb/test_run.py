@@ -23,6 +23,7 @@ def run_umi2apb(simulator="verilator", waves=True):
 
     assert tests_failed == 0
 
+
 @pytest.mark.sim
 @pytest.mark.parametrize("simulator", ["verilator"])
 def test_umi2apb(simulator):
