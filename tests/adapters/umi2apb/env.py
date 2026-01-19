@@ -1,7 +1,6 @@
 # Owns the driver, monitor, and scoreboard for UMI to APB adapter tests,
 # and provides common functionality for the tests.
 
-import math
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
