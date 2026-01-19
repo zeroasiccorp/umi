@@ -18,7 +18,6 @@
 module umi_memif
   #(parameter DW = 256, // umi packet width
     parameter AW = 64,  // umi address width
-    parameter CW = 32,  // umi command width
     parameter MAW = 32  // ram address width
     )
    (// ctrls
@@ -63,6 +62,12 @@ module umi_memif
 
    // vars
    integer          i;
+
+   //##################################################
+   // Read alignment
+   //##################################################
+
+   assign umi_rddata = mem_rddata >> (8*umi_addr_r[$clog2(DW/8)-1:0]);
 
    //##################################################
    // Write Mask
@@ -151,4 +156,7 @@ module umi_memif
    assign mem_wrdata = umi_atomic_r ?
                        (umi_wrdata_atomic[DW-1:0]>>postatomic_shift) :
                        (umi_wrdata[DW-1:0]<<(8*umi_addr[$clog2(DW/8)-1:0]));
+
+
+
 endmodule
