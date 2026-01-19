@@ -36,7 +36,8 @@ test = [
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
     "cocotbext-axi==0.1.28",
-    "cocotbext-umi==0.0.3"
+    "cocotbext-umi==0.0.3",
+    "cocotbext-apb==0.7.4"
 ]
 
 [tool.check-wheel-contents]
