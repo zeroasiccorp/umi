@@ -88,4 +88,3 @@ async def test_full_throughput(dut):
 
     print(f" All {num_transactions} back-to-back transactions completed successfully!")
     raise env.scoreboard.result
-

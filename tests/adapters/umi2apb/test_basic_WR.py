@@ -98,4 +98,3 @@ async def test_basic_WR(dut: SimHandleBase):
 
     # Check scoreboard results
     raise env.scoreboard.result
-
