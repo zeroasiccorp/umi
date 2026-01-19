@@ -5,6 +5,8 @@ from siliconcompiler import Sim
 
 from umi.adapters import UMI2APB
 from cocotblib.common import run_cocotb
+
+
 def run_umi2apb(simulator="verilator", waves=True):
     project = Sim(UMI2APB())
     project.add_fileset("rtl")
