@@ -1,5 +1,3 @@
-# tests/adapters/umi2apb/run.py
-
 import pytest
 from siliconcompiler import Sim
 
