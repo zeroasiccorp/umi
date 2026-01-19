@@ -6,6 +6,7 @@ from .umi_fifo.umi_fifo import Fifo
 from .umi_fifoflex.umi_fifoflex import FifoFlex
 from .umi_isolate.umi_isolate import Isolate
 from .umi_memagent.umi_memagent import MemAgent
+from .umi_memif.umi_memif import Memif
 from .umi_mux.umi_mux import Mux
 from .umi_mux2.umi_mux2 import Mux2
 from .umi_pack.umi_pack import Pack
@@ -26,6 +27,7 @@ __all__ = ['Arbiter',
            'FifoFlex',
            'Isolate',
            'MemAgent',
+           'Memif',
            'Mux',
            'Mux2',
            'Pack',
