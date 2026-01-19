@@ -60,8 +60,8 @@ async def test_basic_WR(dut: SimHandleBase):
         f"got 0x{int.from_bytes(mem_data, 'little'):x}"
     )
 
-    print(f"    Data written to memory: 0x{test_data:08x}")
-    print(f"    UMI write response verified by scoreboard")
+    print(f" Data written to memory: 0x{test_data:08x}")
+    print(" UMI write response verified by scoreboard")
 
     print("\n=== Basic Read Test ===")
 
@@ -95,7 +95,7 @@ async def test_basic_WR(dut: SimHandleBase):
     # Wait for read response
     await env.wait_for_responses(max_cycles=100)
 
-    print(f"    Read response verified by scoreboard")
+    print("Read response verified by scoreboard")
 
     # Check scoreboard results
     raise env.scoreboard.result

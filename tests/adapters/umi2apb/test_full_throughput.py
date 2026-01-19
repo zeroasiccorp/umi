@@ -82,10 +82,10 @@ async def test_full_throughput(dut):
             )
 
         env.expected_responses.append(expected_resp)
-        env.sumi_driver.append(txn) 
+        env.sumi_driver.append(txn)
 
     # Wait for all responses
     await env.wait_for_responses(max_cycles=num_transactions * 50)
 
-    print(f"    All {num_transactions} back-to-back transactions completed successfully!")
+    print(f" All {num_transactions} back-to-back transactions completed successfully!")
     raise env.scoreboard.result
