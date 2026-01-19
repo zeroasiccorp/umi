@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "setuptools >= 61.2",
+    "za-cocotblib >= 0.0.1, < 0.1.0",
     "setuptools_scm[toml] >= 6.2"
 ]
 build-backend = "setuptools.build_meta"
@@ -35,7 +36,6 @@ test = [
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
     "cocotbext-apb==0.7.4",
-    "za-cocotblib >= 0.0.1, < 0.1.0",
     "switchboard-hw == 0.3.0"
 ]
 
