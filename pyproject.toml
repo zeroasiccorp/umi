@@ -1,7 +1,13 @@
 [build-system]
 requires = [
+<<<<<<< HEAD
     "setuptools >= 64",
     "setuptools_scm[toml] >= 8, <10"
+=======
+    "setuptools >= 61.2",
+    "za-cocotblib >= 0.0.1, < 0.1.0",
+    "setuptools_scm[toml] >= 6.2"
+>>>>>>> 2760da1 (fix cocotblib toml)
 ]
 build-backend = "setuptools.build_meta"
 
