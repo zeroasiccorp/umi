@@ -28,7 +28,7 @@ def run_tl2umi(simulator="verilator", waves=True):
 
     tests_failed = run_cocotb(
         project=project,
-        test_module_name="tests.adapters.tl2umi",
+        test_module_name="tests.adapters.tl2umi.test_basic, tests.adapters.tl2umi.test_advanced",
         simulator_name=simulator,
         timescale=("1ns", "1ps"),
         build_args=["--report-unoptflat"] if simulator == "verilator" else [],
