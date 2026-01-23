@@ -2,7 +2,6 @@ import math
 import cocotb
 
 from cocotb.handle import SimHandleBase
-from cocotb.triggers import ClockCycles
 
 from sumi import SumiTransaction, SumiCmdType, SumiCmd
 from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
@@ -61,7 +60,7 @@ async def test_basic_WR(dut: SimHandleBase):
     )
 
     print(f"Data written to memory: 0x{test_data:08x}")
-    print(f" UMI write response verified by scoreboard")
+    print(" UMI write response verified by scoreboard")
 
     print("\n=== Basic Read Test ===")
 
@@ -95,5 +94,5 @@ async def test_basic_WR(dut: SimHandleBase):
     # Wait for response
     await env.wait_for_responses(max_cycles=100)
 
-    print(f"Read response verified by scoreboard")
+    print("Read response verified by scoreboard")
     raise env.scoreboard.result

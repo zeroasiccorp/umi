@@ -1,7 +1,6 @@
 # Owns the driver, monitor, and scoreboard for UMI to APB adapter tests,
 # and provides common functionality for the tests.
 
-import math
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
@@ -59,7 +58,7 @@ class UMI2APBEnv:
 
         # Creates scoreboard
         self.scoreboard = Scoreboard(dut, fail_immediately=True)
-        self.scoreboard.add_interface(monitor=self.sumi_monitor,expected_output=self.expected_responses)
+        self.scoreboard.add_interface(monitor=self.sumi_monitor, expected_output=self.expected_responses)
 
     # Prerequisites for starting tests
     async def start(self):
@@ -96,6 +95,6 @@ def create_expected_write_response(write_txn, data_size, addr_width=64):
         ),
         da=req_sa,
         sa=req_da,
-        data=bytearray(data_size), # Expect no data in write response
+        data=bytearray(data_size),  # Expect no data in write response
         addr_width=addr_width
     )

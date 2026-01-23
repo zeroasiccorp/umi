@@ -1,6 +1,5 @@
 import math
 import cocotb
-from cocotb.triggers import ClockCycles
 
 from adapters.umi2apb.env import UMI2APBEnv
 from sumi import SumiTransaction, SumiCmdType, SumiCmd
@@ -82,7 +81,7 @@ async def test_full_throughput(dut):
             )
 
         env.expected_responses.append(expected_resp)
-        env.sumi_driver.append(txn) 
+        env.sumi_driver.append(txn)
     await env.wait_for_responses(max_cycles=num_transactions * 50)
 
     print(f"All {num_transactions} back-to-back transactions completed successfully!")

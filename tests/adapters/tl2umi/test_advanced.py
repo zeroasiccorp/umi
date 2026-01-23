@@ -3,7 +3,6 @@ import cocotb
 from cocotb.handle import SimHandleBase
 
 from adapters.tl2umi.tl_driver import TLTransaction, TLArithParam, TLLogicParam
-from adapters.tl2umi.tl_monitor import TLDOpcode
 from adapters.tl2umi.env import TL2UMIEnv, create_expected_write_response, create_expected_read_response
 
 
@@ -17,7 +16,7 @@ async def test_partial_write(dut: SimHandleBase):
 
     print("=== Partial Write Test ===")
 
-    # Write full word 
+    # Write full word
     init_data = 0xAAAAAAAA
     env.expected_responses.append(
         create_expected_write_response(size=size, source=0)
@@ -100,7 +99,7 @@ async def test_back_to_back_reads(dut: SimHandleBase):
 
     print("=== Back-to-Back Reads Test ===")
 
-    # Write data to memory 
+    # Write data to memory
     # Use 8-byte aligned addresses since RTL drops lower 3 bits
     for i in range(num_transactions):
         addr = base_addr + (i * 8)
@@ -216,6 +215,7 @@ async def test_mixed_read_write_same_address(dut: SimHandleBase):
 
     raise env.scoreboard.result
 
+
 @cocotb.test(timeout_time=50, timeout_unit="ms")
 async def test_all_sizes(dut: SimHandleBase):
     """
@@ -314,6 +314,7 @@ async def test_atomic_add(dut: SimHandleBase):
     print(f"    Read back: {expected_result}")
 
     raise env.scoreboard.result
+
 
 @cocotb.test(timeout_time=100, timeout_unit="ms")
 async def test_atomic_xor(dut: SimHandleBase):

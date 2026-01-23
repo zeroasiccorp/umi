@@ -46,7 +46,7 @@ async def test_posted_write(dut: SimHandleBase):
         env.sumi_driver.append(posted_txn)
         print(f"Sent posted write: addr=0x{addr:x}, data=0x{data:08x}")
 
-    # Wait for transactions to complete 
+    # Wait for transactions to complete
     await ClockCycles(env.clk, 50)
 
     # Verify memory
