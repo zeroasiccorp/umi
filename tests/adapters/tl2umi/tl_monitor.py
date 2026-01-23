@@ -1,17 +1,19 @@
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any
 
 from cocotb.triggers import RisingEdge
 from cocotb.handle import SimHandleBase
 
 from cocotb_bus.monitors import BusMonitor
 
+
 class TLDOpcode(IntEnum):
     """TileLink D-channel opcodes"""
     AccessAck = 0
     AccessAckData = 1
     HintAck = 2
+
 
 @dataclass
 class TLDResponse:

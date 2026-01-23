@@ -105,10 +105,10 @@ async def test_random_stimulus(dut):
         )
         num_verified += 1
 
-    print(f"\n=== Test Statistics ===")
+    print("\n=== Test Statistics ===")
     print(f"    Total transactions: {num_random_transactions}")
     print(f"    Unique addresses written: {len(memory_model)}")
     print(f"    Memory locations verified: {num_verified}")
-    print(f"    All transactions completed")
+    print("    All transactions completed")
 
     raise env.scoreboard.result

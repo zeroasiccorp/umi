@@ -1,10 +1,8 @@
 import cocotb
 
 from cocotb.handle import SimHandleBase
-from cocotb.triggers import ClockCycles
 
 from adapters.tl2umi.tl_driver import TLTransaction
-from adapters.tl2umi.tl_monitor import TLDOpcode
 from adapters.tl2umi.env import TL2UMIEnv, create_expected_write_response, create_expected_read_response
 
 
@@ -38,7 +36,7 @@ async def test_basic_write(dut: SimHandleBase):
     await env.wait_for_responses(max_cycles=100)
 
     print(f"    Write to 0x{test_addr:08x} with data 0x{test_data:08x}")
-    print(f"    Write acknowledgment verified by scoreboard")
+    print("    Write acknowledgment verified by scoreboard")
 
     raise env.scoreboard.result
 
@@ -81,6 +79,7 @@ async def test_basic_read(dut: SimHandleBase):
     print(f"    Read complete: got 0x{test_data:08x} from 0x{test_addr:08x}")
 
     raise env.scoreboard.result
+
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
 async def test_multiple_writes(dut: SimHandleBase):
@@ -138,6 +137,7 @@ async def test_byte_write(dut: SimHandleBase):
     print(f"    Byte write: 0x{test_data:02x} -> 0x{test_addr:03x}")
 
     raise env.scoreboard.result
+
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
 async def test_64bit_write_read(dut: SimHandleBase):

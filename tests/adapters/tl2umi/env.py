@@ -6,7 +6,7 @@ from cocotb.triggers import ClockCycles
 
 from cocotb_bus.scoreboard import Scoreboard
 
-from adapters.tl2umi.tl_driver import TLDriver, TLTransaction, TLOpcode
+from adapters.tl2umi.tl_driver import TLDriver
 from adapters.tl2umi.tl_monitor import TLMonitor, TLDResponse, TLDOpcode
 from cocotb_utils import do_reset as cocotb_common_do_reset
 
@@ -78,8 +78,8 @@ class TL2UMIEnv:
                     f"({len(self.expected_responses)} remaining)"
                 )
 
-def create_expected_read_response(address, size, data, source=0,):
 
+def create_expected_read_response(address, size, data, source=0):
     """Create expected TileLink D-channel read response"""
     return TLDResponse(
         opcode=TLDOpcode.AccessAckData,
@@ -91,6 +91,7 @@ def create_expected_read_response(address, size, data, source=0,):
         data=data,
         corrupt=False,
     )
+
 
 def create_expected_write_response(size, source=0):
     """Create expected TileLink D-channel write response"""

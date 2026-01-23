@@ -20,6 +20,7 @@ class TL2UMITestbench(UMI):
             deps=[TL2UMI(), MemAgent()]
         )
 
+
 def run_tl2umi(simulator="verilator", waves=True):
     # Create project with testbench
     project = Sim(TL2UMITestbench())
