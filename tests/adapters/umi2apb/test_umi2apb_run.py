@@ -11,10 +11,10 @@ def run_umi2apb(simulator="verilator", waves=True):
 
     tests_failed = run_cocotb(
         project=project,
-        test_module_name="tests.adapters.umi2apb.test_basic_WR, " \
-        "tests.adapters.umi2apb.test_backpressure, " \
-        "tests.adapters.umi2apb.test_full_throughput, " \
-        "tests.adapters.umi2apb.test_posted_write, " \
+        test_module_name="tests.adapters.umi2apb.test_basic_WR, "
+        "tests.adapters.umi2apb.test_backpressure, "
+        "tests.adapters.umi2apb.test_full_throughput, "
+        "tests.adapters.umi2apb.test_posted_write, "
         "tests.adapters.umi2apb.test_random_stimulus",
         simulator_name=simulator,
         timescale=("1ns", "1ps"),
@@ -23,7 +23,6 @@ def run_umi2apb(simulator="verilator", waves=True):
         waves=waves,
     )
     assert tests_failed == 0
-
 
 @pytest.mark.sim
 @pytest.mark.parametrize("simulator", ["verilator"])
