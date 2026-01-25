@@ -19,13 +19,10 @@
  * -TL-UH to UMI converter
  *
  * The umi_srcaddr for requests uses User Defined Bits as follows:
- * [63:56]  : Reserved
- * [55:40]  : Chip ID
- * [39:24]  : Local routing address
- * [23:20]  : ml_tx_first_one (Left Shift for resp data < TileLink data (64b))
- * [19:16]  : tl_a_size (TileLink Size)
- * [15:8]   : tl_a_source (TileLink Source)
- * [7:0]    : 0000_0000b
+ * [63:16] : Global memory id
+ * [15:12] : ml_tx_first_one (Left Shift for resp data < TileLink data (64b))
+ * [11:8]  : tl_a_size (TileLink Size)
+ * [7:0]   : tl_a_source (TileLink Source)
  *
  ******************************************************************************/
 
@@ -34,16 +31,15 @@
 `include "tl-uh.vh"
 
 module tl2umi #(
-    parameter CW    = 32,   // command width
-    parameter AW    = 64,   // address width
-    parameter DW    = 64,   // umi packet width
-    parameter IDW   = 16    // brick ID width
+    parameter CW = 32, // umi command width
+    parameter AW = 64, // umi address width
+    parameter DW = 64, // umi packet width
+    parameter IDW = 48 // umi global ID width
 )
 (
     input               clk,
     input               nreset,
-    input  [IDW-1:0]    chipid,
-    input  [15:0]       local_routing,
+    input  [IDW-1:0]    globalid,
 
     output              tl_a_ready,
     input               tl_a_valid,
@@ -87,12 +83,12 @@ module tl2umi #(
 
     reg [1:0]   reset_done;
 
-    always @(posedge clk or negedge nreset) begin
+    always @(posedge clk or negedge nreset)
         if (~nreset)
             reset_done <= 2'b00;
         else
             reset_done <= {reset_done[0], 1'b1};
-    end
+
 
     wire            fifoflex2dataag_resp_valid;
     wire [CW-1:0]   fifoflex2dataag_resp_cmd;
@@ -265,9 +261,9 @@ module tl2umi #(
     assign dataag_out_resp_ready = reset_done[1] & tl_d_ready & dataag_out_resp_ready_assert;
     assign dataag_out_resp_bytes = (1 << dataag_out_resp_cmd_size)*(dataag_out_resp_cmd_len + 1);
 
-    wire [2:0] dataag_out_resp_size = dataag_out_resp_dstaddr[18:16];
-    wire [4:0] dataag_out_resp_source = dataag_out_resp_dstaddr[12:8];
-    wire [3:0] dataag_out_ml_tx_first_one = dataag_out_resp_dstaddr[23:20];
+    wire [4:0] dataag_out_resp_source = dataag_out_resp_dstaddr[4:0];
+    wire [2:0] dataag_out_resp_size = dataag_out_resp_dstaddr[10:8];
+    wire [3:0] dataag_out_ml_tx_first_one = dataag_out_resp_dstaddr[15:12];
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
@@ -542,10 +538,8 @@ module tl2umi #(
             ml_tx_first_one = 4'd8;
     end
 
-    wire [15:0] umi_src_addr_user_defined = {{ml_tx_first_one, 1'b0, tl_a_size},
-                                             {3'b0, tl_a_source}};
-    wire [23:0] chip_address = {{(24-IDW){1'b0}}, chipid};
-    wire [63:0] local_address = {chip_address, local_routing, umi_src_addr_user_defined, 8'b0};
+    wire [15:0] umi_src_addr_user_defined = {{ml_tx_first_one, 1'b0, tl_a_size}, {3'b0, tl_a_source}};
+    wire [63:0] local_address = {globalid, umi_src_addr_user_defined};
 
     reg [2:0]   req_state;
     reg [7:0]   req_put_byte_counter;
