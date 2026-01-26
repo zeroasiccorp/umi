@@ -17,30 +17,29 @@
 
 module umi_memif
   #(parameter DW = 256, // umi packet width
-    parameter AW = 64,  // umi address width
-    parameter MAW = 32  // ram address width
+    parameter AW = 64   // umi address width
     )
    (// ctrls
-    input            clk,
-    input            nreset,
+    input           clk,
+    input           nreset,
     // umi interface
-    input            umi_read,   // memory read
-    input            umi_write,  // memory write
-    input            umi_atomic, // read-modify-write
-    input [2:0]      umi_size,   // 1 --> DW/8 byte
-    input [7:0]      umi_len,    // total transfers = LEN + 1
-    input [7:0]      umi_atype,  // atomic type
-    input [AW-1:0]   umi_addr,   // size aligned address
-    input [DW-1:0]   umi_wrdata,
-    output [DW-1:0]  umi_rddata,
-    output           umi_ready,
+    input           umi_read,   // memory read
+    input           umi_write,  // memory write
+    input           umi_atomic, // read-modify-write
+    input [2:0]     umi_size,   // 1 --> DW/8 byte
+    input [7:0]     umi_len,    // total transfers = LEN + 1
+    input [7:0]     umi_atype,  // atomic type
+    input [AW-1:0]  umi_addr,   // size aligned address
+    input [DW-1:0]  umi_wrdata,
+    output [DW-1:0] umi_rddata,
+    output          umi_ready,
     // mem interface
-    output           mem_ce,
-    output           mem_we,
-    output [MAW-1:0] mem_addr,
-    output [DW-1:0]  mem_wrmask,
-    output [DW-1:0]  mem_wrdata,
-    input [DW-1:0]   mem_rddata
+    output          mem_ce,
+    output          mem_we,
+    output [AW-1:0] mem_addr,
+    output [DW-1:0] mem_wrmask,
+    output [DW-1:0] mem_wrdata,
+    input [DW-1:0]  mem_rddata
     );
 
    // local state
