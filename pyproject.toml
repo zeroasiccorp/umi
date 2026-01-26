@@ -32,6 +32,9 @@ test = [
     "pytest-xdist == 3.8.0",
     "pytest-timeout == 2.4.0",
     "flake8 == 7.3.0",
+    "cocotb==2.0.1",
+    "cocotb-bus==0.3.0",
+    "cocotbext-apb==0.11.0",
     "switchboard-hw == 0.3.0"
 ]
 
