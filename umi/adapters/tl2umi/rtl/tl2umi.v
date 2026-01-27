@@ -19,7 +19,7 @@
  * -TL-UH to UMI converter
  *
  * The umi_srcaddr for requests uses User Defined Bits as follows:
- * [63:16] : Global memory id
+ * [63:16] : umi source address bits [63:16]
  * [15:12] : ml_tx_first_one (Left Shift for resp data < TileLink data (64b))
  * [11:8]  : tl_a_size (TileLink Size)
  * [7:0]   : tl_a_source (TileLink Source)
@@ -33,50 +33,49 @@
 module tl2umi #(
     parameter CW = 32, // umi command width
     parameter AW = 64, // umi address width
-    parameter DW = 64, // umi packet width
-    parameter IDW = 48 // umi global ID width
+    parameter DW = 64  // umi packet width
 )
 (
-    input               clk,
-    input               nreset,
-    input  [IDW-1:0]    globalid,
+    input             clk,
+    input             nreset,
+    input [AW-1:0]    srcaddr,
 
-    output              tl_a_ready,
-    input               tl_a_valid,
-    input  [2:0]        tl_a_opcode,
-    input  [2:0]        tl_a_param,
-    input  [2:0]        tl_a_size,
-    input  [4:0]        tl_a_source,
-    input  [55:0]       tl_a_address,
-    input  [7:0]        tl_a_mask,
-    input  [63:0]       tl_a_data,
-    input               tl_a_corrupt,
+    output            tl_a_ready,
+    input             tl_a_valid,
+    input [2:0]       tl_a_opcode,
+    input [2:0]       tl_a_param,
+    input [2:0]       tl_a_size,
+    input [4:0]       tl_a_source,
+    input [55:0]      tl_a_address,
+    input [7:0]       tl_a_mask,
+    input [63:0]      tl_a_data,
+    input             tl_a_corrupt,
 
-    input               tl_d_ready,
-    output reg          tl_d_valid,
-    output reg [2:0]    tl_d_opcode,
-    output     [1:0]    tl_d_param,
-    output reg [2:0]    tl_d_size,
-    output reg [4:0]    tl_d_source,
-    output              tl_d_sink,
-    output              tl_d_denied,
-    output reg [63:0]   tl_d_data,
-    output              tl_d_corrupt,
+    input             tl_d_ready,
+    output reg        tl_d_valid,
+    output reg [2:0]  tl_d_opcode,
+    output [1:0]      tl_d_param,
+    output reg [2:0]  tl_d_size,
+    output reg [4:0]  tl_d_source,
+    output            tl_d_sink,
+    output            tl_d_denied,
+    output reg [63:0] tl_d_data,
+    output            tl_d_corrupt,
 
     // Host port (per clink)
-    output              uhost_req_valid,
-    output [CW-1:0]     uhost_req_cmd,
-    output [AW-1:0]     uhost_req_dstaddr,
-    output [AW-1:0]     uhost_req_srcaddr,
-    output [DW-1:0]     uhost_req_data,
-    input               uhost_req_ready,
+    output            uhost_req_valid,
+    output [CW-1:0]   uhost_req_cmd,
+    output [AW-1:0]   uhost_req_dstaddr,
+    output [AW-1:0]   uhost_req_srcaddr,
+    output [DW-1:0]   uhost_req_data,
+    input             uhost_req_ready,
 
-    input               uhost_resp_valid,
-    input  [CW-1:0]     uhost_resp_cmd,
-    input  [AW-1:0]     uhost_resp_dstaddr,
-    input  [AW-1:0]     uhost_resp_srcaddr,
-    input  [DW-1:0]     uhost_resp_data,
-    output              uhost_resp_ready
+    input             uhost_resp_valid,
+    input [CW-1:0]    uhost_resp_cmd,
+    input [AW-1:0]    uhost_resp_dstaddr,
+    input [AW-1:0]    uhost_resp_srcaddr,
+    input [DW-1:0]    uhost_resp_data,
+    output            uhost_resp_ready
 );
 
     `include "umi_messages.vh"
@@ -539,7 +538,7 @@ module tl2umi #(
     end
 
     wire [15:0] umi_src_addr_user_defined = {{ml_tx_first_one, 1'b0, tl_a_size}, {3'b0, tl_a_source}};
-    wire [63:0] local_address = {globalid, umi_src_addr_user_defined};
+    wire [63:0] local_address = {srcaddr[63:16], umi_src_addr_user_defined};
 
     reg [2:0]   req_state;
     reg [7:0]   req_put_byte_counter;
