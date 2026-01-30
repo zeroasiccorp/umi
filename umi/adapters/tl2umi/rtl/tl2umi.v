@@ -624,7 +624,7 @@ module tl2umi #(
                         put_bytes_req <= ml_tx_len + 1;
                     end
                     `TL_OP_ArithmeticData, `TL_OP_LogicalData: begin
-                        req_state <= REQ_PUT_LAST;
+                        req_state <= REQ_GET_LAST;
                         tl_a_ready_assert <= 1'b0;
                         uhost_req_packet_cmd_opcode <= UMI_REQ_ATOMIC;
                         uhost_req_packet_cmd_size <= tl_a_size;
