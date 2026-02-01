@@ -19,7 +19,7 @@ requires-python = ">= 3.9"
 license = {file = "LICENSE"}
 dependencies = [
     "siliconcompiler >= 0.35.0",
-    "lambdalib >= 0.4.0, < 0.10.0"
+    "lambdalib >= 0.4.0, < 0.11.0"
 ]
 dynamic = ["version"]
 
