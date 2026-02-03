@@ -16,7 +16,50 @@
  * ----
  *
  * Documentation:
- * - TODO: Flush out documentation
+ *
+ * This module converts AXI4 Full write transactions to UMI write requests.
+ * Each AXI write beat is converted to a UMI REQ_WRITE transaction, with
+ * a UMI RESP_WRITE expected for each beat before proceeding to the next.
+ *
+ * Parameters:
+ *   CW       - UMI command width (default 32)
+ *   DW       - Data width in bits, must be <= 128 (16 byte strobe fits in SA[15:0])
+ *   AW       - Address width in bits (default 64)
+ *   IDW      - AXI ID width (default 8)
+ *   HOSTADDR - UMI source address base. The bottom STRBW bits are replaced
+ *              with the AXI write strobe value per UMI spec recommendation.
+ *
+ * Supported AXI4 Features:
+ *   - Write address channel (AW) with ID, address, len, size, burst, prot, qos
+ *   - Write data channel (W) with data, strobe, last
+ *   - Write response channel (B) with ID and response
+ *   - Burst types: FIXED (all beats to same address), INCR (incrementing)
+ *   - Variable burst lengths (1-256 beats via AWLEN)
+ *   - Variable transfer sizes (via AWSIZE)
+ *   - AWPROT[1:0] mapped to UMI PROT field
+ *   - AWQOS[3:0] mapped to UMI QOS field
+ *   - AXI ID pass-through (AWID -> BID)
+ *
+ * Unsupported AXI4 Features:
+ *   - WRAP burst type (will behave as FIXED)
+ *   - AWLOCK (exclusive/locked access) - signal present but ignored
+ *   - AWCACHE (memory attributes) - signal present but ignored
+ *   - AWPROT[2] (instruction/data) - only AWPROT[1:0] used
+ *   - Out-of-order transaction completion
+ *   - Write interleaving (s_axi_wid is ignored, transactions are in-order)
+ *   - Arbitrary write strobes (must be contiguous and LSB-aligned)
+ *
+ * Error Handling:
+ *   - UMI response errors (ERR field != 0) propagate to AXI BRESP
+ *   - Unexpected UMI response opcodes (not RESP_WRITE) return SLVERR (2'b10)
+ *   - Errors are latched across burst beats; last error latched is reported.
+ *
+ * Protocol Notes:
+ *   - One UMI request per AXI write beat (not per burst)
+ *   - Module waits for UMI response before accepting next beat
+ *   - Single outstanding AXI transaction supported (no pipelining)
+ *   - UMI cmd.size is always 0; transfer size encoded in cmd.len only
+ *     (valid since AXI4 max data width of 128 bytes fits in UMI len field)
  *
  ******************************************************************************/
 `timescale 1ns/1ps
@@ -89,6 +132,15 @@ module axi4_full_wr2umi #(
 
   `include "umi_messages.vh"
 
+  // Parameter validation: DW must be <= 128 bits (16 bytes) so strobe fits in SA[15:0]
+  generate 
+    if (DW > 128) begin : gen_dw_check
+      initial begin
+        $error("DW=%0d exceeds maximum of 128 bits. Strobe width would exceed 16 bits.", DW);
+      end
+    end
+  endgenerate
+
   localparam STRB_LOG2 = $clog2(STRBW);
 
   localparam SW = 3;
@@ -97,6 +149,12 @@ module axi4_full_wr2umi #(
     UMI_WRITE       = 'd1,
     WAIT_UMI_RESP   = 'd2,
     SEND_B_RESP     = 'd3;
+
+  // AXI4 burst types
+  localparam [1:0]
+    AXI_BURST_FIXED = 2'b00,
+    AXI_BURST_INCR  = 2'b01,
+    AXI_BURST_WRAP  = 2'b10;
 
   /* Maximum theoretical bytes per AXI transaction
    * AXI4 supports a maximum burst length of 256 beats
@@ -120,6 +178,9 @@ module axi4_full_wr2umi #(
   reg [BLW-1:0] bytes_left;
 
   reg [IDW-1:0] aw_id;
+  reg [1:0] aw_burst;
+
+  reg [1:0] bresp_err;
 
   //####################################
   // Wires
@@ -142,7 +203,8 @@ module axi4_full_wr2umi #(
 
   wire no_bytes_left;
 
-
+  wire [1:0] umi_resp_cmd_err;
+  wire [4:0] umi_resp_cmd_opcode;
 
   //####################################
   // Helper signals
@@ -163,6 +225,9 @@ module axi4_full_wr2umi #(
 
   always @(posedge clk)
     aw_id[IDW-1:0] <= aw_fire ? s_axi_awid[IDW-1:0] : aw_id[IDW-1:0];
+
+  always @(posedge clk)
+    aw_burst[1:0] <= aw_fire ? s_axi_awburst[1:0] : aw_burst[1:0];
 
   // Figure out transaction length
   always @(*) begin
@@ -189,11 +254,11 @@ module axi4_full_wr2umi #(
 
   assign no_bytes_left = (bytes_left[BLW-1:0] == {BLW{1'b0}});
 
-  // Load destination address when AW fires, increment when UMI req fires
+  // Load destination address when AW fires, increment when UMI req fires (INCR only)
   always @(posedge clk)
     if (aw_fire)
       dst_addr[AW-1:0] <= s_axi_awaddr[AW-1:0];
-    else if (umi_req_fire)
+    else if (umi_req_fire && (aw_burst == AXI_BURST_INCR))
       dst_addr[AW-1:0] <= dst_addr[AW-1:0] + w_strb_sum[STRB_LOG2:0];
 
   //####################################
@@ -228,39 +293,58 @@ module axi4_full_wr2umi #(
   );
 
   assign uhost_req_srcaddr[AW-1:0] = {HOSTADDR[AW-1:STRBW], s_axi_wstrb[STRBW-1:0]};
-
   assign uhost_req_dstaddr[AW-1:0] = dst_addr[AW-1:0];
 
   assign uhost_req_data[DW-1:0] = s_axi_wdata[DW-1:0];
 
   assign uhost_resp_ready = (state == WAIT_UMI_RESP);
 
+  // Extract error code from UMI response command
+  assign umi_resp_cmd_err[1:0] = uhost_resp_cmd[UMI_USER_MSB:UMI_USER_LSB];
+  assign umi_resp_cmd_opcode[4:0] = uhost_resp_cmd[UMI_OPCODE_MSB:UMI_OPCODE_LSB];
 
-  /*
-   * FSM HERE:
-   * - IDLE: Wait for AXI4 AW transaction
-   * - UMI_WRITE: Send UMI write request
-   * - WAIT_UMI_RESP: Wait for UMI Response
-   * - SEND_B_RESP: Send AXI4 Write Response
-   */
+  // Latch error across burst - clear on new transaction
+  always @(posedge clk)
+    if (aw_fire)
+      // Clear error on new transaction
+      bresp_err[1:0] <= 2'b00;
+    else if (umi_resp_fire)
+      if (umi_resp_cmd_opcode != UMI_RESP_WRITE)
+        // The response should only be UMI_RESP_WRITE, else slave error
+        bresp_err[1:0] <= 2'b10;
+      else if (umi_resp_cmd_err != 2'b00)
+        // Capture error
+        bresp_err[1:0] <= umi_resp_cmd_err;
+
+  //####################################
+  // FSM logic
+  //####################################
 
   assign s_axi_awready = (state == IDLE);
   assign s_axi_bvalid = (state == SEND_B_RESP);
 
   always @(*)
     case (state)
+      /* IDLE: Wait for AXI write address valid. Capture AW channel fields
+       *(address, burst type, ID, prot, qos) on aw_fire, then move to UMI_WRITE. */
       IDLE:
         next_state = s_axi_awvalid ? UMI_WRITE : IDLE;
 
+      // UMI_WRITE: Forward AXI write data beat as UMI REQ_WRITE then wait for response.
       UMI_WRITE:
         next_state = umi_req_fire ? WAIT_UMI_RESP : UMI_WRITE;
 
+      /* WAIT_UMI_RESP: Wait for UMI RESP_WRITE. 
+       * If more beats remain (bytes_left > 0), return to UMI_WRITE
+       * else send BRESP. */
       WAIT_UMI_RESP:
         if (umi_resp_fire)
           next_state = no_bytes_left ? SEND_B_RESP : UMI_WRITE;
         else
           next_state = WAIT_UMI_RESP;
 
+      /* SEND_B_RESP: Assert bvalid with accumulated error status. Wait for
+       * bready handshake, then return to IDLE for next transaction. */
       SEND_B_RESP:
         next_state = b_resp_fire ? IDLE : SEND_B_RESP;
 
@@ -275,11 +359,7 @@ module axi4_full_wr2umi #(
     else
       state <= next_state;
 
-  // TODO: Handle errors
-  assign s_axi_bresp = 2'b00;
+  assign s_axi_bresp[1:0] = bresp_err[1:0];
   assign s_axi_bid[IDW-1:0] = aw_id[IDW-1:0];
-
-  // TODO: ADD ERROR CHECKING THAT DW is NEVER > 128 * 8 (max width of axi4 full bus)
-
 
 endmodule

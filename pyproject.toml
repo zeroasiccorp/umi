@@ -32,10 +32,11 @@ test = [
     "pytest-xdist == 3.8.0",
     "pytest-timeout == 2.4.0",
     "flake8 == 7.3.0",
-    "switchboard-hw == 0.3.0",
+    "switchboard-hw @ git+https://github.com/zeroasiccorp/switchboard.git@rice/version_bump",
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
-    "cocotbext-axi==0.1.26"
+    "cocotbext-axi==0.1.26",
+    "cocotbext-umi @ git+https://github.com/zeroasiccorp/cocotbext-umi.git@rice/name_change"
 ]
 
 [tool.check-wheel-contents]
