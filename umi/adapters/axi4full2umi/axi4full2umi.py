@@ -6,7 +6,10 @@ class AXIF2UMI(UMI):
     def __init__(self):
         super().__init__(
             'axi4_full_wr2umi',
-            files=['rtl/axi4_full_wr2umi.v'],
+            files=[
+                'rtl/axi4_full_wr2umi.v',
+                'rtl/axi4_full_rd2umi.v'
+            ],
             idirs=['rtl'],
             deps=[
                 Pack(),
