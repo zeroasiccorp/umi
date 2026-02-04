@@ -66,7 +66,7 @@
 // TODO: remove this timescale
 `timescale 1ns/1ps
 
-module axi4_full_wr2umi #(
+module axiwr2umi #(
   parameter           CW = 32,
   parameter           DW = 128,
   parameter           AW = 64,
