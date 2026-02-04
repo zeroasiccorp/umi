@@ -46,7 +46,8 @@ ignore = [
 
 [tool.pytest.ini_options]
 markers = [
-    "switchboard: this test requires switchboard to run"
+    "switchboard: this test requires switchboard to run",
+    "cocotb: this test requires cocotb to run"
 ]
 testpaths = [
     "tests",

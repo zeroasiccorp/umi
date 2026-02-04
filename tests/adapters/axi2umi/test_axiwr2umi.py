@@ -23,7 +23,7 @@ from siliconcompiler.flows.dvflow import DVFlow
 from siliconcompiler.tools.icarus.compile import CompileTask as IcarusCompileTask
 from siliconcompiler.tools.icarus.cocotb_exec import CocotbExecTask as IcarusCocotbExecTask
 
-from umi.adapters.axi4full2umi.axi4full2umi import AXIF2UMI
+from umi.adapters.axi2umi.axi2umi import AXI2UMI
 
 
 class ErrorInjectingUmiMemoryDevice(UmiMemoryDevice):
@@ -383,17 +383,17 @@ class TbDesign(Design):
         super().__init__()
 
         # Set the design's name
-        self.set_name("tb_axi4_full_wr2umi")
+        self.set_name("tb_axiwr2umi")
 
         # Establish the root directory for all design-related files
-        self.set_dataroot("tb_axi4_full_wr2umi", __file__)
+        self.set_dataroot("tb_axiwr2umi", __file__)
 
         # Configure filesets within the established data root
-        with self.active_dataroot("tb_axi4_full_wr2umi"):
+        with self.active_dataroot("tb_axiwr2umi"):
             with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("axi4_full_wr2umi")
-                self.add_file("test_axi4_full_wr2umi.py", filetype="python")
-                self.add_depfileset(AXIF2UMI(), "rtl")
+                self.set_topmodule("axiwr2umi")
+                self.add_file("test_axiwr2umi.py", filetype="python")
+                self.add_depfileset(AXI2UMI(), "rtl")
 
 
 def load_cocotb_test(trace=True, seed=None):
@@ -431,11 +431,12 @@ def load_cocotb_test(trace=True, seed=None):
         step='simulate',
         index='0',
         directory="reports",
-        filename="tb_axi4_full_wr2umi.vcd"
+        filename="tb_axiwr2umi.vcd"
     )
     if vcd:
         print(f"Waveform file: {vcd}")
 
 
-def test_axi4_full_wr2umi():
+@pytest.mark.cocotb
+def test_axiwr2umi():
     load_cocotb_test()

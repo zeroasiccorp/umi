@@ -1,22 +1,25 @@
 from umi.common import UMI
-from umi.sumi import Pack
+from umi.sumi import Pack, Mux, Demux
 
 
-class AXIF2UMI(UMI):
+class AXI2UMI(UMI):
     def __init__(self):
         super().__init__(
-            'axi4_full_wr2umi',
+            'axi2umi',
             files=[
-                'rtl/axi4_full_wr2umi.v',
-                'rtl/axi4_full_rd2umi.v'
+                'rtl/axiwr2umi.v',
+                'rtl/axird2umi.v',
+                'rtl/axi2umi.v'
             ],
             idirs=['rtl'],
             deps=[
                 Pack(),
+                Mux(),
+                Demux(),
             ]
         )
 
 
 if __name__ == "__main__":
-    d = AXIF2UMI()
+    d = AXI2UMI()
     d.write_fileset(f"{d.name}.f", fileset="rtl")
