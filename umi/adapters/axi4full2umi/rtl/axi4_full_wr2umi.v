@@ -62,7 +62,10 @@
  *     (valid since AXI4 max data width of 128 bytes fits in UMI len field)
  *
  ******************************************************************************/
+
+// TODO: remove this timescale
 `timescale 1ns/1ps
+
 module axi4_full_wr2umi #(
   parameter           CW = 32,
   parameter           DW = 128,
@@ -143,7 +146,7 @@ module axi4_full_wr2umi #(
 
   localparam STRB_LOG2 = $clog2(STRBW);
 
-  localparam SW = 3;
+  localparam SW = 2;
   localparam [SW-1:0]
     IDLE            = 'd0,
     UMI_WRITE       = 'd1,
@@ -189,17 +192,16 @@ module axi4_full_wr2umi #(
 
   wire aw_fire;
   wire b_resp_fire;
-
   wire umi_req_fire;
   wire umi_resp_fire;
 
-  reg [STRB_LOG2:0] w_strb_sum;
 
-  wire [7:0] umi_cmd_len;
 
+  reg [STRB_LOG2:0]     w_strb_sum;
   wire [8:0]            aw_len_inc;
   wire [8+(2**3-1):0]   aw_trans_bytes_pre;
   wire [BLW-1:0]        aw_trans_bytes;
+  wire [7:0]            umi_cmd_len;
 
   wire no_bytes_left;
 
