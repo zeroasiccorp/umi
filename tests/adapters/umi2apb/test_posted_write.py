@@ -2,10 +2,19 @@ import math
 import cocotb
 
 from cocotb.handle import SimHandleBase
-from cocotb.triggers import ClockCycles
+from cocotb.triggers import ClockCycles, RisingEdge
 
 from sumi import SumiTransaction, SumiCmdType, SumiCmd
 from adapters.umi2apb.env import UMI2APBEnv
+
+
+async def verify_no_resp_valid(dut, clk, cycles):
+    """Verify that udev_resp_valid never goes high for the given number of cycles."""
+    for _ in range(cycles):
+        await RisingEdge(clk)
+        assert not dut.udev_resp_valid.value, (
+            "Unexpected response on udev_resp channel during posted write"
+        )
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
@@ -13,7 +22,8 @@ async def test_posted_write(dut: SimHandleBase):
     """
     Test posted writes (no UMI response):
       1. Send multiple writes to different addresses
-      2. Verify memory contents
+      2. Verify no responses occur on udev_resp channel
+      3. Verify memory contents
     """
 
     env = UMI2APBEnv(dut)
@@ -46,8 +56,10 @@ async def test_posted_write(dut: SimHandleBase):
         env.sumi_driver.append(posted_txn)
         print(f"Sent posted write: addr=0x{addr:x}, data=0x{data:08x}")
 
-    # Wait for transactions to complete
-    await ClockCycles(env.clk, 50)
+    # Wait for transactions to complete and verify no responses occur
+    print("\n=== Verifying No Responses on udev_resp Channel ===")
+    await verify_no_resp_valid(dut, env.clk, 50)
+    print("Confirmed: No responses received (as expected for posted writes)")
 
     # Verify memory
     print("\n=== Verifying Memory Contents ===")

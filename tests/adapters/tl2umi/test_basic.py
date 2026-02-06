@@ -15,6 +15,7 @@ async def test_basic_write(dut: SimHandleBase):
     """
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0x100
     test_data = 0xDEADBEEF
@@ -51,6 +52,7 @@ async def test_basic_read(dut: SimHandleBase):
     """
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0x200
     test_data = 0xCAFEBABE
@@ -88,6 +90,7 @@ async def test_multiple_writes(dut: SimHandleBase):
     """
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     size = 2  # 4 bytes
     test_cases = [
@@ -119,6 +122,7 @@ async def test_byte_write(dut: SimHandleBase):
     """
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0x300
     test_data = 0xAB
@@ -146,6 +150,7 @@ async def test_64bit_write_read(dut: SimHandleBase):
     """
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0x400
     test_data = 0xDEADBEEFCAFEBABE

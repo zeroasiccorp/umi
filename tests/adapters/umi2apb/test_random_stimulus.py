@@ -1,4 +1,4 @@
-import math
+import random
 import cocotb
 from random import randint, randbytes
 from cocotb.triggers import ClockCycles
@@ -7,28 +7,44 @@ from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
 from sumi import SumiTransaction, SumiCmdType, SumiCmd
 
 
-@cocotb.test(timeout_time=50, timeout_unit="ms")
+async def random_ready_toggle(dut, clk, stop_event):
+    """Background task that randomly toggles udev_resp_ready for backpressure testing."""
+    while not stop_event["stop"]:
+        # Random number of cycles to hold current ready state
+        cycles = randint(1, 10)
+        await ClockCycles(clk, cycles)
+        # Toggle ready with 50% probability
+        if random.choice([True, False]):
+            dut.udev_resp_ready.value = 1 - int(dut.udev_resp_ready.value)
+
+
+@cocotb.test(timeout_time=500, timeout_unit="ms")
 async def test_random_stimulus(dut):
     """
     Randomized read/write stimulus.
 
     - Aligned addresses
     - Full-width accesses
+    - Randomized ready/valid signaling (backpressure)
     - Memory model checked at end
     """
     # Grab shared test environment
     env = UMI2APBEnv(dut)
     await env.start()
+    dut.udev_resp_ready.value = 1
 
     data_size = env.data_size
     addr_width = env.addr_width
-    umi_size = int(math.log2(data_size))
+    mem_size = env.mem_size
+    umi_size = env.umi_size
 
-    mem_size = 2**16
     num_random_transactions = 512
-    read_probability = 0.5
 
     print(f"=== Randomized Test: {num_random_transactions} transactions ===")
+
+    # Start background task for random ready toggling
+    stop_event = {"stop": False}
+    cocotb.start_soon(random_ready_toggle(dut, env.clk, stop_event))
 
     # Ideal memory model for writes/reads
     memory_model = {}
@@ -39,7 +55,7 @@ async def test_random_stimulus(dut):
 
         # Randomized address and command type
         addr = randint(0, max_addr) * txn_bytes
-        is_read = randint(0, 99) < (read_probability * 100)
+        is_read = random.choice([True, False])
 
         if is_read:
             txn = SumiTransaction(
@@ -89,11 +105,15 @@ async def test_random_stimulus(dut):
 
         await env.sumi_driver.send(txn)
 
-        if (i + 1) % 100 == 0:
-            print(f"    Sent {i+1}/{num_random_transactions} transactions...")
-            await ClockCycles(env.clk, 1)
+        # Wait for response before sending next transaction (ordering required for scoreboard)
+        await env.wait_for_responses(max_cycles=100)
 
-    await env.wait_for_responses(max_cycles=num_random_transactions * 50)
+        if (i + 1) % 100 == 0:
+            print(f"    Completed {i+1}/{num_random_transactions} transactions...")
+
+    # Stop the random ready toggle
+    stop_event["stop"] = True
+    dut.udev_resp_ready.value = 1  # Ensure ready high for memory verification
 
     # Memory verification
     num_verified = 0
