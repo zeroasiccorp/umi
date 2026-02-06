@@ -7,7 +7,15 @@ class Stream(UMI):
                          files=['rtl/umi_stream.v'],
                          deps=[Asyncfifo()])
 
+class StreamTB(UMI):
+    def __init__(self):
+        super().__init__('tb_umi_stream',
+                         files=['testbench/tb_umi_stream.v'],
+                         deps=[Stream()])
+
 
 if __name__ == "__main__":
     d = Stream()
+    d.write_fileset(f"{d.name}.f", fileset="rtl")
+    d = StreamTB()
     d.write_fileset(f"{d.name}.f", fileset="rtl")
