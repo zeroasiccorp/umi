@@ -36,7 +36,7 @@ test = [
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
     "cocotbext-axi==0.1.26",
-    "cocotbext-umi @ git+https://github.com/zeroasiccorp/cocotbext-umi.git@rice/name_change"
+    "cocotbext-umi==0.0.2"
 ]
 
 [tool.check-wheel-contents]
