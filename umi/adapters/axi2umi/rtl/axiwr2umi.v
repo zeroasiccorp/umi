@@ -159,14 +159,6 @@ module axiwr2umi #(
     AXI_BURST_INCR  = 2'b01,
     AXI_BURST_WRAP  = 2'b10;
 
-  /* Maximum theoretical bytes per AXI transaction
-   * AXI4 supports a maximum burst length of 256 beats
-   * and a maximum data width of 128 bytes. */
-  localparam MAX_BYTES_PER_TRANS = (1 << 7) * 256;
-
-  // bytes_left register width
-  localparam BLW = $clog2(MAX_BYTES_PER_TRANS);
-
   integer i;
 
   //####################################
@@ -178,9 +170,10 @@ module axiwr2umi #(
   reg [1:0] umi_cmd_prot;
   reg [3:0] umi_cmd_qos;
 
-  reg [BLW-1:0] bytes_left;
+  reg [8:0] axi_beats_left;
 
   reg [IDW-1:0] aw_id;
+  reg [2:0] aw_size;
   reg [1:0] aw_burst;
 
   reg [1:0] bresp_err;
@@ -191,19 +184,20 @@ module axiwr2umi #(
   reg [SW-1:0] next_state;
 
   wire aw_fire;
+  wire w_fire;
   wire b_resp_fire;
+
   wire umi_req_fire;
   wire umi_resp_fire;
 
+  wire empty_wr_beat;
 
+  wire [AW-1:0] bytes_per_beat;
 
   reg [STRB_LOG2:0]     w_strb_sum;
-  wire [8:0]            aw_len_inc;
-  wire [8+(2**3-1):0]   aw_trans_bytes_pre;
-  wire [BLW-1:0]        aw_trans_bytes;
   wire [7:0]            umi_cmd_len;
 
-  wire no_bytes_left;
+  wire no_axi_beats_left;
 
   wire [1:0] umi_resp_cmd_err;
   wire [4:0] umi_resp_cmd_opcode;
@@ -212,10 +206,13 @@ module axiwr2umi #(
   // Helper signals
   //####################################
   assign aw_fire = s_axi_awvalid & s_axi_awready;
+  assign w_fire = s_axi_wvalid & s_axi_wready;
   assign b_resp_fire = s_axi_bvalid & s_axi_bready;
 
   assign umi_req_fire = uhost_req_valid & uhost_req_ready;
   assign umi_resp_fire = uhost_resp_valid & uhost_resp_ready;
+
+  assign empty_wr_beat = (s_axi_wstrb == {STRBW{1'b0}});
 
   always @(posedge clk)
     // Per UMI spec lower two bits of AXI4 prot can be mapped to umi_cmd_prot
@@ -229,6 +226,9 @@ module axiwr2umi #(
     aw_id[IDW-1:0] <= aw_fire ? s_axi_awid[IDW-1:0] : aw_id[IDW-1:0];
 
   always @(posedge clk)
+    aw_size[2:0] <= aw_fire ? s_axi_awsize[2:0] : aw_size[2:0];
+
+  always @(posedge clk)
     aw_burst[1:0] <= aw_fire ? s_axi_awburst[1:0] : aw_burst[1:0];
 
   // Figure out transaction length
@@ -240,36 +240,31 @@ module axiwr2umi #(
 
   assign umi_cmd_len = w_strb_sum - 1;
 
-  // Keep track of how many bytes are left to send over umi_req
-  assign aw_len_inc[8:0] = s_axi_awlen[7:0] + 1'b1;
-  assign aw_trans_bytes_pre[8+(2**3-1):0] = {{(2**3-1){1'b0}}, aw_len_inc[8:0]} << s_axi_awsize[2:0];
-  assign aw_trans_bytes[BLW-1:0] = aw_trans_bytes_pre[BLW-1:0];
-
+  // Track remaining AXI beats in transaction
   always @(posedge clk)
     if (aw_fire)
-      bytes_left[BLW-1:0] <= aw_trans_bytes[BLW-1:0];
-    else if (umi_req_fire)
-      if (s_axi_wlast)
-        bytes_left[BLW-1:0] <= {BLW{1'b0}};
-      else
-        bytes_left[BLW-1:0] <= bytes_left[BLW-1:0] - w_strb_sum[STRB_LOG2:0];
+      axi_beats_left[8:0] <= {1'b0, s_axi_awlen[7:0]} + 9'd1;
+    else if (w_fire)
+      axi_beats_left[8:0] <= axi_beats_left[8:0] - 1'b1;
 
-  assign no_bytes_left = (bytes_left[BLW-1:0] == {BLW{1'b0}});
+  assign no_axi_beats_left = (axi_beats_left[8:0] == 9'b0);
 
   // Load destination address when AW fires, increment when UMI req fires (INCR only)
+  assign bytes_per_beat[AW-1:0] = {{(AW-8){1'b0}}, (8'd1 << aw_size[2:0])};
   always @(posedge clk)
     if (aw_fire)
       dst_addr[AW-1:0] <= s_axi_awaddr[AW-1:0];
-    else if (umi_req_fire && (aw_burst == AXI_BURST_INCR))
-      dst_addr[AW-1:0] <= dst_addr[AW-1:0] + w_strb_sum[STRB_LOG2:0];
+    else if (w_fire && (aw_burst == AXI_BURST_INCR))
+      dst_addr[AW-1:0] <= dst_addr[AW-1:0] + bytes_per_beat[AW-1:0];
 
   //####################################
   // Data path
   //####################################
 
-  // Handshakes only occur on UMI req channel in UMI_WRITE state
-  assign uhost_req_valid = (state == UMI_WRITE) & s_axi_wvalid;
-  assign s_axi_wready    = (state == UMI_WRITE) & uhost_req_ready;
+  /* Handshake only occurs on UMI req channel in UMI_WRITE
+   * state when AXI write interface has data (according to strobe) */
+  assign uhost_req_valid = (state == UMI_WRITE) & (~no_axi_beats_left) & s_axi_wvalid & ~empty_wr_beat;
+  assign s_axi_wready    = (state == UMI_WRITE) & (~no_axi_beats_left) & (uhost_req_ready | empty_wr_beat);
 
   umi_pack #(
     .CW   (CW)
@@ -284,7 +279,9 @@ module axiwr2umi #(
     .cmd_atype          (8'b0),
     .cmd_prot           (umi_cmd_prot),
     .cmd_qos            (umi_cmd_qos),
-    .cmd_eom            (s_axi_wlast),
+    /* EOM tied high since it is impossible to know which
+     * AXI beat will be the last since W_STRB can be set zero. */
+    .cmd_eom            (1'b1),
     .cmd_eof            (1'b0),
     .cmd_user           (2'b0),
     .cmd_err            (2'b00),
@@ -334,16 +331,14 @@ module axiwr2umi #(
 
       // UMI_WRITE: Forward AXI write data beat as UMI REQ_WRITE then wait for response.
       UMI_WRITE:
-        next_state = umi_req_fire ? WAIT_UMI_RESP : UMI_WRITE;
-
-      /* WAIT_UMI_RESP: Wait for UMI RESP_WRITE. 
-       * If more beats remain (bytes_left > 0), return to UMI_WRITE
-       * else send BRESP. */
-      WAIT_UMI_RESP:
-        if (umi_resp_fire)
-          next_state = no_bytes_left ? SEND_B_RESP : UMI_WRITE;
+        if (no_axi_beats_left)
+          next_state = SEND_B_RESP;
         else
-          next_state = WAIT_UMI_RESP;
+          next_state = umi_req_fire ? WAIT_UMI_RESP : UMI_WRITE;
+
+      // WAIT_UMI_RESP: Wait for UMI RESP_WRITE.
+      WAIT_UMI_RESP:
+        next_state = umi_resp_fire ? UMI_WRITE : WAIT_UMI_RESP;
 
       /* SEND_B_RESP: Assert bvalid with accumulated error status. Wait for
        * bready handshake, then return to IDLE for next transaction. */
