@@ -1,11 +1,13 @@
 from umi.common import UMI
 from lambdalib.ramlib import Asyncfifo
 
+
 class Stream(UMI):
     def __init__(self):
         super().__init__('umi_stream',
                          files=['rtl/umi_stream.v'],
                          deps=[Asyncfifo()])
+
 
 class StreamTB(UMI):
     def __init__(self):
