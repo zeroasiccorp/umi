@@ -28,12 +28,11 @@
  ******************************************************************************/
 
 module umi_stream
-  #(parameter AW = 64,  // UMI data width
-    parameter CW = 32,  // UMI command width
-    parameter DW = 256, // UMI data width
-    parameter RW = 32,  // APB register width
-    parameter RAW = 32, // APB address width
-    parameter DEPTH = 4 // FIFO depth
+  #(parameter AW = 64,        // UMI data width
+    parameter CW = 32,        // UMI command width
+    parameter DW = 256,       // UMI data width
+    parameter S2MM_DEPTH = 4, // S2MM FIFO depth
+    parameter MM2S_DEPTH = 4  // MM2S FIFO depth
     )
    (// operating mode
     input           devicemode, // 1 = device endpoint, 0=full duplex link
@@ -244,7 +243,7 @@ module umi_stream
    assign usi_out_last   = mm2s_fifo_dout[DW];
 
    la_asyncfifo #(.DW(DW+1),
-                  .DEPTH(DEPTH))
+                  .DEPTH(MM2S_DEPTH))
    ififo_mm2s (// write side
                .wr_clk         (umi_clk),
                .wr_nreset      (umi_nreset),
@@ -269,14 +268,13 @@ module umi_stream
    // Stream to Memory Mapped (S2MM)
    //######################################################
 
-   // S2MM FIFO write control (stream side)
    assign s2mm_fifo_write       = usi_in_valid & ~s2mm_fifo_full;
    assign s2mm_fifo_din[DW-1:0] = usi_in_data[DW-1:0];
    assign s2mm_fifo_din[DW]     = usi_in_last;
    assign usi_in_ready          = ~s2mm_fifo_full;
 
    la_asyncfifo #(.DW(DW+1),
-                  .DEPTH(DEPTH))
+                  .DEPTH(S2MM_DEPTH))
    ififo_s2mm  (// write side (stream domain)
                 .wr_clk         (usi_clk),
                 .wr_nreset      (usi_nreset),
