@@ -27,7 +27,7 @@
  *   AW       - Address width in bits (default 64)
  *   IDW      - AXI ID width (default 8)
  *   HOSTADDR - UMI source address base. The bottom STRBW bits are replaced
- *              with the AXI write strobe value per UMI spec recommendation.
+ *              with the raw AXI write strobe value per UMI spec recommendation.
  *
  * Supported AXI4 Features:
  *   - Write address channel (AW) with ID, address, len, size, burst, prot, qos
@@ -36,6 +36,8 @@
  *   - Burst types: FIXED (all beats to same address), INCR (incrementing)
  *   - Variable burst lengths (1-256 beats via AWLEN)
  *   - Variable transfer sizes (via AWSIZE)
+ *   - Contiguous write strobes, including non-LSB-aligned (address and data
+ *     are adjusted to the first active strobe byte)
  *   - AWPROT[1:0] mapped to UMI PROT field
  *   - AWQOS[3:0] mapped to UMI QOS field
  *   - AXI ID pass-through (AWID -> BID)
@@ -47,7 +49,7 @@
  *   - AWPROT[2] (instruction/data) - only AWPROT[1:0] used
  *   - Out-of-order transaction completion
  *   - Write interleaving (s_axi_wid is ignored, transactions are in-order)
- *   - Arbitrary write strobes (must be contiguous and LSB-aligned)
+ *   - Non-contiguous write strobes (strobes must be contiguous)
  *
  * Error Handling:
  *   - UMI response errors (ERR field != 0) propagate to AXI BRESP
@@ -60,6 +62,15 @@
  *   - Single outstanding AXI transaction supported (no pipelining)
  *   - UMI cmd.size is always 0; transfer size encoded in cmd.len only
  *     (valid since AXI4 max data width of 128 bytes fits in UMI len field)
+ *   - Write beats with all-zero strobe are accepted and consumed without
+ *     generating a UMI transaction (no request or response for that beat)
+ *   - WLAST is not used for flow control; burst completion is determined
+ *     solely by counting beats against AWLEN
+ *   - For non-LSB-aligned strobes, dstaddr is offset by the index of the
+ *     first active strobe byte and data is right-shifted accordingly
+ *   - UMI srcaddr lower STRBW bits carry the raw AXI write strobe value
+ *   - EOM is always asserted because empty (all-zero strobe) beats can
+ *     appear at any position, making the true last data beat unpredictable
  *
  ******************************************************************************/
 
@@ -202,6 +213,9 @@ module axiwr2umi #(
   wire [1:0] umi_resp_cmd_err;
   wire [4:0] umi_resp_cmd_opcode;
 
+  wire [STRBW-1:0] right_most_strb_bit;
+  reg [STRB_LOG2:0] right_most_strb_bit_index;
+
   //####################################
   // Helper signals
   //####################################
@@ -237,6 +251,18 @@ module axiwr2umi #(
     for (i = 0; i < STRBW; i = i + 1)
       w_strb_sum = w_strb_sum + s_axi_wstrb[i];
   end
+
+  /* UMI does not support byte strobes, so non-LSB-aligned strobes are handled
+   * by finding the first active strobe byte, offsetting dstaddr by that index,
+   * and right-shifting wdata to remove the inactive low bytes. */
+  assign right_most_strb_bit[STRBW-1:0] = (s_axi_wstrb[STRBW-1:0] & (~s_axi_wstrb[STRBW-1:0] + 1'b1));
+  always @(*) begin
+    right_most_strb_bit_index[STRB_LOG2:0] = 0;
+    for (i = 0; i < STRBW; i = i + 1)
+      if (right_most_strb_bit[i])
+        right_most_strb_bit_index[STRB_LOG2:0] = i[STRB_LOG2:0];
+  end
+
 
   assign umi_cmd_len = w_strb_sum - 1;
 
@@ -292,9 +318,12 @@ module axiwr2umi #(
   );
 
   assign uhost_req_srcaddr[AW-1:0] = {HOSTADDR[AW-1:STRBW], s_axi_wstrb[STRBW-1:0]};
-  assign uhost_req_dstaddr[AW-1:0] = dst_addr[AW-1:0];
+  // Offset destination address to the first active strobe byte
+  assign uhost_req_dstaddr[AW-1:0] = dst_addr[AW-1:0] + right_most_strb_bit_index[STRB_LOG2:0];
 
-  assign uhost_req_data[DW-1:0] = s_axi_wdata[DW-1:0];
+  /* Right-shift data to align the first active strobe byte to bit 0
+   * uhost_req_data = s_axis_wdata >> (right_most_strb_bit_index * 8) */
+  assign uhost_req_data[DW-1:0] = s_axi_wdata[DW-1:0] >> {right_most_strb_bit_index[STRB_LOG2:0], 3'b000};
 
   assign uhost_resp_ready = (state == WAIT_UMI_RESP);
 

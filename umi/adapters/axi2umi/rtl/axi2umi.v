@@ -20,11 +20,11 @@
  * This module converts AXI4 Full transactions (read and write) to UMI.
  * It instantiates separate read and write converters, multiplexes their
  * UMI requests onto a single output interface, and demultiplexes UMI
- * responses back to the appropriate converter based on source address.
+ * responses back to the appropriate converter based on destination address.
  *
  * Architecture:
- *   - axi4_full_wr2umi: Converts AXI write channels to UMI REQ_WRITE
- *   - axi4_full_rd2umi: Converts AXI read channels to UMI REQ_READ
+ *   - axiwr2umi: Converts AXI write channels to UMI REQ_WRITE
+ *   - axird2umi: Converts AXI read channels to UMI REQ_READ
  *   - umi_mux (2:1): Arbitrates UMI requests with round-robin policy
  *   - umi_demux (1:2): Routes UMI responses based on dstaddr comparison
  *
@@ -40,7 +40,8 @@
  *   UMI responses are routed back to the correct channel by comparing
  *   uhost_resp_dstaddr[AW-1:STRBW] against WR_HOSTADDR and RD_HOSTADDR.
  *   The lower STRBW bits are masked out since the write path encodes
- *   the AXI strobe value in those bits.
+ *   the AXI strobe value in those bits. WR_HOSTADDR and RD_HOSTADDR
+ *   must differ in their upper [AW-1:STRBW] bits for correct routing.
  *
  ******************************************************************************/
 
