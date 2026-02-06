@@ -59,14 +59,9 @@ module umi_fifo
     input           vss
     );
 
-   // local state
-   reg              fifo_out_valid;
-   reg [DW-1:0]     fifo_out_data;
-
    // local wires
    wire             umi_out_beat;
    wire             fifo_read;
-   wire             fifo_write;
    wire [DW+AW+AW+CW-1:0] fifo_dout;
    wire             fifo_in_ready;
 
@@ -76,9 +71,6 @@ module umi_fifo
 
    // Read FIFO when ready (blocked inside fifo when empty)
    assign fifo_read = ~fifo_empty & umi_out_ready;
-
-   // Write fifo when high (blocked inside fifo when full)
-   assign fifo_write = ~fifo_full & umi_in_valid;
 
    // FIFO pushback
    assign fifo_in_ready = ~fifo_full;
