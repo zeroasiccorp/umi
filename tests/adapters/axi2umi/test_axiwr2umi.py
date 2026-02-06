@@ -106,7 +106,7 @@ class ErrorInjectingUmiMemoryDevice(UmiMemoryDevice):
             self.driver.append(resp)
 
 
-class TestEnv:
+class Env:
     """Reusable test environment for AXI4 Full to UMI adapter tests."""
 
     def __init__(self, dut):
@@ -184,7 +184,7 @@ async def basic_test(
 
     Clock(dut.clk, 1, unit="ns").start()
 
-    env = TestEnv(dut)
+    env = Env(dut)
     await env.setup()
 
     # Create SUMI monitor for UMI request channel
@@ -250,7 +250,7 @@ async def fixed_burst_test(
 
     Clock(dut.clk, 1, unit="ns").start()
 
-    env = TestEnv(dut)
+    env = Env(dut)
     await env.setup()
 
     # Create SUMI monitor for UMI request channel
@@ -325,7 +325,7 @@ async def error_injection_test(
 
     Clock(dut.clk, 1, unit="ns").start()
 
-    env = TestEnv(dut)
+    env = Env(dut)
     await env.setup()
 
     # Create SUMI monitor for UMI request channel
