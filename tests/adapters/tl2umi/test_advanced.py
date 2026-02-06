@@ -1,15 +1,88 @@
 import cocotb
 
 from cocotb.handle import SimHandleBase
+from cocotb.triggers import ClockCycles
 
 from adapters.tl2umi.tl_driver import TLTransaction, TLArithParam, TLLogicParam
 from adapters.tl2umi.env import TL2UMIEnv, create_expected_write_response, create_expected_read_response
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
+async def test_backpressure(dut: SimHandleBase):
+    """
+    Test backpressure handling:
+      1. Send transaction with ready enabled
+      2. Wait for valid to assert
+      3. Apply backpressure (ready=0)
+      4. Verify response is held
+      5. Release backpressure and verify response completes
+    """
+    env = TL2UMIEnv(dut)
+    await env.start()
+    dut.tl_d_ready.value = 1
+
+    test_addr = 0x100
+    test_data = 0xDEADBEEF
+    size = 2
+
+    print("=== Backpressure Test ===")
+
+    # Queue expected response
+    env.expected_responses.append(
+        create_expected_write_response(size=size, source=0)
+    )
+
+    # Send write transaction
+    env.tl_driver.append(
+        TLTransaction.put_full(address=test_addr, size=size, data=test_data, source=0)
+    )
+    print(f"Sent write: addr=0x{test_addr:x}, data=0x{test_data:08x}")
+
+    # Wait for first response to complete
+    await env.wait_for_responses(max_cycles=100)
+    print("First transaction completed")
+
+    # Now test backpressure: send second transaction and apply backpressure mid-flight
+    test_addr2 = 0x200
+    test_data2 = 0xCAFEBABE
+
+    env.expected_responses.append(
+        create_expected_write_response(size=size, source=1)
+    )
+
+    env.tl_driver.append(
+        TLTransaction.put_full(address=test_addr2, size=size, data=test_data2, source=1)
+    )
+    print(f"Sent second write: addr=0x{test_addr2:x}, data=0x{test_data2:08x}")
+
+    # Wait a few cycles then apply backpressure
+    await ClockCycles(env.clk, 5)
+    dut.tl_d_ready.value = 0
+    print("Applied backpressure (tl_d_ready=0)")
+
+    # Wait while backpressure is applied
+    await ClockCycles(env.clk, 20)
+
+    # Response should still be pending
+    assert len(env.expected_responses) == 1, "Response should not have been consumed yet"
+    print("Response held with backpressure")
+
+    # Release backpressure
+    dut.tl_d_ready.value = 1
+    print("Released backpressure (tl_d_ready=1)")
+
+    # Wait for response
+    await env.wait_for_responses(max_cycles=10)
+
+    print("=== Backpressure Test PASSED ===")
+    raise env.scoreboard.result
+
+
+@cocotb.test(timeout_time=50, timeout_unit="ms")
 async def test_partial_write(dut: SimHandleBase):
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0x500
     size = 2  # 4 bytes
@@ -59,6 +132,7 @@ async def test_back_to_back_writes(dut: SimHandleBase):
 
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     size = 2  # 4 bytes
     num_transactions = 8
@@ -92,6 +166,7 @@ async def test_back_to_back_reads(dut: SimHandleBase):
 
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     size = 2  # 4 bytes
     num_transactions = 4
@@ -137,6 +212,7 @@ async def test_different_source_ids(dut: SimHandleBase):
 
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     size = 2  # 4 bytes
 
@@ -181,6 +257,7 @@ async def test_mixed_read_write_same_address(dut: SimHandleBase):
 
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0x800
     size = 2  # 4 bytes
@@ -223,6 +300,7 @@ async def test_all_sizes(dut: SimHandleBase):
     """
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     base_addr = 0xA00
 
@@ -280,6 +358,7 @@ async def test_atomic_add(dut: SimHandleBase):
 
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0xB00
     size = 2  # 4 bytes
@@ -323,6 +402,7 @@ async def test_atomic_xor(dut: SimHandleBase):
     """
     env = TL2UMIEnv(dut)
     await env.start()
+    dut.tl_d_ready.value = 1
 
     test_addr = 0xD00
     size = 2  # 4 bytes

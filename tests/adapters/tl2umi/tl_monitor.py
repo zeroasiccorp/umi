@@ -57,17 +57,10 @@ class TLMonitor(BusMonitor):
         entity: SimHandleBase,
         name: str,
         clock: SimHandleBase,
-        ready_default: int = 1,
         **kwargs: Any,
     ):
         BusMonitor.__init__(self, entity, name, clock, **kwargs)
         self.clock = clock
-        # Drive ready signal
-        self.bus.ready.value = ready_default
-
-    def set_ready(self, value: int) -> None:
-        """Control backpressure by setting ready signal"""
-        self.bus.ready.value = value
 
     async def _monitor_recv(self) -> None:
         """Monitor D-channel for responses"""

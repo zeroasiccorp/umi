@@ -1,4 +1,3 @@
-import math
 import cocotb
 
 from cocotb.handle import SimHandleBase
@@ -20,8 +19,9 @@ async def test_basic_WR(dut: SimHandleBase):
     # Grab shared test environment
     env = UMI2APBEnv(dut)
     await env.start()
+    dut.udev_resp_ready.value = 1
 
-    umi_size = int(math.log2(env.data_size))
+    umi_size = env.umi_size
     test_addr = 0x100
     test_data = 0xDEADBEEF
 

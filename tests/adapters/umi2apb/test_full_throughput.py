@@ -1,4 +1,3 @@
-import math
 import cocotb
 
 from adapters.umi2apb.env import UMI2APBEnv
@@ -14,10 +13,11 @@ async def test_full_throughput(dut):
 
     env = UMI2APBEnv(dut)
     await env.start()
+    dut.udev_resp_ready.value = 1
 
     data_size = env.data_size
     addr_width = env.addr_width
-    umi_size = int(math.log2(data_size))
+    umi_size = env.umi_size
 
     num_transactions = 100
 
