@@ -25,7 +25,7 @@ from siliconcompiler.tools.icarus.cocotb_exec import CocotbExecTask as IcarusCoc
 from umi.adapters.axi2umi.axi2umi import AXI2UMI
 
 
-class TestEnv:
+class Env:
     """Reusable test environment for AXI4 Full to UMI adapter tests."""
 
     MAX_TRANSACTION_SIZE = 4096
@@ -104,7 +104,7 @@ async def basic_test(
 
     Clock(dut.clk, 1, unit="ns").start()
 
-    env = TestEnv(dut)
+    env = Env(dut)
     await env.setup()
 
     # Create SUMI monitor for UMI request channel
@@ -176,7 +176,7 @@ async def interleaved_test(
 
     Clock(dut.clk, 1, unit="ns").start()
 
-    env = TestEnv(dut)
+    env = Env(dut)
     await env.setup()
 
     # Create SUMI monitor for UMI request channel

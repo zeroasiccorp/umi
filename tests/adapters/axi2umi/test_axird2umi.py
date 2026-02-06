@@ -25,7 +25,7 @@ from siliconcompiler.tools.icarus.cocotb_exec import CocotbExecTask as IcarusCoc
 from umi.adapters.axi2umi.axi2umi import AXI2UMI
 
 
-class TestEnv:
+class Env:
     """Reusable test environment for AXI4 Full Read to UMI adapter tests."""
 
     def __init__(self, dut):
@@ -100,7 +100,7 @@ async def basic_test(
 
     Clock(dut.clk, 1, unit="ns").start()
 
-    env = TestEnv(dut)
+    env = Env(dut)
     await env.setup()
 
     # Create SUMI monitor for UMI request channel
