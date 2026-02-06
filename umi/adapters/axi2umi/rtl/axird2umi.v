@@ -17,6 +17,49 @@
  *
  * Documentation:
  *
+ * This module converts AXI4 Full read transactions to UMI read requests.
+ * An entire AXI read burst is encoded as a single UMI REQ_READ, with
+ * ARLEN and ARSIZE mapped directly to cmd_len and cmd_size. The UMI
+ * endpoint is responsible for returning one RESP_READ per beat and
+ * setting EOM on the last response.
+ *
+ * Parameters:
+ *   CW       - UMI command width (default 32)
+ *   DW       - Data width in bits (default 128)
+ *   AW       - Address width in bits (default 64)
+ *   IDW      - AXI ID width (default 8)
+ *   HOSTADDR - UMI source address, used as-is for all read requests
+ *
+ * Supported AXI4 Features:
+ *   - Read address channel (AR) with ID, address, len, size, prot, qos
+ *   - Read data channel (R) with ID, data, resp, last
+ *   - Variable burst lengths (1-256 beats via ARLEN)
+ *   - Variable transfer sizes (via ARSIZE)
+ *   - ARPROT[1:0] mapped to UMI PROT field
+ *   - ARQOS[3:0] mapped to UMI QOS field
+ *   - AXI ID pass-through (ARID -> RID)
+ *
+ * Unsupported AXI4 Features:
+ *   - ARBURST (burst type ignored; address incrementing is delegated to
+ *     the UMI endpoint)
+ *   - ARLOCK (exclusive/locked access) - signal present but ignored
+ *   - ARCACHE (memory attributes) - signal present but ignored
+ *   - ARPROT[2] (instruction/data) - only ARPROT[1:0] used
+ *   - Multiple outstanding read transactions (ar_id is overwritten on
+ *     each new AR handshake)
+ *
+ * Response Mapping:
+ *   - RDATA driven by UMI response data
+ *   - RRESP driven by UMI ERR field in the response command
+ *   - RLAST driven by UMI EOM bit in the response command
+ *   - RID held constant for all beats (latched from ARID on AR handshake)
+ *
+ * Protocol Notes:
+ *   - No FSM; AR-to-UMI-REQ and UMI-RESP-to-R paths are combinational
+ *   - Single outstanding read transaction supported
+ *   - EOM is always set on the request since the full burst is one UMI
+ *     transaction
+ *
  ******************************************************************************/
 
 // TODO: remove this timescale
@@ -27,9 +70,7 @@ module axird2umi #(
   parameter           DW = 128,
   parameter           AW = 64,
   parameter           IDW = 8,
-  /* Note the bottom STRBW bits of HOSTADDR are ignored
-   * Per UMI spec the recommendation is to set the bottom
-   * STRBW bits of srcaddr to the AXI write channels strobe value */
+  // UMI source address for read requests (used as-is, no strobe encoding)
   parameter [AW-1:0]  HOSTADDR = {AW{1'b0}},
   // Helper params don't touch
   parameter STRBW = DW/8
