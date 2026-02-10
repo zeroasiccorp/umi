@@ -26,7 +26,7 @@
  * are allowed.
  *
  ******************************************************************************/
-`timescale 1ns/1ps
+
 module umi_stream
   #(parameter AW = 64,        // UMI data width
     parameter CW = 32,        // UMI command width
