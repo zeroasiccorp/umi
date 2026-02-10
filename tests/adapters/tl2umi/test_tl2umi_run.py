@@ -1,6 +1,4 @@
-import os
 import pytest
-from pathlib import Path
 
 from siliconcompiler import Sim, Design
 from siliconcompiler.flows.dvflow import DVFlow
@@ -28,6 +26,10 @@ class TL2UMITestbench(Design):
                 # Add test files
                 self.add_file("test_basic.py", filetype="python")
                 self.add_file("test_advanced.py", filetype="python")
+                # Add helper Python modules (populates PYTHONPATH via DVFlow)
+                self.add_file("env.py", filetype="python")
+                self.add_file("tl_driver.py", filetype="python")
+                self.add_file("tl_monitor.py", filetype="python")
                 # Add RTL dependencies
                 self.add_depfileset(TL2UMI(), "rtl")
                 self.add_depfileset(MemAgent(), "rtl")
@@ -51,11 +53,6 @@ def run_tl2umi(simulator="verilator", waves=True, aw=64, dw=64, seed=None):
     compile_task.set_verilator_trace(waves)
     compile_task.add_parameter("AW", "int", "UMI address width", defvalue=aw)
     compile_task.add_parameter("DW", "int", "UMI data width", defvalue=dw)
-
-    # Add tests directory to PYTHONPATH so cocotb test modules can find adapters.* 
-    # This is needed because 
-    tests_dir = str(Path(__file__).resolve().parent.parent.parent)
-    os.environ["PYTHONPATH"] = tests_dir + os.pathsep + os.environ.get("PYTHONPATH", "")
 
     # Run the simulation
     project.run()

@@ -6,8 +6,8 @@ from cocotb.triggers import ClockCycles, Timer
 
 from cocotb_bus.scoreboard import Scoreboard
 
-from adapters.tl2umi.tl_driver import TLDriver
-from adapters.tl2umi.tl_monitor import TLMonitor, TLDResponse, TLDOpcode
+from tl_driver import TLDriver
+from tl_monitor import TLMonitor, TLDResponse, TLDOpcode
 
 
 async def do_reset(reset, time_ns, active_level=False):

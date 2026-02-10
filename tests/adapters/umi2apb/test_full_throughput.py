@@ -1,6 +1,6 @@
 import cocotb
 
-from adapters.umi2apb.env import UMI2APBEnv
+from env import UMI2APBEnv
 from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 
 

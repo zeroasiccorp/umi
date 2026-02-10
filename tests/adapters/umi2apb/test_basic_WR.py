@@ -3,7 +3,7 @@ import cocotb
 from cocotb.handle import SimHandleBase
 
 from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
-from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
+from env import UMI2APBEnv, create_expected_write_response
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")

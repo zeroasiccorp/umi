@@ -3,7 +3,7 @@ import cocotb
 from random import randint, randbytes
 from cocotb.triggers import ClockCycles
 
-from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
+from env import UMI2APBEnv, create_expected_write_response
 from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 
 

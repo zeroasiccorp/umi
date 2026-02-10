@@ -23,7 +23,6 @@ async def do_reset(
     reset.value = not active_level
     await Timer(1, unit="step")
 
-
 def run_cocotb(
         project: Sim,
         test_module_name: str,

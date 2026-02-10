@@ -595,8 +595,8 @@ module tl2umi #(
                         uhost_req_packet_cmd_size <= 'b0;
                         uhost_req_packet_cmd_len <= (1 << tl_a_size) - 1;
                         uhost_req_packet_cmd_eom <= 1'b1;
-                        uhost_req_packet_dstaddr <= ml_tx_addr;
-                        uhost_req_packet_srcaddr <= local_address;
+                        uhost_req_packet_dstaddr <= ml_tx_addr[AW-1:0];
+                        uhost_req_packet_srcaddr <= local_address[AW-1:0];
                         uhost_req_packet_valid_r <= 1'b1;
                         ml_tx_non_zero_mask_r <= ml_tx_non_zero_mask;
                         get_ack_req <= 1'b1;
@@ -616,8 +616,8 @@ module tl2umi #(
                         uhost_req_packet_cmd_opcode <= UMI_REQ_WRITE;
                         uhost_req_packet_cmd_size <= 'b0;
                         uhost_req_packet_cmd_len <= ml_tx_len;
-                        uhost_req_packet_dstaddr <= ml_tx_addr;
-                        uhost_req_packet_srcaddr <= local_address;
+                        uhost_req_packet_dstaddr <= ml_tx_addr[AW-1:0];
+                        uhost_req_packet_srcaddr <= local_address[AW-1:0];
                         uhost_req_packet_valid_r <= 1'b1;
                         ml_tx_non_zero_mask_r <= ml_tx_non_zero_mask;
                         uhost_req_packet_data[63:0] <= ml_tx_data;
@@ -630,8 +630,8 @@ module tl2umi #(
                         uhost_req_packet_cmd_size <= tl_a_size;
                         uhost_req_packet_cmd_len <= 8'b0;
                         uhost_req_packet_cmd_eom <= 1'b1;
-                        uhost_req_packet_dstaddr <= ml_tx_addr;
-                        uhost_req_packet_srcaddr <= local_address;
+                        uhost_req_packet_dstaddr <= ml_tx_addr[AW-1:0];
+                        uhost_req_packet_srcaddr <= local_address[AW-1:0];
                         uhost_req_packet_valid_r <= 1'b1;
                         ml_tx_non_zero_mask_r <= ml_tx_non_zero_mask;
                         uhost_req_packet_data[63:0] <= ml_tx_data;
