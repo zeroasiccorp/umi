@@ -13,8 +13,8 @@ async def test_backpressure(dut: SimHandleBase):
     Test backpressure handling:
       1. Send transaction with ready enabled
       2. Wait for valid to assert
-      3. Apply backpressure (ready=0)
-      4. Verify response is held
+      3. Apply backpressure
+      4. Verify response held
       5. Release backpressure and verify response completes
     """
     env = TL2UMIEnv(dut)

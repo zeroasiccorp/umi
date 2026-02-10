@@ -4,7 +4,7 @@ import cocotb
 from cocotb.handle import SimHandleBase
 from cocotb.triggers import ClockCycles, RisingEdge
 
-from sumi import SumiTransaction, SumiCmdType, SumiCmd
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 from adapters.umi2apb.env import UMI2APBEnv
 
 

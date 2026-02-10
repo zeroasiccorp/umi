@@ -2,13 +2,22 @@
 # and provides common functionality for the tests.
 
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
+from cocotb.triggers import ClockCycles, Timer
 
 from cocotb_bus.scoreboard import Scoreboard
 
 from adapters.tl2umi.tl_driver import TLDriver
 from adapters.tl2umi.tl_monitor import TLMonitor, TLDResponse, TLDOpcode
-from cocotb_utils import do_reset as cocotb_common_do_reset
+
+
+async def do_reset(reset, time_ns, active_level=False):
+    """Perform an async reset"""
+    reset.value = not active_level
+    await Timer(1, unit="step")
+    reset.value = active_level
+    await Timer(time_ns, "ns")
+    reset.value = not active_level
+    await Timer(1, unit="step")
 
 
 class TL2UMIEnv:
@@ -61,7 +70,7 @@ class TL2UMIEnv:
     async def start(self):
         """Start clocks and perform reset"""
         Clock(self.clk, self.clk_period_ns, unit="ns").start()
-        await cocotb_common_do_reset(self.nreset, self.clk_period_ns)
+        await do_reset(self.nreset, self.clk_period_ns)
 
         # Initialize DUT configuration signals
         self.dut.globalid.value = 0xAE510000

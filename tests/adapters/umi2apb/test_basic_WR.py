@@ -2,7 +2,7 @@ import cocotb
 
 from cocotb.handle import SimHandleBase
 
-from sumi import SumiTransaction, SumiCmdType, SumiCmd
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
 
 

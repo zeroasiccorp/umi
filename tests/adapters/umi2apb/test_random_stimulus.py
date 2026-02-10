@@ -4,7 +4,7 @@ from random import randint, randbytes
 from cocotb.triggers import ClockCycles
 
 from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
-from sumi import SumiTransaction, SumiCmdType, SumiCmd
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 
 
 async def random_ready_toggle(dut, clk, stop_event):

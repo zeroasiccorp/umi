@@ -1,7 +1,7 @@
 import cocotb
 
 from adapters.umi2apb.env import UMI2APBEnv
-from sumi import SumiTransaction, SumiCmdType, SumiCmd
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
