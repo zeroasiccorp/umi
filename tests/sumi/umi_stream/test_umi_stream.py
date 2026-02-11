@@ -188,7 +188,7 @@ async def test_device_mode(
         ##############################################################
         if cmd_type == SumiCmdType.UMI_REQ_READ:
             """
-                TODO: RTL can only accept reads that can responded to with a single beat of data. 
+                TODO: RTL can only accept reads that can responded to with a single beat of data.
                 This should probably be fixed.
             """
             sumi_trans = [SumiTransaction(
@@ -198,7 +198,7 @@ async def test_device_mode(
                     len=0,
                     eom=1
                 ),
-                # TODO: DUT will accept any DST ADDR this seems like an issue 2 me
+                # TODO: DUT will accept any DST ADDR. Do we consider this an issue?
                 da=random.randint(0, (1 << len(dut.umi_in_dstaddr)) - 1),
                 sa=random.randint(0, (1 << len(dut.umi_in_srcaddr)) - 1),
                 data=random.randbytes(env.data_bytes),
@@ -431,6 +431,6 @@ def test_umi_stream(simulator):
     load_cocotb_test(
         design=TbDesign(),
         simulator=simulator,
-        trace=True,
+        trace=False,
         seed=None
     )
