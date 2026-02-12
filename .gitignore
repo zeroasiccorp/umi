@@ -21,8 +21,6 @@ coverage.dat
 *.vcd
 a.out
 *.vvp
-*.f
-!*/icarus_cmd_file.f
 
 ######################
 # Editor
