@@ -22,6 +22,7 @@ coverage.dat
 a.out
 *.vvp
 *.f
+!*/icarus_cmd_file.f
 
 ######################
 # Editor
@@ -43,3 +44,4 @@ __pycache__/
 dist/
 venv/
 .venv
+.vscode/

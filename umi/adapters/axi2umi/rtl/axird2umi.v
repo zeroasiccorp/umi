@@ -62,9 +62,6 @@
  *
  ******************************************************************************/
 
-// TODO: remove this timescale
-`timescale 1ns/1ps
-
 module axird2umi #(
   parameter           CW = 32,
   parameter           DW = 128,
@@ -73,7 +70,8 @@ module axird2umi #(
   // UMI source address for read requests (used as-is, no strobe encoding)
   parameter [AW-1:0]  HOSTADDR = {AW{1'b0}},
   // Helper params don't touch
-  parameter STRBW = DW/8
+  parameter STRBW = DW/8,
+  parameter STRB_LOG2 = $clog2(STRBW)
 )(
   input clk,
   input nreset,
@@ -159,7 +157,7 @@ module axird2umi #(
     .cmd_size           (s_axi_arsize),
     .cmd_len            (s_axi_arlen),
     .cmd_atype          (8'h00),
-    .cmd_prot           (s_axi_arprot),
+    .cmd_prot           (s_axi_arprot[1:0]),
     .cmd_qos            (s_axi_arqos),
     .cmd_eom            (1'b1),
     .cmd_eof            (1'b0),
@@ -172,7 +170,7 @@ module axird2umi #(
     .packet_cmd         (uhost_req_cmd)
   );
 
-  assign uhost_req_dstaddr = s_axi_araddr;
+  assign uhost_req_dstaddr = {s_axi_araddr[AW-1:STRB_LOG2], {STRB_LOG2{1'b0}}};
   assign uhost_req_srcaddr = HOSTADDR;
   assign uhost_req_data = {DW{1'b0}};
 

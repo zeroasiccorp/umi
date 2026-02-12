@@ -3,6 +3,8 @@ import random
 
 import pytest
 
+from siliconcompiler import Design
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
@@ -16,12 +18,6 @@ from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
 from cocotbext.umi.models.umi_memory_device import UmiMemoryDevice
 from cocotbext.umi.utils import generators
 
-from siliconcompiler import Design, Sim
-from siliconcompiler.flows.dvflow import DVFlow
-
-from siliconcompiler.tools.icarus.compile import CompileTask as IcarusCompileTask
-from siliconcompiler.tools.icarus.cocotb_exec import CocotbExecTask as IcarusCocotbExecTask
-
 from umi.adapters.axi2umi.axi2umi import AXI2UMI
 
 
@@ -32,7 +28,6 @@ class Env:
         self.dut = dut
         self.axi_master = None
         self.max_addr = (1 << int(self.dut.AW.value)) - 1
-        self.alignment = int(self.dut.DW.value) // 8
 
     async def setup(self):
         """Initialize and reset the DUT, create AXI master."""
@@ -75,7 +70,7 @@ class Env:
         """Generate random address and size for a read transaction."""
         if max_read_size is None:
             max_read_size = random.choices([4096, 256, 10], weights=[10, 40, 50])[0]
-        test_addr = random.randint(0, (self.max_addr - max_read_size) // self.alignment) * self.alignment
+        test_addr = random.randint(0, (self.max_addr - max_read_size))
         read_size = random.randint(1, max_read_size)
         return test_addr, read_size
 
@@ -171,47 +166,13 @@ class TbDesign(Design):
                 self.add_depfileset(AXI2UMI(), "rtl")
 
 
-def load_cocotb_test(trace=True, seed=None):
-    # Create project
-    project = Sim()
-    project.set_design(TbDesign())
-    project.add_fileset("testbench.cocotb")
-
-    # Set the cocotb design verification flow
-    project.set_flow(DVFlow(tool="icarus-cocotb"))
-
-    # Enable waveform tracing
-    IcarusCompileTask.find_task(project).set_trace_enabled(trace)
-
-    # Optionally set a random seed for reproducibility
-    if seed is not None:
-        IcarusCocotbExecTask.find_task(project).set_cocotb_randomseed(seed)
-
-    # Run the simulation
-    project.run()
-    project.summary()
-
-    # Find and display the results file
-    results = project.find_result(
-        step='simulate',
-        index='0',
-        directory="outputs",
-        filename="results.xml"
-    )
-    if results:
-        print(f"\nCocotb results file: {results}")
-
-    # Find and display the waveform file
-    vcd = project.find_result(
-        step='simulate',
-        index='0',
-        directory="reports",
-        filename="tb_axird2umi.vcd"
-    )
-    if vcd:
-        print(f"Waveform file: {vcd}")
-
-
 @pytest.mark.cocotb
-def test_axird2umi():
-    load_cocotb_test()
+@pytest.mark.parametrize("simulator", ["icarus", "verilator"])
+def test_axird2umi(simulator):
+    from run_cocotb_sim import load_cocotb_test
+    load_cocotb_test(
+        design=TbDesign(),
+        simulator=simulator,
+        trace=False,
+        seed=None
+    )

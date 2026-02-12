@@ -45,9 +45,6 @@
  *
  ******************************************************************************/
 
-// TODO: remove this timescale
-`timescale 1ns/1ps
-
 module axi2umi #(
   parameter           CW = 32,
   parameter           DW = 128,

@@ -74,9 +74,6 @@
  *
  ******************************************************************************/
 
-// TODO: remove this timescale
-`timescale 1ns/1ps
-
 module axiwr2umi #(
   parameter           CW = 32,
   parameter           DW = 128,
@@ -228,6 +225,9 @@ module axiwr2umi #(
 
   assign empty_wr_beat = (s_axi_wstrb == {STRBW{1'b0}});
 
+  /* Capture AW channel fields on AW fire for use
+   * in UMI command generation and AXI response */
+
   always @(posedge clk)
     // Per UMI spec lower two bits of AXI4 prot can be mapped to umi_cmd_prot
     umi_cmd_prot[1:0] <= aw_fire ? s_axi_awprot[1:0] : umi_cmd_prot[1:0];
@@ -245,17 +245,20 @@ module axiwr2umi #(
   always @(posedge clk)
     aw_burst[1:0] <= aw_fire ? s_axi_awburst[1:0] : aw_burst[1:0];
 
-  // Figure out transaction length
+  // Figure out transaction length from AXI strobe
   always @(*) begin
     w_strb_sum = 0;
     for (i = 0; i < STRBW; i = i + 1)
-      w_strb_sum = w_strb_sum + s_axi_wstrb[i];
+      w_strb_sum = w_strb_sum + {{(STRB_LOG2-1){1'b0}}, s_axi_wstrb[i]};
   end
 
   /* UMI does not support byte strobes, so non-LSB-aligned strobes are handled
    * by finding the first active strobe byte, offsetting dstaddr by that index,
    * and right-shifting wdata to remove the inactive low bytes. */
+
+  // Use n & (~n + 1) bit hack to isolate rightmost active strobe bit
   assign right_most_strb_bit[STRBW-1:0] = (s_axi_wstrb[STRBW-1:0] & (~s_axi_wstrb[STRBW-1:0] + 1'b1));
+  // Find index of rightmost active strobe bit using priority encoder
   always @(*) begin
     right_most_strb_bit_index[STRB_LOG2:0] = 0;
     for (i = 0; i < STRBW; i = i + 1)
@@ -263,8 +266,7 @@ module axiwr2umi #(
         right_most_strb_bit_index[STRB_LOG2:0] = i[STRB_LOG2:0];
   end
 
-
-  assign umi_cmd_len = w_strb_sum - 1;
+  assign umi_cmd_len[7:0] = {{(8-STRB_LOG2-1){1'b0}}, (w_strb_sum - {{(STRB_LOG2-1){1'b0}}, 1'b1})};
 
   // Track remaining AXI beats in transaction
   always @(posedge clk)
@@ -279,7 +281,7 @@ module axiwr2umi #(
   assign bytes_per_beat[AW-1:0] = {{(AW-8){1'b0}}, (8'd1 << aw_size[2:0])};
   always @(posedge clk)
     if (aw_fire)
-      dst_addr[AW-1:0] <= s_axi_awaddr[AW-1:0];
+      dst_addr[AW-1:0] <= {s_axi_awaddr[AW-1:STRB_LOG2], {STRB_LOG2{1'b0}}};
     else if (w_fire && (aw_burst == AXI_BURST_INCR))
       dst_addr[AW-1:0] <= dst_addr[AW-1:0] + bytes_per_beat[AW-1:0];
 
@@ -306,7 +308,8 @@ module axiwr2umi #(
     .cmd_prot           (umi_cmd_prot),
     .cmd_qos            (umi_cmd_qos),
     /* EOM tied high since it is impossible to know which
-     * AXI beat will be the last since W_STRB can be set zero. */
+     * AXI beat will be the last since W_STRB can be set
+     * zero on AXI last beat. */
     .cmd_eom            (1'b1),
     .cmd_eof            (1'b0),
     .cmd_user           (2'b0),
@@ -319,7 +322,7 @@ module axiwr2umi #(
 
   assign uhost_req_srcaddr[AW-1:0] = {HOSTADDR[AW-1:STRBW], s_axi_wstrb[STRBW-1:0]};
   // Offset destination address to the first active strobe byte
-  assign uhost_req_dstaddr[AW-1:0] = dst_addr[AW-1:0] + right_most_strb_bit_index[STRB_LOG2:0];
+  assign uhost_req_dstaddr[AW-1:0] = dst_addr[AW-1:0] + {{(AW-STRB_LOG2-1){1'b0}}, right_most_strb_bit_index[STRB_LOG2:0]};
 
   /* Right-shift data to align the first active strobe byte to bit 0
    * uhost_req_data = s_axis_wdata >> (right_most_strb_bit_index * 8) */
@@ -343,6 +346,8 @@ module axiwr2umi #(
       else if (umi_resp_cmd_err != 2'b00)
         // Capture error
         bresp_err[1:0] <= umi_resp_cmd_err;
+
+  assign s_axi_bresp[1:0] = bresp_err[1:0];
 
   //####################################
   // FSM logic
@@ -385,7 +390,6 @@ module axiwr2umi #(
     else
       state <= next_state;
 
-  assign s_axi_bresp[1:0] = bresp_err[1:0];
   assign s_axi_bid[IDW-1:0] = aw_id[IDW-1:0];
 
 endmodule

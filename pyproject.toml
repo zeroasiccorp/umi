@@ -36,7 +36,7 @@ test = [
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
     "cocotbext-axi==0.1.26",
-    "cocotbext-umi==0.0.2"
+    "cocotbext-umi @ git+https://github.com/zeroasiccorp/cocotbext-umi.git@rice/umi_memory_device_fix"
 ]
 
 [tool.check-wheel-contents]
@@ -48,6 +48,9 @@ ignore = [
 markers = [
     "switchboard: this test requires switchboard to run",
     "cocotb: this test requires cocotb to run"
+]
+pythonpath = [
+    "tests"
 ]
 testpaths = [
     "tests",

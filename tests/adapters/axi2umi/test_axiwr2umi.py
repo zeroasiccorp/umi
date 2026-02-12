@@ -1,7 +1,10 @@
+import copy
 import os
 import random
 
 import pytest
+
+from siliconcompiler import Design
 
 import cocotb
 from cocotb.clock import Clock
@@ -16,12 +19,6 @@ from cocotbext.umi.drivers.sumi_driver import SumiDriver
 from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
 from cocotbext.umi.models.umi_memory_device import UmiMemoryDevice
 from cocotbext.umi.utils import generators
-
-from siliconcompiler import Design, Sim
-from siliconcompiler.flows.dvflow import DVFlow
-
-from siliconcompiler.tools.icarus.compile import CompileTask as IcarusCompileTask
-from siliconcompiler.tools.icarus.cocotb_exec import CocotbExecTask as IcarusCocotbExecTask
 
 from umi.adapters.axi2umi.axi2umi import AXI2UMI
 
@@ -66,9 +63,7 @@ class ErrorInjectingUmiMemoryDevice(UmiMemoryDevice):
         """Handle a write request, optionally injecting errors into response."""
         dstaddr = int(transaction.da)
         data = transaction.data
-        size = int(transaction.cmd.size)
-        length = int(transaction.cmd.len)
-        data_size = (length + 1) << size
+        data_size = transaction.cmd.total_bytes()
 
         if self.log:
             self.log.info(
@@ -83,13 +78,9 @@ class ErrorInjectingUmiMemoryDevice(UmiMemoryDevice):
         if send_response:
             inject_error = self._should_inject_error(dstaddr)
 
-            resp_cmd = SumiCmd.from_fields(
-                cmd_type=SumiCmdType.UMI_RESP_WRITE,
-                size=0,
-                len=0,
-                eom=1,
-                u=self.error_code if inject_error else 0
-            )
+            resp_cmd = copy.deepcopy(transaction.cmd)
+            resp_cmd.cmd_type.from_int(SumiCmdType.UMI_RESP_WRITE)
+            resp_cmd.u.from_int(self.error_code if inject_error else 0)
 
             if inject_error:
                 self.injected_errors.append((dstaddr, self.error_code))
@@ -100,7 +91,7 @@ class ErrorInjectingUmiMemoryDevice(UmiMemoryDevice):
                 cmd=resp_cmd,
                 da=int(transaction.sa),
                 sa=int(transaction.da),
-                data=bytes([0]),
+                data=transaction.data,
                 addr_width=transaction._addr_width
             )
             self.driver.append(resp)
@@ -113,7 +104,6 @@ class Env:
         self.dut = dut
         self.axi_master = None
         self.max_addr = (1 << int(self.dut.AW.value)) - 1
-        self.alignment = int(self.dut.DW.value) // 8
 
     async def setup(self):
         """Initialize and reset the DUT, create AXI master."""
@@ -158,7 +148,7 @@ class Env:
         """Generate random address and data for a write transaction."""
         if max_write_size is None:
             max_write_size = random.choices([4096, 256, 10], weights=[10, 40, 50])[0]
-        test_addr = random.randint(0, (self.max_addr - max_write_size) // self.alignment) * self.alignment
+        test_addr = random.randint(0, (self.max_addr - max_write_size))
         write_size = random.randint(1, max_write_size)
         test_data = random.randbytes(write_size)
         return test_addr, test_data
@@ -271,17 +261,17 @@ async def fixed_burst_test(
     # Run test
     ####################################
 
-    bus_width = env.alignment  # bytes per beat
+    bus_size = int(dut.DW.value) // 8
 
     for i in range(test_n_writes):
         # Generate multi-beat write (2-4 beats) to test FIXED behavior
         num_beats = random.randint(2, 4)
-        write_size = bus_width * num_beats
-        test_addr = random.randint(0, (env.max_addr - bus_width) // env.alignment) * env.alignment
+        write_size = bus_size * num_beats
+        test_addr = random.randint(0, (env.max_addr - bus_size) // bus_size) * bus_size
         test_data = random.randbytes(write_size)
 
         # Clear memory at test address before write
-        umi_memory.write(test_addr, bytes(bus_width))
+        umi_memory.write(test_addr, bytes(bus_size))
 
         dut._log.info(f"FIXED write {i+1}/{test_n_writes}: {num_beats} beats to 0x{test_addr:08x}")
         resp = await env.axi_master.write(test_addr, test_data, burst=AxiBurstType.FIXED)
@@ -290,8 +280,8 @@ async def fixed_burst_test(
 
         # With FIXED burst, all beats write to the same address
         # Only the last beat's data should remain in memory
-        last_beat_data = test_data[-bus_width:]
-        read_back = umi_memory.read(test_addr, bus_width)
+        last_beat_data = test_data[-bus_size:]
+        read_back = umi_memory.read(test_addr, bus_size)
 
         assert read_back == last_beat_data, (
             f"FIXED burst {i+1}: expected last beat data {last_beat_data.hex()}, "
@@ -396,47 +386,13 @@ class TbDesign(Design):
                 self.add_depfileset(AXI2UMI(), "rtl")
 
 
-def load_cocotb_test(trace=True, seed=None):
-    # Create project
-    project = Sim()
-    project.set_design(TbDesign())
-    project.add_fileset("testbench.cocotb")
-
-    # Set the cocotb design verification flow
-    project.set_flow(DVFlow(tool="icarus-cocotb"))
-
-    # Enable waveform tracing
-    IcarusCompileTask.find_task(project).set_trace_enabled(trace)
-
-    # Optionally set a random seed for reproducibility
-    if seed is not None:
-        IcarusCocotbExecTask.find_task(project).set_cocotb_randomseed(seed)
-
-    # Run the simulation
-    project.run()
-    project.summary()
-
-    # Find and display the results file
-    results = project.find_result(
-        step='simulate',
-        index='0',
-        directory="outputs",
-        filename="results.xml"
-    )
-    if results:
-        print(f"\nCocotb results file: {results}")
-
-    # Find and display the waveform file
-    vcd = project.find_result(
-        step='simulate',
-        index='0',
-        directory="reports",
-        filename="tb_axiwr2umi.vcd"
-    )
-    if vcd:
-        print(f"Waveform file: {vcd}")
-
-
 @pytest.mark.cocotb
-def test_axiwr2umi():
-    load_cocotb_test()
+@pytest.mark.parametrize("simulator", ["icarus", "verilator"])
+def test_axiwr2umi(simulator):
+    from run_cocotb_sim import load_cocotb_test
+    load_cocotb_test(
+        design=TbDesign(),
+        simulator=simulator,
+        trace=False,
+        seed=None
+    )
