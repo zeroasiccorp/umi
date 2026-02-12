@@ -14,7 +14,7 @@ from cocotb_bus.drivers import BitDriver
 
 from cocotbext.axi import AxiWriteBus, AxiMasterWrite, AxiResp, AxiBurstType
 
-from cocotbext.umi.sumi import SumiCmd, SumiCmdType, SumiTransaction
+from cocotbext.umi.sumi import SumiCmdType, SumiTransaction
 from cocotbext.umi.drivers.sumi_driver import SumiDriver
 from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
 from cocotbext.umi.models.umi_memory_device import UmiMemoryDevice
