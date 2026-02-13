@@ -166,8 +166,8 @@ module umi_stream
    // Response Generation
    //###################################################
 
-   assign resp_cmd[4:0]   = cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE;
-   assign resp_cmd[31:5]  = umi_in_cmd[31:5];
+   assign resp_cmd[31:0] = {umi_in_cmd[31:5],
+                            cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE};
 
    // Response valid register
    always @(posedge umi_clk or negedge umi_nreset)
