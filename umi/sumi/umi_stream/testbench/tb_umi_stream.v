@@ -93,13 +93,12 @@ module tb_umi_stream;
    //###################################################
 
    umi_stream #(
-      .AW(AW),
-      .CW(CW),
-      .DW(DW),
-      .RW(RW),
-      .RAW(RAW),
-      .DEPTH(DEPTH)
-   ) dut (
+                .AW(AW),
+                .CW(CW),
+                .DW(DW),
+                .S2MM_DEPTH(DEPTH),
+                .MM2S_DEPTH(DEPTH))
+   dut (
       // Operating mode
       .devicemode     (devicemode),
       // UMI interface
