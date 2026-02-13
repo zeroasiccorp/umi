@@ -30,7 +30,7 @@ jobs:
     name: "Cocotb CI"
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/zeroasiccorp/sbtest:latest
+      image: ghcr.io/siliconcompiler/sc_runner:latest
     timeout-minutes: 45
 
     steps:
