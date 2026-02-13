@@ -70,10 +70,6 @@ module umi_stream
 
 `include "umi_messages.vh"
 
-   // Power supplies
-   supply0 vss;
-   supply1 vdd;
-
    // M2SS signals
    wire                mm2s_fifo_full;
    wire                mm2s_fifo_almost_full;
@@ -259,8 +255,8 @@ module umi_stream
                .rd_empty       (mm2s_fifo_empty),
                .rd_en          (mm2s_fifo_read),
                // misc
-               .vss            (vss),
-               .vdd            (vdd),
+               .vss            (1'b0),
+               .vdd            (1'b1),
                .ctrl           (1'b0),
                .test           (1'b0));
 
@@ -290,8 +286,8 @@ module umi_stream
                 .rd_empty       (s2mm_fifo_empty),
                 .rd_en          (s2mm_fifo_read),
                 // misc
-                .vss            (vss),
-                .vdd            (vdd),
+                .vss            (1'b0),
+                .vdd            (1'b1),
                 .ctrl           (1'b0),
                 .test           (1'b0));
 
