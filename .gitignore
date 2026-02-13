@@ -21,7 +21,6 @@ coverage.dat
 *.vcd
 a.out
 *.vvp
-*.f
 
 ######################
 # Editor
@@ -43,3 +42,4 @@ __pycache__/
 dist/
 venv/
 .venv
+.vscode/
