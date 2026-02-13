@@ -27,6 +27,9 @@
 localparam UMI_OPCODE_LSB = 0;
 localparam UMI_OPCODE_MSB = 4;
 
+localparam UMI_OPTIONS_LSB = 5;
+localparam UMI_OPTIONS_MSB = 31;
+
 localparam UMI_SIZE_LSB   = 5;
 localparam UMI_SIZE_MSB   = 7;
 
