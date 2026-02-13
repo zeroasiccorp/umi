@@ -1,10 +1,17 @@
 # Owns the driver, monitor, and scoreboard for TL to UMI adapter tests,
 # and provides common functionality for the tests.
+#
+# Uses cocotbext-umi UmiMemoryDevice as a pure-Python replacement for
+# the Verilog umi_memagent. The DUT is tl2umi directly (no wrapper needed).
 
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, Timer
 
 from cocotb_bus.scoreboard import Scoreboard
+
+from cocotbext.umi.drivers.sumi_driver import SumiDriver
+from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
+from cocotbext.umi.models.umi_memory_device import UmiMemoryDevice
 
 from tl_driver import TLDriver
 from tl_monitor import TLMonitor, TLDResponse, TLDOpcode
@@ -21,7 +28,7 @@ async def do_reset(reset, time_ns, active_level=False):
 
 
 class TL2UMIEnv:
-    """Test environment for tl2umi adapter with umi_memagent backend"""
+    """Test environment for tl2umi adapter with Python UmiMemoryDevice backend"""
 
     def __init__(self, dut, clk_period_ns=10):
         self.dut = dut
@@ -58,6 +65,26 @@ class TL2UMIEnv:
             name="tl_d",
             clock=self.clk,
             bus_separator="_",
+        )
+
+        # UMI request monitor (observes requests from tl2umi)
+        self.sumi_req_monitor = SumiMonitor(
+            entity=dut, name="uhost_req", clock=self.clk
+        )
+
+        # Drive UMI request ready (accept all requests immediately)
+        dut.uhost_req_ready.value = 1
+
+        # UMI response driver (sends responses back to tl2umi)
+        self.sumi_resp_driver = SumiDriver(
+            entity=dut, name="uhost_resp", clock=self.clk
+        )
+
+        # Python UMI memory device (replaces Verilog umi_memagent)
+        self.mem_device = UmiMemoryDevice(
+            monitor=self.sumi_req_monitor,
+            driver=self.sumi_resp_driver,
+            log=dut._log
         )
 
         # Scoreboard for response checking

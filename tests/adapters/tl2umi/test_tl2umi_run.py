@@ -6,23 +6,20 @@ from siliconcompiler.tools.verilator.cocotb_compile import CocotbCompileTask as 
 from siliconcompiler.tools.verilator.cocotb_exec import CocotbExecTask as VerilatorCocotbExecTask
 
 from umi.adapters import TL2UMI
-from umi.sumi import MemAgent
 
 
 class TL2UMITestbench(Design):
-    """TL2UMI testbench with umi_memagent for cocotb testing"""
+    """TL2UMI testbench for cocotb testing (UMI memory agent in Python)"""
 
     def __init__(self, aw=64, dw=64):
         super().__init__()
 
-        self.set_name("testbench")
+        self.set_name("tb_tl2umi")
         self.set_dataroot("tl2umi", __file__)
 
         with self.active_dataroot("tl2umi"):
             with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("testbench")
-                # Add testbench Verilog
-                self.add_file("testbench.v", filetype="verilog")
+                self.set_topmodule("tl2umi")
                 # Add test files
                 self.add_file("test_basic.py", filetype="python")
                 self.add_file("test_advanced.py", filetype="python")
@@ -30,9 +27,8 @@ class TL2UMITestbench(Design):
                 self.add_file("env.py", filetype="python")
                 self.add_file("tl_driver.py", filetype="python")
                 self.add_file("tl_monitor.py", filetype="python")
-                # Add RTL dependencies
+                # Add RTL dependency (no Verilog wrapper needed)
                 self.add_depfileset(TL2UMI(), "rtl")
-                self.add_depfileset(MemAgent(), "rtl")
 
         # Store parameters
         self.aw = aw
