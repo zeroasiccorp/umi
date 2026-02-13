@@ -26,7 +26,7 @@
  *   DW       - Data width in bits, must be <= 128 (16 byte strobe fits in SA[15:0])
  *   AW       - Address width in bits (default 64)
  *   IDW      - AXI ID width (default 8)
- *   HOSTADDR - UMI source address base. The bottom STRBW bits are replaced
+ *   HOSTADDR - UMI source address base. The bottom DW/8 bits are replaced
  *              with the raw AXI write strobe value per UMI spec recommendation.
  *
  * Supported AXI4 Features:
@@ -68,7 +68,7 @@
  *     solely by counting beats against AWLEN
  *   - For non-LSB-aligned strobes, dstaddr is offset by the index of the
  *     first active strobe byte and data is right-shifted accordingly
- *   - UMI srcaddr lower STRBW bits carry the raw AXI write strobe value
+ *   - UMI srcaddr lower DW/8 bits carry the raw AXI write strobe value
  *   - EOM is always asserted because empty (all-zero strobe) beats can
  *     appear at any position, making the true last data beat unpredictable
  *
@@ -79,12 +79,10 @@ module axiwr2umi #(
   parameter           DW = 128,
   parameter           AW = 64,
   parameter           IDW = 8,
-  /* Note the bottom STRBW bits of HOSTADDR are ignored
+  /* Note the bottom DW/8 bits of HOSTADDR are ignored
    * Per UMI spec the recommendation is to set the bottom
-   * STRBW bits of srcaddr to the AXI write channels strobe value */
-  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}},
-  // Helper params don't touch
-  parameter STRBW = DW/8
+   * DW/8 bits of srcaddr to the AXI write channels strobe value */
+  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}}
 )(
   input clk,
   input nreset,
@@ -109,7 +107,7 @@ module axiwr2umi #(
   // AXI4 Write Data Channel
   input [IDW-1:0]       s_axi_wid,
   input [DW-1:0]        s_axi_wdata,
-  input [STRBW-1:0]     s_axi_wstrb,
+  input [DW/8-1:0]      s_axi_wstrb,
   input                 s_axi_wlast,
   input                 s_axi_wvalid,
   output                s_axi_wready,
@@ -152,7 +150,7 @@ module axiwr2umi #(
     end
   endgenerate
 
-  localparam STRB_LOG2 = $clog2(STRBW);
+  localparam STRB_LOG2 = $clog2(DW/8);
 
   localparam SW = 2;
   localparam [SW-1:0]
@@ -210,7 +208,7 @@ module axiwr2umi #(
   wire [1:0] umi_resp_cmd_err;
   wire [4:0] umi_resp_cmd_opcode;
 
-  wire [STRBW-1:0] right_most_strb_bit;
+  wire [DW/8-1:0] right_most_strb_bit;
   reg [STRB_LOG2:0] right_most_strb_bit_index;
 
   //####################################
@@ -223,7 +221,7 @@ module axiwr2umi #(
   assign umi_req_fire = uhost_req_valid & uhost_req_ready;
   assign umi_resp_fire = uhost_resp_valid & uhost_resp_ready;
 
-  assign empty_wr_beat = (s_axi_wstrb == {STRBW{1'b0}});
+  assign empty_wr_beat = (s_axi_wstrb == {DW/8{1'b0}});
 
   /* Capture AW channel fields on AW fire for use
    * in UMI command generation and AXI response */
@@ -248,7 +246,7 @@ module axiwr2umi #(
   // Figure out transaction length from AXI strobe
   always @(*) begin
     w_strb_sum = 0;
-    for (i = 0; i < STRBW; i = i + 1)
+    for (i = 0; i < DW/8; i = i + 1)
       w_strb_sum = w_strb_sum + {{(STRB_LOG2-1){1'b0}}, s_axi_wstrb[i]};
   end
 
@@ -257,11 +255,11 @@ module axiwr2umi #(
    * and right-shifting wdata to remove the inactive low bytes. */
 
   // Use n & (~n + 1) bit hack to isolate rightmost active strobe bit
-  assign right_most_strb_bit[STRBW-1:0] = (s_axi_wstrb[STRBW-1:0] & (~s_axi_wstrb[STRBW-1:0] + 1'b1));
+  assign right_most_strb_bit[DW/8-1:0] = (s_axi_wstrb[DW/8-1:0] & (~s_axi_wstrb[DW/8-1:0] + 1'b1));
   // Find index of rightmost active strobe bit using priority encoder
   always @(*) begin
     right_most_strb_bit_index[STRB_LOG2:0] = 0;
-    for (i = 0; i < STRBW; i = i + 1)
+    for (i = 0; i < DW/8; i = i + 1)
       if (right_most_strb_bit[i])
         right_most_strb_bit_index[STRB_LOG2:0] = i[STRB_LOG2:0];
   end
@@ -315,12 +313,12 @@ module axiwr2umi #(
     .cmd_user           (2'b0),
     .cmd_err            (2'b00),
     .cmd_ex             (1'b0),
-    .cmd_hostid         (5'b0),
+    .cmd_hostid         (aw_id[4:0]),
     .cmd_user_extended  (24'b0),
     .packet_cmd         (uhost_req_cmd)
   );
 
-  assign uhost_req_srcaddr[AW-1:0] = {HOSTADDR[AW-1:STRBW], s_axi_wstrb[STRBW-1:0]};
+  assign uhost_req_srcaddr[AW-1:0] = {HOSTADDR[AW-1:DW/8], s_axi_wstrb[DW/8-1:0]};
   // Offset destination address to the first active strobe byte
   assign uhost_req_dstaddr[AW-1:0] = dst_addr[AW-1:0] + {{(AW-STRB_LOG2-1){1'b0}}, right_most_strb_bit_index[STRB_LOG2:0]};
 

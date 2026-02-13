@@ -38,10 +38,10 @@
  *
  * Response Routing:
  *   UMI responses are routed back to the correct channel by comparing
- *   uhost_resp_dstaddr[AW-1:STRBW] against WR_HOSTADDR and RD_HOSTADDR.
- *   The lower STRBW bits are masked out since the write path encodes
+ *   uhost_resp_dstaddr[AW-1:DW/8] against WR_HOSTADDR and RD_HOSTADDR.
+ *   The lower DW/8 bits are masked out since the write path encodes
  *   the AXI strobe value in those bits. WR_HOSTADDR and RD_HOSTADDR
- *   must differ in their upper [AW-1:STRBW] bits for correct routing.
+ *   must differ in their upper [AW-1:DW/8] bits for correct routing.
  *
  ******************************************************************************/
 
@@ -50,16 +50,16 @@ module axi2umi #(
   parameter           DW = 128,
   parameter           AW = 64,
   parameter           IDW = 8,
-  /* Note the bottom STRBW bits of WR_HOSTADDR are ignored
+  /* Note the bottom DW/8 bits of WR_HOSTADDR are ignored
    * per UMI spec. The spec recommendation is to set the bottom
-   * STRBW bits of srcaddr to the AXI write channels strobe value */
+   * DW/8 bits of srcaddr to the AXI write channels strobe value */
   parameter [AW-1:0]  WR_HOSTADDR = {AW{1'b0}},
-  parameter [AW-1:0]  RD_HOSTADDR = {1'b1, {(AW-1){1'b0}}},
-  // Helper params don't touch
-  parameter STRBW = DW/8
+  parameter [AW-1:0]  RD_HOSTADDR = {1'b1, {(AW-1){1'b0}}}
 )(
   input clk,
   input nreset,
+
+  input [1:0] arbmode,
 
   //####################################
   // AXI4 FULL Interface
@@ -81,7 +81,7 @@ module axi2umi #(
   // AXI4 Write Data Channel
   input [IDW-1:0]       s_axi_wid,
   input [DW-1:0]        s_axi_wdata,
-  input [STRBW-1:0]     s_axi_wstrb,
+  input [DW/8-1:0]      s_axi_wstrb,
   input                 s_axi_wlast,
   input                 s_axi_wvalid,
   output                s_axi_wready,
@@ -292,7 +292,7 @@ module axi2umi #(
     .clk            (clk),
     .nreset         (nreset),
     // Round-robin arbitration
-    .arbmode        (2'b01),
+    .arbmode        (arbmode),
     // No masking
     .arbmask        ({N{1'b0}}),
     // Incoming UMI (concatenated: {RD, WR})
@@ -316,9 +316,9 @@ module axi2umi #(
   //####################################
 
   // Select based on comparing upper bits of dstaddr with HOSTADDR values
-  // Mask out lower STRBW bits (used for strobe encoding in WR path)
-  assign demux_select[0] = (uhost_resp_dstaddr[AW-1:STRBW] == WR_HOSTADDR[AW-1:STRBW]);
-  assign demux_select[1] = (uhost_resp_dstaddr[AW-1:STRBW] == RD_HOSTADDR[AW-1:STRBW]);
+  // Mask out lower DW/8 bits (used for strobe encoding in WR path)
+  assign demux_select[0] = (uhost_resp_dstaddr[AW-1:DW/8] == WR_HOSTADDR[AW-1:DW/8]);
+  assign demux_select[1] = (uhost_resp_dstaddr[AW-1:DW/8] == RD_HOSTADDR[AW-1:DW/8]);
 
   umi_demux #(
     .M  (N),

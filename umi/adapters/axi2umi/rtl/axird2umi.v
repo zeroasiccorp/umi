@@ -68,10 +68,7 @@ module axird2umi #(
   parameter           AW = 64,
   parameter           IDW = 8,
   // UMI source address for read requests (used as-is, no strobe encoding)
-  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}},
-  // Helper params don't touch
-  parameter STRBW = DW/8,
-  parameter STRB_LOG2 = $clog2(STRBW)
+  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}}
 )(
   input clk,
   input nreset,
@@ -123,6 +120,8 @@ module axird2umi #(
 );
 
   `include "umi_messages.vh"
+
+  localparam STRB_LOG2 = $clog2(DW/8);
 
   //####################################
   // Registers
