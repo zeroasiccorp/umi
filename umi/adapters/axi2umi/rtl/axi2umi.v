@@ -20,28 +20,31 @@
  * This module converts AXI4 Full transactions (read and write) to UMI.
  * It instantiates separate read and write converters, multiplexes their
  * UMI requests onto a single output interface, and demultiplexes UMI
- * responses back to the appropriate converter based on destination address.
+ * responses back to the appropriate converter based on command opcode.
  *
  * Architecture:
  *   - axiwr2umi: Converts AXI write channels to UMI REQ_WRITE
  *   - axird2umi: Converts AXI read channels to UMI REQ_READ
- *   - umi_mux (2:1): Arbitrates UMI requests with round-robin policy
- *   - umi_demux (1:2): Routes UMI responses based on dstaddr comparison
+ *   - umi_mux (2:1): Arbitrates UMI requests with configurable arbitration policy (arbmode)
+ *   - umi_demux (1:3): Routes UMI responses based on command opcode;
+ *                      unrecognized opcodes are forwarded to a drop port
  *
  * Parameters:
- *   CW          - UMI command width (default 32)
- *   DW          - Data width in bits, must be <= 128
- *   AW          - Address width in bits (default 64)
- *   IDW         - AXI ID width (default 8)
- *   WR_HOSTADDR - UMI source address for write requests (default 0)
- *   RD_HOSTADDR - UMI source address for read requests (default MSB set)
+ *   CW       - UMI command width (default 32)
+ *   DW       - Data width in bits, must be <= 128
+ *   AW       - Address width in bits (default 64)
+ *   IDW      - AXI ID width (default 8)
+ *   HOSTADDR - UMI source address used by both write and read sub-modules
+ *              (default MSB set). The lower DW/8 bits are reserved per the
+ *              UMI spec; the write path uses those bits to encode the AXI
+ *              write strobe value.
  *
  * Response Routing:
- *   UMI responses are routed back to the correct channel by comparing
- *   uhost_resp_dstaddr[AW-1:DW/8] against WR_HOSTADDR and RD_HOSTADDR.
- *   The lower DW/8 bits are masked out since the write path encodes
- *   the AXI strobe value in those bits. WR_HOSTADDR and RD_HOSTADDR
- *   must differ in their upper [AW-1:DW/8] bits for correct routing.
+ *   UMI responses are routed back to the correct channel by inspecting the
+ *   UMI command opcode field [4:0]: UMI_RESP_WRITE (0x04) is forwarded to
+ *   the write converter and UMI_RESP_READ (0x02) is forwarded to the read
+ *   converter. Any other opcode is routed to a third "drop" port whose ready
+ *   is permanently asserted, consuming the transaction and discarding it.
  *
  ******************************************************************************/
 
@@ -50,11 +53,10 @@ module axi2umi #(
   parameter           DW = 128,
   parameter           AW = 64,
   parameter           IDW = 8,
-  /* Note the bottom DW/8 bits of WR_HOSTADDR are ignored
+  /* Note the bottom DW/8 bits of HOSTADDR are ignored
    * per UMI spec. The spec recommendation is to set the bottom
    * DW/8 bits of srcaddr to the AXI write channels strobe value */
-  parameter [AW-1:0]  WR_HOSTADDR = {AW{1'b0}},
-  parameter [AW-1:0]  RD_HOSTADDR = {1'b1, {(AW-1){1'b0}}}
+  parameter [AW-1:0]  HOSTADDR = {1'b1, {(AW-1){1'b0}}}
 )(
   input clk,
   input nreset,
@@ -134,10 +136,7 @@ module axi2umi #(
   output                uhost_resp_ready
 );
 
-  //####################################
-  // Local Parameters
-  //####################################
-  localparam N = 2;  // Number of UMI request sources (WR + RD)
+  `include "umi_messages.vh"
 
   //####################################
   // Wires
@@ -175,8 +174,16 @@ module axi2umi #(
   wire [DW-1:0]     rd_umi_resp_data;
   wire              rd_umi_resp_ready;
 
+  // UMI RESP to be dropped (invalid UMI opcode)
+  wire              umi_resp_drop_valid;
+  wire [CW-1:0]     umi_resp_drop_cmd;
+  wire [AW-1:0]     umi_resp_drop_dstaddr;
+  wire [AW-1:0]     umi_resp_drop_srcaddr;
+  wire [DW-1:0]     umi_resp_drop_data;
+  wire              umi_resp_drop_ready;
+
   // Demux select signal
-  wire [N-1:0]      demux_select;
+  wire [2:0]      demux_select;
 
   //####################################
   // AXI4 Full Write to UMI
@@ -187,7 +194,7 @@ module axi2umi #(
     .DW       (DW),
     .AW       (AW),
     .IDW      (IDW),
-    .HOSTADDR (WR_HOSTADDR)
+    .HOSTADDR (HOSTADDR)
   ) u_axiwr2umi (
     .clk              (clk),
     .nreset           (nreset),
@@ -240,7 +247,7 @@ module axi2umi #(
     .DW       (DW),
     .AW       (AW),
     .IDW      (IDW),
-    .HOSTADDR (RD_HOSTADDR)
+    .HOSTADDR (HOSTADDR)
   ) u_axird2umi (
     .clk              (clk),
     .nreset           (nreset),
@@ -284,17 +291,17 @@ module axi2umi #(
   //####################################
 
   umi_mux #(
-    .N  (N),
+    .N  (2),
     .DW (DW),
     .CW (CW),
     .AW (AW)
   ) u_umi_mux (
     .clk            (clk),
     .nreset         (nreset),
-    // Round-robin arbitration
+    // Configurable arbitration mode
     .arbmode        (arbmode),
     // No masking
-    .arbmask        ({N{1'b0}}),
+    .arbmask        (2'b00),
     // Incoming UMI (concatenated: {RD, WR})
     .umi_in_valid   ({rd_umi_req_valid,   wr_umi_req_valid}),
     .umi_in_cmd     ({rd_umi_req_cmd,     wr_umi_req_cmd}),
@@ -312,16 +319,18 @@ module axi2umi #(
   );
 
   //####################################
-  // UMI Response Demux (1:2)
+  // UMI Response Demux (1:3)
   //####################################
 
-  // Select based on comparing upper bits of dstaddr with HOSTADDR values
-  // Mask out lower DW/8 bits (used for strobe encoding in WR path)
-  assign demux_select[0] = (uhost_resp_dstaddr[AW-1:DW/8] == WR_HOSTADDR[AW-1:DW/8]);
-  assign demux_select[1] = (uhost_resp_dstaddr[AW-1:DW/8] == RD_HOSTADDR[AW-1:DW/8]);
+  // Select based on UMI response command opcode
+  assign demux_select[0] = (uhost_resp_cmd[4:0] == UMI_RESP_WRITE);
+  assign demux_select[1] = (uhost_resp_cmd[4:0] == UMI_RESP_READ);
+  assign demux_select[2] = (uhost_resp_cmd[4:0] != UMI_RESP_READ) & (uhost_resp_cmd[4:0] != UMI_RESP_WRITE);
+
+  assign umi_resp_drop_ready = 1'b1;
 
   umi_demux #(
-    .M  (N),
+    .M  (3),
     .DW (DW),
     .CW (CW),
     .AW (AW)
@@ -334,13 +343,13 @@ module axi2umi #(
     .umi_in_srcaddr (uhost_resp_srcaddr),
     .umi_in_data    (uhost_resp_data),
     .umi_in_ready   (uhost_resp_ready),
-    // Outgoing UMI (concatenated: {RD, WR})
-    .umi_out_valid  ({rd_umi_resp_valid,    wr_umi_resp_valid}),
-    .umi_out_cmd    ({rd_umi_resp_cmd,      wr_umi_resp_cmd}),
-    .umi_out_dstaddr({rd_umi_resp_dstaddr,  wr_umi_resp_dstaddr}),
-    .umi_out_srcaddr({rd_umi_resp_srcaddr,  wr_umi_resp_srcaddr}),
-    .umi_out_data   ({rd_umi_resp_data,     wr_umi_resp_data}),
-    .umi_out_ready  ({rd_umi_resp_ready,    wr_umi_resp_ready})
+    // Outgoing UMI (concatenated: {DROP, RD, WR})
+    .umi_out_valid  ({umi_resp_drop_valid,    rd_umi_resp_valid,    wr_umi_resp_valid}),
+    .umi_out_cmd    ({umi_resp_drop_cmd,      rd_umi_resp_cmd,      wr_umi_resp_cmd}),
+    .umi_out_dstaddr({umi_resp_drop_dstaddr,  rd_umi_resp_dstaddr,  wr_umi_resp_dstaddr}),
+    .umi_out_srcaddr({umi_resp_drop_srcaddr,  rd_umi_resp_srcaddr,  wr_umi_resp_srcaddr}),
+    .umi_out_data   ({umi_resp_drop_data,     rd_umi_resp_data,     wr_umi_resp_data}),
+    .umi_out_ready  ({umi_resp_drop_ready,    rd_umi_resp_ready,    wr_umi_resp_ready})
   );
 
 endmodule

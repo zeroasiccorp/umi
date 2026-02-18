@@ -16,6 +16,7 @@ from cocotbext.axi import AxiBus, AxiMaster, AxiResp
 from cocotbext.umi.drivers.sumi_driver import SumiDriver
 from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
 from cocotbext.umi.models.umi_memory_device import UmiMemoryDevice
+from cocotbext.umi.sumi import SumiCmd, SumiCmdType, SumiTransaction
 from cocotbext.umi.utils import generators
 
 from umi.adapters.axi2umi.axi2umi import AXI2UMI
@@ -157,11 +158,13 @@ async def basic_test(
 
 @cocotb.test(timeout_time=10, timeout_unit="ms")
 @cocotb.parametrize(
+    resp_valid_gen=[None, generators.random_toggle_generator(), generators.wave_generator()],
     test_n_transactions=[int(50 * float(os.getenv("RAND_TEST_LEN_SCALER", default=1)))]
 )
 async def interleaved_test(
     dut,
-    test_n_transactions=10
+    test_n_transactions=10,
+    resp_valid_gen=None,
 ):
     """Test interleaved reads and writes to verify mux arbitration."""
 
@@ -179,7 +182,7 @@ async def interleaved_test(
     dut.uhost_req_ready.value = 1
 
     # Create SUMI driver for UMI response channel
-    sumi_resp_driver = SumiDriver(entity=dut, name="uhost_resp", clock=dut.clk)
+    sumi_resp_driver = SumiDriver(entity=dut, name="uhost_resp", clock=dut.clk, valid_generator=resp_valid_gen)
 
     # Create UMI memory device
     umi_memory = UmiMemoryDevice(
@@ -232,6 +235,111 @@ async def interleaved_test(
             mem_regions[addr] = data
 
     dut._log.info(f"All {test_n_transactions} interleaved operations completed successfully")
+    await ClockCycles(dut.clk, 10)
+
+
+async def inject_invalid_responses(driver, dut, n_invalid, min_gap=2, max_gap=15):
+    """Inject n_invalid invalid UMI responses at random intervals.
+
+    Each injected transaction carries an opcode that is neither UMI_RESP_WRITE
+    nor UMI_RESP_READ, so the DUT's drop port should consume it immediately
+    without disturbing in-flight AXI transactions.
+    """
+    aw = driver.get_addr_width()
+    for i in range(n_invalid):
+        await ClockCycles(dut.clk, random.randint(min_gap, max_gap))
+        # Randomly pick an invalid resp opcode
+        opcode = random.choice([
+            SumiCmdType.UMI_INVALID,
+            SumiCmdType.UMI_REQ_READ,
+            SumiCmdType.UMI_REQ_WRITE,
+            SumiCmdType.UMI_REQ_POSTED,
+            SumiCmdType.UMI_RESP_USER0,
+            SumiCmdType.UMI_RESP_USER1,
+            SumiCmdType.UMI_RESP_FUTURE0,
+            SumiCmdType.UMI_RESP_FUTURE1,
+            SumiCmdType.UMI_RESP_LINK,
+        ])
+        cmd = SumiCmd()
+        cmd.cmd_type.from_int(int(opcode))
+        txn = SumiTransaction(
+            cmd=cmd,
+            da=random.randint(0, (1 << aw) - 1),
+            sa=random.randint(0, (1 << aw) - 1),
+            data=b'\x00',
+            addr_width=aw,
+        )
+        dut._log.debug(f"Injecting invalid UMI response {i+1}/{n_invalid}: opcode=0x{int(opcode):02x}")
+        driver.append(txn)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.parametrize(
+    resp_valid_gen=[None, generators.random_toggle_generator(), generators.wave_generator()],
+    test_n_transactions=[int(50 * float(os.getenv("RAND_TEST_LEN_SCALER", default=1)))]
+)
+async def drop_test(dut, test_n_transactions=10, resp_valid_gen=None):
+    """Verify invalid UMI response opcodes are silently dropped.
+
+    Injects ~2x as many invalid responses as there are AXI transactions,
+    randomly interleaved with the normal traffic. All AXI reads and writes
+    must still complete correctly, proving the drop path does not stall or
+    corrupt in-flight transactions.
+    """
+
+    ####################################
+    # Setup test
+    ####################################
+
+    Clock(dut.clk, 1, unit="ns").start()
+
+    env = Env(dut)
+    await env.setup()
+
+    sumi_req_monitor = SumiMonitor(entity=dut, name="uhost_req", clock=dut.clk)
+    dut.uhost_req_ready.value = 1
+
+    sumi_resp_driver = SumiDriver(entity=dut, name="uhost_resp", clock=dut.clk, valid_generator=resp_valid_gen)
+
+    UmiMemoryDevice(
+        monitor=sumi_req_monitor,
+        driver=sumi_resp_driver,
+        log=dut._log
+    )
+
+    ####################################
+    # Start invalid-response injector
+    ####################################
+
+    n_invalid = test_n_transactions * 2
+    cocotb.start_soon(inject_invalid_responses(sumi_resp_driver, dut, n_invalid))
+
+    ####################################
+    # Run test
+    ####################################
+
+    for i in range(test_n_transactions):
+        size = random.randint(1, 256)
+        test_addr = env.random_addr()
+        test_data = random.randbytes(size)
+
+        dut._log.info(f"Transaction {i+1}/{test_n_transactions}: Write {size} bytes to 0x{test_addr:08x}")
+        write_resp = await env.axi_master.write(test_addr, test_data)
+        assert write_resp.resp == AxiResp.OKAY, f"Write {i+1} expected OKAY, got {write_resp.resp}"
+
+        dut._log.info(f"Transaction {i+1}/{test_n_transactions}: Read {size} bytes from 0x{test_addr:08x}")
+        read_resp = await env.axi_master.read(test_addr, size)
+        assert read_resp.resp == AxiResp.OKAY, f"Read {i+1} expected OKAY, got {read_resp.resp}"
+
+        assert bytes(read_resp.data) == test_data, (
+            f"Transaction {i+1} data mismatch at 0x{test_addr:08x}: "
+            f"expected {test_data.hex()}, got {bytes(read_resp.data).hex()}"
+        )
+
+    dut._log.info(
+        f"All {test_n_transactions} transactions succeeded with "
+        f"{n_invalid} invalid responses injected"
+    )
     await ClockCycles(dut.clk, 10)
 
 
