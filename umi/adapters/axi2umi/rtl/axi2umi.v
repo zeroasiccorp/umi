@@ -56,7 +56,7 @@ module axi2umi #(
   /* Note the bottom DW/8 bits of HOSTADDR are ignored
    * per UMI spec. The spec recommendation is to set the bottom
    * DW/8 bits of srcaddr to the AXI write channels strobe value */
-  parameter [AW-1:0]  HOSTADDR = {1'b1, {(AW-1){1'b0}}}
+  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}}
 )(
   input clk,
   input nreset,
