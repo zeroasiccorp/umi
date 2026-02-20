@@ -100,7 +100,7 @@ class TL2UMIEnv:
         await do_reset(self.nreset, self.clk_period_ns)
 
         # Initialize DUT configuration signals
-        self.dut.globalid.value = 0xAE510000
+        self.dut.srcaddr.value = 0xAE510000
 
     async def wait_for_responses(self, max_cycles=1000):
         """Wait for all expected responses to be received"""
