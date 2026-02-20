@@ -137,8 +137,10 @@ module umi2apb #(parameter AW = 64,        // UMI address width
    //# APB Mapping
    //############################
 
+   /* verilator lint_off SELRANGE */
    assign apb_paddr   = incoming_req ? udev_req_dstaddr[RAW-1:0] :
                                        udev_req_dstaddr_r[RAW-1:0];
+   /* verilator lint_on SELRANGE */
 
    assign apb_pprot   = {1'b0, cmd_prot[1:0]};
    assign apb_pwrite  = cmd_write | cmd_posted;
