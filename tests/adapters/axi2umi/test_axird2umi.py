@@ -33,6 +33,9 @@ class Env:
         """Initialize and reset the DUT, create AXI master."""
         dut = self.dut
 
+        # Initialize config ports
+        dut.hostaddr.value = 0
+
         # Initialize AXI signals that cocotbext-axi may not drive
         dut.s_axi_arvalid.value = 0
         dut.s_axi_rready.value = 0

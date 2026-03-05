@@ -22,12 +22,15 @@
  * a UMI RESP_WRITE expected for each beat before proceeding to the next.
  *
  * Parameters:
- *   CW       - UMI command width (default 32)
- *   DW       - Data width in bits, must be <= 128 (16 byte strobe fits in SA[15:0])
- *   AW       - Address width in bits (default 64)
- *   IDW      - AXI ID width (default 8)
- *   HOSTADDR - UMI source address base. The bottom DW/8 bits are replaced
+ *   CW  - UMI command width (default 32)
+ *   DW  - Data width in bits, must be <= 128 (16 byte strobe fits in SA[15:0])
+ *   AW  - Address width in bits (default 64)
+ *   IDW - AXI ID width (default 8)
+ *
+ * Config Ports:
+ *   hostaddr - UMI source address base. The bottom DW/8 bits are replaced
  *              with the raw AXI write strobe value per UMI spec recommendation.
+ *              Typically static; if changed, must be synchronous to clk.
  *
  * Supported AXI4 Features:
  *   - Write address channel (AW) with ID, address, len, size, burst, prot, qos
@@ -75,17 +78,19 @@
  ******************************************************************************/
 
 module axiwr2umi #(
-  parameter           CW = 32,
-  parameter           DW = 128,
-  parameter           AW = 64,
-  parameter           IDW = 8,
-  /* Note the bottom DW/8 bits of HOSTADDR are ignored
-   * Per UMI spec the recommendation is to set the bottom
-   * DW/8 bits of srcaddr to the AXI write channels strobe value */
-  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}}
+  parameter CW  = 32,
+  parameter DW  = 128,
+  parameter AW  = 64,
+  parameter IDW = 8
 )(
   input clk,
   input nreset,
+
+  /* UMI source address base.
+   * Note: The bottom DW/8 bits of hostaddr are ignored per UMI spec.
+   * Those bits carry the raw AXI write strobe value instead.
+   * Typically static if changed, must be synchronous to clk. */
+  input [AW-1:0] hostaddr,
 
   //####################################
   // AXI4 FULL Write Channels
@@ -318,7 +323,7 @@ module axiwr2umi #(
     .packet_cmd         (uhost_req_cmd)
   );
 
-  assign uhost_req_srcaddr[AW-1:0] = {HOSTADDR[AW-1:DW/8], s_axi_wstrb[DW/8-1:0]};
+  assign uhost_req_srcaddr[AW-1:0] = {hostaddr[AW-1:DW/8], s_axi_wstrb[DW/8-1:0]};
   // Offset destination address to the first active strobe byte
   assign uhost_req_dstaddr[AW-1:0] = dst_addr[AW-1:0] + {{(AW-STRB_LOG2-1){1'b0}}, right_most_strb_bit_index[STRB_LOG2:0]};
 

@@ -30,14 +30,16 @@
  *                      unrecognized opcodes are forwarded to a drop port
  *
  * Parameters:
- *   CW       - UMI command width (default 32)
- *   DW       - Data width in bits, must be <= 128
- *   AW       - Address width in bits (default 64)
- *   IDW      - AXI ID width (default 8)
- *   HOSTADDR - UMI source address used by both write and read sub-modules
- *              (default MSB set). The lower DW/8 bits are reserved per the
- *              UMI spec; the write path uses those bits to encode the AXI
- *              write strobe value.
+ *   CW  - UMI command width (default 32)
+ *   DW  - Data width in bits, must be <= 128
+ *   AW  - Address width in bits (default 64)
+ *   IDW - AXI ID width (default 8)
+ *
+ * Config Ports:
+ *   hostaddr - UMI source address forwarded to both write and read sub-modules.
+ *              The lower DW/8 bits are reserved per the UMI spec; the write
+ *              path replaces those bits with the AXI write strobe value.
+ *              Typically static; if changed, must be synchronous to clk.
  *
  * Response Routing:
  *   UMI responses are routed back to the correct channel by inspecting the
@@ -49,17 +51,19 @@
  ******************************************************************************/
 
 module axi2umi #(
-  parameter           CW = 32,
-  parameter           DW = 128,
-  parameter           AW = 64,
-  parameter           IDW = 8,
-  /* Note the bottom DW/8 bits of HOSTADDR are ignored
-   * per UMI spec. The spec recommendation is to set the bottom
-   * DW/8 bits of srcaddr to the AXI write channels strobe value */
-  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}}
+  parameter CW  = 32,
+  parameter DW  = 128,
+  parameter AW  = 64,
+  parameter IDW = 8
 )(
   input clk,
   input nreset,
+
+  /* UMI source address for all requests.
+   * The bottom DW/8 bits are replaced with the AXI write strobe on the
+   * write path (per UMI spec). Typically static if changed, must be
+   * synchronous to clk. */
+  input [AW-1:0] hostaddr,
 
   input [1:0] arbmode,
 
@@ -190,14 +194,14 @@ module axi2umi #(
   //####################################
 
   axiwr2umi #(
-    .CW       (CW),
-    .DW       (DW),
-    .AW       (AW),
-    .IDW      (IDW),
-    .HOSTADDR (HOSTADDR)
+    .CW  (CW),
+    .DW  (DW),
+    .AW  (AW),
+    .IDW (IDW)
   ) u_axiwr2umi (
     .clk              (clk),
     .nreset           (nreset),
+    .hostaddr         (hostaddr),
     // AXI4 Write Address Channel
     .s_axi_awid       (s_axi_awid),
     .s_axi_awaddr     (s_axi_awaddr),
@@ -243,14 +247,14 @@ module axi2umi #(
   //####################################
 
   axird2umi #(
-    .CW       (CW),
-    .DW       (DW),
-    .AW       (AW),
-    .IDW      (IDW),
-    .HOSTADDR (HOSTADDR)
+    .CW  (CW),
+    .DW  (DW),
+    .AW  (AW),
+    .IDW (IDW)
   ) u_axird2umi (
     .clk              (clk),
     .nreset           (nreset),
+    .hostaddr         (hostaddr),
     // AXI4 Read Address Channel
     .s_axi_arid       (s_axi_arid),
     .s_axi_araddr     (s_axi_araddr),
