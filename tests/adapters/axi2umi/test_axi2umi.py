@@ -36,6 +36,9 @@ class Env:
         """Initialize and reset the DUT, create AXI master."""
         dut = self.dut
 
+        # Initialize config ports
+        dut.hostaddr.value = 0
+
         # Initialize AXI write signals
         dut.s_axi_wid.value = 0
         dut.s_axi_awvalid.value = 0

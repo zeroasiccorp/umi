@@ -24,11 +24,14 @@
  * setting EOM on the last response.
  *
  * Parameters:
- *   CW       - UMI command width (default 32)
- *   DW       - Data width in bits (default 128)
- *   AW       - Address width in bits (default 64)
- *   IDW      - AXI ID width (default 8)
- *   HOSTADDR - UMI source address, used as-is for all read requests
+ *   CW  - UMI command width (default 32)
+ *   DW  - Data width in bits (default 128)
+ *   AW  - Address width in bits (default 64)
+ *   IDW - AXI ID width (default 8)
+ *
+ * Config Ports:
+ *   hostaddr - UMI source address, used as-is for all read requests.
+ *              Typically static; if changed, must be synchronous to clk.
  *
  * Supported AXI4 Features:
  *   - Read address channel (AR) with ID, address, len, size, prot, qos
@@ -63,15 +66,17 @@
  ******************************************************************************/
 
 module axird2umi #(
-  parameter           CW = 32,
-  parameter           DW = 128,
-  parameter           AW = 64,
-  parameter           IDW = 8,
-  // UMI source address for read requests (used as-is, no strobe encoding)
-  parameter [AW-1:0]  HOSTADDR = {AW{1'b0}}
+  parameter CW  = 32,
+  parameter DW  = 128,
+  parameter AW  = 64,
+  parameter IDW = 8
 )(
   input clk,
   input nreset,
+
+  /* UMI source address for read requests (used as-is, no strobe encoding).
+   * Typically static; if changed, must be synchronous to clk. */
+  input [AW-1:0] hostaddr,
 
   //####################################
   // AXI4 FULL Read Channels
@@ -170,7 +175,7 @@ module axird2umi #(
   );
 
   assign uhost_req_dstaddr = {s_axi_araddr[AW-1:STRB_LOG2], {STRB_LOG2{1'b0}}};
-  assign uhost_req_srcaddr = HOSTADDR;
+  assign uhost_req_srcaddr = hostaddr;
   assign uhost_req_data = {DW{1'b0}};
 
   // Connect UMI Response to AXI4 Read Data Channel
