@@ -412,8 +412,10 @@ module umi_fifoflex
 
         assign addr_mask[AW-1:0] = {{AW-$clog2(ODW/8){1'b0}},{$clog2(ODW/8){1'b1}}};
         assign dstaddr_masked[AW-1:0] = latch2fifo_dstaddr[AW-1:0] & addr_mask[AW-1:0];
+        /* verilator lint_off WIDTHEXPAND */
         assign packet_latch_en = (cmd_len_plus_one + (dstaddr_masked[9:0] >> cmd_size)) >
                                  (ODW >> cmd_size >> 3);
+        /* verilator lint_on WIDTHEXPAND */
 
         assign packet_cmd[CW-1:0] = packet_latch_valid ?
                                     packet_cmd_latch[CW-1:0] :
@@ -433,9 +435,11 @@ module umi_fifoflex
         assign latch2in_ready     = ~packet_latch_valid & umi_out_ready;
 
         // Latched command for next split
+        /* verilator lint_off WIDTHEXPAND */
         assign latch_dstaddr = latch2fifo_dstaddr + ((ODW/8) - dstaddr_masked[AW-1:0]);
         assign latch_srcaddr = latch2fifo_srcaddr + ((ODW/8) - dstaddr_masked[AW-1:0]);
         assign latch_data    = latch2fifo_data >> (ODW - (dstaddr_masked[9:0] << 3));
+        /* verilator lint_on WIDTHEXPAND */
         assign latch_len     = cmd_len -
                                ((ODW[10:3] - dstaddr_masked[7:0]) >> cmd_size);
 
