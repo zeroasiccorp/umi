@@ -35,7 +35,7 @@ test = [
     "switchboard-hw == 0.3.1",
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
-    "cocotbext-axi==0.1.26",
+    "cocotbext-axi==0.1.28",
     "cocotbext-umi==0.0.3"
 ]
 
