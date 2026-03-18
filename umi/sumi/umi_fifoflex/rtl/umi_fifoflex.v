@@ -104,6 +104,7 @@ module umi_fifoflex
    wire [8:0]              cmd_len_plus_one;
    wire [AW-1:0]           addr_mask;
    wire [AW-1:0]           dstaddr_masked;
+   localparam [AW-1:0]     ODW_BYTES = {{(AW-32){1'b0}}, ODW[31:0] >> 3};
 
    /*AUTOWIRE*/
    // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -312,7 +313,7 @@ module umi_fifoflex
         assign dstaddr_mergeable = (umi_in_dstaddr == (packet_dstaddr_latch + {{(AW-9){1'b0}}, latch_bytes}));
         assign srcaddr_mergeable = (umi_in_srcaddr == (packet_srcaddr_latch + {{(AW-9){1'b0}}, latch_bytes})) |
                                    umi_in_cmd_response;
-        assign len_mergeable = (latch_bytes + latch_in_bytes) <= (ODW >> 3);
+        assign len_mergeable = ({23'b0, latch_bytes} + {23'b0, latch_in_bytes}) <= (ODW >> 3);
 
         assign tx_mergeable = opcode_mergeable & misc_mergeable &
                               dstaddr_mergeable & srcaddr_mergeable &
@@ -412,7 +413,7 @@ module umi_fifoflex
 
         assign addr_mask[AW-1:0] = {{AW-$clog2(ODW/8){1'b0}},{$clog2(ODW/8){1'b1}}};
         assign dstaddr_masked[AW-1:0] = latch2fifo_dstaddr[AW-1:0] & addr_mask[AW-1:0];
-        assign packet_latch_en = (cmd_len_plus_one + (dstaddr_masked[9:0] >> cmd_size)) >
+        assign packet_latch_en = ({23'b0, cmd_len_plus_one} + ({22'b0, dstaddr_masked[9:0]} >> cmd_size)) >
                                  (ODW >> cmd_size >> 3);
 
         assign packet_cmd[CW-1:0] = packet_latch_valid ?
@@ -433,9 +434,9 @@ module umi_fifoflex
         assign latch2in_ready     = ~packet_latch_valid & umi_out_ready;
 
         // Latched command for next split
-        assign latch_dstaddr = latch2fifo_dstaddr + ((ODW/8) - dstaddr_masked[AW-1:0]);
-        assign latch_srcaddr = latch2fifo_srcaddr + ((ODW/8) - dstaddr_masked[AW-1:0]);
-        assign latch_data    = latch2fifo_data >> (ODW - (dstaddr_masked[9:0] << 3));
+        assign latch_dstaddr = latch2fifo_dstaddr + (ODW_BYTES - dstaddr_masked[AW-1:0]);
+        assign latch_srcaddr = latch2fifo_srcaddr + (ODW_BYTES - dstaddr_masked[AW-1:0]);
+        assign latch_data    = latch2fifo_data >> (ODW - ({22'b0, dstaddr_masked[9:0]} << 3));
         assign latch_len     = cmd_len -
                                ((ODW[10:3] - dstaddr_masked[7:0]) >> cmd_size);
 
@@ -480,8 +481,8 @@ module umi_fifoflex
         assign latch2in_ready     = ~packet_latch_valid & umi_out_ready;
 
         // Latched command for next split
-        assign latch_dstaddr = latch2fifo_dstaddr + (ODW/8);
-        assign latch_srcaddr = latch2fifo_srcaddr + (ODW/8);
+        assign latch_dstaddr = latch2fifo_dstaddr + ODW_BYTES;
+        assign latch_srcaddr = latch2fifo_srcaddr + ODW_BYTES;
         assign latch_data    = latch2fifo_data >> ODW;
         assign latch_len     = cmd_len - (ODW[10:3] >> cmd_size);
 
