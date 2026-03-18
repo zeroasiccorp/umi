@@ -26,7 +26,7 @@
 module umi2tl #(
     parameter CW    = 32,   // UMI command width
     parameter AW    = 64,   // UMI address width
-    parameter IDW   = 128,  // UMI data width
+    parameter IDW   = 128,  // UMI data width (NOTE: only this case tested)
     parameter ODW   = 64    // TileLink data width
 )
 (
@@ -323,6 +323,16 @@ module umi2tl #(
         end
     end
 
+    // Extend tl_d_data to IDW width for shift operations
+    wire [IDW-1:0]          tl_d_data_ext;
+    generate
+        if (IDW > ODW) begin : gen_tl_d_pad
+            assign tl_d_data_ext[IDW-1:0] = {{(IDW-ODW){1'b0}}, tl_d_data[ODW-1:0]};
+        end else begin : gen_tl_d_trunc
+            assign tl_d_data_ext[IDW-1:0] = tl_d_data[IDW-1:0];
+        end
+    endgenerate
+
     // Save metadata to use with response
     reg  [CW-1:0]           fifoflex_out_req_cmd_r;
     reg  [AW-1:0]           fifoflex_out_req_dstaddr_r;
@@ -466,7 +476,7 @@ module umi2tl #(
             udev_resp_data_r <= 'b0;
         end
         else if (tl_d_ready & tl_d_valid) begin
-            udev_resp_data_r <= tl_d_data >> (masked_shift_r*8);
+            udev_resp_data_r <= tl_d_data_ext >> (masked_shift_r*8);
         end
     end
 
