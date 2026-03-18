@@ -17,6 +17,8 @@
  *
  * Documentation:
  *
+ * - NOTE: Not safe, needs more verification.
+ *
  * - This module is a UMI host transaction generator. The module reads
  *   UMI transactions from memory at a rate of one transaction per
  *   clock cycle and sends them out as uhost_req_*s. Valid UMI host
@@ -146,6 +148,14 @@ module umi_tester
    wire [MW-1:0]  apb_wmask;
    wire           apb_req_beat;
    wire           apb_resp_beat;
+   wire           apb_req_sel;
+   wire           apb_resp_sel;
+
+   wire           req_beat;
+   wire           resp_beat;
+
+   wire           mem_req_we;
+   wire           mem_resp_we;
 
    wire [MW-1:0]  resp_din;
 
@@ -200,7 +210,7 @@ module umi_tester
      if(!nreset)
        req_addr[MAW-1:0] <= 'b0;
      else if (!req_done)
-       req_addr[MAW-1:0] <= req_addr[MAW-1:0] + req_beat;
+       req_addr[MAW-1:0] <= req_addr[MAW-1:0] + {{MAW-1{1'b0}}, req_beat};
 
    // requests driven on next clock cycle by RAM
    always @ (posedge clk or negedge nreset)
@@ -238,7 +248,7 @@ module umi_tester
      if(!nreset)
        resp_addr[MAW-1:0] <= 'b0;
      else if (!resp_done)
-       resp_addr[MAW-1:0] <= resp_addr[MAW-1:0] + resp_beat;
+       resp_addr[MAW-1:0] <= resp_addr[MAW-1:0] + {{MAW-1{1'b0}}, resp_beat};
 
    // requests done
    always @ (posedge clk or negedge nreset)
@@ -271,11 +281,11 @@ module umi_tester
    assign apb_req_beat  = (apb_penable & apb_req_sel & apb_pready);
    assign apb_resp_beat = (apb_penable & apb_resp_sel);
 
-   assign apb_din[MW-1:0] = apb_pwdata[RW-1:0] <<
+   assign apb_din[MW-1:0] = {{MW-RW{1'b0}}, apb_pwdata[RW-1:0]} <<
                             apb_paddr[$clog2(MAXWIDTH)-1:0];
 
    // TODO: implement
-   assign apb_wmask[MW-1:0] = {8{apb_pstrb[3:0]}} << apb_paddr[LAW-1:0];
+   assign apb_wmask[MW-1:0] = {{MW-32{1'b0}}, {8{apb_pstrb[3:0]}}} << apb_paddr[LAW-1:0];
 
    // TODO: implement
    assign apb_prdata[RW-1:0] = mem_req_dout[RW-1:0];
@@ -330,7 +340,7 @@ module umi_tester
                                                  resp_din;
 
    assign mem_resp_wmask[MW-1:0] = apb_resp_beat ? apb_wmask :
-                                                   {{MW}{1'b1}};
+                                                   {MW{1'b1}};
 
    la_spram #(.DW    (MW),   // Memory width
               .AW    (MAW))  // Address width (derived)

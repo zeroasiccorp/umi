@@ -4,22 +4,27 @@ from siliconcompiler.flows import lintflow
 import umi
 
 
-def lint(design):
-    top = design.get_topmodule("rtl")
-    if isinstance(top, str) and top:
-        proj = sc.Lint(design)
-        proj.add_fileset("rtl")
-        proj.set_flow(lintflow.LintFlow())
-        return proj.run()
-    else:
-        return True
+_all_modules = [
+    (mod, n)
+    for mod in (umi.sumi, umi.adapters)
+    for n in mod.__all__
+]
 
 
-@pytest.mark.parametrize("name", umi.sumi.__all__)
-def test_lint_sumi(name):
-    assert lint(getattr(umi.sumi, name)())
+@pytest.mark.parametrize("mod,name", _all_modules)
+def test_slang_lint(mod, name):
+    design = getattr(mod, name)()
+    proj = sc.Lint(design)
+    proj.add_fileset("rtl")
+    proj.set_flow(lintflow.LintFlow())
+    assert proj.run()
 
 
-@pytest.mark.parametrize("name", umi.adapters.__all__)
-def test_lint_adapters(name):
-    assert lint(getattr(umi.adapters, name)())
+@pytest.mark.eda
+@pytest.mark.parametrize("mod,name", _all_modules)
+def test_verilator_lint(mod, name):
+    design = getattr(mod, name)()
+    proj = sc.Lint(design)
+    proj.add_fileset("rtl")
+    proj.set_flow(lintflow.LintFlow(tool="verilator"))
+    assert proj.run()

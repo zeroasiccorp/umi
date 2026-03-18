@@ -77,7 +77,8 @@ module axil2umi #(
 
     `include "umi_messages.vh"
 
-    localparam DWLOG = $clog2(DW/8);
+    localparam DWLOG    = $clog2(DW/8);
+    localparam CTRWIDTH = DWLOG + 1;    // width for strobe popcount (0..DW/8)
 
     // Additional UMI signals
     wire [4:0]      umi_req_cmd_opcode;
@@ -141,14 +142,14 @@ module axil2umi #(
 
     // Write data prep
     integer             i;
-    reg  [DWLOG:0]      axi_wstrb_ctr;
+    reg  [CTRWIDTH-1:0]  axi_wstrb_ctr;
     reg  [(DW/8)-1:0]   axi_wstrb_cml_one;
     reg  [DWLOG-1:0]    axi_wdata_byte_shift;
 
     always @* begin
-        axi_wstrb_ctr = {(DWLOG + 1){1'b0}};
+        axi_wstrb_ctr = {CTRWIDTH{1'b0}};
         for (i = 0; i < (DW/8); i = i + 1) begin
-            axi_wstrb_ctr = axi_wstrb_ctr + {{(DWLOG){1'b0}}, axi_wstrb[i]};
+            axi_wstrb_ctr = axi_wstrb_ctr + {{(CTRWIDTH-1){1'b0}}, axi_wstrb[i]};
         end
 
         axi_wstrb_cml_one[0] = axi_wstrb[0];
@@ -168,7 +169,7 @@ module axil2umi #(
     // Write data
     reg  [DW-1:0]       axi_wdata_r;
     reg  [(DW/8)-1:0]   axi_wstrb_r;
-    reg  [DWLOG:0]      axi_wstrb_ctr_r;
+    reg  [CTRWIDTH-1:0]  axi_wstrb_ctr_r;
     reg  [AW-1:0]       axi_addr_offset;
     reg                 axi_wvalid_r;
 
@@ -180,7 +181,7 @@ module axil2umi #(
             axi_addr_offset <= 'b0;
         end
         else if (axi_wvalid & axi_wready) begin
-            axi_wdata_r     <= axi_wdata >> ({3'b000, axi_wdata_byte_shift} << 3);
+            axi_wdata_r     <= axi_wdata >> ({{3{1'b0}}, axi_wdata_byte_shift} << 3);
             axi_wstrb_r     <= axi_wstrb;
             axi_wstrb_ctr_r <= axi_wstrb_ctr;
             axi_addr_offset <= {{(AW-DWLOG){1'b0}}, axi_wdata_byte_shift};
@@ -231,7 +232,7 @@ module axil2umi #(
                                 UMI_REQ_WRITE :
                                 UMI_REQ_READ;
     assign umi_req_cmd_len    = write_in_flight ?
-                                (axi_wstrb_ctr_r-1) :
+                                {{(8-CTRWIDTH){1'b0}}, axi_wstrb_ctr_r} - 8'd1 :
                                 ((DW/8)-1);
     assign umi_req_cmd_prot   = write_in_flight ?
                                 axi_awprot_r[1:0] :
