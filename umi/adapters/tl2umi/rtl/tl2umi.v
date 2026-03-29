@@ -462,27 +462,20 @@ module tl2umi #(
 
     la_syncfifo #(
         .DW     (CW + AW + AW + DW),
-        .DEPTH  (2),
-        .PROP   ("DEFAULT")
+        .DEPTH  (2)
     ) tl2umi_req_fifo (
         .clk        (clk),
         .nreset     (nreset),
         .clear      (1'b0),
-
-        .vss        (1'b0),
-        .vdd        (1'b1),
-
-        .chaosmode  (1'b0),
-        .ctrl       (1'b0),
-        .test       (1'b0),
-
         .wr_en      (uhost_req_packet_valid),
         .wr_din     ({uhost_req_packet_cmd, uhost_req_packet_dstaddr, uhost_req_packet_srcaddr, uhost_req_packet_data}),
         .wr_full    (tl2umi_req_fifo_wr_full),
-
         .rd_en      (uhost_req_ready),
         .rd_dout    ({uhost_req_cmd, uhost_req_dstaddr, uhost_req_srcaddr, uhost_req_data}),
-        .rd_empty   (tl2umi_req_fifo_rd_empty)
+        .rd_empty   (tl2umi_req_fifo_rd_empty),
+        .selctrl    (1'b0),
+        .ctrl       (1'b0),
+        .status     ()
     );
 
     assign uhost_req_packet_ready = ~tl2umi_req_fifo_wr_full;
