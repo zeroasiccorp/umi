@@ -247,18 +247,16 @@ module umi_stream
                .wr_almost_full (mm2s_fifo_almost_full),
                .wr_din         (mm2s_fifo_din[DW:0]),
                .wr_en          (mm2s_fifo_write),
-               .wr_chaosmode   (1'b0),
                // read side
                .rd_clk         (usi_clk),
                .rd_nreset      (usi_nreset),
                .rd_dout        (mm2s_fifo_dout[DW:0]),
                .rd_empty       (mm2s_fifo_empty),
                .rd_en          (mm2s_fifo_read),
-               // misc
-               .vss            (1'b0),
-               .vdd            (1'b1),
+               // technology
+               .selctrl        (1'b0),
                .ctrl           (1'b0),
-               .test           (1'b0));
+               .status         ());
 
    //######################################################
    // Stream to Memory Mapped (S2MM)
@@ -278,17 +276,15 @@ module umi_stream
                 .wr_almost_full (s2mm_fifo_almost_full),
                 .wr_din         (s2mm_fifo_din[DW:0]),
                 .wr_en          (s2mm_fifo_write),
-                .wr_chaosmode   (1'b0),
                 // read side (umi domain)
                 .rd_clk         (umi_clk),
                 .rd_nreset      (umi_nreset),
                 .rd_dout        (s2mm_fifo_dout[DW:0]),
                 .rd_empty       (s2mm_fifo_empty),
                 .rd_en          (s2mm_fifo_read),
-                // misc
-                .vss            (1'b0),
-                .vdd            (1'b1),
+                // technology
+                .selctrl        (1'b0),
                 .ctrl           (1'b0),
-                .test           (1'b0));
+                .status         ());
 
 endmodule

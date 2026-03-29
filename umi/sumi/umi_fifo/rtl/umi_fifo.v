@@ -92,14 +92,12 @@ module umi_fifo
           .wr_nreset      (umi_in_nreset),
           .wr_din         ({umi_in_data[DW-1:0],umi_in_srcaddr[AW-1:0],umi_in_dstaddr[AW-1:0],umi_in_cmd[CW-1:0]}),
           .wr_en          (umi_in_valid),
-          .wr_chaosmode   (chaosmode),
           .rd_clk         (umi_out_clk),
           .rd_nreset      (umi_out_nreset),
           .rd_en          (fifo_read),
-          .vss            (vss),
-          .vdd            (vdd),
+          .selctrl        (1'b0),
           .ctrl           (1'b0),
-          .test           (1'b0));
+          .status         ());
 
    //#################################
    // FIFO Bypass
