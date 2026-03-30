@@ -541,13 +541,8 @@ module lumi_rx
                                                          'h0 :
                                                          req_fifo_dout[fifo_rd_shift[j*8+:8]*RXFIFOW+:RXFIFOW];
 
-        la_syncfifo #(.DW(RXFIFOW),  // Memory width
-                      .DEPTH(CRDTDEPTH), // FIFO depth
-                      .NS(1),            // Number of power supplies
-                      .CHAOS(0),         // generates random full logic when set
-                      .CTRLW(1),         // width of asic ctrl interface
-                      .TESTW(1),         // width of asic test interface
-                      .PROP("DEFAULT"))  // Pass through variable for hard macro
+        la_syncfifo #(.DW(RXFIFOW),
+                      .DEPTH(CRDTDEPTH))
         req_fifo_i(// Outputs
                    .wr_full          (req_fifo_full[j]),
                    .rd_dout          (req_fifo_dout[j*RXFIFOW+:RXFIFOW]),
@@ -556,14 +551,12 @@ module lumi_rx
                    .clk              (ioclk),
                    .nreset           (ionreset),
                    .clear            (1'b0),
-                   .vss              (1'b0),
-                   .vdd              (1'b1),
-                   .chaosmode        (1'b0),
-                   .ctrl             (1'b0),
-                   .test             (1'b0),
                    .wr_en            (req_fifo_wr[j]),
                    .wr_din           (req_fifo_din[j*RXFIFOW+:RXFIFOW]),
-                   .rd_en            (req_fifo_rd[j]));
+                   .rd_en            (req_fifo_rd[j]),
+                   .selctrl          (1'b0),
+                   .ctrl             ('d0),
+                   .status           ());
      end
 
    //########################################
@@ -589,13 +582,8 @@ module lumi_rx
                                                           'h0 :
                                                           resp_fifo_dout[fifo_rd_shift[k*8+:8]*RXFIFOW+:RXFIFOW];
 
-        la_syncfifo #(.DW(RXFIFOW),  // Memory width
-                      .DEPTH(CRDTDEPTH), // FIFO depth
-                      .NS(1),            // Number of power supplies
-                      .CHAOS(0),         // generates random full logic when set
-                      .CTRLW(1),         // width of asic ctrl interface
-                      .TESTW(1),         // width of asic test interface
-                      .PROP("DEFAULT"))  // Pass through variable for hard macro
+        la_syncfifo #(.DW(RXFIFOW),
+                      .DEPTH(CRDTDEPTH))
         resp_fifo_i(// Outputs
                     .wr_full          (resp_fifo_full[k]),
                     .rd_dout          (resp_fifo_dout[k*RXFIFOW+:RXFIFOW]),
@@ -604,14 +592,12 @@ module lumi_rx
                     .clk              (ioclk),
                     .nreset           (ionreset),
                     .clear            (1'b0),
-                    .vss              (1'b0),
-                    .vdd              (1'b1),
-                    .chaosmode        (1'b0),
-                    .ctrl             (1'b0),
-                    .test             (1'b0),
                     .wr_en            (resp_fifo_wr[k]),
                     .wr_din           (resp_fifo_din[k*RXFIFOW+:RXFIFOW]),
-                    .rd_en            (resp_fifo_rd[k]));
+                    .rd_en            (resp_fifo_rd[k]),
+                    .selctrl          (1'b0),
+                    .ctrl             ('d0),
+                    .status           ());
      end
 
    //########################################
@@ -654,13 +640,8 @@ module lumi_rx
    assign lnk_fifo_rd          = ~lnk_fifo_empty;
    assign lnk_fifo_din[CW-1:0] = lnk_shiftreg[CW-1:0];
 
-   la_asyncfifo #(.DW(CW)  ,  // Link commands are only 32b
-                  .DEPTH(8),  // FIFO depth
-                  .NS(1),     // Number of power supplies
-                  .CHAOS(0),  // generates random full logic when set
-                  .CTRLW(1),  // width of asic ctrl interface
-                  .TESTW(1),  // width of asic test interface
-                  .PROP("DEFAULT")) // Pass through variable for hard macro
+   la_asyncfifo #(.DW(CW),
+                  .DEPTH(8))
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .wr_almost_full   (),
@@ -671,14 +652,12 @@ module lumi_rx
               .rd_nreset        (nreset),
               .wr_clk           (ioclk),
               .wr_nreset        (ionreset),
-              .vss              (1'b0),
-              .vdd              (1'b1),
-              .wr_chaosmode     (1'b0),
-              .ctrl             (1'b0),
-              .test             (1'b0),
               .wr_en            (lnk_fifo_wr),
               .wr_din           (lnk_fifo_din[CW-1:0]),
-              .rd_en            (lnk_fifo_rd));
+              .rd_en            (lnk_fifo_rd),
+              .selctrl          (1'b0),
+              .ctrl             ('d0),
+              .status           ());
 
    /*umi_unpack AUTO_TEMPLATE(
     .packet_cmd        (lnk_fifo_dout[]),
@@ -774,13 +753,8 @@ module lumi_rx
    assign sync_fifo_wr[0] = fifo_rd[0];
    assign sync_fifo_rd[0] = ~sync_fifo_empty[0] & ~(umi_req_out_valid & ~umi_req_out_ready);
 
-   la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
-                  .DEPTH(ASYNCFIFODEPTH), // FIFO depth
-                  .NS(1),                 // Number of power supplies
-                  .CHAOS(0),              // generates random full logic when set
-                  .CTRLW(1),              // width of asic ctrl interface
-                  .TESTW(1),              // width of asic test interface
-                  .PROP("DEFAULT"))       // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),
+                  .DEPTH(ASYNCFIFODEPTH))
    req_syncfifo_i(// Outputs
                   .wr_full          (sync_fifo_full[0]),
                   .wr_almost_full   (),
@@ -791,25 +765,18 @@ module lumi_rx
                   .rd_nreset        (nreset),
                   .wr_clk           (ioclk),
                   .wr_nreset        (ionreset),
-                  .vss              (1'b0),
-                  .vdd              (1'b1),
-                  .wr_chaosmode     (1'b0),
-                  .ctrl             (1'b0),
-                  .test             (1'b0),
                   .wr_en            (sync_fifo_wr[0]),
                   .wr_din           (req_fifo_dout_muxed[IOW-1:0]),
-                  .rd_en            (sync_fifo_rd[0]));
+                  .rd_en            (sync_fifo_rd[0]),
+                  .selctrl          (1'b0),
+                  .ctrl             ('d0),
+                  .status           ());
 
    assign sync_fifo_wr[1] = fifo_rd[1];
    assign sync_fifo_rd[1] = ~sync_fifo_empty[1] & ~(umi_resp_out_valid & ~umi_resp_out_ready);
 
-   la_asyncfifo #(.DW(IOW),               // Link commands are only 32b
-                  .DEPTH(ASYNCFIFODEPTH), // FIFO depth
-                  .NS(1),                 // Number of power supplies
-                  .CHAOS(0),              // generates random full logic when set
-                  .CTRLW(1),              // width of asic ctrl interface
-                  .TESTW(1),              // width of asic test interface
-                  .PROP("DEFAULT"))       // Pass through variable for hard macro
+   la_asyncfifo #(.DW(IOW),
+                  .DEPTH(ASYNCFIFODEPTH))
    resp_syncfifo_i(// Outputs
                    .wr_full          (sync_fifo_full[1]),
                    .wr_almost_full   (),
@@ -820,14 +787,12 @@ module lumi_rx
                    .rd_nreset        (nreset),
                    .wr_clk           (ioclk),
                    .wr_nreset        (ionreset),
-                   .vss              (1'b0),
-                   .vdd              (1'b1),
-                   .wr_chaosmode     (1'b0),
-                   .ctrl             (1'b0),
-                   .test             (1'b0),
                    .wr_en            (sync_fifo_wr[1]),
                    .wr_din           (resp_fifo_dout_muxed[IOW-1:0]),
-                   .rd_en            (sync_fifo_rd[1]));
+                   .rd_en            (sync_fifo_rd[1]),
+                   .selctrl          (1'b0),
+                   .ctrl             ('d0),
+                   .status           ());
 
    // link commands will be consumed before the sync fifo so that they are not blocked
    /*umi_decode AUTO_TEMPLATE(

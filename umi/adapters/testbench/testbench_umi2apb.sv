@@ -109,13 +109,10 @@ module testbench (
         .apb_prdata         (prdata),
         .apb_pslverr        (pslverr));
 
-    wire [CTRLW-1:0]  sram_ctrl = 8'b0;
-
     la_spram #(
         .DW    (RW),
         .AW    ($clog2(RAMDEPTH)),
-        .CTRLW (CTRLW),
-        .TESTW (128)
+        .CTRLW (CTRLW)
     ) la_spram_i(
         // Outputs
         .dout             (prdata),
@@ -126,11 +123,9 @@ module testbench (
         .wmask            ({RW{1'b1}}),
         .addr             (paddr[$clog2(RW) +: $clog2(RAMDEPTH)]),
         .din              (pwdata),
-        .vss              (1'b0),
-        .vdd              (1'b1),
-        .vddio            (1'b1),
-        .ctrl             (sram_ctrl),
-        .test             (128'h0));
+        .selctrl          (1'b0),
+        .ctrl             ({CTRLW{1'b0}}),
+        .status           ());
 
     assign pready = psel & penable & randomize_ready;
 

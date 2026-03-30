@@ -319,11 +319,9 @@ module umi_tester
            .wmask            (mem_req_wmask[MW-1:0]),
            .addr             (mem_req_addr[MAW-1:0]),
            .din              (mem_req_din[MW-1:0]),
-           .vss              (1'b0),
-           .vdd              (1'b1),
-           .vddio            (1'b1),
-           .ctrl             (1'b0),
-           .test             (1'b0));
+           .selctrl          (1'b0),
+           .ctrl             ('d0),
+           .status           ());
 
    //#########################################################
    // RESPONSE RAM
@@ -353,11 +351,9 @@ module umi_tester
             .wmask            (mem_resp_wmask[MW-1:0]),
             .addr             (mem_resp_addr[MAW-1:0]),
             .din              (mem_resp_din[MW-1:0]),
-            .vss              (1'b0),
-            .vdd              (1'b1),
-            .vddio            (1'b1),
-            .ctrl             (1'b0),
-            .test             (1'b0));
+            .selctrl          (1'b0),
+            .ctrl             ('d0),
+            .status           ());
 
 endmodule
 // Local Variables:

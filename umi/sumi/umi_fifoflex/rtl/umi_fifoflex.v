@@ -588,14 +588,12 @@ module umi_fifoflex
                .wr_nreset       (umi_in_nreset),
                .wr_din          (fifo_din[ODW+AW+AW+CW-1:0]),
                .wr_en           (fifo_write),
-               .wr_chaosmode    (chaosmode),
                .rd_clk          (umi_out_clk),
                .rd_nreset       (umi_out_nreset),
                .rd_en           (fifo_read),
-               .vss             (vss),
-               .vdd             (vdd),
-               .ctrl            (1'b0),
-               .test            (1'b0));
+               .selctrl         (1'b0),
+               .ctrl            ('d0),
+               .status          ());
      end
    else if (|DEPTH)
      begin
@@ -611,12 +609,10 @@ module umi_fifoflex
                .clear        (1'b0),
                .wr_din       (fifo_din[ODW+AW+AW+CW-1:0]),
                .wr_en        (fifo_write),
-               .chaosmode    (chaosmode),
                .rd_en        (fifo_read),
-               .vss          (vss),
-               .vdd          (vdd),
-               .ctrl         (1'b0),
-               .test         (1'b0));
+               .selctrl      (1'b0),
+               .ctrl         ('d0),
+               .status       ());
      end
    else
      begin
