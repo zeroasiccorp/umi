@@ -309,7 +309,8 @@ module umi_tester
 
 
    la_spram #(.DW    (MW),      // Memory width
-              .AW    (MAW))     // Address width (derived)
+              .AW    (MAW),     // Address width (derived)
+              .CTRLW (1))
    ram_req(// Outputs
            .dout             (mem_req_dout[MW-1:0]),
            // Inputs
@@ -341,7 +342,8 @@ module umi_tester
                                                    {MW{1'b1}};
 
    la_spram #(.DW    (MW),   // Memory width
-              .AW    (MAW))  // Address width (derived)
+              .AW    (MAW),  // Address width (derived)
+              .CTRLW (1))
    ram_resp(// Outputs
             .dout             (mem_resp_dout[MW-1:0]),
             // Inputs
