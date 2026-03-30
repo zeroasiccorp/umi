@@ -624,8 +624,7 @@ module lumi_tx
    assign phy_txrdy = ~phy_fifo_full;
 
    la_asyncfifo #(.DW(IOW),
-                  .DEPTH(8),
-                  .CTRLW(1))
+                  .DEPTH(8))
    phy_fifo_i(// Outputs
               .wr_full          (phy_fifo_full),
               .wr_almost_full   (),
@@ -640,7 +639,7 @@ module lumi_tx
               .wr_din           (shiftreg[IOW-1:0]),
               .rd_en            (1'b1),
               .selctrl          (1'b0),
-              .ctrl             (1'b0),
+              .ctrl             ('d0),
               .status           ());
 
    la_rsync la_rsync(.clk(ioclk),

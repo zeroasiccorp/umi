@@ -309,8 +309,7 @@ module umi_tester
 
 
    la_spram #(.DW    (MW),      // Memory width
-              .AW    (MAW),     // Address width (derived)
-              .CTRLW (1))
+              .AW    (MAW))     // Address width (derived)
    ram_req(// Outputs
            .dout             (mem_req_dout[MW-1:0]),
            // Inputs
@@ -321,7 +320,7 @@ module umi_tester
            .addr             (mem_req_addr[MAW-1:0]),
            .din              (mem_req_din[MW-1:0]),
            .selctrl          (1'b0),
-           .ctrl             (1'b0),
+           .ctrl             ('d0),
            .status           ());
 
    //#########################################################
@@ -342,8 +341,7 @@ module umi_tester
                                                    {MW{1'b1}};
 
    la_spram #(.DW    (MW),   // Memory width
-              .AW    (MAW),  // Address width (derived)
-              .CTRLW (1))
+              .AW    (MAW))  // Address width (derived)
    ram_resp(// Outputs
             .dout             (mem_resp_dout[MW-1:0]),
             // Inputs
@@ -354,7 +352,7 @@ module umi_tester
             .addr             (mem_resp_addr[MAW-1:0]),
             .din              (mem_resp_din[MW-1:0]),
             .selctrl          (1'b0),
-            .ctrl             (1'b0),
+            .ctrl             ('d0),
             .status           ());
 
 endmodule

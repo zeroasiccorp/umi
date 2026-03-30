@@ -462,7 +462,6 @@ module tl2umi #(
 
     la_syncfifo #(
         .DW     (CW + AW + AW + DW),
-        .CTRLW  (1),
         .DEPTH  (2)
     ) tl2umi_req_fifo (
         .clk        (clk),
@@ -475,7 +474,7 @@ module tl2umi #(
         .rd_dout    ({uhost_req_cmd, uhost_req_dstaddr, uhost_req_srcaddr, uhost_req_data}),
         .rd_empty   (tl2umi_req_fifo_rd_empty),
         .selctrl    (1'b0),
-        .ctrl       (1'b0),
+        .ctrl       ('d0),
         .status     ()
     );
 

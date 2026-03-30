@@ -239,8 +239,7 @@ module umi_stream
    assign usi_out_last   = mm2s_fifo_dout[DW];
 
    la_asyncfifo #(.DW(DW+1),
-                  .DEPTH(MM2S_DEPTH),
-                  .CTRLW(1))
+                  .DEPTH(MM2S_DEPTH))
    ififo_mm2s (// write side
                .wr_clk         (umi_clk),
                .wr_nreset      (umi_nreset),
@@ -256,7 +255,7 @@ module umi_stream
                .rd_en          (mm2s_fifo_read),
                // technology
                .selctrl        (1'b0),
-               .ctrl           (1'b0),
+               .ctrl           ('d0),
                .status         ());
 
    //######################################################
@@ -269,8 +268,7 @@ module umi_stream
    assign usi_in_ready          = ~s2mm_fifo_full;
 
    la_asyncfifo #(.DW(DW+1),
-                  .DEPTH(S2MM_DEPTH),
-                  .CTRLW(1))
+                  .DEPTH(S2MM_DEPTH))
    ififo_s2mm  (// write side (stream domain)
                 .wr_clk         (usi_clk),
                 .wr_nreset      (usi_nreset),
@@ -286,7 +284,7 @@ module umi_stream
                 .rd_en          (s2mm_fifo_read),
                 // technology
                 .selctrl        (1'b0),
-                .ctrl           (1'b0),
+                .ctrl           ('d0),
                 .status         ());
 
 endmodule

@@ -81,8 +81,7 @@ module umi_fifo
 
    la_asyncfifo  #(.DW(CW+AW+AW+DW),
                    .DEPTH(DEPTH),
-                   .ALMOSTFULL(ALMOSTFULL),
-                   .CTRLW(1))
+                   .ALMOSTFULL(ALMOSTFULL))
    fifo  (// Outputs
           .wr_full        (fifo_full),
           .wr_almost_full (fifo_almost_full),
@@ -97,7 +96,7 @@ module umi_fifo
           .rd_nreset      (umi_out_nreset),
           .rd_en          (fifo_read),
           .selctrl        (1'b0),
-          .ctrl           (1'b0),
+          .ctrl           ('d0),
           .status         ());
 
    //#################################

@@ -542,8 +542,7 @@ module lumi_rx
                                                          req_fifo_dout[fifo_rd_shift[j*8+:8]*RXFIFOW+:RXFIFOW];
 
         la_syncfifo #(.DW(RXFIFOW),
-                      .DEPTH(CRDTDEPTH),
-                      .CTRLW(1))
+                      .DEPTH(CRDTDEPTH))
         req_fifo_i(// Outputs
                    .wr_full          (req_fifo_full[j]),
                    .rd_dout          (req_fifo_dout[j*RXFIFOW+:RXFIFOW]),
@@ -556,7 +555,7 @@ module lumi_rx
                    .wr_din           (req_fifo_din[j*RXFIFOW+:RXFIFOW]),
                    .rd_en            (req_fifo_rd[j]),
                    .selctrl          (1'b0),
-                   .ctrl             (1'b0),
+                   .ctrl             ('d0),
                    .status           ());
      end
 
@@ -584,8 +583,7 @@ module lumi_rx
                                                           resp_fifo_dout[fifo_rd_shift[k*8+:8]*RXFIFOW+:RXFIFOW];
 
         la_syncfifo #(.DW(RXFIFOW),
-                      .DEPTH(CRDTDEPTH),
-                      .CTRLW(1))
+                      .DEPTH(CRDTDEPTH))
         resp_fifo_i(// Outputs
                     .wr_full          (resp_fifo_full[k]),
                     .rd_dout          (resp_fifo_dout[k*RXFIFOW+:RXFIFOW]),
@@ -598,7 +596,7 @@ module lumi_rx
                     .wr_din           (resp_fifo_din[k*RXFIFOW+:RXFIFOW]),
                     .rd_en            (resp_fifo_rd[k]),
                     .selctrl          (1'b0),
-                    .ctrl             (1'b0),
+                    .ctrl             ('d0),
                     .status           ());
      end
 
@@ -643,8 +641,7 @@ module lumi_rx
    assign lnk_fifo_din[CW-1:0] = lnk_shiftreg[CW-1:0];
 
    la_asyncfifo #(.DW(CW),
-                  .DEPTH(8),
-                  .CTRLW(1))
+                  .DEPTH(8))
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .wr_almost_full   (),
@@ -659,7 +656,7 @@ module lumi_rx
               .wr_din           (lnk_fifo_din[CW-1:0]),
               .rd_en            (lnk_fifo_rd),
               .selctrl          (1'b0),
-              .ctrl             (1'b0),
+              .ctrl             ('d0),
               .status           ());
 
    /*umi_unpack AUTO_TEMPLATE(
@@ -757,8 +754,7 @@ module lumi_rx
    assign sync_fifo_rd[0] = ~sync_fifo_empty[0] & ~(umi_req_out_valid & ~umi_req_out_ready);
 
    la_asyncfifo #(.DW(IOW),
-                  .DEPTH(ASYNCFIFODEPTH),
-                  .CTRLW(1))
+                  .DEPTH(ASYNCFIFODEPTH))
    req_syncfifo_i(// Outputs
                   .wr_full          (sync_fifo_full[0]),
                   .wr_almost_full   (),
@@ -773,15 +769,14 @@ module lumi_rx
                   .wr_din           (req_fifo_dout_muxed[IOW-1:0]),
                   .rd_en            (sync_fifo_rd[0]),
                   .selctrl          (1'b0),
-                  .ctrl             (1'b0),
+                  .ctrl             ('d0),
                   .status           ());
 
    assign sync_fifo_wr[1] = fifo_rd[1];
    assign sync_fifo_rd[1] = ~sync_fifo_empty[1] & ~(umi_resp_out_valid & ~umi_resp_out_ready);
 
    la_asyncfifo #(.DW(IOW),
-                  .DEPTH(ASYNCFIFODEPTH),
-                  .CTRLW(1))
+                  .DEPTH(ASYNCFIFODEPTH))
    resp_syncfifo_i(// Outputs
                    .wr_full          (sync_fifo_full[1]),
                    .wr_almost_full   (),
@@ -796,7 +791,7 @@ module lumi_rx
                    .wr_din           (resp_fifo_dout_muxed[IOW-1:0]),
                    .rd_en            (sync_fifo_rd[1]),
                    .selctrl          (1'b0),
-                   .ctrl             (1'b0),
+                   .ctrl             ('d0),
                    .status           ());
 
    // link commands will be consumed before the sync fifo so that they are not blocked
