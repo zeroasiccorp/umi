@@ -577,6 +577,7 @@ module umi_fifoflex
    generate if (|ASYNC)
      begin
         la_asyncfifo  #(.DW(CW+AW+AW+ODW),
+                        .CTRLW(1),
                         .DEPTH(DEPTH))
         fifo  (// Outputs
                .wr_full         (fifo_full_raw),
@@ -598,6 +599,7 @@ module umi_fifoflex
    else if (|DEPTH)
      begin
         la_syncfifo  #(.DW(CW+AW+AW+ODW),
+                       .CTRLW(1),
                        .DEPTH(DEPTH))
         fifo  (// Outputs
                .wr_full      (fifo_full_raw),

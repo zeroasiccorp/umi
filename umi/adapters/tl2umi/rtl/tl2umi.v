@@ -462,6 +462,7 @@ module tl2umi #(
 
     la_syncfifo #(
         .DW     (CW + AW + AW + DW),
+        .CTRLW  (1),
         .DEPTH  (2)
     ) tl2umi_req_fifo (
         .clk        (clk),

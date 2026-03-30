@@ -624,7 +624,8 @@ module lumi_tx
    assign phy_txrdy = ~phy_fifo_full;
 
    la_asyncfifo #(.DW(IOW),
-                  .DEPTH(8))
+                  .DEPTH(8),
+                  .CTRLW(1))
    phy_fifo_i(// Outputs
               .wr_full          (phy_fifo_full),
               .wr_almost_full   (),

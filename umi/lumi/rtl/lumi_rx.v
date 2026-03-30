@@ -542,7 +542,8 @@ module lumi_rx
                                                          req_fifo_dout[fifo_rd_shift[j*8+:8]*RXFIFOW+:RXFIFOW];
 
         la_syncfifo #(.DW(RXFIFOW),
-                      .DEPTH(CRDTDEPTH))
+                      .DEPTH(CRDTDEPTH),
+                      .CTRLW(1))
         req_fifo_i(// Outputs
                    .wr_full          (req_fifo_full[j]),
                    .rd_dout          (req_fifo_dout[j*RXFIFOW+:RXFIFOW]),
@@ -583,7 +584,8 @@ module lumi_rx
                                                           resp_fifo_dout[fifo_rd_shift[k*8+:8]*RXFIFOW+:RXFIFOW];
 
         la_syncfifo #(.DW(RXFIFOW),
-                      .DEPTH(CRDTDEPTH))
+                      .DEPTH(CRDTDEPTH),
+                      .CTRLW(1))
         resp_fifo_i(// Outputs
                     .wr_full          (resp_fifo_full[k]),
                     .rd_dout          (resp_fifo_dout[k*RXFIFOW+:RXFIFOW]),
@@ -641,7 +643,8 @@ module lumi_rx
    assign lnk_fifo_din[CW-1:0] = lnk_shiftreg[CW-1:0];
 
    la_asyncfifo #(.DW(CW),
-                  .DEPTH(8))
+                  .DEPTH(8),
+                  .CTRLW(1))
    lnk_fifo_i(// Outputs
               .wr_full          (),
               .wr_almost_full   (),
@@ -754,7 +757,8 @@ module lumi_rx
    assign sync_fifo_rd[0] = ~sync_fifo_empty[0] & ~(umi_req_out_valid & ~umi_req_out_ready);
 
    la_asyncfifo #(.DW(IOW),
-                  .DEPTH(ASYNCFIFODEPTH))
+                  .DEPTH(ASYNCFIFODEPTH),
+                  .CTRLW(1))
    req_syncfifo_i(// Outputs
                   .wr_full          (sync_fifo_full[0]),
                   .wr_almost_full   (),
@@ -776,7 +780,8 @@ module lumi_rx
    assign sync_fifo_rd[1] = ~sync_fifo_empty[1] & ~(umi_resp_out_valid & ~umi_resp_out_ready);
 
    la_asyncfifo #(.DW(IOW),
-                  .DEPTH(ASYNCFIFODEPTH))
+                  .DEPTH(ASYNCFIFODEPTH),
+                  .CTRLW(1))
    resp_syncfifo_i(// Outputs
                    .wr_full          (sync_fifo_full[1]),
                    .wr_almost_full   (),
