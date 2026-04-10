@@ -2,23 +2,40 @@
 # and provides common functionality for the tests.
 
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
+from cocotb.triggers import ClockCycles, Timer
 
 from cocotb_bus.scoreboard import Scoreboard
 from cocotbext.apb import ApbBus, ApbSlave, MemoryRegion
 
-from cocotblib.umi.drivers.sumi_driver import SumiDriver
-from cocotblib.umi.monitors.sumi_monitor import SumiMonitor
-from cocotblib.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
-from cocotblib.common import drive_reset
+from cocotbext.umi.drivers.sumi_driver import SumiDriver
+from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
+
+
+async def do_reset(reset, time_ns: int, active_level: bool = False):
+    """Drive an asynchronous reset pulse on *reset*."""
+    reset.value = not active_level
+    await Timer(1, unit="step")
+    reset.value = active_level
+    await Timer(time_ns, "ns")
+    reset.value = not active_level
+    await Timer(1, unit="step")
 
 
 # Creates the umi2apb test environment
 class UMI2APBEnv:
-    def __init__(self, dut, clk_period_ns=10, mem_size=2**16):
+    def __init__(
+        self,
+        dut,
+        clk_period_ns=10,
+        mem_size=2**16,
+        umi_valid_gen=None,
+        backpressure_on_apb=True
+    ):
         self.dut = dut
         self.clk_period_ns = clk_period_ns
         self.mem_size = mem_size
+        self.umi_valid_gen = umi_valid_gen
 
         self.data_width = int(dut.RW.value)  # default of 64
         self.addr_width = int(dut.AW.value)  # default of 64
@@ -29,22 +46,20 @@ class UMI2APBEnv:
         self.clk = dut.apb_pclk
         self.nreset = dut.apb_nreset
 
-        self._build()
-
-    def _build(self):
-        dut = self.dut
-
         # Instantiates UMI driver
         self.sumi_driver = SumiDriver(
             entity=dut,
             name="udev_req",
             clock=self.clk,
-            bus_separator="_"
+            bus_separator="_",
+            valid_generator=self.umi_valid_gen,
         )
 
         # Instantiates APB slave and memory region
         apb_bus = ApbBus.from_prefix(dut, "apb")
         self.apb_slave = ApbSlave(apb_bus, self.clk, self.nreset)
+        if backpressure_on_apb:
+            self.apb_slave.enable_backpressure()
         self.region = MemoryRegion(self.mem_size)
         self.apb_slave.target = self.region
 
@@ -62,21 +77,9 @@ class UMI2APBEnv:
 
     # Prerequisites for starting tests
     async def start(self):
+        await do_reset(self.nreset, self.clk_period_ns)
         Clock(self.clk, self.clk_period_ns, unit="ns").start()
-        await drive_reset(self.nreset, self.clk_period_ns)
-        self.dut.udev_resp_ready.value = 1
-
-    # Waits for umi responses
-    async def wait_for_responses(self, max_cycles):
-        cycles = 0
-        while self.expected_responses:
-            await ClockCycles(self.clk, 1)
-            cycles += 1
-            if cycles > max_cycles:
-                raise TimeoutError(
-                    f"Timeout waiting for responses "
-                    f"({len(self.expected_responses)} remaining)"
-                )
+        await ClockCycles(self.clk, 10)
 
 
 # Creates an ideal umi write response

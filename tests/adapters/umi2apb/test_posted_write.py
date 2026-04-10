@@ -2,10 +2,12 @@ import math
 import cocotb
 
 from cocotb.handle import SimHandleBase
+from cocotb_bus.drivers import BitDriver
 from cocotb.triggers import ClockCycles
 
-from cocotblib.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
-from adapters.umi2apb.env import UMI2APBEnv
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
+from cocotbext.umi.utils.generators import random_toggle_generator
+from env import UMI2APBEnv
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
@@ -18,6 +20,10 @@ async def test_posted_write(dut: SimHandleBase):
 
     env = UMI2APBEnv(dut)
     await env.start()
+
+    BitDriver(signal=dut.udev_resp_ready, clk=env.clk).start(
+        generator=random_toggle_generator()
+    )
 
     umi_size = int(math.log2(env.data_size))
 

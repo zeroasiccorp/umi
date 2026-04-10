@@ -1,30 +1,38 @@
-# tests/adapters/umi2apb/run.py
-
 import pytest
-from siliconcompiler import Sim
 
-from umi.adapters import UMI2APB
-from cocotblib.common import run_cocotb
+from siliconcompiler import Design
+
+from umi.adapters.umi2apb.umi2apb import UMI2APB
 
 
-def run_umi2apb(simulator="verilator", waves=True):
-    project = Sim(UMI2APB())
-    project.add_fileset("rtl")
+class TbDesign(Design):
 
-    tests_failed = run_cocotb(
-        project=project,
-        test_module_name="adapters.umi2apb",
-        simulator_name=simulator,
-        timescale=("1ns", "1ps"),
-        build_args=["--report-unoptflat"] if simulator == "verilator" else [],
-        output_dir_name=f"umi2apb_{simulator}",
-        waves=waves,
+    def __init__(self):
+        super().__init__()
+
+        self.set_name("tb_umi2apb")
+
+        self.set_dataroot("tb_umi2apb", __file__)
+
+        with self.active_dataroot("tb_umi2apb"):
+            with self.active_fileset("testbench.cocotb"):
+                self.set_topmodule("umi2apb")
+                self.add_file("env.py", filetype="python")
+                self.add_file("test_basic_WR.py", filetype="python")
+                self.add_file("test_backpressure.py", filetype="python")
+                self.add_file("test_full_throughput.py", filetype="python")
+                self.add_file("test_posted_write.py", filetype="python")
+                self.add_file("test_random_stimulus.py", filetype="python")
+                self.add_depfileset(UMI2APB(), "rtl")
+
+
+@pytest.mark.cocotb
+@pytest.mark.parametrize("simulator", ["icarus", "verilator"])
+def test_umi2apb(simulator, output_wave=False):
+    from run_cocotb_sim import load_cocotb_test
+    load_cocotb_test(
+        design=TbDesign(),
+        simulator=simulator,
+        trace=output_wave,
+        seed=None
     )
-
-    assert tests_failed == 0
-
-
-@pytest.mark.sim
-@pytest.mark.parametrize("simulator", ["verilator"])
-def test_umi2apb(simulator):
-    run_umi2apb(simulator)

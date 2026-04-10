@@ -2,9 +2,12 @@ import math
 import cocotb
 
 from cocotb.handle import SimHandleBase
+from cocotb.triggers import ClockCycles
+from cocotb_bus.drivers import BitDriver
 
-from cocotblib.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
-from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
+from cocotbext.umi.utils.generators import random_toggle_generator
+from env import UMI2APBEnv, create_expected_write_response
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
@@ -20,6 +23,10 @@ async def test_basic_WR(dut: SimHandleBase):
     # Grab shared test environment
     env = UMI2APBEnv(dut)
     await env.start()
+
+    BitDriver(signal=dut.udev_resp_ready, clk=env.clk).start(
+        generator=random_toggle_generator()
+    )
 
     umi_size = int(math.log2(env.data_size))
     test_addr = 0x100
@@ -47,10 +54,8 @@ async def test_basic_WR(dut: SimHandleBase):
         )
     )
 
-    env.sumi_driver.append(write_txn)
-
-    # Wait for write response
-    await env.wait_for_responses(max_cycles=100)
+    await env.sumi_driver.send(write_txn)
+    await ClockCycles(env.clk, 20)
 
     # Verify APB memory contents
     mem_data = await env.region.read(test_addr, env.data_size)
@@ -89,10 +94,13 @@ async def test_basic_WR(dut: SimHandleBase):
     )
 
     env.expected_responses.append(expected_read_resp)
-    env.sumi_driver.append(read_txn)
+    await env.sumi_driver.send(read_txn)
 
-    # Wait for read response
-    await env.wait_for_responses(max_cycles=100)
+    # Wait for scoreboard to consume all expected outputs
+    while len(env.expected_responses) != 0:
+        await ClockCycles(env.clk, 1)
+
+    await ClockCycles(env.clk, 10)
 
     print("Read response verified by scoreboard")
 

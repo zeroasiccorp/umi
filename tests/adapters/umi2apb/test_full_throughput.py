@@ -1,8 +1,10 @@
 import math
 import cocotb
 
-from adapters.umi2apb.env import UMI2APBEnv
-from cocotblib.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
+from cocotb.triggers import Event, Combine, ClockCycles
+
+from env import UMI2APBEnv
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
@@ -16,6 +18,9 @@ async def test_full_throughput(dut):
     env = UMI2APBEnv(dut)
     await env.start()
 
+    # Always ready to accept responses
+    dut.udev_resp_ready.value = 1
+
     data_size = env.data_size
     addr_width = env.addr_width
     umi_size = int(math.log2(data_size))
@@ -24,6 +29,7 @@ async def test_full_throughput(dut):
 
     print("=== Back-to-Back Full Throughput Test ===")
 
+    send_events = []
     for i in range(num_transactions):
         txn_size = i % (umi_size + 1)
         txn_bytes = 1 << txn_size
@@ -81,10 +87,15 @@ async def test_full_throughput(dut):
             )
 
         env.expected_responses.append(expected_resp)
-        env.sumi_driver.append(txn)
+        evt = Event()
+        env.sumi_driver.append(txn, event=evt)
+        send_events.append(evt)
 
     # Wait for all responses
-    await env.wait_for_responses(max_cycles=num_transactions * 50)
+    await Combine(*(e.wait() for e in send_events))
+
+    await ClockCycles(env.clk, 100)
 
     print(f" All {num_transactions} back-to-back transactions completed successfully!")
+
     raise env.scoreboard.result
