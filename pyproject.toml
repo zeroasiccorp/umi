@@ -1,12 +1,7 @@
 [build-system]
 requires = [
-<<<<<<< HEAD
     "setuptools >= 64",
     "setuptools_scm[toml] >= 8, <10"
-=======
-    "setuptools >= 61.2",
-    "setuptools_scm[toml] >= 6.2"
->>>>>>> 2760da1 (fix cocotblib toml)
 ]
 build-backend = "setuptools.build_meta"
 
@@ -40,15 +35,9 @@ test = [
     "switchboard-hw==0.3.3",
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
-<<<<<<< HEAD
     "cocotbext-axi==0.1.28",
     "cocotbext-umi==0.0.3",
     "cocotbext-apb==0.7.4"
-=======
-    "cocotbext-apb==0.7.4",
-    "za-cocotblib >= 0.0.1, < 0.1.0",
-    "switchboard-hw == 0.3.0"
->>>>>>> 7500cd3 (deps)
 ]
 
 [tool.check-wheel-contents]
