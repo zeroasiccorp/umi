@@ -71,127 +71,117 @@ module umi2apb #(parameter AW = 64,        // UMI address width
     input             apb_pready,  // ready
     input [RW-1:0]    apb_prdata,  // read data
     input             apb_pslverr  // error
-    );
+);
 
-`include "umi_messages.vh"
+  `include "umi_messages.vh"
 
-   reg [CW-1:0]    udev_req_cmd_r;
-   reg [AW-1:0]    udev_req_dstaddr_r;
-   reg [AW-1:0]    udev_req_srcaddr_r;
-   reg [RW-1:0]    udev_req_data_r;
+  //####################################
+  // Registers
+  //####################################
+  reg [CW-1:0]    udev_req_cmd_r;
+  reg [AW-1:0]    udev_req_dstaddr_r;
+  reg [AW-1:0]    udev_req_srcaddr_r;
+  reg [RW-1:0]    udev_req_data_r;
 
-   wire            incoming_req;
-   wire            outgoing_resp;
-   wire            group_match;
+  reg [1:0]       pslverr_r;
+  reg [RW-1:0]    prdata_r;
 
-   wire [CW-1:0]   cmd_packet;
-   wire [4:0]      cmd_opcode;
-   wire            cmd_read;
-   wire            cmd_write;
-   wire            cmd_posted;
-   wire [1:0]      cmd_prot;
+  //####################################
+  // Wires
+  //####################################
+  wire            incoming_req;
+  wire            group_match;
 
+  wire [CW-1:0]   cmd_packet;
+  wire [4:0]      cmd_opcode;
+  wire            cmd_write;
+  wire            cmd_posted;
+  wire [1:0]      cmd_prot;
 
-   reg [1:0]       pslverr_r;
-   reg [RW-1:0]    prdata_r;
-   reg cmd_read_r;
+  wire            apb_bus_fire;
+  wire            capture_resp;
+  wire            op_read_resp;
 
-   //############################
-   //# UMI Request
-   //############################
+  //############################
+  //# UMI Request
+  //############################
 
-   generate
-      if (GRPAW != 0)
-        assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
-      else
-        assign group_match = 1'b1;
-   endgenerate
+  generate
+    if (GRPAW != 0)
+      assign group_match = (udev_req_dstaddr[GRPOFFSET+:GRPAW]==GRPID[GRPAW-1:0]);
+    else
+      assign group_match = 1'b1;
+  endgenerate
 
-   assign incoming_req  = udev_req_valid & udev_req_ready & group_match;
+  assign incoming_req = udev_req_valid & udev_req_ready & group_match;
 
-   always @(posedge apb_pclk or negedge apb_nreset) begin
-      if (~apb_nreset) begin
-         udev_req_cmd_r     <= {CW{1'b0}};
-         udev_req_dstaddr_r <= {AW{1'b0}};
-         udev_req_srcaddr_r <= {AW{1'b0}};
-         udev_req_data_r    <= {RW{1'b0}};
-      end
-      else if (incoming_req) begin
-         udev_req_cmd_r     <= udev_req_cmd;
-         udev_req_dstaddr_r <= udev_req_dstaddr;
-         udev_req_srcaddr_r <= udev_req_srcaddr;
-         udev_req_data_r    <= udev_req_data[RW-1:0];
-         cmd_read_r   <= (udev_req_cmd[UMI_OPCODE_MSB:UMI_OPCODE_LSB] == UMI_REQ_READ);
-      end
-   end
+  always @(posedge apb_pclk)
+    if (incoming_req) begin
+      udev_req_cmd_r     <= udev_req_cmd;
+      udev_req_dstaddr_r <= udev_req_dstaddr;
+      udev_req_srcaddr_r <= udev_req_srcaddr;
+      udev_req_data_r    <= udev_req_data[RW-1:0];
+    end
 
-   assign cmd_packet = incoming_req ? udev_req_cmd : udev_req_cmd_r;
-   assign cmd_opcode = cmd_packet[UMI_OPCODE_MSB:UMI_OPCODE_LSB];
+  assign cmd_packet = incoming_req ? udev_req_cmd : udev_req_cmd_r;
+  assign cmd_opcode = cmd_packet[UMI_OPCODE_MSB:UMI_OPCODE_LSB];
+  assign cmd_prot   = cmd_packet[UMI_PROT_MSB:UMI_PROT_LSB];
 
-   assign cmd_read   = cmd_opcode==UMI_REQ_READ;
-   assign cmd_write  = cmd_opcode==UMI_REQ_WRITE;
-   assign cmd_posted = cmd_opcode==UMI_REQ_POSTED;
-   assign cmd_prot   = cmd_packet[UMI_PROT_MSB:UMI_PROT_LSB];
+  assign cmd_write  = cmd_opcode==UMI_REQ_WRITE;
+  assign cmd_posted = cmd_opcode==UMI_REQ_POSTED;
 
-   //############################
-   //# APB Mapping
-   //############################
+  //############################
+  //# APB Mapping
+  //############################
 
-   assign apb_paddr   = incoming_req ? udev_req_dstaddr[RAW-1:0] :
-                                       udev_req_dstaddr_r[RAW-1:0];
+  assign apb_psel    = incoming_req | apb_penable;
+  assign apb_pwrite  = cmd_write | cmd_posted;
+  assign apb_pprot   = {1'b0, cmd_prot[1:0]};
+  assign apb_pstrb   = {(RW/8){1'b1}}; // TODO: Support strobe
 
-   assign apb_pprot   = {1'b0, cmd_prot[1:0]};
-   assign apb_pwrite  = cmd_write | cmd_posted;
-   assign apb_pwdata  = incoming_req ? udev_req_data[RW-1:0] : udev_req_data_r[RW-1:0];
-   assign apb_pstrb   = {(RW/8){1'b1}}; // TODO: Support strobe
-   assign apb_psel    = incoming_req | apb_penable;
+  assign apb_paddr   = incoming_req ? udev_req_dstaddr[RAW-1:0] : udev_req_dstaddr_r[RAW-1:0];
+  assign apb_pwdata  = incoming_req ? udev_req_data[RW-1:0] : udev_req_data_r[RW-1:0];
 
-   always @(posedge apb_pclk or negedge apb_nreset)
-     if (~apb_nreset)
-       apb_penable <= 1'b0;
-     else if (incoming_req)
-       apb_penable <= 1'b1;
-     else if (apb_pready)
-       apb_penable <= 1'b0;
+  always @(posedge apb_pclk or negedge apb_nreset)
+    if (~apb_nreset)
+      apb_penable <= 1'b0;
+    else if (incoming_req)
+      apb_penable <= 1'b1;
+    else if (apb_pready)
+      apb_penable <= 1'b0;
 
-   assign udev_req_ready = ~apb_penable;
+  assign udev_req_ready = ~apb_penable & ~udev_resp_valid;
 
-   //############################
-   //# UMI Response
-   //############################
+  //############################
+  //# UMI Response
+  //############################
 
-   assign outgoing_resp = (udev_resp_valid & udev_resp_ready) |
-                          (cmd_posted & apb_penable & apb_pready);
+  assign apb_bus_fire = apb_psel & apb_penable & apb_pready;
+  assign capture_resp = apb_bus_fire & ~cmd_posted;
 
-   always @(posedge apb_pclk or negedge apb_nreset)
-     if (~apb_nreset)
-       udev_resp_valid <= 1'b0;
-     else if (apb_penable & apb_pready & ~cmd_posted)
-       udev_resp_valid <= 1'b1;
-     else if (outgoing_resp)
-       udev_resp_valid <= 1'b0;
+  always @(posedge apb_pclk or negedge apb_nreset)
+    if (~apb_nreset)
+      udev_resp_valid <= 1'b0;
+    else if (capture_resp)
+      udev_resp_valid <= 1'b1;
+    else if (udev_resp_ready)
+      udev_resp_valid <= 1'b0;
 
-   always @(posedge apb_pclk or negedge apb_nreset)
-     if (~apb_nreset)
-       prdata_r <= 'b0;
-     else if (apb_penable & apb_pready)
-       prdata_r <= apb_prdata;
+  always @(posedge apb_pclk)
+    if (capture_resp) begin
+      prdata_r <= apb_prdata;
+      pslverr_r <= {apb_pslverr, 1'b0};
+    end
 
-   always @(posedge apb_pclk or negedge apb_nreset)
-     if (~apb_nreset)
-       pslverr_r <= 'b0;
-     else if (apb_penable & apb_pready)
-       pslverr_r <= {apb_pslverr, 1'b0};
+  assign op_read_resp = (udev_req_cmd_r[UMI_OPCODE_MSB:UMI_OPCODE_LSB] == UMI_REQ_READ);
 
-   assign udev_resp_cmd[UMI_OPCODE_MSB:UMI_OPCODE_LSB] = cmd_read_r ? UMI_RESP_READ : UMI_RESP_WRITE;
-   assign udev_resp_cmd[UMI_EX_BIT:UMI_SIZE_LSB]       = udev_req_cmd_r[UMI_EX_BIT:UMI_SIZE_LSB];
-   assign udev_resp_cmd[UMI_USER_MSB:UMI_USER_LSB]     = pslverr_r[1:0];
-   assign udev_resp_cmd[UMI_HOSTID_MSB:UMI_HOSTID_LSB] = udev_req_cmd_r[UMI_HOSTID_MSB:UMI_HOSTID_LSB];
+  assign udev_resp_cmd[UMI_OPCODE_MSB:UMI_OPCODE_LSB] = op_read_resp ? UMI_RESP_READ : UMI_RESP_WRITE;
+  assign udev_resp_cmd[UMI_EX_BIT:UMI_SIZE_LSB]       = udev_req_cmd_r[UMI_EX_BIT:UMI_SIZE_LSB];
+  assign udev_resp_cmd[UMI_USER_MSB:UMI_USER_LSB]     = pslverr_r[1:0];
+  assign udev_resp_cmd[UMI_HOSTID_MSB:UMI_HOSTID_LSB] = udev_req_cmd_r[UMI_HOSTID_MSB:UMI_HOSTID_LSB];
 
-   assign udev_resp_dstaddr[AW-1:0] = udev_req_srcaddr_r[AW-1:0];
-
-   assign udev_resp_srcaddr[AW-1:0] = udev_req_dstaddr_r[AW-1:0];
-
-   assign udev_resp_data[DW-1:0]    = {{(DW-RW){1'b0}}, prdata_r[RW-1:0]};
+  assign udev_resp_dstaddr[AW-1:0] = udev_req_srcaddr_r[AW-1:0];
+  assign udev_resp_srcaddr[AW-1:0] = udev_req_dstaddr_r[AW-1:0];
+  assign udev_resp_data[DW-1:0]    = {{(DW-RW){1'b0}}, prdata_r[RW-1:0]};
 
 endmodule

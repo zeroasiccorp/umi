@@ -3,7 +3,7 @@ from umi import lumi
 from umi import adapters
 from umi.common import Standard
 
-__version__ = "0.4.9"
+__version__ = "0.4.10"
 
 __all__ = [
     "Standard",
