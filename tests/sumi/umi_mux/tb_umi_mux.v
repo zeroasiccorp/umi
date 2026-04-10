@@ -1,4 +1,4 @@
-module umi_mux_8_to_1
+module tb_umi_mux
   #(parameter DW = 128,
     parameter CW = 32,
     parameter AW = 32

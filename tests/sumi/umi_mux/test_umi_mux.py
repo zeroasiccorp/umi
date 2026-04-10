@@ -137,8 +137,8 @@ class TbDesign(Design):
 
         with self.active_dataroot("tb_umi_mux"):
             with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("umi_mux_8_to_1")
-                self.add_file("rtl/umi_mux_8_to_1.v")
+                self.set_topmodule("tb_umi_mux")
+                self.add_file("tb_umi_mux.v")
                 self.add_file(Path(__file__).name, filetype="python")
                 self.add_depfileset(Mux(), "rtl")
 
