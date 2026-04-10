@@ -4,11 +4,11 @@ import cocotb
 from cocotb.handle import SimHandleBase
 from cocotb.triggers import ClockCycles
 
-from cocotblib.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
-from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
+from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
+from env import UMI2APBEnv, create_expected_write_response
 
 
-@cocotb.test(timeout_time=50, timeout_unit="ms")
+@cocotb.test(timeout_time=1, timeout_unit="ms")
 async def test_backpressure(dut: SimHandleBase):
     """
     Test response backpressure handling:
@@ -54,7 +54,7 @@ async def test_backpressure(dut: SimHandleBase):
     env.sumi_driver.append(write_txn)
     print(f"Sent write: addr=0x{test_addr:x}, data=0x{test_data:08x}")
 
-    await ClockCycles(env.clk, 20)
+    await ClockCycles(env.clk, 200)
 
     # Verify response is being held
     assert dut.udev_resp_valid.value == 1, "Response should be valid"
@@ -65,7 +65,7 @@ async def test_backpressure(dut: SimHandleBase):
     dut.udev_resp_ready.value = 1
     print("Re-enabled udev_resp_ready")
 
-    await env.wait_for_responses(max_cycles=10)
+    await ClockCycles(env.clk, 100)
 
     # Verify mem was written correctly
     mem_data = await env.region.read(test_addr, env.data_size)
