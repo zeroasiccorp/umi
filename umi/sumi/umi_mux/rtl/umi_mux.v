@@ -31,12 +31,12 @@ module umi_mux
     input [1:0]       arbmode, // arbiter mode (0=fixed)
     input [N-1:0]     arbmask, // arbiter mask (1=input is masked)
     // incoming UMI
-    input [N-1:0]     umi_in_valid,
-    input [N*CW-1:0]  umi_in_cmd,
-    input [N*AW-1:0]  umi_in_dstaddr,
-    input [N*AW-1:0]  umi_in_srcaddr,
-    input [N*DW-1:0]  umi_in_data,
-    output reg [N-1:0] umi_in_ready,
+    input   [N-1:0]     umi_in_valid,
+    input   [N*CW-1:0]  umi_in_cmd,
+    input   [N*AW-1:0]  umi_in_dstaddr,
+    input   [N*AW-1:0]  umi_in_srcaddr,
+    input   [N*DW-1:0]  umi_in_data,
+    output  [N-1:0]     umi_in_ready,
     // outgoing UMI
     output            umi_out_valid,
     output [CW-1:0]   umi_out_cmd,
@@ -68,22 +68,8 @@ module umi_mux
    // Ready
    //##############################
 
-
-   // valid[j] | out_ready[j] | grant[j] | in_ready
-   //------------------------------------------------
-   //     0             x           x      | 1
-   //     1             0           x      | 0
-   //     1             1           0      | 0
-   //     1             1           1      | 1
-
-   integer j;
-   always @(*)
-     begin
-        umi_in_ready[N-1:0] = {N{1'b1}};
-        for (j=0;j<N;j=j+1)
-          umi_in_ready[j] = umi_in_ready[j] & ~(umi_in_valid[j] &
-                                                (~grants[j] | ~umi_out_ready));
-     end
+   // Allow umi_out_ready to propagate to the umi port currently granted access
+   assign umi_in_ready[N-1:0] = grants[N-1:0] & {N{umi_out_ready}};
 
    //##############################
    // Output Mux
