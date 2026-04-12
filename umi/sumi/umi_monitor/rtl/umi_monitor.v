@@ -33,7 +33,7 @@ module umi_monitor
   #(parameter CW = 32,
     parameter AW = 64,
     parameter DW = 128,
-    parameter TIMEOUT = 1000) // simulation only
+    parameter TIMEOUT = 100) // simulation only
    (// UMI bus tap
     input          valid,
     input          ready,
