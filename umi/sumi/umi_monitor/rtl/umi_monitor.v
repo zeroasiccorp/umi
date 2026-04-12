@@ -32,7 +32,8 @@
 module umi_monitor
   #(parameter CW = 32,
     parameter AW = 64,
-    parameter DW = 128)
+    parameter DW = 128,
+    parameter TIMEOUT = 1000) // simulation only
    (// UMI bus tap
     input          valid,
     input          ready,
@@ -57,6 +58,24 @@ module umi_monitor
 
    assign opcode = cmd[4:0];
 
+   // Stall timeout: valid high but ready low for TIMEOUT cycles
+   integer stall_count;
+   always @(posedge clk or negedge nreset)
+     if (!nreset)
+       stall_count <= 0;
+     else if (valid & ~ready)
+       stall_count <= stall_count + 1;
+     else
+       stall_count <= 0;
+
+   always @(posedge clk) begin
+      if (nreset & (stall_count == TIMEOUT)) begin
+         $display("WARNING: UMI_TIMEOUT: valid=%b ready=%b dst=0x%h src=0x%h cmd=0x%h (%0d wait cycles, %0t, %m)",
+                  valid, ready, dstaddr, srcaddr, cmd, stall_count, $realtime);
+      end
+   end
+
+   // Transaction display on handshake
    always @(negedge clk) begin
       if (nreset & beat) begin
          case (opcode)
