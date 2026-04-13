@@ -14,7 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
-        submodules: true
+        fetch-depth: 0
+
     - uses: hynek/build-and-inspect-python-package@v2
 
   publish:

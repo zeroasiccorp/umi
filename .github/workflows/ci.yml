@@ -16,9 +16,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: pytest
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           python3 -m venv venv
           . venv/bin/activate
           python3 -m pip install --upgrade pip
@@ -36,9 +39,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: pytest
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           python3 -m venv venv
           . venv/bin/activate
           python3 -m pip install --upgrade pip
@@ -56,9 +62,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: pytest
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           python3 -m venv venv
           . venv/bin/activate
           python3 -m pip install --upgrade pip
