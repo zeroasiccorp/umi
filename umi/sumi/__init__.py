@@ -15,7 +15,7 @@ from .umi_pipeline.umi_pipeline import Pipeline
 from .umi_ram.umi_ram import RAM
 from .umi_regif.umi_regif import Regif
 from .umi_stream.umi_stream import Stream
-from .umi_switch.umi_switch import Switch
+# from .umi_switch.umi_switch import Switch
 from .umi_tester.umi_tester import Tester
 from .umi_unpack.umi_unpack import Unpack
 from .umi_demux.umi_demux import Demux
@@ -38,7 +38,6 @@ __all__ = ['Arbiter',
            'RAM',
            'Regif',
            'Stream',
-           'Switch',
            'Tester',
            'Unpack',
            'Demux']
