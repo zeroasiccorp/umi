@@ -3,7 +3,11 @@ from umi import lumi
 from umi import adapters
 from umi.common import Standard
 
-__version__ = "0.4.10"
+try:
+    from umi._version import __version__
+except ImportError:
+    # This only exists in installations
+    __version__ = None
 
 __all__ = [
     "Standard",

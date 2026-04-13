@@ -43,3 +43,4 @@ dist/
 venv/
 .venv
 .vscode/
+umi/_version.py
