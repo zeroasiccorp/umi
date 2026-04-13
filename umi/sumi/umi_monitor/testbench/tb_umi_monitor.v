@@ -45,9 +45,10 @@ module tb_umi_monitor;
    // DUT
    //##################################
 
-   umi_monitor #(.CW(CW),
-              .AW(AW),
-              .DW(DW))
+   umi_monitor #(.NAME("monitor_example"),
+                 .CW(CW),
+                 .AW(AW),
+                 .DW(DW))
    dut (.clk     (clk),
         .nreset  (nreset),
         .valid   (valid),

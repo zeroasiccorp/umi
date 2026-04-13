@@ -35,7 +35,7 @@ module umi_monitor
     parameter            DW = 128,
     parameter            TIMEOUT = 100, // simulation only
     parameter            VERBOSE = 0,   // set to 1 always enable tracing
-    parameter [12*8-1:0] NAME = "umi")  // short label for display (12 chars)
+    parameter [16*8-1:0] NAME = "umi")  // short label (16 chars max)
    (// UMI bus tap
     input          valid,
     input          ready,
@@ -75,11 +75,11 @@ module umi_monitor
    initial $timeformat(-9, 2, "ns", 0);
 
    // Pad NAME with leading spaces for aligned display
-   reg [12*8-1:0] name_padded;
+   reg [16*8-1:0] name_padded;
    integer ni;
    initial begin
-      name_padded = "            "; // 12 spaces
-      for (ni = 0; ni < 12; ni = ni + 1)
+      name_padded = "                "; // 16 spaces
+      for (ni = 0; ni < 16; ni = ni + 1)
         if (NAME[ni*8+:8] != 0)
           name_padded[ni*8+:8] = NAME[ni*8+:8];
    end
