@@ -30,10 +30,11 @@
  ******************************************************************************/
 
 module umi_monitor
-  #(parameter CW = 32,
-    parameter AW = 64,
-    parameter DW = 128,
-    parameter TIMEOUT = 100,  // simulation only
+  #(parameter            CW = 32,
+    parameter            AW = 64,
+    parameter            DW = 128,
+    parameter            TIMEOUT = 100, // simulation only
+    parameter            VERBOSE = 0,   // set to 1 always enable tracing
     parameter [12*8-1:0] NAME = "umi")  // short label for display (12 chars)
    (// UMI bus tap
     input          valid,
@@ -49,12 +50,28 @@ module umi_monitor
     output         beat
     );
 
+   //##########################################
+   // A transaction has happened
+   //##########################################
+
 `include "umi_messages.vh"
 
    assign beat = valid & ready;
 
+   //##########################################
+   // Simulation only monitoring
+   //##########################################
+
 `ifdef SIMULATION
 
+   // compile time enable of verbose tracing
+ `ifdef VERBOSE
+   localparam VERBOSE_SWITCH = 1;
+ `else
+   localparam VERBOSE_SWITCH = 0;
+ `endif
+
+   // sane printing
    initial $timeformat(-9, 2, "ns", 0);
 
    // Pad NAME with leading spaces for aligned display
@@ -88,22 +105,24 @@ module umi_monitor
       end
    end
 
-   // Transaction display on handshake
-   always @(negedge clk) begin
-      if (nreset & beat) begin
-         case (opcode)
-           UMI_REQ_READ:    $display("%10t    %s    UMI_REQ_READ:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_WRITE:   $display("%10t    %s    UMI_REQ_WRITE:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_POSTED:  $display("%10t    %s    UMI_REQ_POSTED:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_RESP_READ:   $display("%10t    %s    UMI_RESP_READ:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_RESP_WRITE:  $display("%10t    %s    UMI_RESP_WRITE:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_ATOMIC:  $display("%10t    %s    UMI_REQ_ATOMIC:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_RDMA:    $display("%10t    %s    UMI_REQ_RDMA:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_USER0:   $display("%10t    %s    UMI_REQ_USER0:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_ERROR:   $display("%10t    %s    UMI_REQ_ERROR:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_LINK:    $display("%10t    %s    UMI_REQ_LINK:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
-           default:         $display("%10t    %s    UMI_OPCODE=0x%h: dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, opcode, dstaddr, srcaddr, data);
-         endcase
+   if (VERBOSE | VERBOSE_SWITCH) begin
+      // Transaction display on handshake
+      always @(negedge clk) begin
+         if (nreset & beat) begin
+            case (opcode)
+              UMI_REQ_READ:    $display("%10t    %s    UMI_REQ_READ:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_REQ_WRITE:   $display("%10t    %s    UMI_REQ_WRITE:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_REQ_POSTED:  $display("%10t    %s    UMI_REQ_POSTED:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_RESP_READ:   $display("%10t    %s    UMI_RESP_READ:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_RESP_WRITE:  $display("%10t    %s    UMI_RESP_WRITE:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_REQ_ATOMIC:  $display("%10t    %s    UMI_REQ_ATOMIC:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_REQ_RDMA:    $display("%10t    %s    UMI_REQ_RDMA:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_REQ_USER0:   $display("%10t    %s    UMI_REQ_USER0:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_REQ_ERROR:   $display("%10t    %s    UMI_REQ_ERROR:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              UMI_REQ_LINK:    $display("%10t    %s    UMI_REQ_LINK:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+              default:         $display("%10t    %s    UMI_OPCODE=0x%h: dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, opcode, dstaddr, srcaddr, data);
+            endcase
+         end
       end
    end
 `endif
