@@ -43,7 +43,6 @@ def sumi_dut(build_dir, request):
                 sumi.Isolate(),
                 sumi.Mux(),
                 sumi.Regif(),
-                sumi.Switch(),
                 sumi.RAM()
             ]
 

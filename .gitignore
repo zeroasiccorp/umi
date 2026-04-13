@@ -11,16 +11,22 @@
 # simulation
 ######################
 
+build/
+gtkw_files/
 *.q
+*.out
 *.vcd
 *.fst
-build/
-gmon.out
-coverage.dat
+*.fsdb
+*.dat
 *.log
 *.vcd
 a.out
 *.vvp
+*.f
+*.dump
+*.tmp
+*.vpi
 
 ######################
 # Editor

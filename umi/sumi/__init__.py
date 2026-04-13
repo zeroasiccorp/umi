@@ -7,6 +7,7 @@ from .umi_fifoflex.umi_fifoflex import FifoFlex
 from .umi_isolate.umi_isolate import Isolate
 from .umi_memagent.umi_memagent import MemAgent
 from .umi_memif.umi_memif import Memif
+from .umi_monitor.umi_monitor import Monitor
 from .umi_mux.umi_mux import Mux
 from .umi_mux2.umi_mux2 import Mux2
 from .umi_pack.umi_pack import Pack
@@ -14,7 +15,7 @@ from .umi_pipeline.umi_pipeline import Pipeline
 from .umi_ram.umi_ram import RAM
 from .umi_regif.umi_regif import Regif
 from .umi_stream.umi_stream import Stream
-from .umi_switch.umi_switch import Switch
+# from .umi_switch.umi_switch import Switch
 from .umi_tester.umi_tester import Tester
 from .umi_unpack.umi_unpack import Unpack
 from .umi_demux.umi_demux import Demux
@@ -29,6 +30,7 @@ __all__ = ['Arbiter',
            'Isolate',
            'MemAgent',
            'Memif',
+           'Monitor',
            'Mux',
            'Mux2',
            'Pack',
@@ -36,7 +38,6 @@ __all__ = ['Arbiter',
            'RAM',
            'Regif',
            'Stream',
-           'Switch',
            'Tester',
            'Unpack',
            'Demux']

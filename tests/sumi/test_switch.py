@@ -8,6 +8,7 @@ import multiprocessing
 from switchboard import UmiTxRx, delete_queue
 
 
+@pytest.mark.skip(reason="Skipped until SB has been properly updated")
 def test_switch(sumi_dut, umi_send, sb_umi_valid_mode, sb_umi_ready_mode):
     n = 1000  # Number of transactions to be sent to each switch input port
     in_ports = 4  # Number of input ports. Must match testbench
