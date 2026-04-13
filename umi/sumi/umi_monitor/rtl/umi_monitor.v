@@ -83,7 +83,7 @@ module umi_monitor
 
    always @(posedge clk) begin
       if (nreset & (stall_count == TIMEOUT)) begin
-         $display("%10t %s WARNING: UMI_TIMEOUT: valid=%b ready=%b dst=0x%h src=0x%h cmd=0x%h (%0d cycles)",
+         $display("%10t %s WARNING: UMI_TIMEOUT: valid=%b ready=%b dst=0x%h src=0x%h cmd=0x%h (%0d cycles) (%m)",
                   $realtime, name_padded, valid, ready, dstaddr, srcaddr, cmd, stall_count);
       end
    end
@@ -92,17 +92,17 @@ module umi_monitor
    always @(negedge clk) begin
       if (nreset & beat) begin
          case (opcode)
-           UMI_REQ_READ:    $display("%10t    %s    UMI_REQ_READ:    dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_WRITE:   $display("%10t    %s    UMI_REQ_WRITE:   dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_POSTED:  $display("%10t    %s    UMI_REQ_POSTED:  dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_RESP_READ:   $display("%10t    %s    UMI_RESP_READ:   dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_RESP_WRITE:  $display("%10t    %s    UMI_RESP_WRITE:  dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_ATOMIC:  $display("%10t    %s    UMI_REQ_ATOMIC:  dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_RDMA:    $display("%10t    %s    UMI_REQ_RDMA:    dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_USER0:   $display("%10t    %s    UMI_REQ_USER0:   dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_ERROR:   $display("%10t    %s    UMI_REQ_ERROR:   dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           UMI_REQ_LINK:    $display("%10t    %s    UMI_REQ_LINK:    dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, dstaddr, srcaddr, data);
-           default:         $display("%10t    %s    UMI_OPCODE=0x%h: dst=0x%h src=0x%h data=0x%h", $realtime, name_padded, opcode, dstaddr, srcaddr, data);
+           UMI_REQ_READ:    $display("%10t    %s    UMI_REQ_READ:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_REQ_WRITE:   $display("%10t    %s    UMI_REQ_WRITE:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_REQ_POSTED:  $display("%10t    %s    UMI_REQ_POSTED:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_RESP_READ:   $display("%10t    %s    UMI_RESP_READ:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_RESP_WRITE:  $display("%10t    %s    UMI_RESP_WRITE:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_REQ_ATOMIC:  $display("%10t    %s    UMI_REQ_ATOMIC:  dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_REQ_RDMA:    $display("%10t    %s    UMI_REQ_RDMA:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_REQ_USER0:   $display("%10t    %s    UMI_REQ_USER0:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_REQ_ERROR:   $display("%10t    %s    UMI_REQ_ERROR:   dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           UMI_REQ_LINK:    $display("%10t    %s    UMI_REQ_LINK:    dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, dstaddr, srcaddr, data);
+           default:         $display("%10t    %s    UMI_OPCODE=0x%h: dst=0x%h src=0x%h data=0x%h (%m)", $realtime, name_padded, opcode, dstaddr, srcaddr, data);
          endcase
       end
    end
