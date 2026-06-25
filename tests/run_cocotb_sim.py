@@ -1,140 +1,83 @@
+import os
+from pathlib import Path
+from typing import List, Union
 from siliconcompiler import Design, Sim
-from siliconcompiler.flows.dvflow import DVFlow
-
-from siliconcompiler.tools.icarus.compile import CompileTask as IcarusCompileTask
-from siliconcompiler.tools.icarus.cocotb_exec import CocotbExecTask as IcarusCocotbExecTask
-
-from siliconcompiler.tools.verilator.cocotb_compile import CocotbCompileTask as VerilatorCompileTask
-from siliconcompiler.tools.verilator.cocotb_exec import CocotbExecTask as VerilatorCocotbExecTask
-
-
-class IcarusDesign(Design):
-    def __init__(self, design: Design):
-        super().__init__()
-
-        self.set_name(f"{design.name}_icarus_sim")
-
-        self.set_dataroot("icarus_tb", __file__)
-
-        with self.active_dataroot("icarus_tb"):
-            with self.active_fileset("icarus_sim"):
-                self.add_file("sim_cmd_files/icarus_cmd_file.f", filetype="commandfile")
-                self.add_depfileset(design, "testbench.cocotb")
-                self.set_topmodule(design.get_topmodule("testbench.cocotb"))
-
-
-class VerilatorDesign(Design):
-    def __init__(self, design: Design):
-        super().__init__()
-
-        self.set_name(f"{design.name}_verilator_sim")
-
-        self.set_dataroot("verilator_tb", __file__)
-
-        with self.active_dataroot("verilator_tb"):
-            with self.active_fileset("verilator_sim"):
-                self.add_file("sim_cmd_files/verilator_cmd_file.vc", filetype="commandfile")
-                self.add_depfileset(design, "testbench.cocotb")
-                self.set_topmodule(design.get_topmodule("testbench.cocotb"))
+from lambdalib.reusable_tests.cocotb_common import use_cocotb
+from sim_cmd_files.sim_cmd_files import IcarusCmdFile
+from sim_cmd_files.sim_cmd_files import VerilatorCmdFile
 
 
 def load_cocotb_test(
     design: Design,
+    topmodule: str,
+    cocotb_files: Union[str, List[str]],
     simulator="icarus",
     trace=True,
-    seed=None
-):
-
-    if simulator == "icarus":
-        load_cocotb_icarus_sim(design, trace=trace, seed=seed)
-    elif simulator == "verilator":
-        load_cocotb_verilator_sim(design, trace=trace, seed=seed, trace_type="vcd")
-
-
-def load_cocotb_icarus_sim(
-    design: Design,
-    trace=True,
-    seed=None
-):
-    project = Sim()
-    project.set_design(IcarusDesign(design))
-    project.add_fileset("icarus_sim")
-    project.set_flow(DVFlow(tool="icarus-cocotb"))
-
-    IcarusCompileTask.find_task(project).set_trace_enabled(trace)
-
-    if seed is not None:
-        IcarusCocotbExecTask.find_task(project).set_cocotb_randomseed(seed)
-
-    project.run()
-    project.summary()
-
-    results = project.find_result(
-        step='simulate',
-        index='0',
-        directory="outputs",
-        filename="results.xml"
-    )
-    if results:
-        print(f"\nCocotb results file: {results}")
-
-    vcd = project.find_result(
-        step='simulate',
-        index='0',
-        directory="reports",
-        filename="tb_umi_stream.vcd"
-    )
-    if vcd:
-        print(f"Waveform file: {vcd}")
-
-
-def load_cocotb_verilator_sim(
-    design: Design,
-    trace=True,
     seed=None,
-    trace_type="vcd"
+    params=None,
 ):
-    project = Sim()
-    project.set_design(VerilatorDesign(design))
-    project.add_fileset("verilator_sim")
-    project.set_flow(DVFlow(tool="verilator-cocotb"))
+    if isinstance(cocotb_files, str):
+        cocotb_files = [cocotb_files]
 
-    # Enable waveform tracing (must be enabled on both compile and simulate tasks)
-    compile_task = VerilatorCompileTask.find_task(project)
-    compile_task.set_verilator_trace(trace)
-    compile_task.set_verilator_tracetype(trace_type)
+    cocotb_files = [Path(f) for f in cocotb_files]
 
-    cocotb_task = VerilatorCocotbExecTask.find_task(project)
-    cocotb_task.set_cocotb_trace(
-        enable=trace,
-        trace_type=trace_type
-    )
+    ########################################################
+    # Create test bench design object
+    ########################################################
+    tb_design = Design()
+    tb_design.set_name(f"cocotb_test_{topmodule}")
 
-    # Optionally set a random seed for reproducibility
-    if seed is not None:
-        cocotb_task.set_cocotb_randomseed(seed)
+    for cocotb_file in cocotb_files:
+        print(f"data root name {cocotb_file.stem} path {cocotb_file.parent}")
+        tb_design.set_dataroot(name=cocotb_file.stem, path=cocotb_file.parent)
+        tb_design.add_file(
+            filename=cocotb_file.name,
+            fileset="testbench.cocotb",
+            filetype="python",
+            dataroot=cocotb_file.stem
+        )
 
-    # Run the simulation
+    tb_design.set_topmodule(topmodule, fileset="testbench.cocotb")
+
+    # Add params
+    for param_name, param_value in (params or {}).items():
+        tb_design.set_param(param_name, str(param_value), fileset="testbench.cocotb")
+
+    # Add user design as a dependency to the testbench.cocotb fileset
+    tb_design.add_depfileset(dep=design, fileset="testbench.cocotb")
+
+    # Add project specific icarus / verilator command files
+    tb_design.add_depfileset(IcarusCmdFile(), fileset="icarus")
+    tb_design.add_depfileset(VerilatorCmdFile(), fileset="verilator")
+
+    ########################################################
+    # Create project
+    ########################################################
+    project = Sim(tb_design)
+
+    project.add_fileset("testbench.cocotb")
+    use_cocotb(project=project, trace=trace, seed=seed)
+
+    # Add simulator specific fileset
+    project.add_fileset(simulator)
+
+    # Set simulator specific flow
+    project.set_flow(f"dvflow-{simulator}-cocotb")
+
+    ########################################################
+    # Run flow
+    ########################################################
+    # cocotb launches the simulation in a separate embedded interpreter whose
+    # PYTHONPATH is seeded from os.environ. pytest puts the tests root on
+    # sys.path via pyproject's pythonpath, but that does not reach the sim
+    # subprocess. Add the tests root to python path env var here.
+
+    tests_root = str(Path(__file__).parent.resolve())
+    pythonpath = os.environ.get("PYTHONPATH", "")
+    if tests_root not in pythonpath.split(os.pathsep):
+        os.environ["PYTHONPATH"] = os.pathsep.join(
+            p for p in [tests_root, pythonpath] if p
+        )
+
     project.run()
     project.summary()
-
-    # Find and display the results file
-    results = project.find_result(
-        step='simulate',
-        index='0',
-        directory="outputs",
-        filename="results.xml"
-    )
-    if results:
-        print(f"\nCocotb results file: {results}")
-
-    # Find and display the waveform file
-    wave_ext = trace_type if trace_type in ("vcd", "fst") else "vcd"
-    wave = project.find_result(
-        step='simulate',
-        index='0',
-        directory="reports",
-        filename=f"adder.{wave_ext}"
-    )
-    if wave:
-        print(f"Waveform file: {wave}")

@@ -72,7 +72,6 @@ module axird2umi #(
   parameter IDW = 8
 )(
   input clk,
-  input nreset,
 
   /* UMI source address for read requests (used as-is, no strobe encoding).
    * Typically static; if changed, must be synchronous to clk. */

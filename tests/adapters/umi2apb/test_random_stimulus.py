@@ -56,7 +56,7 @@ async def test_random_stimulus(
 
     send_events = []
 
-    for i in range(test_n_transactions):
+    for _ in range(test_n_transactions):
         txn_bytes = env.data_size
         max_addr = (mem_size - txn_bytes) // txn_bytes
 

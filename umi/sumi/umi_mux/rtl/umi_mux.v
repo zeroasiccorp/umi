@@ -48,6 +48,16 @@ module umi_mux
 
    wire [N-1:0]    grants;
 
+   reg [N-1:0] sel_oh;
+
+   always @(posedge clk or negedge nreset)
+      if (~nreset)
+         sel_oh[N-1:0] <= {N{1'b0}};
+      else if (sel_oh == {N{1'b0}})
+         sel_oh[N-1:0] <= grants[N-1:0];
+      else if (umi_out_valid & umi_out_ready)
+         sel_oh[N-1:0] <= grants[N-1:0];
+
    //##############################
    // Valid Arbiter
    //##############################
@@ -81,7 +91,7 @@ module umi_mux
    la_data_vmux(// Outputs
                 .out (umi_out_data[DW-1:0]),
                 // Inputs
-                .sel (grants[N-1:0]),
+                .sel (sel_oh[N-1:0]),
                 .in  (umi_in_data[N*DW-1:0]));
 
    // srcaddr
@@ -90,7 +100,7 @@ module umi_mux
    la_src_vmux(// Outputs
                .out (umi_out_srcaddr[AW-1:0]),
                // Inputs
-               .sel (grants[N-1:0]),
+               .sel (sel_oh[N-1:0]),
                .in  (umi_in_srcaddr[N*AW-1:0]));
 
    // dstaddr
@@ -99,7 +109,7 @@ module umi_mux
    la_dst_vmux(// Outputs
                .out (umi_out_dstaddr[AW-1:0]),
                // Inputs
-               .sel (grants[N-1:0]),
+               .sel (sel_oh[N-1:0]),
                .in  (umi_in_dstaddr[N*AW-1:0]));
 
    // command
@@ -108,7 +118,7 @@ module umi_mux
    la_cmd_vmux(// Outputs
                .out (umi_out_cmd[CW-1:0]),
                // Inputs
-               .sel (grants[N-1:0]),
+               .sel (sel_oh[N-1:0]),
                .in  (umi_in_cmd[N*CW-1:0]));
 
 endmodule
