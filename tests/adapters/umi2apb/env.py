@@ -2,7 +2,7 @@
 # and provides common functionality for the tests.
 
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles, Timer
+from cocotb.triggers import ClockCycles
 
 from cocotb_bus.scoreboard import Scoreboard
 from cocotbext.apb import ApbBus, ApbSlave, MemoryRegion
@@ -11,15 +11,7 @@ from cocotbext.umi.drivers.sumi_driver import SumiDriver
 from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
 from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 
-
-async def do_reset(reset, time_ns: int, active_level: bool = False):
-    """Drive an asynchronous reset pulse on *reset*."""
-    reset.value = not active_level
-    await Timer(1, unit="step")
-    reset.value = active_level
-    await Timer(time_ns, "ns")
-    reset.value = not active_level
-    await Timer(1, unit="step")
+from cocotb_utils import drive_reset
 
 
 # Creates the umi2apb test environment
@@ -77,7 +69,7 @@ class UMI2APBEnv:
 
     # Prerequisites for starting tests
     async def start(self):
-        await do_reset(self.nreset, self.clk_period_ns)
+        await drive_reset(self.nreset, self.clk_period_ns)
         Clock(self.clk, self.clk_period_ns, unit="ns").start()
         await ClockCycles(self.clk, 10)
 

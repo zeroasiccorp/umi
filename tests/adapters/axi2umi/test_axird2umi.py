@@ -3,11 +3,11 @@ import random
 
 import pytest
 
-from siliconcompiler import Design
-
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
+
+from cocotb_utils import drive_reset
 
 from cocotb_bus.drivers import BitDriver
 
@@ -51,11 +51,7 @@ class Env:
         dut.uhost_resp_data.value = 0
 
         # Reset sequence (active-low reset)
-        dut.nreset.value = 1
-        await ClockCycles(dut.clk, 1)
-        dut.nreset.value = 0
-        await ClockCycles(dut.clk, 10)
-        dut.nreset.value = 1
+        await drive_reset(reset=dut.nreset)
         await ClockCycles(dut.clk, 5)
 
         # Create the AXI read master
@@ -150,31 +146,14 @@ async def basic_test(
     await ClockCycles(dut.clk, 10)
 
 
-class TbDesign(Design):
-
-    def __init__(self):
-        super().__init__()
-
-        # Set the design's name
-        self.set_name("tb_axird2umi")
-
-        # Establish the root directory for all design-related files
-        self.set_dataroot("tb_axird2umi", __file__)
-
-        # Configure filesets within the established data root
-        with self.active_dataroot("tb_axird2umi"):
-            with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("axird2umi")
-                self.add_file("test_axird2umi.py", filetype="python")
-                self.add_depfileset(AXI2UMI(), "rtl")
-
-
 @pytest.mark.cocotb
 @pytest.mark.parametrize("simulator", ["icarus", "verilator"])
 def test_axird2umi(simulator):
     from run_cocotb_sim import load_cocotb_test
     load_cocotb_test(
-        design=TbDesign(),
+        design=AXI2UMI(),
+        topmodule="axird2umi",
+        cocotb_files=__file__,
         simulator=simulator,
         trace=False,
         seed=None
