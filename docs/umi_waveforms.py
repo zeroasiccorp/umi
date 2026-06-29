@@ -101,6 +101,19 @@ svg = wavedrom.render("""
 """)
 svg.saveas("_images/bad_valid_toggle.svg")
 
+# NOT okay: packet payload changes before the transaction completes.
+svg = wavedrom.render("""
+{
+  "signal": [
+    { "name": "clk",    "wave": "P.......", period = 2 },
+    { "name": "packet", "wave": "x.234x..", "data": "P0 P1 P2" },
+    { "name": "valid",  "wave": "0.1..0.." },
+    { "name": "ready",  "wave": "0...10.." },
+  ],
+}
+""")
+svg.saveas("_images/bad_data_toggle.svg")
+
 # Okay: Valid held high for two cycles (two transactions)
 svg = wavedrom.render("""
 {

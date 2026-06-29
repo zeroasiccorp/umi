@@ -457,9 +457,10 @@ SUMI adheres to the following ready/valid handshake protocol:
 
 1. A transaction occurs on every rising clock edge in which READY and VALID are both asserted.
 2. Once VALID is asserted, it must not be de-asserted until a transaction completes.
-3. READY, on the other hand, may be de-asserted before a transaction completes.
-4. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
-5. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
+3. While VALID is asserted, the packet fields (CMD, DSTADDR, SRCADDR, DATA) must remain stable until the transaction completes.
+4. READY, on the other hand, may be de-asserted before a transaction completes.
+5. The assertion of VALID must not depend on the assertion of READY.  In other words, it is not legal for the VALID assertion to wait for the READY assertion.
+6. However, it is legal for the READY assertion to be dependent on the VALID assertion (as long as this dependence is not combinational).
 
 The following examples help illustrate the handhsake protocol.
 
@@ -486,6 +487,10 @@ The following examples help illustrate the handhsake protocol.
 #### **ILLEGAL**: VALID de-asserted without waiting for READY
 
 ![UMIX5](docs/_images/bad_valid_toggle.svg)
+
+#### **ILLEGAL**: packet payload changed before transaction completed
+
+![UMIX7](docs/_images/bad_data_toggle.svg)
 
 ### 4.3 Verilog Standard Interfaces
 
