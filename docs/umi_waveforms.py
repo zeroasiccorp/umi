@@ -104,11 +104,16 @@ svg.saveas("_images/bad_valid_toggle.svg")
 # NOT okay: packet payload changes before the transaction completes.
 svg = wavedrom.render("""
 {
+  "head": { "text": "Invalid data change before transaction completes" },
   "signal": [
+    {                   "node": "..A.....", phase: 0.2 },
     { "name": "clk",    "wave": "P.......", period = 2 },
-    { "name": "packet", "wave": "x.234x..", "data": "P0 P1 P2" },
+    { "name": "packet", "wave": "x.2.3x..", "data": "P0 P1", "node": "....B..." },
     { "name": "valid",  "wave": "0.1..0.." },
     { "name": "ready",  "wave": "0...10.." },
+  ],
+  "edge": [
+    "A~>B"
   ],
 }
 """)
