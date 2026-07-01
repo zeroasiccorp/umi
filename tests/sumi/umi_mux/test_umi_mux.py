@@ -1,4 +1,5 @@
 import os
+import copy
 import random
 import pytest
 
@@ -7,8 +8,7 @@ from umi.sumi.umi_mux.umi_mux import Mux
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
-from cocotb.types import LogicArray
+from cocotb.triggers import ClockCycles, RisingEdge
 
 from cocotb_bus.drivers import BitDriver
 from cocotbext.umi.sumi import SumiCmd, SumiCmdType, SumiTransaction
@@ -23,13 +23,13 @@ from cocotbext.umi.utils.generators import (
 from cocotb_utils import drive_reset
 
 
-# @cocotb.test(timeout_time=20, timeout_unit="us")
-# @cocotb.parametrize(
-#     input_valid_gen=[None, random_toggle_generator(), wave_generator()],
-#     output_ready_gen=[None, random_toggle_generator(), wave_generator()],
-#     test_n_transactions=[int(100 * float(os.getenv("RAND_TEST_LEN_SCALER", default=1)))],
-#     arbmode=[0, 1]
-# )
+@cocotb.test(timeout_time=20, timeout_unit="us")
+@cocotb.parametrize(
+    input_valid_gen=[None, random_toggle_generator(), wave_generator()],
+    output_ready_gen=[None, random_toggle_generator(), wave_generator()],
+    test_n_transactions=[int(100 * float(os.getenv("RAND_TEST_LEN_SCALER", default=1)))],
+    arbmode=[0, 2]
+)
 async def mux_general_test(
     dut,
     arbmode=0,
@@ -123,7 +123,7 @@ async def mux_general_test(
         assert expected == actual
 
 
-@cocotb.test(timeout_time=20, timeout_unit="us")
+@cocotb.test(timeout_time=1, timeout_unit="us")
 async def mux_priority_test(dut):
 
     umi_inputs = int(dut.umi_mux_i.N.value)
@@ -170,28 +170,56 @@ async def mux_priority_test(dut):
     # Start clock
     Clock(dut.clk, 1, unit="ns").start()
 
-    umi_1_trans: SumiTransaction = rand_transaction()
-    umi_drivers[1].append(umi_1_trans)
     await ClockCycles(dut.clk, 10)
 
+    ########################################################
+    # Send UMI transaction on umi[1] interface
+    ########################################################
+    umi_1_trans: SumiTransaction = rand_transaction()
+    umi_drivers[1].append(umi_1_trans)
+    await RisingEdge(dut.umi_out_valid)
+
+    ########################################################
+    # Check that transaction propagated to output
+    ########################################################
+    await ClockCycles(dut.clk, 1)
     assert dut.umi_out_data.value.to_bytes(byteorder="little") == umi_1_trans.data
 
-    import copy
+    ########################################################
+    # Send a transaction on umi[0] interface before
+    # accepting the transaction on umi[1]
+    ########################################################
     umi_0_trans: SumiTransaction = copy.deepcopy(umi_1_trans)
     umi_0_trans.data = bytes(b ^ 0xff for b in umi_0_trans.data)
     umi_drivers[0].append(umi_0_trans)
+    await ClockCycles(dut.clk, 1)
 
-    await ClockCycles(dut.clk, 10)
-
+    ########################################################
+    # Verify that umi[1] transaction is still waiting to
+    # be accepted on the output
+    ########################################################
     assert dut.umi_out_data.value.to_bytes(byteorder="little") == umi_1_trans.data, \
         "ERROR: UMI out data changed when no transaction occurred."
 
-    await ClockCycles(dut.clk, 10)
-
+    ########################################################
+    # Accept umi[1] transaction
+    ########################################################
     dut.umi_out_ready.value = 1
     await ClockCycles(dut.clk, 1)
     dut.umi_out_ready.value = 0
+    await ClockCycles(dut.clk, 1)
 
+    ########################################################
+    # Verify that umi[0] transaction is now present
+    ########################################################
+    assert dut.umi_out_data.value.to_bytes(byteorder="little") == umi_0_trans.data
+
+    ########################################################
+    # Accept umi[0] transaction
+    ########################################################
+    dut.umi_out_ready.value = 1
+    await ClockCycles(dut.clk, 1)
+    dut.umi_out_ready.value = 0
     await ClockCycles(dut.clk, 10)
 
 

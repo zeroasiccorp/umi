@@ -47,16 +47,14 @@ module umi_mux
     );
 
    wire [N-1:0]    grants;
+   wire [N-1:0]    sel_oh;
 
-   reg [N-1:0] sel_oh;
+   wire umi_out_fire;
+   wire stall;
+   wire stalled;
 
-   always @(posedge clk or negedge nreset)
-      if (~nreset)
-         sel_oh[N-1:0] <= {N{1'b0}};
-      else if (sel_oh == {N{1'b0}})
-         sel_oh[N-1:0] <= grants[N-1:0];
-      else if (umi_out_valid & umi_out_ready)
-         sel_oh[N-1:0] <= grants[N-1:0];
+   reg [N-1:0]     stalled_input;
+
 
    //##############################
    // Valid Arbiter
@@ -72,14 +70,32 @@ module umi_mux
                 .mask     (arbmask[N-1:0]),
                 .requests (umi_in_valid[N-1:0]));
 
-   assign umi_out_valid = |grants[N-1:0];
+   assign umi_out_valid = |sel_oh[N-1:0];
+
+   //#######################################################
+   // When umi_out stalls capture and hold grants state
+   //#######################################################
+
+   assign umi_out_fire = umi_out_valid & umi_out_ready;
+   assign stall = umi_out_valid & ~umi_out_ready;
+   assign stalled = stalled_input[N-1:0] != {N{1'b0}};
+
+   always @(posedge clk or negedge nreset)
+      if (~nreset)
+         stalled_input[N-1:0] <= {N{1'b0}};
+      else if (umi_out_fire)
+         stalled_input[N-1:0] <= {N{1'b0}};
+      else if (~stalled & stall)
+         stalled_input[N-1:0] <= grants[N-1:0];
+
+   assign sel_oh[N-1:0] = stalled ? stalled_input[N-1:0] : grants[N-1:0];
 
    //##############################
    // Ready
    //##############################
 
    // Allow umi_out_ready to propagate to the umi port currently granted access
-   assign umi_in_ready[N-1:0] = grants[N-1:0] & {N{umi_out_ready}};
+   assign umi_in_ready[N-1:0] = sel_oh[N-1:0] & {N{umi_out_ready}};
 
    //##############################
    // Output Mux
