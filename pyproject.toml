@@ -35,7 +35,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
-    "pytest == 9.0.3",
+    "pytest == 9.1.1",
     "pytest-xdist == 3.8.0",
     "pytest-timeout == 2.4.0",
     "flake8 == 7.3.0",
@@ -43,7 +43,7 @@ test = [
     "cocotb==2.0.1",
     "cocotb-bus==0.3.0",
     "cocotbext-axi==0.1.28",
-    "cocotbext-umi==0.0.3",
+    "cocotbext-umi==0.0.4",
     "cocotbext-apb==0.11.0"
 ]
 
