@@ -1,0 +1,62 @@
+name: Nightly Regression
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      scaler:
+        description: "RAND_TEST_LEN_SCALER (random test length multiplier)"
+        type: number
+        default: 10
+
+env:
+  RAND_TEST_LEN_SCALER: ${{ github.event.inputs.scaler || 10 }}
+
+jobs:
+  cocotb_nightly:
+    name: "Cocotb Nightly Regression"
+    # Don't run on forks
+    if: github.repository == 'zeroasiccorp/umi'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/siliconcompiler/sc_runner:latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: pytest
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python3 -m venv venv
+          . venv/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e .[test]
+          pytest -m "cocotb" --verbose --durations=0
+
+  switchboard_nightly:
+    name: "Switchboard Nightly Regression"
+    # Don't run on forks
+    if: github.repository == 'zeroasiccorp/umi'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zeroasiccorp/sbtest:latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: pytest
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python3 -m venv venv
+          . venv/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e .[test]
+          pytest -m "switchboard" --verbose --durations=0
