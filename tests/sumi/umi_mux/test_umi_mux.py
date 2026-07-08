@@ -3,12 +3,14 @@ import copy
 import random
 import pytest
 
-from siliconcompiler import Design
+from siliconcompiler import Sim
+from siliconcompiler.targets.dvflow_cocotb import dvflow_cocotb
+
 from umi.sumi.umi_mux.umi_mux import Mux
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles, RisingEdge, Timer
+from cocotb.triggers import ClockCycles, RisingEdge
 
 from cocotb_bus.drivers import BitDriver
 from cocotbext.umi.sumi import SumiCmd, SumiCmdType, SumiTransaction
@@ -20,14 +22,7 @@ from cocotbext.umi.utils.generators import (
     wave_generator
 )
 
-
-async def drive_reset(reset, time_ns=50):
-    reset.value = 1
-    await Timer(1, unit="step")
-    reset.value = 0
-    await Timer(time_ns, unit="ns")
-    reset.value = 1
-    await Timer(1, unit="step")
+from cocotb_utils import drive_reset, CocotbSimEnv
 
 
 @cocotb.test(timeout_time=20, timeout_unit="us")
@@ -230,30 +225,34 @@ async def mux_priority_test(dut):
     await ClockCycles(dut.clk, 10)
 
 
-class TbDesign(Design):
+class TbDesign(CocotbSimEnv):
 
     def __init__(self):
-        super().__init__()
-
-        self.set_name("tb_umi_mux")
-
-        self.set_dataroot("local", __file__)
-
-        with self.active_dataroot("local"):
-            with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("tb_umi_mux")
-                self.add_file("tb_umi_mux.v")
-                self.add_file("test_umi_mux.py", filetype="python")
-                self.add_depfileset(Mux(), "rtl")
+        super().__init__(
+            name="tb_umi_mux",
+            topmodule="tb_umi_mux",
+            files=[
+                "sumi/umi_mux/tb_umi_mux.v",
+                __file__,
+            ],
+            dep=[Mux()]
+        )
 
 
 @pytest.mark.cocotb
 @pytest.mark.parametrize("simulator", ["icarus", "verilator"])
 def test_umi_mux_cocotb(simulator):
-    from run_cocotb_sim import load_cocotb_test
-    load_cocotb_test(
-        design=TbDesign(),
-        simulator=simulator,
-        trace=False,
+    project = Sim(TbDesign())
+    project.add_fileset("testbench.cocotb")
+
+    dvflow_cocotb(
+        project=project,
+        trace=True,
+        timescale=("1ns", "1ps"),
         seed=None
     )
+
+    project.set_flow(f"{simulator}cocotbdvflow")
+
+    project.run()
+    project.summary()

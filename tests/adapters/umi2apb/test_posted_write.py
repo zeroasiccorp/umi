@@ -7,7 +7,7 @@ from cocotb.triggers import ClockCycles
 
 from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 from cocotbext.umi.utils.generators import random_toggle_generator
-from env import UMI2APBEnv
+from adapters.umi2apb.env import UMI2APBEnv
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")

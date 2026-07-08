@@ -4,7 +4,8 @@ import random
 
 import pytest
 
-from siliconcompiler import Design
+from siliconcompiler import Sim
+from siliconcompiler.targets.dvflow_cocotb import dvflow_cocotb
 
 import cocotb
 from cocotb.clock import Clock
@@ -21,6 +22,8 @@ from cocotbext.umi.models.umi_memory_device import UmiMemoryDevice
 from cocotbext.umi.utils import generators
 
 from umi.adapters.axi2umi.axi2umi import AXI2UMI
+
+from cocotb_utils import CocotbSimEnv
 
 
 class ErrorInjectingUmiMemoryDevice(UmiMemoryDevice):
@@ -370,32 +373,31 @@ async def error_injection_test(
     await ClockCycles(dut.clk, 10)
 
 
-class TbDesign(Design):
+class TbDesign(CocotbSimEnv):
 
     def __init__(self):
-        super().__init__()
-
-        # Set the design's name
-        self.set_name("tb_axiwr2umi")
-
-        # Establish the root directory for all design-related files
-        self.set_dataroot("tb_axiwr2umi", __file__)
-
-        # Configure filesets within the established data root
-        with self.active_dataroot("tb_axiwr2umi"):
-            with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("axiwr2umi")
-                self.add_file("test_axiwr2umi.py", filetype="python")
-                self.add_depfileset(AXI2UMI(), "rtl")
+        super().__init__(
+            name="tb_axiwr2umi",
+            topmodule="axiwr2umi",
+            files=[__file__],
+            dep=[AXI2UMI()]
+        )
 
 
 @pytest.mark.cocotb
 @pytest.mark.parametrize("simulator", ["icarus", "verilator"])
 def test_axiwr2umi(simulator):
-    from run_cocotb_sim import load_cocotb_test
-    load_cocotb_test(
-        design=TbDesign(),
-        simulator=simulator,
+    project = Sim(TbDesign())
+    project.add_fileset("testbench.cocotb")
+
+    dvflow_cocotb(
+        project=project,
         trace=False,
+        timescale=("1ns", "1ps"),
         seed=None
     )
+
+    project.set_flow(f"{simulator}cocotbdvflow")
+
+    project.run()
+    project.summary()

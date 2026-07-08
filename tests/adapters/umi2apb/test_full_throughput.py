@@ -3,7 +3,7 @@ import cocotb
 
 from cocotb.triggers import Event, Combine, ClockCycles
 
-from env import UMI2APBEnv
+from adapters.umi2apb.env import UMI2APBEnv
 from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 
 

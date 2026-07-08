@@ -19,12 +19,15 @@ from cocotbext.umi.tumi import TumiTransaction
 from cocotbext.umi.utils import generators
 from cocotbext.umi.utils.vrd_transaction import VRDTransaction
 
-from siliconcompiler import Design
+from siliconcompiler import Sim
+from siliconcompiler.targets.dvflow_cocotb import dvflow_cocotb
 
 from umi.sumi.umi_stream.umi_stream import Stream
 
-from valid_ready_driver import ValidReadyDriver
-from valid_ready_monitor import ValidReadyMonitor
+from sumi.umi_stream.valid_ready_driver import ValidReadyDriver
+from sumi.umi_stream.valid_ready_monitor import ValidReadyMonitor
+
+from cocotb_utils import CocotbSimEnv
 
 
 ######################################################
@@ -408,29 +411,32 @@ async def test_non_device_mode(
     raise env.scoreboard.result
 
 
-class TbDesign(Design):
-
+class TbDesign(CocotbSimEnv):
     def __init__(self):
-        super().__init__()
-
-        self.set_name("tb_umi_stream")
-
-        self.set_dataroot("tb_umi_stream", __file__)
-
-        with self.active_dataroot("tb_umi_stream"):
-            with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("umi_stream")
-                self.add_file("test_umi_stream.py", filetype="python")
-                self.add_depfileset(Stream(), "rtl")
+        super().__init__(
+            name="tb_umi_stream",
+            topmodule="umi_stream",
+            files=[
+                __file__,
+            ],
+            dep=[Stream()]
+        )
 
 
 @pytest.mark.cocotb
 @pytest.mark.parametrize("simulator", ["icarus", "verilator"])
 def test_umi_stream(simulator):
-    from run_cocotb_sim import load_cocotb_test
-    load_cocotb_test(
-        design=TbDesign(),
-        simulator=simulator,
+    project = Sim(TbDesign())
+    project.add_fileset("testbench.cocotb")
+
+    dvflow_cocotb(
+        project=project,
         trace=False,
+        timescale=("1ns", "1ps"),
         seed=None
     )
+
+    project.set_flow(f"{simulator}cocotbdvflow")
+
+    project.run()
+    project.summary()

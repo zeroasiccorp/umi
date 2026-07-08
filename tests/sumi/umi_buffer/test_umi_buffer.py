@@ -5,11 +5,12 @@ import itertools
 
 import pytest
 
-from siliconcompiler import Design
+from siliconcompiler import Sim
+from siliconcompiler.targets.dvflow_cocotb import dvflow_cocotb
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles, RisingEdge, Timer
+from cocotb.triggers import ClockCycles, RisingEdge
 from cocotb.types import LogicArray
 from cocotb.handle import SimHandleBase
 
@@ -23,6 +24,8 @@ from cocotbext.umi.utils.generators import (
 )
 
 from umi.sumi.umi_buffer.umi_buffer import Buffer
+
+from cocotb_utils import drive_reset, CocotbSimEnv
 
 
 class ValidReadyDriver(ValidatedBusDriver):
@@ -110,15 +113,6 @@ class ValidReadyMonitor(BusMonitor):
             await clk_re
             if valid_handshake():
                 self._recv(self.bus.data.value.to_bytes(byteorder="little"))
-
-
-async def drive_reset(reset, time_ns=50):
-    reset.value = 1
-    await Timer(1, unit="step")
-    reset.value = 0
-    await Timer(time_ns, unit="ns")
-    reset.value = 1
-    await Timer(1, unit="step")
 
 
 @cocotb.test()
@@ -258,24 +252,16 @@ async def umi_buffer_backpressure_test(dut):
     raise scoreboard.result
 
 
-class TbDesign(Design):
+class TbDesign(CocotbSimEnv):
 
     def __init__(self, mode: int):
-        super().__init__()
-
-        # Set the design's name
-        self.set_name(f"tb_umi_buffer_mode_{mode}")
-
-        # Establish the root directory for all design-related files
-        self.set_dataroot("tb_umi_buffer", __file__)
-
-        # Configure filesets within the established data root
-        with self.active_dataroot("tb_umi_buffer"):
-            with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("umi_buffer")
-                self.set_param("MODE", str(mode))
-                self.add_file("test_umi_buffer.py", filetype="python")
-                self.add_depfileset(Buffer(), "rtl")
+        super().__init__(
+            name=f"tb_umi_buffer_mode_{mode}",
+            topmodule="umi_buffer",
+            files=[__file__],
+            dep=[Buffer()],
+            param=[("MODE", str(mode))]
+        )
 
 
 @pytest.mark.cocotb
@@ -284,10 +270,17 @@ class TbDesign(Design):
     [0, 1]
 )))
 def test_umi_buffer(simulator, mode):
-    from run_cocotb_sim import load_cocotb_test
-    load_cocotb_test(
-        design=TbDesign(mode),
-        simulator=simulator,
+    project = Sim(TbDesign(mode))
+    project.add_fileset("testbench.cocotb")
+
+    dvflow_cocotb(
+        project=project,
         trace=False,
+        timescale=("1ns", "1ps"),
         seed=None
     )
+
+    project.set_flow(f"{simulator}cocotbdvflow")
+
+    project.run()
+    project.summary()

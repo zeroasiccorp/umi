@@ -5,7 +5,7 @@
 # the Verilog umi_memagent. The DUT is tl2umi directly (no wrapper needed).
 
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles, Timer
+from cocotb.triggers import ClockCycles
 
 from cocotb_bus.scoreboard import Scoreboard
 
@@ -13,18 +13,10 @@ from cocotbext.umi.drivers.sumi_driver import SumiDriver
 from cocotbext.umi.monitors.sumi_monitor import SumiMonitor
 from cocotbext.umi.models.umi_memory_device import UmiMemoryDevice
 
-from tl_driver import TLDriver
-from tl_monitor import TLMonitor, TLDResponse, TLDOpcode
+from adapters.tl2umi.tl_driver import TLDriver
+from adapters.tl2umi.tl_monitor import TLMonitor, TLDResponse, TLDOpcode
 
-
-async def do_reset(reset, time_ns, active_level=False):
-    """Perform an async reset"""
-    reset.value = not active_level
-    await Timer(1, unit="step")
-    reset.value = active_level
-    await Timer(time_ns, "ns")
-    reset.value = not active_level
-    await Timer(1, unit="step")
+from cocotb_utils import drive_reset
 
 
 class TL2UMIEnv:
@@ -97,7 +89,7 @@ class TL2UMIEnv:
     async def start(self):
         """Start clocks and perform reset"""
         Clock(self.clk, self.clk_period_ns, unit="ns").start()
-        await do_reset(self.nreset, self.clk_period_ns)
+        await drive_reset(self.nreset, self.clk_period_ns)
 
         # Initialize DUT configuration signals
         self.dut.srcaddr.value = 0xAE510000
