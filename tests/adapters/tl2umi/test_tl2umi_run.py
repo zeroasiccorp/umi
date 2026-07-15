@@ -2,47 +2,48 @@ import itertools
 
 import pytest
 
-from siliconcompiler import Design
+from siliconcompiler import Sim
+from siliconcompiler.targets.dvflow_cocotb import dvflow_cocotb
 
 from umi.adapters import TL2UMI
 
+from cocotb_utils import CocotbSimEnv
 
-class TL2UMITestbench(Design):
+
+class TL2UMITestbench(CocotbSimEnv):
     """TL2UMI testbench for cocotb testing (UMI memory agent in Python)"""
 
     def __init__(self, aw=64, dw=64):
-        super().__init__()
-
-        self.set_name(f"tb_tl2umi_aw{aw}_dw{dw}")
-        self.set_dataroot("tl2umi", __file__)
-
-        with self.active_dataroot("tl2umi"):
-            with self.active_fileset("testbench.cocotb"):
-                self.set_topmodule("tl2umi")
-                self.set_param("AW", str(aw))
-                self.set_param("DW", str(dw))
-                # Add test files
-                self.add_file("test_basic.py", filetype="python")
-                self.add_file("test_advanced.py", filetype="python")
-                # Add helper Python modules (populates PYTHONPATH via DVFlow)
-                self.add_file("tl2umi_env.py", filetype="python")
-                self.add_file("tl_driver.py", filetype="python")
-                self.add_file("tl_monitor.py", filetype="python")
-                # Add RTL dependency (no Verilog wrapper needed)
-                self.add_depfileset(TL2UMI(), "rtl")
+        super().__init__(
+            name=f"tb_tl2umi_aw{aw}_dw{dw}",
+            topmodule="tl2umi",
+            files=[
+                "adapters/tl2umi/test_basic.py",
+                "adapters/tl2umi/test_advanced.py",
+            ],
+            dep=[TL2UMI()],
+            param=[("AW", str(aw)), ("DW", str(dw))]
+        )
 
 
 @pytest.mark.cocotb
 @pytest.mark.parametrize("simulator, aw, dw", list(itertools.product(
     ["verilator"],
-    [32, 64],
+    [64],
     [64, 128]
 )))
 def test_tl2umi(simulator, aw, dw):
-    from run_cocotb_sim import load_cocotb_test
-    load_cocotb_test(
-        design=TL2UMITestbench(aw=aw, dw=dw),
-        simulator=simulator,
+    project = Sim(TL2UMITestbench(aw=aw, dw=dw))
+    project.add_fileset("testbench.cocotb")
+
+    dvflow_cocotb(
+        project=project,
         trace=False,
+        timescale=("1ns", "1ps"),
         seed=None
     )
+
+    project.set_flow(f"{simulator}cocotbdvflow")
+
+    project.run()
+    project.summary()

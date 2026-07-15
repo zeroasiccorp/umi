@@ -2,8 +2,12 @@ import cocotb
 
 from cocotb.handle import SimHandleBase
 
-from tl_driver import TLTransaction
-from tl2umi_env import TL2UMIEnv, create_expected_write_response, create_expected_read_response
+from adapters.tl2umi.tl_driver import TLTransaction
+from adapters.tl2umi.tl2umi_env import (
+    TL2UMIEnv,
+    create_expected_write_response,
+    create_expected_read_response
+)
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")

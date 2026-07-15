@@ -7,7 +7,7 @@ from cocotb_bus.drivers import BitDriver
 
 from cocotbext.umi.sumi import SumiTransaction, SumiCmdType, SumiCmd
 from cocotbext.umi.utils.generators import random_toggle_generator
-from env import UMI2APBEnv, create_expected_write_response
+from adapters.umi2apb.env import UMI2APBEnv, create_expected_write_response
 
 
 @cocotb.test(timeout_time=50, timeout_unit="ms")
