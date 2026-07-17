@@ -56,7 +56,8 @@ ignore = [
 markers = [
     "eda: this test requires EDA tools installed to run",
     "switchboard: this test requires switchboard to run",
-    "cocotb: this test requires cocotb to run"
+    "cocotb: this test requires cocotb to run",
+    "formal: this test requires SymbiYosys (sby) to run"
 ]
 pythonpath = [
     "tests"
