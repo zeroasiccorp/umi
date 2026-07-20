@@ -59,3 +59,17 @@ other CI lanes.
 1. Add `fv_<name>.sv` + `fv_<name>.sby` under the layer directory,
    with at least one `fault_*` task and covers for assumed corners.
 2. Add its tasks to the lists in `tests/sumi/test_formal.py`.
+
+## Proofs
+
+| proof | property module | claim | green tasks | fault tasks |
+|---|---|---|---|---|
+| `sumi/fv_umi_codec` | (umi_pack / umi_unpack) | CMD codec round-trips over the 13 structured opcodes | prove, prove_z3, cover | fault_eom |
+| `sumi/fv_umi_buffer` | `umi_checker/rtl/umi_handshake_checker.sv` | umi_buffer obeys the README 4.2 ready/valid handshake | prove, prove_z3, bypass, cover | fault_valid, fault_data |
+| `sumi/fv_umi_cmd` | `umi_checker/rtl/umi_cmd_checker.sv` | CMD-word legality: the assume face (legal-traffic generator) and assert face of the checker agree, at DW=256 and DW=64, and every legal opcode plus a full-capacity beat is reachable | prove, prove_z3, prove_dw64, cover, cover_sa | fault_opcode, fault_atype, fault_align_da, fault_align_sa, fault_fullbyte, fault_ex, fault_errsize, fault_cap, fault_respdata, fault_sa_reserved |
+
+`fv_umi_cmd` checks one rule per fault task (the label each must trip
+is tabulated in `fv_umi_cmd.sby`); `cover_sa` and `fault_sa_reserved`
+run with the opt-in strict profile `CHECK_SA_RESERVED=1` (request SA
+reserved bits zero), which defaults off because the repo's own
+reference traffic uses the high SA bytes as routing/control bits.

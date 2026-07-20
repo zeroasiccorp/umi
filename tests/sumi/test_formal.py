@@ -31,12 +31,27 @@ GREEN_TASKS = [
     ("fv_umi_buffer", "prove_z3"),
     ("fv_umi_buffer", "bypass"),
     ("fv_umi_buffer", "cover"),
+    ("fv_umi_cmd", "prove"),
+    ("fv_umi_cmd", "prove_z3"),
+    ("fv_umi_cmd", "prove_dw64"),
+    ("fv_umi_cmd", "cover"),
+    ("fv_umi_cmd", "cover_sa"),
 ]
 
 FAULT_TASKS = [
     ("fv_umi_codec", "fault_eom"),
     ("fv_umi_buffer", "fault_valid"),
     ("fv_umi_buffer", "fault_data"),
+    ("fv_umi_cmd", "fault_opcode"),
+    ("fv_umi_cmd", "fault_atype"),
+    ("fv_umi_cmd", "fault_align_da"),
+    ("fv_umi_cmd", "fault_align_sa"),
+    ("fv_umi_cmd", "fault_fullbyte"),
+    ("fv_umi_cmd", "fault_ex"),
+    ("fv_umi_cmd", "fault_errsize"),
+    ("fv_umi_cmd", "fault_cap"),
+    ("fv_umi_cmd", "fault_respdata"),
+    ("fv_umi_cmd", "fault_sa_reserved"),
 ]
 
 

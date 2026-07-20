@@ -6,12 +6,13 @@ class Checker(UMI):
 
     One block, one fileset, growing by files -- never by folders:
       rtl/umi_handshake_checker.sv   README 4.2 ready/valid handshake
-      (future: umi_cmd_checker.sv    CMD-field legality;
-               umi_txn_checker.sv    request/response pairing)
+      rtl/umi_cmd_checker.sv         CMD-word (command field) legality
+      (future: umi_txn_checker.sv    request/response pairing)
     """
     def __init__(self):
         super().__init__('umi_checker',
-                         files=['rtl/umi_handshake_checker.sv'],
+                         files=['rtl/umi_handshake_checker.sv',
+                                'rtl/umi_cmd_checker.sv'],
                          deps=[])
         # the block name is the family home, not a module: point the
         # lint top at the (sole, for now) checker module
