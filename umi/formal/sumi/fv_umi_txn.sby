@@ -1,0 +1,163 @@
+# Transaction / framing checker (umi_txn_checker) vs a perfect in-order
+# responder model. Response-side L2 rules, NO-INTERLEAVE operating
+# condition (single point-to-point link -- see umi/formal/README.md).
+#
+#   sby -f fv_umi_txn.sby prove           # expect PASS (boolector, k-induction)
+#   sby -f fv_umi_txn.sby prove_bw        # expect PASS (bitwuzla)
+#   sby -f fv_umi_txn.sby cover           # expect PASS, all covers reached
+#   sby -f fv_umi_txn.sby cover_boundary  # expect PASS, FRM-4 boundary reached
+#   sby -f fv_umi_txn.sby fault_<name>    # must FAIL (see table)
+#
+# prove tasks are k-induction: a PASS is unbounded. The checker is
+# stateful, so induction is strengthened by the harness glue lemmas
+# (a_glue_*), which are ASSERTED, not assumed. z3 is replaced by
+# bitwuzla on this configuration (prove_bw): z3 is slow on this
+# composition (minutes) and does not close the txn induction within a
+# reasonable budget, while bitwuzla closes in ~30 s, so it is the second
+# solver here (documented in umi/formal/README.md). boolector (prove) is
+# the primary unbounded engine.
+#
+# Fault tasks and the assertion label each must trip. Every fault
+# corrupts ONLY the checker's response view (fv_umi_txn.sv [corrupt]
+# block) or shrinks a checker bound by chparam, so the responder and all
+# glue lemmas stay clean. Each fault trips its INTENDED rule below. Some
+# corruptions violate several related rules on the same beat, and which
+# label BMC reports is solver-dependent -- smtbmc prints whichever rules
+# its particular counterexample happens to falsify, so a different solver
+# (or build) can report a different subset. The INTENDED label is the one
+# guaranteed to appear in the log's failed-assertion list; the extra
+# labels called out below are also legal and NOT a regression:
+#   fault_wrongda      TXN_da_first        first-beat DA off by 8 (sole,
+#                                          stable across solvers)
+#   fault_size         TXN_size            mid-message SIZE mutation. This
+#                                          also trips TXN_eom_iff_closed
+#                                          (always) and TXN_bytes_le (most
+#                                          solvers): one SIZE flip corrupts
+#                                          the byte-count arithmetic those
+#                                          rules share, so they fail together
+#   fault_eom_early    TXN_eom_iff_closed  EOM on a non-closing split beat
+#   fault_eom_missing  TXN_eom_iff_closed  EOM dropped on the closing beat.
+#                                          Solver-dependent: boolector/z3
+#                                          report TXN_eom_iff_closed,
+#                                          bitwuzla reports TXN_err_eom when
+#                                          it models the beat as an error
+#                                          response -- a dropped EOM breaks
+#                                          whichever EOM-termination law
+#                                          the counterexample invokes
+#   fault_msgbytes     TXN_msgbytes        FRM-4 overrun (chparam MAX=64,
+#                                          FV_BIGMSG legal >64 B message)
+#   fault_err_len      TXN_err_len         error response LEN != request LEN
+#   fault_orphan       TXN_p5_outstanding  response into an empty tracker.
+#                                          An orphan beat violates SEVERAL
+#                                          rules at once: boolector/bitwuzla
+#                                          report TXN_p5_outstanding, but z3
+#                                          also trips TXN_da_first and the
+#                                          field-match rules (TXN_kind,
+#                                          TXN_size, TXN_hostid, TXN_qos,
+#                                          TXN_prot, TXN_bytes_le,
+#                                          TXN_eom_iff_closed) at the same
+#                                          step -- BMC reports whichever
+#                                          subset its model trips first
+#   fault_occ          TXN_occ_bound       tracker overflow (chparam CAP=1,
+#                                          two legal outstanding requests)
+# The intended label must appear in the log's failed-assertion list.
+
+[tasks]
+prove
+prove_bw
+prove_deep
+prove_deep_bw
+cover
+cover_boundary
+fault_wrongda
+fault_size
+fault_eom_early
+fault_eom_missing
+fault_msgbytes
+fault_err_len
+fault_orphan
+fault_occ
+
+[options]
+prove: mode prove
+prove_bw: mode prove
+prove_deep: mode prove
+prove_deep_bw: mode prove
+prove: depth 20
+prove_bw: depth 20
+prove_deep: depth 20
+prove_deep_bw: depth 20
+cover: mode cover
+cover: depth 22
+cover_boundary: mode cover
+cover_boundary: depth 24
+fault_wrongda: mode bmc
+fault_size: mode bmc
+fault_eom_early: mode bmc
+fault_eom_missing: mode bmc
+fault_msgbytes: mode bmc
+fault_err_len: mode bmc
+fault_orphan: mode bmc
+fault_occ: mode bmc
+fault_wrongda: depth 20
+fault_size: depth 20
+fault_eom_early: depth 20
+fault_eom_missing: depth 20
+fault_msgbytes: depth 24
+fault_err_len: depth 20
+fault_orphan: depth 20
+fault_occ: depth 20
+timeout 1200
+
+[engines]
+prove: smtbmc boolector
+prove_bw: smtbmc bitwuzla
+prove_deep: smtbmc boolector
+prove_deep_bw: smtbmc bitwuzla
+cover: smtbmc boolector
+cover_boundary: smtbmc boolector
+fault_wrongda: smtbmc boolector
+fault_size: smtbmc boolector
+fault_eom_early: smtbmc boolector
+fault_eom_missing: smtbmc boolector
+fault_msgbytes: smtbmc boolector
+fault_err_len: smtbmc boolector
+fault_orphan: smtbmc boolector
+fault_occ: smtbmc boolector
+
+[script]
+# -I. : umi_messages.vh is staged next to the sources by [files]
+# FORMAL_MSGBYTES_BOUNDARY guards the SAW_msgbytes_boundary cover, which
+# lives in the CHECKER (umi_txn_checker.sv), not the harness. read_verilog
+# -D is local to a single read command, so the define must be set as a
+# PERSISTENT yosys define BEFORE the checker read below -- otherwise the
+# checker is parsed without it and the boundary cover is silently dropped.
+cover_boundary: verilog_defines -DFORMAL_MSGBYTES_BOUNDARY
+read_verilog -formal -sv -I. umi_txn_checker.sv
+prove: read_verilog -formal -sv -I. fv_umi_txn.sv
+prove_bw: read_verilog -formal -sv -I. fv_umi_txn.sv
+prove_deep: read_verilog -formal -sv -I. fv_umi_txn.sv
+prove_deep_bw: read_verilog -formal -sv -I. fv_umi_txn.sv
+cover: read_verilog -formal -sv -I. fv_umi_txn.sv
+cover_boundary: read_verilog -formal -sv -I. fv_umi_txn.sv
+fault_wrongda: read_verilog -formal -sv -I. -DFV_FAULT_WRONGDA fv_umi_txn.sv
+fault_size: read_verilog -formal -sv -I. -DFV_FAULT_SIZE fv_umi_txn.sv
+fault_eom_early: read_verilog -formal -sv -I. -DFV_FAULT_EOM_EARLY fv_umi_txn.sv
+fault_eom_missing: read_verilog -formal -sv -I. -DFV_FAULT_EOM_MISSING fv_umi_txn.sv
+fault_msgbytes: read_verilog -formal -sv -I. -DFV_BIGMSG fv_umi_txn.sv
+fault_err_len: read_verilog -formal -sv -I. -DFV_FAULT_ERR_LEN fv_umi_txn.sv
+fault_orphan: read_verilog -formal -sv -I. -DFV_FAULT_ORPHAN fv_umi_txn.sv
+fault_occ: read_verilog -formal -sv -I. fv_umi_txn.sv
+cover_boundary: chparam -set MAX_MSG_BYTES 256 fv_umi_txn
+fault_msgbytes: chparam -set MAX_MSG_BYTES 64 fv_umi_txn
+fault_occ: chparam -set CAP 1 fv_umi_txn
+# deep proof: raise the request-LEN ceiling to 3 (messages up to 4 beats),
+# DW kept at 64 (default) for tractability. MAXLEN is a HARNESS-only knob.
+prove_deep: chparam -set MAXLEN 3 fv_umi_txn
+prove_deep_bw: chparam -set MAXLEN 3 fv_umi_txn
+prep -top fv_umi_txn
+
+[files]
+../../sumi/umi_checker/rtl/umi_txn_checker.sv
+../../sumi/include/umi_messages.vh
+fv_umi_txn.sv

@@ -15,6 +15,11 @@ FORMAL_SUMI = Path(__file__).resolve().parents[2] / "umi" / "formal" / "sumi"
 
 # sby drives yosys; the green tasks use the boolector and z3 engines
 _TOOLS = ("sby", "yosys", "boolector", "z3")
+# the two fv_umi_txn *_bw rows also need bitwuzla; skip just those when it
+# is absent so the rest of the lane still runs on boolector/z3
+_HAVE_BITWUZLA = shutil.which("bitwuzla") is not None
+_needs_bitwuzla = pytest.mark.skipif(not _HAVE_BITWUZLA,
+                                     reason="bitwuzla not on PATH")
 
 pytestmark = [
     pytest.mark.formal,
@@ -36,6 +41,12 @@ GREEN_TASKS = [
     ("fv_umi_cmd", "prove_dw64"),
     ("fv_umi_cmd", "cover"),
     ("fv_umi_cmd", "cover_sa"),
+    ("fv_umi_txn", "prove"),
+    pytest.param("fv_umi_txn", "prove_bw", marks=_needs_bitwuzla),
+    ("fv_umi_txn", "prove_deep"),
+    pytest.param("fv_umi_txn", "prove_deep_bw", marks=_needs_bitwuzla),
+    ("fv_umi_txn", "cover"),
+    ("fv_umi_txn", "cover_boundary"),
 ]
 
 FAULT_TASKS = [
@@ -52,6 +63,14 @@ FAULT_TASKS = [
     ("fv_umi_cmd", "fault_cap"),
     ("fv_umi_cmd", "fault_respdata"),
     ("fv_umi_cmd", "fault_sa_reserved"),
+    ("fv_umi_txn", "fault_wrongda"),
+    ("fv_umi_txn", "fault_size"),
+    ("fv_umi_txn", "fault_eom_early"),
+    ("fv_umi_txn", "fault_eom_missing"),
+    ("fv_umi_txn", "fault_msgbytes"),
+    ("fv_umi_txn", "fault_err_len"),
+    ("fv_umi_txn", "fault_orphan"),
+    ("fv_umi_txn", "fault_occ"),
 ]
 
 
@@ -63,8 +82,15 @@ def _sby(proof, task):
         cwd=FORMAL_SUMI, capture_output=True, text=True, timeout=600)
 
 
+def _tid(entry):
+    # entry is a (proof, task) tuple or a pytest.param wrapping the same
+    # two values; render the shared "proof:task" id either way
+    proof, task = getattr(entry, "values", entry)
+    return f"{proof}:{task}"
+
+
 @pytest.mark.parametrize("proof,task", GREEN_TASKS,
-                         ids=[f"{p}:{t}" for p, t in GREEN_TASKS])
+                         ids=[_tid(e) for e in GREEN_TASKS])
 def test_proof(proof, task):
     r = _sby(proof, task)
     assert r.returncode == 0 and "DONE (PASS" in r.stdout, r.stdout[-800:]
