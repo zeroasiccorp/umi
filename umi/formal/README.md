@@ -17,19 +17,50 @@ Each proof is two files. No generators, no copied RTL:
 
 ## Run
 
-    # the whole lane (ordinary tasks must pass, fault_* tasks must fail)
+Two pytest entry points, both under the `formal` marker:
+
+    # the .sby lane: the full dual-solver matrix, every .sby task
+    # (ordinary tasks must pass, fault_* tasks must fail)
     pytest -m formal tests/sumi/test_formal.py
+
+    # the SiliconCompiler lane: the same proofs launched as
+    # PropertyCheckFlow runs -- the sby jobs are GENERATED from the
+    # repo's own Design filesets (harness on top, DUT and checker
+    # blocks as depfilesets; include dirs, defines and params ride in
+    # from the Design objects)
+    pytest -m formal tests/sumi/test_formal_sc.py
 
     # one task by hand, from the proof's directory
     cd umi/formal/sumi && sby -f fv_umi_codec.sby prove
 
-SiliconCompiler's sby flow can generate these jobs from the filesets;
-planned as the CI lane once its formal API stabilizes (currently
-engine-locked to boolector).
+CI runs both entry points in the "Formal CI" job
+(`.github/workflows/ci.yml`) inside SiliconCompiler's `sc_tools`
+container (`ghcr.io/siliconcompiler/sc_tools:latest`, the same image the
+Python CI lane uses). That image ships yosys, sby and boolector -- the
+released SiliconCompiler 0.38.x engine -- and the job runs
+`pytest -m "formal" --durations=0`. The formal lane runs the proofs
+serially -- sby keeps a per-proof status database that is not safe to
+share across the concurrent tasks of one proof, so this lane does not
+add pytest-xdist (`-n`) here; the full set still finishes in a few
+minutes. One solver is
+all CI needs to gate the proofs; z3 and bitwuzla are the local dual-solver
+evidence (see Engines), are absent from the container, and so their
+rows skip cleanly there. Without the tools the formal tests skip, so no
+other lane can be broken by this one.
+
+Engines: CI and the SC lane run boolector, the engine siliconcompiler's
+sby task offers in the released 0.38.x versions; bitwuzla engine support
+is already merged in siliconcompiler main, so the SC lane gains a second
+engine on the next release. z3 and bitwuzla are used only in the local
+`.sby` lane as independent-solver evidence (z3 and bitwuzla
+alongside boolector); where those solvers are absent -- notably the CI
+container -- their rows skip cleanly and boolector alone gates the lane.
 
 ## Tools
 
-`sby`, `yosys`, `boolector`, and `z3` on PATH. Easiest source is the
+`sby`, `yosys`, and `boolector` on PATH (add `z3` and `bitwuzla` for the
+full local dual-solver matrix; their rows skip when absent). Easiest
+source is the
 [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases):
 
     source <extracted>/oss-cad-suite/environment
@@ -52,13 +83,17 @@ other CI lanes.
 * `prove` tasks are k-induction: a PASS is unbounded, not a bounded
   search. Every `cover` witness must be REACHED, or the environment
   is over-constrained.
-* `prove` runs boolector, `prove_z3` runs z3; both must pass.
+* `prove` runs boolector and must pass; `prove_z3` runs the same proof
+  under z3 where z3 is on PATH and skips otherwise (local evidence only).
 
 ## Adding a proof
 
 1. Add `fv_<name>.sv` + `fv_<name>.sby` under the layer directory,
    with at least one `fault_*` task and covers for assumed corners.
 2. Add its tasks to the lists in `tests/sumi/test_formal.py`.
+3. Add a family entry (deps, depth, params) plus one green and one
+   fault row in `tests/sumi/test_formal_sc.py` so the proof also rides
+   the SiliconCompiler lane.
 
 ## Proofs
 

@@ -13,32 +13,39 @@ import pytest
 
 FORMAL_SUMI = Path(__file__).resolve().parents[2] / "umi" / "formal" / "sumi"
 
-# sby drives yosys; the green tasks use the boolector and z3 engines
-_TOOLS = ("sby", "yosys", "boolector", "z3")
-# the two fv_umi_txn *_bw rows also need bitwuzla; skip just those when it
-# is absent so the rest of the lane still runs on boolector/z3
+# sby drives yosys; the green tasks run the boolector engine, which is
+# always present in the sc_tools CI container. z3 and bitwuzla are extra
+# solvers used only for the local dual-solver evidence and are skipped
+# per-row (see below) when the solver is not on PATH.
+_TOOLS = ("sby", "yosys", "boolector")
+# the prove_z3 rows need z3 and the two fv_umi_txn *_bw rows need
+# bitwuzla; skip just those rows when the solver is absent so the rest of
+# the lane still runs on boolector alone
 _HAVE_BITWUZLA = shutil.which("bitwuzla") is not None
 _needs_bitwuzla = pytest.mark.skipif(not _HAVE_BITWUZLA,
                                      reason="bitwuzla not on PATH")
+_HAVE_Z3 = shutil.which("z3") is not None
+_needs_z3 = pytest.mark.skipif(not _HAVE_Z3,
+                               reason="z3 not on PATH")
 
 pytestmark = [
     pytest.mark.formal,
     pytest.mark.skipif(any(shutil.which(t) is None for t in _TOOLS),
-                       reason="formal toolchain (sby/yosys/boolector/z3) "
+                       reason="formal toolchain (sby/yosys/boolector) "
                               "not on PATH"),
 ]
 
 GREEN_TASKS = [
     ("fv_umi_codec", "prove"),
-    ("fv_umi_codec", "prove_z3"),
+    pytest.param("fv_umi_codec", "prove_z3", marks=_needs_z3),
     ("fv_umi_codec", "cover"),
     ("fv_umi_buffer", "prove"),
-    ("fv_umi_buffer", "prove_z3"),
+    pytest.param("fv_umi_buffer", "prove_z3", marks=_needs_z3),
     ("fv_umi_buffer", "bypass"),
     ("fv_umi_buffer", "cover"),
     ("fv_umi_buffer", "rule5"),
     ("fv_umi_cmd", "prove"),
-    ("fv_umi_cmd", "prove_z3"),
+    pytest.param("fv_umi_cmd", "prove_z3", marks=_needs_z3),
     ("fv_umi_cmd", "prove_dw64"),
     ("fv_umi_cmd", "cover"),
     ("fv_umi_cmd", "cover_sa"),
