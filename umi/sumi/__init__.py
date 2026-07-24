@@ -1,5 +1,6 @@
 from .umi_arbiter.umi_arbiter import Arbiter
 from .umi_buffer.umi_buffer import Buffer
+from .umi_checker.umi_checker import Checker
 from .umi_crossbar.umi_crossbar import Crossbar
 from .umi_decode.umi_decode import Decode
 from .umi_endpoint.umi_endpoint import Endpoint
@@ -24,6 +25,7 @@ from .umi_demux.umi_demux import Demux
 
 __all__ = ['Arbiter',
            'Buffer',
+           'Checker',
            'Crossbar',
            'Decode',
            'Endpoint',

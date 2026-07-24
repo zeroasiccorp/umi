@@ -72,4 +72,30 @@ jobs:
           . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
-          pytest -m "not switchboard and not cocotb" -n logical --verbose
+          pytest -m "not switchboard and not cocotb and not formal" -n logical --verbose
+
+
+  formal_ci:
+    name: "Formal CI"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/siliconcompiler/sc_tools:latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # the sc_tools image already ships yosys + sby + boolector, so the
+      # formal lane runs here with no extra tool-install step; z3 and
+      # bitwuzla are absent, so those local-evidence rows skip cleanly
+      - name: pytest
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python3 -m venv venv
+          . venv/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e .[test]
+          pytest -m "formal" --durations=0
