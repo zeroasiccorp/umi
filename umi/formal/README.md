@@ -65,9 +65,31 @@ other CI lanes.
 | proof | property module | claim | green tasks | fault tasks |
 |---|---|---|---|---|
 | `sumi/fv_umi_codec` | (umi_pack / umi_unpack) | CMD codec round-trips over the 13 structured opcodes | prove, prove_z3, cover | fault_eom |
-| `sumi/fv_umi_buffer` | `umi_checker/rtl/umi_handshake_checker.sv` | umi_buffer obeys the README 4.2 ready/valid handshake | prove, prove_z3, bypass, cover | fault_valid, fault_data |
+| `sumi/fv_umi_buffer` | `umi_checker/rtl/umi_handshake_checker.sv` | umi_buffer obeys the README 4.2 ready/valid handshake, including rule 5 (VALID must not wait for READY) | prove, prove_z3, bypass, cover, rule5 | fault_valid, fault_data, fault_rule5 |
 | `sumi/fv_umi_cmd` | `umi_checker/rtl/umi_cmd_checker.sv` | CMD-word legality: the assume face (legal-traffic generator) and assert face of the checker agree, at DW=256 and DW=64, and every legal opcode plus a full-capacity beat is reachable | prove, prove_z3, prove_dw64, cover, cover_sa | fault_opcode, fault_atype, fault_align_da, fault_align_sa, fault_fullbyte, fault_ex, fault_errsize, fault_cap, fault_respdata, fault_sa_reserved |
 | `sumi/fv_umi_txn` | `umi_checker/rtl/umi_txn_checker.sv` | response-side transaction / framing: against a perfect in-order responder every response beat pairs with its request (kind/field-copy), the split-response DA follows the continuation law, EOM lands exactly on the closing beat, an error reply is one length-echoing beat, and the FRM-4 per-message byte total and the outstanding-request tracker stay bounded | prove, prove_bw, prove_deep, prove_deep_bw, cover, cover_boundary | fault_wrongda, fault_size, fault_eom_early, fault_eom_missing, fault_msgbytes, fault_err_len, fault_orphan, fault_occ |
+
+`fv_umi_buffer` additionally answers README section 4.2 rule 5
+(README.md:462): *"The assertion of VALID must not depend on the
+assertion of READY. In other words, it is not legal for the VALID
+assertion to wait for the READY assertion."* This is a structural rule
+a cycle-sampled bind-in monitor can not assert (the handshake checker's
+header says so); the complete method is
+harness-level, on the DUT being proven, in three parts. `rule5` (cover)
+assumes out_ready stuck low for the entire trace (`FV_RULE5_READYLOW`),
+keeps the upstream driver legal, and reaches a cover of out_valid
+asserting -- and holding -- anyway: VALID rises with zero help from
+READY, the literal negation of the illegal behavior. `a_rule5_state`
+rides the prove/prove_z3/bypass tasks as the state-driven face
+(a full, data-holding buffer always asserts VALID, read out at the
+ports as `!in_ready |-> out_valid`; in bypass `in_valid |-> out_valid`).
+`fault_rule5` is the teeth: `FV_FAULT_RULE5` models the illegal design
+where VALID waits for READY (`out_valid & out_ready`), under which the
+stuck-low cover can never be reached, so the task FAILs. The handshake
+checker also carries a free per-bind `c_rule5` reachability witness
+(VALID fires while READY is low). Both rule5 tasks add `-DFV_NO_WITNESS`
+so the checker's own transaction covers -- unreachable under stuck-low
+ready -- do not spuriously fail the cover task.
 
 `fv_umi_cmd` checks one rule per fault task (the label each must trip
 is tabulated in `fv_umi_cmd.sby`); `cover_sa` and `fault_sa_reserved`

@@ -44,8 +44,16 @@
  *   Rules 5/6 (VALID must not depend on READY; READY may depend on
  *          VALID but not combinationally) constrain the DESIGN
  *          STRUCTURE, not the waveform: a legal trace can be produced
- *          by an illegal circuit. They can not be checked by a bound
- *          monitor and are out of scope here.
+ *          by an illegal circuit. A cycle-sampled monitor therefore can
+ *          not ASSERT them, so they remain out of scope for this
+ *          bind-in checker. What it does contribute is the c_rule5
+ *          cover below: a free per-bind reachability witness that VALID
+ *          fires while READY is low (README 4.2 rule 5, README.md:462).
+ *          The COMPLETE method for rule 5 is harness-level, on the DUT
+ *          being proven -- umi/formal/sumi/fv_umi_buffer.sby task
+ *          `rule5` assumes READY stuck low for the whole trace and
+ *          covers VALID asserting anyway, the literal negation of
+ *          "VALID waits for READY".
  *
  * ASSUME parameter: the same properties can face two directions.
  *   ASSUME=0 (default): assert the rules. Use on any channel the
@@ -197,13 +205,24 @@ module umi_handshake_checker #(
     // fail loudly (unreached) if the harness is over-constrained.
 
 `ifdef FORMAL
+`ifndef FV_NO_WITNESS
     always @(posedge clk) begin
         if (past_exists & nreset) begin
             RULE1_transaction : cover (valid & ready);
             RULE1_stall : cover (valid & ~ready);
             RULE1_stall_then_complete : cover (past_stalled & valid & ready);
+            // README 4.2 rule 5 (README.md:462): VALID must not wait for
+            // READY. This monitor can not ASSERT that structural rule
+            // (see header), but every bind gets this free witness that
+            // VALID does fire while READY is low. The complete proof is
+            // the harness-level fv_umi_buffer `rule5` task. FV_NO_WITNESS
+            // drops all covers for the stuck-low-ready harness task,
+            // where the transaction covers above are unreachable by
+            // construction.
+            c_rule5 : cover (valid & ~ready);
         end
     end
+`endif
 `endif
 
 endmodule

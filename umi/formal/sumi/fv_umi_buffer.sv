@@ -40,6 +40,29 @@
  * counterexample trace. A checker that cannot fail a broken design
  * proves nothing about a working one; these tasks are the checker's
  * own regression.
+ *
+ * Rule 5 (README 4.2 rule 5, README.md:462): "The assertion of VALID
+ * must not depend on the assertion of READY. In other words, it is not
+ * legal for the VALID assertion to wait for the READY assertion." A
+ * cycle-sampled bind-in monitor can not assert this structural rule
+ * (see umi_handshake_checker's header); the complete method is
+ * harness-level, on the DUT we prove, in three parts:
+ *   1. STUCK-LOW WITNESS (`rule5` task, FV_RULE5_READYLOW): out_ready is
+ *      assumed 0 on EVERY cycle, the upstream driver stays legal, and we
+ *      COVER out_valid asserting -- and, per rule 2, holding. Reaching
+ *      the cover with ready nailed low is the literal negation of "valid
+ *      waits for ready": valid rises with zero help from ready.
+ *   2. STATE-DRIVEN VALID (a_rule5_state, live in the prove tasks):
+ *      out_valid is a pure function of internal occupancy, never of
+ *      out_ready, read out at the ports. In the skid buffer the FULL
+ *      state is port-visible as in_ready low, and `!in_ready |-> out_valid`
+ *      says a full (data-holding) buffer always asserts VALID; in bypass
+ *      `in_valid |-> out_valid`. Proven in both MODE=1 and MODE=0.
+ *   3. TEETH (`fault_rule5` task, FV_FAULT_RULE5): models the illegal
+ *      design in which valid waits for ready (out_valid & out_ready);
+ *      under stuck-low ready that can never be covered, so the `rule5`
+ *      cover goes unreachable and the task FAILs -- the honest cover has
+ *      teeth.
  ******************************************************************************/
 
 `default_nettype none
@@ -151,6 +174,87 @@ module fv_umi_buffer #(
         .srcaddr (out_srcaddr),
         .data    (obs_data)
     );
+
+    // ----------------------------------------------------------------
+    // Rule 5 (README 4.2 rule 5, README.md:462): the assertion of VALID
+    // must not depend on the assertion of READY -- it is not legal for
+    // the VALID assertion to wait for the READY assertion. See the file
+    // header for the three-part evidence; parts 1 and 3 live here under
+    // FV_RULE5_READYLOW / FV_FAULT_RULE5, part 2 is a_rule5_state below.
+    // ----------------------------------------------------------------
+`ifdef FV_RULE5_READYLOW
+`ifdef FV_FAULT_RULE5
+    // ILLEGAL design model: VALID gated by READY (valid waits for ready).
+    // Under stuck-low ready this is 0 forever, so the covers can not be
+    // reached -- the `fault_rule5` task must FAIL.
+    wire rule5_valid = out_valid & out_ready;
+`else
+    // honest DUT: VALID is whatever the buffer drives
+    wire rule5_valid = out_valid;
+`endif
+
+    // pin the downstream ready low for the entire trace
+    always @(*)
+        assume (out_ready == 1'b0);
+
+`ifdef FORMAL
+    // asserted-then-held shadow register, initial-grounded (no $past)
+    reg r5_past = 1'b0;
+    always @(posedge clk)
+        r5_past <= rule5_valid;
+
+    always @(posedge clk) begin
+        if (f_past_exists & nreset) begin
+            // VALID asserts even though READY has been low all along
+            c_rule5_valid_stuck_low : cover (rule5_valid);
+            // and, per rule 2, stays asserted with READY still low
+            c_rule5_valid_held      : cover (rule5_valid & r5_past);
+        end
+    end
+`endif
+`endif
+
+    // ----------------------------------------------------------------
+    // Part 2: STATE-DRIVEN VALID. out_valid is a pure function of the
+    // buffer's internal occupancy, never of out_ready. Live in the prove
+    // tasks (in cover/bmc modes the assert is inert). Occupancy is read
+    // out at the ports -- no hierarchical peek into the DUT:
+    //
+    //   MODE 1 (skid): the buffer has two registered status outs, both
+    //   assigned from the SAME next_state each cycle --
+    //       out_valid == (state != EMPTY)   (data present)
+    //       in_ready  == (state != FULL)    (room upstream)
+    //   in_ready low is the port-visible "FULL, i.e. holding data" flag.
+    //   The FSM never rests in the (out_valid=0, in_ready=0) corner: that
+    //   would be a full buffer withholding VALID -- the exact signature
+    //   of "VALID waits for READY". So `!in_ready |-> out_valid`: when the
+    //   buffer is occupied to the point of backpressuring the input,
+    //   out_valid is asserted with no dependence on out_ready. Both outs
+    //   fall out of one next_state, so they can never both be low -- the
+    //   property is inductive without reaching into the FSM register.
+    //
+    //   MODE 0 (bypass): the input payload is presented the same cycle,
+    //   so in_valid implies out_valid; out_ready feeds only in_ready and
+    //   can not gate out_valid.
+    //
+    // past_nreset gates out the reset edge, where both status outs are
+    // held low by the repo's reset convention (not a rule-5 violation).
+    // ----------------------------------------------------------------
+    reg past_nreset = 1'b0;
+    always @(posedge clk)
+        past_nreset <= nreset;
+
+    generate
+        if (MODE == 1) begin : g_rule5_skid
+            always @(posedge clk)
+                if (f_past_exists & nreset & past_nreset)
+                    a_rule5_state : assert (in_ready || out_valid);
+        end else begin : g_rule5_bypass
+            always @(posedge clk)
+                if (f_past_exists & nreset)
+                    a_rule5_state : assert (!in_valid || out_valid);
+        end
+    endgenerate
 
 endmodule
 
