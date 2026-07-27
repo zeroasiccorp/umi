@@ -55,6 +55,12 @@ GREEN_TASKS = [
     pytest.param("fv_umi_txn", "prove_deep_bw", marks=_needs_bitwuzla),
     ("fv_umi_txn", "cover"),
     ("fv_umi_txn", "cover_boundary"),
+    ("fv_umi_demux", "prove"),
+    pytest.param("fv_umi_demux", "prove_z3", marks=_needs_z3),
+    ("fv_umi_demux", "prove_m4"),
+    ("fv_umi_demux", "cover"),
+    ("fv_umi_demux", "rule5"),
+    ("fv_umi_demux", "hazard"),
 ]
 
 FAULT_TASKS = [
@@ -80,6 +86,12 @@ FAULT_TASKS = [
     ("fv_umi_txn", "fault_err_len"),
     ("fv_umi_txn", "fault_orphan"),
     ("fv_umi_txn", "fault_occ"),
+    ("fv_umi_demux", "fault_valid"),
+    ("fv_umi_demux", "fault_bcast"),
+    ("fv_umi_demux", "fault_drop"),
+    ("fv_umi_demux", "fault_dup"),
+    ("fv_umi_demux", "fault_r5"),
+    ("fv_umi_demux", "fault_rule5"),
 ]
 
 

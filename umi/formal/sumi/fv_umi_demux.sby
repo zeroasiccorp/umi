@@ -1,0 +1,132 @@
+# Formal proof: umi_demux routing and fork laws, with every output
+# channel checked as legal SUMI by the shipped handshake checker.
+#
+# Run from this directory (needs yosys + SymbiYosys + a solver, e.g.
+# the OSS CAD Suite):
+#
+#   sby -f fv_umi_demux.sby prove          # M=2: expect PASS
+#   sby -f fv_umi_demux.sby prove_z3       # same proof, second solver
+#   sby -f fv_umi_demux.sby prove_m4       # M=4: expect PASS
+#   sby -f fv_umi_demux.sby cover          # witnesses: expect all reached
+#   sby -f fv_umi_demux.sby rule5          # rule 4.2.5 witness: expect PASS
+#   sby -f fv_umi_demux.sby hazard         # fork-hazard demo: expect PASS
+#   sby -f fv_umi_demux.sby fault_valid    # checker teeth: expect FAIL
+#   sby -f fv_umi_demux.sby fault_bcast    # checker teeth: expect FAIL
+#   sby -f fv_umi_demux.sby fault_drop     # env teeth: expect FAIL
+#   sby -f fv_umi_demux.sby fault_dup      # env teeth: expect FAIL
+#   sby -f fv_umi_demux.sby fault_r5       # rule-5 miter teeth: expect FAIL
+#   sby -f fv_umi_demux.sby fault_rule5    # rule-5 cover teeth: expect FAIL
+#
+# umi_demux is combinational (no clk, no nreset -- umi_demux.v:28-51), so
+# the prove tasks close immediately; a PASS is unbounded.
+#
+# THE ENVIRONMENT IS AUDITED, NOT ASSERTED. The contract face assumes the
+# fabric drives exactly one destination per live beat. The `hazard` task
+# drops that assumption and COVERS what lies outside it (c_dx_drop: a beat
+# accepted with select==0 vanishes, because in_ready = &(~0|out_ready) = 1;
+# c_dx_dup: a multi-hot select delivers to several outputs for one accept)
+# -- both demonstrated on the shipped RTL. The
+# fault_drop / fault_dup tasks then WEAKEN the assumption and show the
+# fork laws convicting, so the assumption is falsifiable rather than
+# decorative.
+#
+# Fault tasks and the assertion label each is intended to trip. Every
+# fault corrupts only what the harness OBSERVES, never the DUT. A fault
+# may falsify several related rules on the same cycle and which label BMC
+# reports can be solver-dependent; the INTENDED label is the one
+# guaranteed to appear in the log's failed-assertion list:
+#   fault_valid   a_dx_valid_eq    an observed output valid is dropped.
+#                                  Also trips the output handshake
+#                                  checker's RULE2_valid_hold when the
+#                                  counterexample drops a held VALID --
+#                                  legal here and NOT a regression.
+#   fault_bcast   a_dx_bcast_data  an output's data no longer equals the
+#                                  input's.
+#   fault_drop    a_dx_fork_xfer   env weakened to $onehot0: select==0 is
+#                                  now permitted, so an accepted beat is
+#                                  delivered nowhere (the silent drop).
+#   fault_dup     a_dx_fork_one    env weakened the other way: at least TWO
+#                                  destinations AND every output ready, so
+#                                  one accept is delivered to several outputs
+#                                  (the duplication). BOTH halves of that env
+#                                  are load-bearing -- multi-hot select alone
+#                                  still lets a partial ready deliver without
+#                                  an accept, which convicts a_dx_fork_xfer
+#                                  instead (observed on boolector). Pinning
+#                                  ready high forces the accept so only the
+#                                  one-accept-one-delivery law can break.
+#                                  Removing the assumption entirely admits
+#                                  both hazards and lets the solver pick --
+#                                  that unconstrained case is the `hazard`
+#                                  task, whose job is to cover both.
+#   fault_r5      a_dx_r5_indep    models the illegal design in which
+#                                  ready waits for valid; the self-
+#                                  composition miter separates.
+#   fault_rule5   (covers)         models the illegal design in which
+#                                  VALID waits for READY; under stuck-low
+#                                  ready c_rule5_valid_stuck_low and
+#                                  c_rule5_valid_held go UNREACHED.
+# The intended label must appear in the log's failed-assertion list.
+#
+# The rule5 / fault_rule5 tasks pass -DFV_NO_WITNESS so the handshake
+# checkers' own transaction covers, unreachable under stuck-low ready, do
+# not spuriously fail the cover task.
+
+[tasks]
+prove
+prove_z3
+prove_m4
+cover
+rule5
+hazard
+fault_valid
+fault_bcast
+fault_drop
+fault_dup
+fault_r5
+fault_rule5
+
+[options]
+prove: mode prove
+prove_z3: mode prove
+prove_m4: mode prove
+cover: mode cover
+rule5: mode cover
+hazard: mode cover
+fault_valid: mode bmc
+fault_bcast: mode bmc
+fault_drop: mode bmc
+fault_dup: mode bmc
+fault_r5: mode bmc
+fault_rule5: mode cover
+depth 12
+timeout 300
+
+[engines]
+prove_z3: smtbmc z3
+~prove_z3: smtbmc boolector
+
+[script]
+rule5: verilog_defines -DFV_NO_WITNESS
+fault_rule5: verilog_defines -DFV_NO_WITNESS
+read_verilog -formal -sv umi_handshake_checker.sv
+read_verilog -sv umi_demux.v
+fault_valid: read_verilog -formal -sv -DFV_FAULT_VALID fv_umi_demux.sv
+fault_bcast: read_verilog -formal -sv -DFV_FAULT_BCAST fv_umi_demux.sv
+fault_drop: read_verilog -formal -sv -DFV_SEL_ALLOW_ZERO fv_umi_demux.sv
+fault_dup: read_verilog -formal -sv -DFV_SEL_MULTIHOT fv_umi_demux.sv
+fault_r5: read_verilog -formal -sv -DFV_FAULT_R5 fv_umi_demux.sv
+rule5: read_verilog -formal -sv -DFV_RULE5_READYLOW fv_umi_demux.sv
+fault_rule5: read_verilog -formal -sv -DFV_RULE5_READYLOW -DFV_FAULT_RULE5 fv_umi_demux.sv
+hazard: read_verilog -formal -sv -DFV_NO_SEL_ASSUME fv_umi_demux.sv
+prove: read_verilog -formal -sv fv_umi_demux.sv
+prove_z3: read_verilog -formal -sv fv_umi_demux.sv
+prove_m4: read_verilog -formal -sv fv_umi_demux.sv
+cover: read_verilog -formal -sv fv_umi_demux.sv
+prove_m4: chparam -set M 4 fv_umi_demux
+prep -top fv_umi_demux
+
+[files]
+../../sumi/umi_demux/rtl/umi_demux.v
+../../sumi/umi_checker/rtl/umi_handshake_checker.sv
+fv_umi_demux.sv
