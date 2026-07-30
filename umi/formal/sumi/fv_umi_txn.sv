@@ -57,7 +57,7 @@
  * solver-dependent (fv_umi_txn.sby tabulates the intended and alternate
  * labels per fault). The
  * two exceptions carry no corruption at all: fault_msgbytes shrinks the
- * FRM-4 ceiling (chparam MAX_MSG_BYTES) under a legal over-long message,
+ * message-byte ceiling (chparam MAX_MSG_BYTES) under a legal over-long message,
  * and fault_occ shrinks the tracker capacity (chparam CAP) under two
  * legal outstanding requests -- the checker convicts its own bound.
  *

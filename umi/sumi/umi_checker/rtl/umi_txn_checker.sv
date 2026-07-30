@@ -97,7 +97,7 @@
  *                        expected) -- EOM neither early nor missing
  *                        (README 3.3.6 EOM, 4.1 "EOM indicates the last
  *                        packet").
- *   TXN_msgbytes (FRM-4) the accumulated data bytes of the in-flight
+ *   TXN_msgbytes         the accumulated data bytes of the in-flight
  *                        response message never exceed MAX_MSG_BYTES
  *                        (default 32768 = the spec bound 128 B/word *
  *                        256 words, README 3.3.2 SIZE, 3.3.3 LEN).
@@ -143,7 +143,7 @@
  *                   window a point-to-point link needs; CAP in {1,2} is
  *                   meaningful (CAP=1 models a single-outstanding link;
  *                   a deeper store is future work). Default 2.
- *   MAX_MSG_BYTES   FRM-4 per-message byte ceiling (default 32768, the
+ *   MAX_MSG_BYTES   per-message byte ceiling (default 32768, the
  *                   spec maximum). Lower it (e.g. 256) to make the
  *                   accumulator boundary observable at shallow depth.
  *   ASSUME          assert (0) vs assume (1) the rules.
@@ -179,7 +179,7 @@ module umi_txn_checker #(
     parameter AW = 64,                       // address width
     parameter DW = 256,                      // data width
     parameter CAP = 2,                       // outstanding-tracker report threshold
-    parameter [31:0] MAX_MSG_BYTES = 32768,  // FRM-4 per-message byte ceiling
+    parameter [31:0] MAX_MSG_BYTES = 32768,  // per-message byte ceiling
     parameter ASSUME = 0                     // 0: assert the rules, 1: assume them
 ) (
     input wire          clk,
@@ -355,7 +355,7 @@ module umi_txn_checker #(
     reg [15:0]   got;        // data bytes received for the head message so far
     reg          first;      // next response beat is the head's first beat
     reg [AW-1:0] next_da;    // running continuation address (DA law)
-    reg [CW-1:0] last_cmd;   // previous response beat's cmd (FRM-2, no $past)
+    reg [CW-1:0] last_cmd;   // previous response beat's cmd (no $past)
 
     initial begin
         occ     = 2'd0;
@@ -451,7 +451,7 @@ module umi_txn_checker #(
                     got   <= 16'd0;                       // message closed
                     first <= 1'b1;
                 end else begin
-                    got     <= got + rbytes;              // FRM-4 accumulate
+                    got     <= got + rbytes;              // per-message accumulate
                     first   <= 1'b0;
                     // continuation address: prev DA + prev-beat bytes,
                     // modulo 2^AW (wrap boundary undefined by the spec)
@@ -592,12 +592,12 @@ module umi_txn_checker #(
                             if ((f_eom(resp_cmd) == (tot_bytes == {16'd0, e0_bytes})) !== 1'b1)
                                 $error("UMI-TXN eom_iff_closed %m: EOM not exactly on the closing beat (README 3.3.6/4.1)");
 `endif
-                            // FRM-4: real per-message byte accumulator
+                            // real per-message byte accumulator
                             // (a per-beat check would be vacuous)
                             TXN_msgbytes : assert (tot_bytes <= MAX_MSG_BYTES);
 `ifndef FORMAL
                             if ((tot_bytes <= MAX_MSG_BYTES) !== 1'b1)
-                                $error("UMI-TXN msgbytes %m: message byte total exceeds MAX_MSG_BYTES (FRM-4, README 3.3.2/3.3.3)");
+                                $error("UMI-TXN msgbytes %m: message byte total exceeds MAX_MSG_BYTES (README 3.3.2/3.3.3)");
 `endif
                         end
                     end
@@ -670,7 +670,7 @@ module umi_txn_checker #(
             SAW_err      : cover (resp_hit & resp_err);
             SAW_full     : cover (occ == CAP);
 `ifdef FORMAL_MSGBYTES_BOUNDARY
-            // FRM-4 accumulator reaches EXACTLY the ceiling (run with a
+            // the accumulator reaches EXACTLY the ceiling (run with a
             // small chparam MAX_MSG_BYTES so the boundary is shallow)
             SAW_msgbytes_boundary :
                 cover (resp_hit & ~resp_err & (tot_bytes == MAX_MSG_BYTES));

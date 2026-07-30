@@ -5,7 +5,7 @@
 #   sby -f fv_umi_txn.sby prove           # expect PASS (boolector, k-induction)
 #   sby -f fv_umi_txn.sby prove_bw        # expect PASS (bitwuzla)
 #   sby -f fv_umi_txn.sby cover           # expect PASS, all covers reached
-#   sby -f fv_umi_txn.sby cover_boundary  # expect PASS, FRM-4 boundary reached
+#   sby -f fv_umi_txn.sby cover_boundary  # expect PASS, byte ceiling reached
 #   sby -f fv_umi_txn.sby fault_<name>    # must FAIL (see table)
 #
 # prove tasks are k-induction: a PASS is unbounded. The checker is
@@ -44,7 +44,7 @@
 #                                          response -- a dropped EOM breaks
 #                                          whichever EOM-termination law
 #                                          the counterexample invokes
-#   fault_msgbytes     TXN_msgbytes        FRM-4 overrun (chparam MAX=64,
+#   fault_msgbytes     TXN_msgbytes        byte-ceiling overrun (chparam MAX=64,
 #                                          FV_BIGMSG legal >64 B message)
 #   fault_err_len      TXN_err_len         error response LEN != request LEN
 #   fault_orphan       TXN_p5_outstanding  response into an empty tracker.
