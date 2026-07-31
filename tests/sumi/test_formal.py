@@ -61,6 +61,12 @@ GREEN_TASKS = [
     ("fv_umi_demux", "cover"),
     ("fv_umi_demux", "rule5"),
     ("fv_umi_demux", "hazard"),
+    ("fv_umi_arbiter", "prove"),
+    pytest.param("fv_umi_arbiter", "prove_z3", marks=_needs_z3),
+    ("fv_umi_arbiter", "prove_n2"),
+    ("fv_umi_arbiter", "prio"),
+    ("fv_umi_arbiter", "cover"),
+    ("fv_umi_arbiter", "rotate"),
 ]
 
 FAULT_TASKS = [
@@ -92,6 +98,9 @@ FAULT_TASKS = [
     ("fv_umi_demux", "fault_dup"),
     ("fv_umi_demux", "fault_r5"),
     ("fv_umi_demux", "fault_rule5"),
+    ("fv_umi_arbiter", "fault_onehot"),
+    ("fv_umi_arbiter", "fault_subset"),
+    ("fv_umi_arbiter", "fault_mask"),
 ]
 
 

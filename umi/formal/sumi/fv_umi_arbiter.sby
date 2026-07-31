@@ -1,0 +1,91 @@
+# Formal proof: the umi_arbiter grant contract.
+#
+# Run from this directory (needs yosys + SymbiYosys + a solver, e.g.
+# the OSS CAD Suite):
+#
+#   sby -f fv_umi_arbiter.sby prove        # N=4, mode free: expect PASS
+#   sby -f fv_umi_arbiter.sby prove_z3     # same proof, second solver
+#   sby -f fv_umi_arbiter.sby prove_n2     # N=2: expect PASS
+#   sby -f fv_umi_arbiter.sby prio         # mode 2'b00, bounded: expect PASS
+#   sby -f fv_umi_arbiter.sby cover        # witnesses: expect all reached
+#   sby -f fv_umi_arbiter.sby rotate       # rotation witness: expect PASS
+#   sby -f fv_umi_arbiter.sby fault_onehot # checker teeth: expect FAIL
+#   sby -f fv_umi_arbiter.sby fault_subset # checker teeth: expect FAIL
+#   sby -f fv_umi_arbiter.sby fault_mask   # checker teeth: expect FAIL
+#
+# onehot0 / subset / nomask are proven with `mode` FREE: they are
+# invariants of the priority network, not of one arbitration policy. A
+# PASS is unbounded (k-induction), not a bounded search.
+#
+# The `prio` task pins mode to 2'b00 and runs BOUNDED. The lowest-index
+# law depends on the thermometer sitting at its reset value, which is a
+# property of traces from reset rather than an inductive invariant --
+# k-induction is free to begin its step case with a hot thermometer that
+# no pinned-priority trace can reach. Bounded is the honest claim here.
+#
+# The thermometer only advances on mode 2'b10 (umi_arbiter.v:63), so
+# pinned to 2'b00 it holds its reset value of zero and the "lowest
+# unmasked requester wins" law becomes observable at the ports. `rotate`
+# pins 2'b10 for the same reason in reverse -- that is the encoding where
+# rotation actually happens (see the scope note in fv_umi_arbiter.sv
+# about the mode comment).
+#
+# Fault tasks and the assertion label each is intended to trip. Every
+# fault corrupts only the OBSERVED grant vector, never the DUT:
+#   fault_onehot   a_arb_onehot0   a second grant bit is lit. Also trips
+#                                  a_arb_subset / a_arb_nomask whenever
+#                                  the extra bit lands on an idle or
+#                                  masked input -- legal here and NOT a
+#                                  regression; onehot0 is the intended
+#                                  label and always appears.
+#   fault_subset   a_arb_subset    a grant appears on an input that is
+#                                  not requesting (sole).
+#   fault_mask     a_arb_nomask    a grant appears on a masked input
+#                                  (sole).
+# The intended label must appear in the log's failed-assertion list.
+
+[tasks]
+prove
+prove_z3
+prove_n2
+prio
+cover
+rotate
+fault_onehot
+fault_subset
+fault_mask
+
+[options]
+prove: mode prove
+prove_z3: mode prove
+prove_n2: mode prove
+prio: mode bmc
+cover: mode cover
+rotate: mode cover
+fault_onehot: mode bmc
+fault_subset: mode bmc
+fault_mask: mode bmc
+depth 12
+timeout 300
+
+[engines]
+prove_z3: smtbmc z3
+~prove_z3: smtbmc boolector
+
+[script]
+read_verilog -sv umi_arbiter.v
+fault_onehot: read_verilog -formal -sv -DFV_FAULT_ONEHOT fv_umi_arbiter.sv
+fault_subset: read_verilog -formal -sv -DFV_FAULT_SUBSET fv_umi_arbiter.sv
+fault_mask: read_verilog -formal -sv -DFV_FAULT_MASK fv_umi_arbiter.sv
+prio: read_verilog -formal -sv -DFV_MODE_PRIO fv_umi_arbiter.sv
+rotate: read_verilog -formal -sv -DFV_MODE_RR fv_umi_arbiter.sv
+prove: read_verilog -formal -sv fv_umi_arbiter.sv
+prove_z3: read_verilog -formal -sv fv_umi_arbiter.sv
+prove_n2: read_verilog -formal -sv fv_umi_arbiter.sv
+cover: read_verilog -formal -sv fv_umi_arbiter.sv
+prove_n2: chparam -set N 2 fv_umi_arbiter
+prep -top fv_umi_arbiter
+
+[files]
+../../sumi/umi_arbiter/rtl/umi_arbiter.v
+fv_umi_arbiter.sv

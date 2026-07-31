@@ -82,11 +82,12 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 | `sumi/fv_umi_codec` | `umi_pack` / `umi_unpack` | CMD codec round-trips over the 13 structured opcodes | 3 | 1 |
 | `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5 | 5 | 3 |
 | `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 6 | 6 |
+| `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 6 | 3 |
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 5 | 10 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 6 | 8 |
 
-`fv_umi_codec`, `fv_umi_buffer` and `fv_umi_demux` prove **shipped design
-RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify the **checkers themselves** --
+`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux` and `fv_umi_arbiter` prove
+**shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify the **checkers themselves** --
 one face against the other -- which is what makes them safe to bind elsewhere.
 
 ### Scope notes
