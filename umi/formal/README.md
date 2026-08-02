@@ -14,6 +14,12 @@ checkers) are normal blocks under `umi/sumi/`, e.g. `umi/sumi/umi_checker/`.
 The `fv_*_<task>/` directories sby creates are build products: gitignored,
 never committed.
 
+A block that instantiates lambdalib has **no `.sby`** — lambdalib resolves out
+of site-packages, and a committed job file cannot name that path portably.
+Those proofs are harness-only and run through the SiliconCompiler lane, which
+assembles sources from the block's own `Design` dependency graph.
+`fv_umi_mux` is the first of them.
+
 **Each harness header documents its own properties, scope and fault table.**
 This file is the index; the detail lives next to the code.
 
@@ -71,6 +77,8 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
   The pytest lane enforces both directions -- a fault task that passes is
   reported as the error it is.
 * `prove` tasks are k-induction: a PASS is **unbounded**, not a bounded search.
+  `bmc` tasks are bounded, and are used where a proof would otherwise rest on
+  DUT-internal state; the harness header says why in each case.
 * Every `cover` witness must be REACHED, or the environment is over-constrained.
 * A fault may falsify several related rules at once, and which label the solver
   reports can vary. Each `.sby` names the intended label per fault task.
@@ -83,12 +91,14 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 | `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5 | 5 | 3 |
 | `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 6 | 6 |
 | `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 6 | 3 |
+| `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in ⇔ one accept out, and the output beat is the accepting input's (bounded; SC lane only) | 2 | 3 |
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 5 | 10 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 6 | 8 |
 
-`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux` and `fv_umi_arbiter` prove
-**shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify the **checkers themselves** --
-one face against the other -- which is what makes them safe to bind elsewhere.
+`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux`, `fv_umi_arbiter` and
+`fv_umi_mux` judge **shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify
+the **checkers themselves** -- one face against the other -- which is what makes
+them safe to bind elsewhere.
 
 ### Scope notes
 
@@ -109,6 +119,20 @@ usage, not decoration. The `hazard` task drops it and witnesses both real
 behaviours: `select==0` **accepts and silently drops** a beat, and a multi-hot
 select **duplicates** it. `fault_drop` / `fault_dup` weaken the assumption in
 each direction so it is falsifiable rather than trusted.
+
+**`fv_umi_mux`** -- three limits, all in the harness header:
+
+* **Bounded, not unbounded.** The captured `stalled_input` is not observable at
+  the ports while the output is stalled, so k-induction starts from states no
+  trace reaches. Closing it wants an assume/guarantee stub licensed by
+  `fv_umi_arbiter`'s grant contract, not a hierarchical peek.
+* **Output stability across a stall is not claimed**, and no `ASSUME=0` checker
+  is bound to the output channel. The arbiter re-evaluates every cycle, so
+  consumers must sample on accept, not on offer.
+* **Rule 5 is not claimed input-side.** `umi_in_ready` is combinational in
+  `umi_in_valid` through the arbiter, so the argument `fv_umi_buffer` and
+  `fv_umi_demux` make does not transfer here. `c_mux_r5_path` witnesses the
+  dependency instead of leaving it as a reading of the source.
 
 **`fv_umi_cmd`** -- `cover_sa` and `fault_sa_reserved` run the opt-in strict
 profile `CHECK_SA_RESERVED=1` (request SA reserved bits zero). It defaults
@@ -131,3 +155,6 @@ profile `CHECK_SA_RESERVED=1` (request SA reserved bits zero). It defaults
 2. Add its tasks to the lists in `tests/sumi/test_formal.py`.
 3. Add a family entry (deps, depth, params) plus one green and one fault row
    in `tests/sumi/test_formal_sc.py` so it also rides the SiliconCompiler lane.
+
+If the block instantiates lambdalib, skip the `.sby` and steps 2 — the
+SiliconCompiler lane is the only portable home. Follow `fv_umi_mux`.

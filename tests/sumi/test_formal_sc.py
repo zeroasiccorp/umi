@@ -35,7 +35,7 @@ try:
 except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
-from umi.sumi import Buffer, Checker, Pack, Unpack
+from umi.sumi import Buffer, Checker, Mux, Pack, Unpack
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -76,6 +76,12 @@ FAMILIES = {
     # MAXLEN=3 deep face stays on the .sby lane
     "fv_umi_txn": dict(deps=lambda: [Checker()],
                        depth=20, params=()),
+    # umi_mux pulls in umi_arbiter and lambdalib's la_vmux, so it has no
+    # checked-in .sby -- lambdalib resolves out of site-packages and a
+    # job file cannot name that path portably. This lane assembles the
+    # sources from Mux()'s own dependency graph instead.
+    "fv_umi_mux": dict(deps=lambda: [Mux(), Checker()],
+                       depth=12, params=()),
 }
 
 # (id, family, mode, defines) -- id names the equivalent .sby task
@@ -90,6 +96,11 @@ GREEN_RUNS = [
      ("FV_RULE5_READYLOW", "FV_NO_WITNESS")),
     ("cmd:prove_dw64", "fv_umi_cmd", "prove", ()),
     ("txn:prove", "fv_umi_txn", "prove", ()),
+    # bounded, not prove: stalled_input is not port-observable while the
+    # output is stalled, so the step case starts from states no trace
+    # reaches. See the note in fv_umi_mux.sv.
+    ("mux:bmc", "fv_umi_mux", "bmc", ()),
+    ("mux:cover", "fv_umi_mux", "cover", ()),
 ]
 
 # (id, family, defines) -- all run as bmc at the family depth
@@ -100,6 +111,9 @@ FAULT_RUNS = [
     # width-independent
     ("cmd:fault_opcode", "fv_umi_cmd", ("FV_FAULT_OPCODE",)),
     ("txn:fault_orphan", "fv_umi_txn", ("FV_FAULT_ORPHAN",)),
+    ("mux:fault_dup", "fv_umi_mux", ("FV_FAULT_DUP",)),
+    ("mux:fault_teleport", "fv_umi_mux", ("FV_FAULT_TELEPORT",)),
+    ("mux:fault_blend", "fv_umi_mux", ("FV_FAULT_BLEND",)),
 ]
 
 
