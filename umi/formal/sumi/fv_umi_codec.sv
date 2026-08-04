@@ -75,7 +75,7 @@ module fv_umi_codec #(
 
     always @(*) begin
         legal_opcode : assume (f_structured);
-        // ATYPE is an 8-bit field but only ADD..SWAP are defined (WF-2)
+        // ATYPE is an 8-bit field but only ADD..SWAP are defined
         legal_atype : assume (!f_is_atomic
                               || (f_atype <= UMI_REQ_ATOMICSWAP));
     end

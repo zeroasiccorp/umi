@@ -18,7 +18,7 @@
  * ends in $fatal. Exit codes gate pass/fail, but the exit code alone
  * cannot distinguish a working checker from a broken one: an inject
  * run whose checker missed the beat also exits nonzero, through the
- * $fatal mismatch path. The grader must check the output text -- a
+ * $fatal mismatch path. The caller must check the output text -- a
  * working inject run prints the UMI-CMD $error line and no "TB FAIL"
  * line; a missed detection prints "TB FAIL" before the nonzero exit.
  *

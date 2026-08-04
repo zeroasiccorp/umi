@@ -78,8 +78,8 @@
  *                        A[n-1:0]+(2^SIZE)(LEN+1) < 2^n but does not
  *                        define behaviour past the wrap; this checker
  *                        follows modular wrap).
- *   FRM2_err / FRM2_eof  ERR and EOF are stable across the beats of one
- *                        message: a split response does not change its
+ *   TXN_frm2_err         ERR and EOF are stable across the beats of one
+ *   TXN_frm2_eof         message: a split response does not change its
  *                        error status or frame membership mid-message
  *                        (README 3.3.7 EOF, 3.3.9 ERR).
  *   TXN_err_len          an error response (DEVERR/NETERR) copies the

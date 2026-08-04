@@ -82,6 +82,9 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 * Every `cover` witness must be REACHED, or the environment is over-constrained.
 * A fault may falsify several related rules at once, and which label the solver
   reports can vary. Each `.sby` names the intended label per fault task.
+* Rule identifiers are stable names, not a contiguous sequence. A gap in the
+  numbering means a candidate rule was considered and not adopted; every
+  identifier that appears is defined by the checker that implements it.
 
 ## Proofs
 
