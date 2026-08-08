@@ -35,7 +35,7 @@ try:
 except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
-from umi.sumi import Buffer, Checker, Mux, Pack, Unpack
+from umi.sumi import Buffer, Checker, Crossbar, Mux, Pack, Unpack
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -82,6 +82,10 @@ FAMILIES = {
     # sources from Mux()'s own dependency graph instead.
     "fv_umi_mux": dict(deps=lambda: [Mux(), Checker()],
                        depth=12, params=()),
+    # umi_crossbar pulls in umi_arbiter and lambdalib's la_vmux, so it
+    # has no checked-in .sby either -- same reason as fv_umi_mux above.
+    "fv_umi_crossbar": dict(deps=lambda: [Crossbar(), Checker()],
+                            depth=12, params=()),
 }
 
 # (id, family, mode, defines) -- id names the equivalent .sby task
@@ -101,6 +105,10 @@ GREEN_RUNS = [
     # reaches. See the note in fv_umi_mux.sv.
     ("mux:bmc", "fv_umi_mux", "bmc", ()),
     ("mux:cover", "fv_umi_mux", "cover", ()),
+    # unbounded: every crossbar law is cycle-local, so k-induction
+    # closes over an arbitrary arbiter thermometer state
+    ("crossbar:prove", "fv_umi_crossbar", "prove", ()),
+    ("crossbar:cover", "fv_umi_crossbar", "cover", ()),
 ]
 
 # (id, family, defines) -- all run as bmc at the family depth
@@ -114,6 +122,11 @@ FAULT_RUNS = [
     ("mux:fault_dup", "fv_umi_mux", ("FV_FAULT_DUP",)),
     ("mux:fault_teleport", "fv_umi_mux", ("FV_FAULT_TELEPORT",)),
     ("mux:fault_blend", "fv_umi_mux", ("FV_FAULT_BLEND",)),
+    ("crossbar:fault_dup", "fv_umi_crossbar", ("FV_FAULT_DUP",)),
+    ("crossbar:fault_drop", "fv_umi_crossbar", ("FV_FAULT_DROP",)),
+    ("crossbar:fault_ghost", "fv_umi_crossbar", ("FV_FAULT_GHOST",)),
+    ("crossbar:fault_starve", "fv_umi_crossbar", ("FV_FAULT_STARVE",)),
+    ("crossbar:fault_blend", "fv_umi_crossbar", ("FV_FAULT_BLEND",)),
 ]
 
 

@@ -18,7 +18,7 @@ A block that instantiates lambdalib has **no `.sby`** — lambdalib resolves out
 of site-packages, and a committed job file cannot name that path portably.
 Those proofs are harness-only and run through the SiliconCompiler lane, which
 assembles sources from the block's own `Design` dependency graph.
-`fv_umi_mux` is the first of them.
+`fv_umi_mux` and `fv_umi_crossbar` are of that kind.
 
 **Each harness header documents its own properties, scope and fault table.**
 This file is the index; the detail lives next to the code.
@@ -95,11 +95,12 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 | `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 6 | 6 |
 | `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 6 | 3 |
 | `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in ⇔ one accept out, and the output beat is the accepting input's (bounded; SC lane only) | 2 | 3 |
+| `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers (SC lane only) | 2 | 5 |
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 5 | 10 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 6 | 8 |
 
-`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux`, `fv_umi_arbiter` and
-`fv_umi_mux` judge **shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify
+`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux`, `fv_umi_arbiter`, `fv_umi_mux`
+and `fv_umi_crossbar` judge **shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify
 the **checkers themselves** -- one face against the other -- which is what makes
 them safe to bind elsewhere.
 
@@ -136,6 +137,27 @@ each direction so it is falsifiable rather than trusted.
   `umi_in_valid` through the arbiter, so the argument `fv_umi_buffer` and
   `fv_umi_demux` make does not transfer here. `c_mux_r5_path` witnesses the
   dependency instead of leaving it as a reading of the source.
+
+**`fv_umi_crossbar`** -- unbounded (`prove` closes by k-induction), with three
+limits, all in the harness header:
+
+* **Conservation is conditional.** "An output accept means an input was
+  accepted" is claimed only for cycles in which every input requests at most
+  one output. That is an antecedent of `a_xb_conserve` alone -- the other five
+  laws, including the whole route theorem, are unconditional and hold under
+  multicast. Outside it, an input granted by two outputs but taken by only one
+  leaves that output accepting a beat the still-stalled input will offer again;
+  `c_xb_multicast` witnesses the trace.
+* **READY alone is not an accept.** `umi_in_ready` is a conjunction over the
+  outputs an input requests, so an input requesting nothing reads ready
+  (`c_xb_quiet`). Every law here qualifies ready with the input's request
+  column, and a consumer must do the same.
+* **Output channels are not checked as SUMI, and rule 5 is not claimed
+  input-side** -- the same two limits `fv_umi_mux` records, for the same
+  reason: the arbiter re-evaluates every cycle, and `umi_in_ready` is
+  combinational in `umi_in_request` through it. Rule 6 is the one that
+  governs a READY-on-VALID path; rule 5 constrains the opposite direction and
+  is not claimed here either way. `c_xb_r6_path` witnesses the dependency.
 
 **`fv_umi_cmd`** -- `cover_sa` and `fault_sa_reserved` run the opt-in strict
 profile `CHECK_SA_RESERVED=1` (request SA reserved bits zero). It defaults
