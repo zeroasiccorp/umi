@@ -35,7 +35,7 @@ try:
 except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
-from umi.sumi import Buffer, Checker, Crossbar, Mux, Pack, Unpack
+from umi.sumi import Buffer, Checker, Crossbar, Mux, Mux2, Pack, Unpack
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -86,6 +86,12 @@ FAMILIES = {
     # has no checked-in .sby either -- same reason as fv_umi_mux above.
     "fv_umi_crossbar": dict(deps=lambda: [Crossbar(), Checker()],
                             depth=12, params=()),
+    # umi_mux2 instantiates lambdalib's la_vmux2b, so it has no
+    # checked-in .sby either. Unlike umi_mux it is combinational and its
+    # select is a port, so the harness holds no unobservable state and
+    # the green row runs `prove` (unbounded), not bmc.
+    "fv_umi_mux2": dict(deps=lambda: [Mux2(), Checker()],
+                        depth=12, params=()),
 }
 
 # (id, family, mode, defines) -- id names the equivalent .sby task
@@ -109,6 +115,11 @@ GREEN_RUNS = [
     # closes over an arbitrary arbiter thermometer state
     ("crossbar:prove", "fv_umi_crossbar", "prove", ()),
     ("crossbar:cover", "fv_umi_crossbar", "cover", ()),
+    ("mux2:prove", "fv_umi_mux2", "prove", ()),
+    ("mux2:cover", "fv_umi_mux2", "cover", ()),
+    # the select-stability assumption is auditable, not decorative:
+    # drop it and cover what the shipped RTL then does at the output
+    ("mux2:hazard", "fv_umi_mux2", "cover", ("FV_NO_SEL_STABLE",)),
 ]
 
 # (id, family, defines) -- all run as bmc at the family depth
@@ -127,6 +138,11 @@ FAULT_RUNS = [
     ("crossbar:fault_ghost", "fv_umi_crossbar", ("FV_FAULT_GHOST",)),
     ("crossbar:fault_starve", "fv_umi_crossbar", ("FV_FAULT_STARVE",)),
     ("crossbar:fault_blend", "fv_umi_crossbar", ("FV_FAULT_BLEND",)),
+    ("mux2:fault_route", "fv_umi_mux2", ("FV_FAULT_ROUTE",)),
+    ("mux2:fault_teleport", "fv_umi_mux2", ("FV_FAULT_TELEPORT",)),
+    ("mux2:fault_spill", "fv_umi_mux2", ("FV_FAULT_SPILL",)),
+    ("mux2:fault_stall", "fv_umi_mux2", ("FV_FAULT_STALL",)),
+    ("mux2:fault_r5", "fv_umi_mux2", ("FV_FAULT_R5",)),
 ]
 
 

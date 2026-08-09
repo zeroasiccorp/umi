@@ -18,7 +18,7 @@ A block that instantiates lambdalib has **no `.sby`** — lambdalib resolves out
 of site-packages, and a committed job file cannot name that path portably.
 Those proofs are harness-only and run through the SiliconCompiler lane, which
 assembles sources from the block's own `Design` dependency graph.
-`fv_umi_mux` and `fv_umi_crossbar` are of that kind.
+`fv_umi_mux`, `fv_umi_mux2` and `fv_umi_crossbar` are of that kind.
 
 **Each harness header documents its own properties, scope and fault table.**
 This file is the index; the detail lives next to the code.
@@ -95,12 +95,13 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 | `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 6 | 6 |
 | `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 6 | 3 |
 | `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in ⇔ one accept out, and the output beat is the accepting input's (bounded; SC lane only) | 2 | 3 |
+| `sumi/fv_umi_mux2` | `umi_mux2` | select-and-merge: the output is the selected input's beat, accepts are conserved, and the output channel is legal SUMI under a stable select (SC lane only) | 3 | 5 |
 | `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers (SC lane only) | 2 | 5 |
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 5 | 10 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 6 | 8 |
 
-`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux`, `fv_umi_arbiter`, `fv_umi_mux`
-and `fv_umi_crossbar` judge **shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify
+`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux`, `fv_umi_arbiter`,
+`fv_umi_mux`, `fv_umi_mux2` and `fv_umi_crossbar` judge **shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify
 the **checkers themselves** -- one face against the other -- which is what makes
 them safe to bind elsewhere.
 
@@ -116,7 +117,9 @@ for the whole trace and reaches VALID asserting anyway, and `fault_rule5`
 models the illegal design where VALID waits for READY, under which that cover
 becomes unreachable and the task fails. `fv_umi_demux` adds a second,
 independent form -- a self-composition miter proving `in_ready` does not depend
-on `in_valid`. Both blocks are clean.
+on `in_valid`. Both blocks are clean. `fv_umi_mux2` proves rule 5 by the same
+miter method (`a_mux2_r5_valid_indep`) and uses it in the other direction to
+witness the rule 6 dependence its input ports do have.
 
 **`fv_umi_demux`** -- the onehot-select assumption is the boundary of correct
 usage, not decoration. The `hazard` task drops it and witnesses both real
@@ -137,6 +140,32 @@ each direction so it is falsifiable rather than trusted.
   `umi_in_valid` through the arbiter, so the argument `fv_umi_buffer` and
   `fv_umi_demux` make does not transfer here. `c_mux_r5_path` witnesses the
   dependency instead of leaving it as a reading of the source.
+
+**`fv_umi_mux2`** — the same block family, the opposite result on stability,
+because the select is a port rather than an internal arbiter:
+
+* **Unbounded, not bounded.** `umi_mux2` is combinational and holds no state
+  the ports cannot see, so the green row is `prove` (k-induction) rather than
+  the `bmc` `fv_umi_mux` has to settle for.
+* **Output stability IS claimed**, and an `ASSUME=0` handshake checker *is*
+  bound to the output channel — under one stated environment assumption,
+  `m_mux2_sel_stable`: `sel` may not move while an output offer is pending.
+  That is an integration requirement, not a convenience. Output VALID and
+  payload are combinational in `sel`, so only the `sel` driver can discharge
+  README 4.2 rules 2 and 3 at the merged output. The `hazard` task drops the
+  assumption and covers what the shipped RTL then does: `c_mux2_offer_lost`
+  (a pending beat is withdrawn) and `c_mux2_beat_swap` (the offer stands but
+  the payload is now the other input's).
+* **README 4.2 rule 6 is not met at the input ports.** `umi_in_ready[i]`
+  contains the literal term `~umi_in_valid[i]`, so an idle input reads READY
+  high regardless of `umi_out_ready`. The accept sets are unharmed —
+  `VALID & READY` cancels the term — but `umi_in_ready` alone is not a usable
+  "the sink can take a beat" signal. `c_mux2_r6_selfdep` witnesses the path
+  constructively with a self-composition twin, and `a_mux2_r6_nocross` bounds
+  the exposure by proving one input's READY does not depend on the other
+  channel. Rule 5 itself is clean and proven: `a_mux2_r5_valid_indep`.
+* **No liveness.** `umi_mux2` has no arbiter, so starvation freedom is a
+  property of whatever drives `sel` and must be proven there.
 
 **`fv_umi_crossbar`** -- unbounded (`prove` closes by k-induction), with three
 limits, all in the harness header:
