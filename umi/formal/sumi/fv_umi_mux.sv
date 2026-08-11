@@ -86,11 +86,13 @@
  *    No ASSUME=0 checker is bound to the output channel. Consumers must
  *    sample on accept, not on offer.
  *
- * 2. README 4.2 rule 5 (README.md:462), input-facing. umi_in_ready is
- *    combinational in umi_in_valid through the arbiter (umi_mux.v:59 ->
- *    :91 -> :98), so the argument fv_umi_buffer and fv_umi_demux make
- *    does not transfer here. c_mux_r5_path witnesses the dependency
- *    rather than leaving it as a reading of the source.
+ * 2. README 4.2 rule 6 (README.md:463), input-facing. Rule 6 allows
+ *    READY to depend on VALID but not combinationally, and umi_in_ready
+ *    is combinational in umi_in_valid through the arbiter (umi_mux.v:59
+ *    -> :91 -> :98), so the argument fv_umi_buffer and fv_umi_demux make
+ *    does not transfer here. Rule 5 is the opposite direction -- VALID
+ *    on READY -- and is not claimed either way. c_mux_r5_path witnesses
+ *    the dependency rather than leaving it as a reading of the source.
  *
  * Fault tasks corrupt only OBSERVED signals, never the DUT, and each is
  * constrained so exactly one law can break:

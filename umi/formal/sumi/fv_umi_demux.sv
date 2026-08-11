@@ -295,8 +295,8 @@ module fv_umi_demux #(
         end
 
     // ----------------------------------------------------------------
-    // Face 3b: rule 5, structural half. in_ready must not depend on
-    // in_valid. Self-composition miter -- a twin instance driven with
+    // Face 3b: rule 6, structural half. in_ready must not depend
+    // combinationally on in_valid. Self-composition miter -- a twin instance driven with
     // the SAME select and out_ready but an INDEPENDENT input beat.
     // ----------------------------------------------------------------
     (* anyseq *) wire            in_valid_b;
@@ -339,7 +339,7 @@ module fv_umi_demux #(
         a_dx_r5_indep : assert (r5_a == in_ready_b);
 `ifndef FORMAL
         if ((r5_a == in_ready_b) !== 1'b1)
-            $error("UMI-DMX r5_indep %m: in_ready depends on in_valid (README 4.2 rule 5)");
+            $error("UMI-DMX r5_indep %m: in_ready depends on in_valid (README 4.2 rule 6)");
 `endif
     end
 

@@ -116,8 +116,9 @@ It is proven harness-side instead, on the DUT: a `rule5` cover pins READY low
 for the whole trace and reaches VALID asserting anyway, and `fault_rule5`
 models the illegal design where VALID waits for READY, under which that cover
 becomes unreachable and the task fails. `fv_umi_demux` adds a second,
-independent form -- a self-composition miter proving `in_ready` does not depend
-on `in_valid`. Both blocks are clean. `fv_umi_mux2` proves rule 5 by the same
+independent form for the neighbouring rule 6 (README.md:463, READY may depend
+on VALID but not combinationally) -- a self-composition miter proving
+`in_ready` does not depend on `in_valid`. Both blocks are clean on both rules. `fv_umi_mux2` proves rule 5 by the same
 miter method (`a_mux2_r5_valid_indep`) and uses it in the other direction to
 witness the rule 6 dependence its input ports do have.
 
@@ -136,9 +137,10 @@ each direction so it is falsifiable rather than trusted.
 * **Output stability across a stall is not claimed**, and no `ASSUME=0` checker
   is bound to the output channel. The arbiter re-evaluates every cycle, so
   consumers must sample on accept, not on offer.
-* **Rule 5 is not claimed input-side.** `umi_in_ready` is combinational in
+* **Rule 6 is not met input-side.** `umi_in_ready` is combinational in
   `umi_in_valid` through the arbiter, so the argument `fv_umi_buffer` and
-  `fv_umi_demux` make does not transfer here. `c_mux_r5_path` witnesses the
+  `fv_umi_demux` make does not transfer here. Rule 5 governs the opposite
+  direction and is not claimed either way. `c_mux_r5_path` witnesses the
   dependency instead of leaving it as a reading of the source.
 
 **`fv_umi_mux2`** — the same block family, the opposite result on stability,
