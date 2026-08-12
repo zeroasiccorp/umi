@@ -328,7 +328,8 @@ module fv_umi_txn #(
     parameter DW = 64,
     parameter CAP = 2,
     parameter [31:0] MAX_MSG_BYTES = 32768,
-    parameter [7:0]  MAXLEN = 8'd1        // request LEN ceiling (shallow proof)
+    parameter [7:0]  MAXLEN = 8'd1,       // request LEN ceiling (shallow proof)
+    parameter [19:0] RULE_EN = 20'hFFFFF  // checker per-rule enables
 ) (
     input wire clk
 );
@@ -496,7 +497,8 @@ module fv_umi_txn #(
 
     umi_txn_checker #(
         .CW(CW), .AW(AW), .DW(DW),
-        .CAP(CAP), .MAX_MSG_BYTES(MAX_MSG_BYTES), .ASSUME(0)
+        .CAP(CAP), .MAX_MSG_BYTES(MAX_MSG_BYTES), .ASSUME(0),
+        .RULE_EN(RULE_EN)
     ) u_chk (
         .clk(clk), .nreset(nreset),
         .req_valid(req_valid), .req_ready(req_ready), .req_cmd(req_cmd),

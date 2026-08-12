@@ -71,6 +71,23 @@
  * valid_low (VALID low during reset) is enforced by default. Set
  * CHECK_RESET=0 if a design legitimately asserts VALID during reset.
  *
+ * RULE_EN parameter: one enable bit per rule, so a channel that breaks
+ * a single rule -- or an integrator who reads one rule differently --
+ * can drop that one rule instead of unbinding the whole checker. A
+ * cleared bit removes the rule from BOTH the assert and the assume
+ * face, so a masked instance stays the same property in either
+ * direction. The default 6'h3F enables every rule and is
+ * behaviour-identical to the previous release.
+ *
+ *   bit  rule
+ *   ---  -----------------------------------------------------------
+ *    0   RULE2_valid_hold
+ *    1   RULE3_cmd_stable
+ *    2   RULE3_dstaddr_stable
+ *    3   RULE3_srcaddr_stable
+ *    4   RULE3_data_stable
+ *    5   RESET_valid_low (also gated by CHECK_RESET)
+ *
  * Implementation notes:
  *  - Written in the portable synthesizable-plus-assertions subset:
  *    named immediate assertions inside always blocks, no $past, no
@@ -93,7 +110,8 @@ module umi_handshake_checker #(
     parameter AW = 64,          // address width
     parameter DW = 256,         // data width
     parameter ASSUME = 0,       // 0: assert the rules, 1: assume them (formal env)
-    parameter CHECK_RESET = 1   // 1: also require VALID low during reset
+    parameter CHECK_RESET = 1,  // 1: also require VALID low during reset
+    parameter [5:0] RULE_EN = 6'h3F  // per-rule enables (see header table)
 ) (
     input wire          clk,
     input wire          nreset,
@@ -141,33 +159,43 @@ module umi_handshake_checker #(
 
             always @(posedge clk) begin
                 if (past_exists & nreset & past_stalled) begin
-                    RULE2_valid_hold : assert (valid);
+                    if (RULE_EN[0]) begin
+                        RULE2_valid_hold : assert (valid);
 `ifndef FORMAL
-                    if ((valid) !== 1'b1)
-                        $error("UMI-HS RULE2 %m: VALID de-asserted before the transaction completed (README 4.2 rule 2)");
+                        if ((valid) !== 1'b1)
+                            $error("UMI-HS RULE2 %m: VALID de-asserted before the transaction completed (README 4.2 rule 2)");
 `endif
-                    RULE3_cmd_stable : assert (cmd == past_cmd);
+                    end
+                    if (RULE_EN[1]) begin
+                        RULE3_cmd_stable : assert (cmd == past_cmd);
 `ifndef FORMAL
-                    if ((cmd == past_cmd) !== 1'b1)
-                        $error("UMI-HS RULE3 %m: CMD changed while VALID was waiting for READY (README 4.2 rule 3)");
+                        if ((cmd == past_cmd) !== 1'b1)
+                            $error("UMI-HS RULE3 %m: CMD changed while VALID was waiting for READY (README 4.2 rule 3)");
 `endif
-                    RULE3_dstaddr_stable : assert (dstaddr == past_dstaddr);
+                    end
+                    if (RULE_EN[2]) begin
+                        RULE3_dstaddr_stable : assert (dstaddr == past_dstaddr);
 `ifndef FORMAL
-                    if ((dstaddr == past_dstaddr) !== 1'b1)
-                        $error("UMI-HS RULE3 %m: DSTADDR changed while VALID was waiting for READY (README 4.2 rule 3)");
+                        if ((dstaddr == past_dstaddr) !== 1'b1)
+                            $error("UMI-HS RULE3 %m: DSTADDR changed while VALID was waiting for READY (README 4.2 rule 3)");
 `endif
-                    RULE3_srcaddr_stable : assert (srcaddr == past_srcaddr);
+                    end
+                    if (RULE_EN[3]) begin
+                        RULE3_srcaddr_stable : assert (srcaddr == past_srcaddr);
 `ifndef FORMAL
-                    if ((srcaddr == past_srcaddr) !== 1'b1)
-                        $error("UMI-HS RULE3 %m: SRCADDR changed while VALID was waiting for READY (README 4.2 rule 3)");
+                        if ((srcaddr == past_srcaddr) !== 1'b1)
+                            $error("UMI-HS RULE3 %m: SRCADDR changed while VALID was waiting for READY (README 4.2 rule 3)");
 `endif
-                    RULE3_data_stable : assert (data == past_data);
+                    end
+                    if (RULE_EN[4]) begin
+                        RULE3_data_stable : assert (data == past_data);
 `ifndef FORMAL
-                    if ((data == past_data) !== 1'b1)
-                        $error("UMI-HS RULE3 %m: DATA changed while VALID was waiting for READY (README 4.2 rule 3)");
+                        if ((data == past_data) !== 1'b1)
+                            $error("UMI-HS RULE3 %m: DATA changed while VALID was waiting for READY (README 4.2 rule 3)");
 `endif
+                    end
                 end
-                if (CHECK_RESET != 0) begin
+                if ((CHECK_RESET != 0) && RULE_EN[5]) begin
                     if (past_exists & ~nreset) begin
                         RESET_valid_low : assert (~valid);
 `ifndef FORMAL
@@ -182,13 +210,18 @@ module umi_handshake_checker #(
 `ifdef FORMAL
             always @(posedge clk) begin
                 if (past_exists & nreset & past_stalled) begin
-                    RULE2_valid_hold : assume (valid);
-                    RULE3_cmd_stable : assume (cmd == past_cmd);
-                    RULE3_dstaddr_stable : assume (dstaddr == past_dstaddr);
-                    RULE3_srcaddr_stable : assume (srcaddr == past_srcaddr);
-                    RULE3_data_stable : assume (data == past_data);
+                    if (RULE_EN[0])
+                        RULE2_valid_hold : assume (valid);
+                    if (RULE_EN[1])
+                        RULE3_cmd_stable : assume (cmd == past_cmd);
+                    if (RULE_EN[2])
+                        RULE3_dstaddr_stable : assume (dstaddr == past_dstaddr);
+                    if (RULE_EN[3])
+                        RULE3_srcaddr_stable : assume (srcaddr == past_srcaddr);
+                    if (RULE_EN[4])
+                        RULE3_data_stable : assume (data == past_data);
                 end
-                if (CHECK_RESET != 0) begin
+                if ((CHECK_RESET != 0) && RULE_EN[5]) begin
                     if (past_exists & ~nreset)
                         RESET_valid_low : assume (~valid);
                 end

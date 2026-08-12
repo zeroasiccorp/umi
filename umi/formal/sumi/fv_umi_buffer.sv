@@ -71,7 +71,8 @@ module fv_umi_buffer #(
     parameter CW = 32,
     parameter AW = 64,
     parameter DW = 64,
-    parameter MODE = 1              // 1: skid buffer, 0: bypass
+    parameter MODE = 1,             // 1: skid buffer, 0: bypass
+    parameter [5:0] RULE_EN = 6'h3F // checker per-rule enables
 ) (
     input wire clk
 );
@@ -149,7 +150,8 @@ module fv_umi_buffer #(
     // ----------------------------------------------------------------
     umi_handshake_checker #(
         .CW (CW), .AW (AW), .DW (DW),
-        .ASSUME (1)                       // environment: assume legal input
+        .ASSUME (1),                      // environment: assume legal input
+        .RULE_EN (RULE_EN)
     ) env_in (
         .clk     (clk),
         .nreset  (nreset),
@@ -163,7 +165,8 @@ module fv_umi_buffer #(
 
     umi_handshake_checker #(
         .CW (CW), .AW (AW), .DW (DW),
-        .ASSUME (0)                       // requirement: assert legal output
+        .ASSUME (0),                      // requirement: assert legal output
+        .RULE_EN (RULE_EN)
     ) chk_out (
         .clk     (clk),
         .nreset  (nreset),

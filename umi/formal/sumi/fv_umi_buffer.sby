@@ -3,19 +3,30 @@
 # Run from this directory (needs yosys + SymbiYosys + a solver, e.g.
 # the OSS CAD Suite):
 #
-#   sby -f fv_umi_buffer.sby prove         # skid buffer: expect PASS
-#   sby -f fv_umi_buffer.sby prove_z3      # same proof, second solver
-#   sby -f fv_umi_buffer.sby bypass        # MODE=0: expect PASS
-#   sby -f fv_umi_buffer.sby cover         # witnesses: expect all reached
-#   sby -f fv_umi_buffer.sby rule5         # rule 4.2.5 witness: expect PASS
-#   sby -f fv_umi_buffer.sby fault_valid   # checker teeth: expect FAIL
-#   sby -f fv_umi_buffer.sby fault_data    # checker teeth: expect FAIL
-#   sby -f fv_umi_buffer.sby fault_rule5   # rule5 teeth: expect FAIL
+#   sby -f fv_umi_buffer.sby prove          # skid buffer: expect PASS
+#   sby -f fv_umi_buffer.sby prove_z3       # same proof, second solver
+#   sby -f fv_umi_buffer.sby bypass         # MODE=0: expect PASS
+#   sby -f fv_umi_buffer.sby cover          # witnesses: expect all reached
+#   sby -f fv_umi_buffer.sby rule5          # rule 4.2.5 witness: expect PASS
+#   sby -f fv_umi_buffer.sby prove_mask_off # RULE_EN=0: expect PASS
+#   sby -f fv_umi_buffer.sby fault_valid    # checker teeth: expect FAIL
+#   sby -f fv_umi_buffer.sby fault_data     # checker teeth: expect FAIL
+#   sby -f fv_umi_buffer.sby fault_rule5    # rule5 teeth: expect FAIL
 #
 # prove tasks use k-induction: a PASS is an unbounded proof, not a
 # bounded search. The fault tasks corrupt the observed output and MUST
 # fail -- they are the checker's own regression (a checker that cannot
 # fail a broken design proves nothing about a working one).
+#
+# prove_mask_off is the soundness check for the per-rule mask itself: it
+# is the fault_valid configuration with every rule masked off. The
+# corruption that trips RULE2_valid_hold is still injected, so leaving
+# any rule outside its RULE_EN guard turns this task straight back into
+# fault_valid. It passes only if the mask really removes every
+# obligation the checker would otherwise raise -- the exact complement
+# of that task. The DUT-level a_rule5_state assertion is not a checker
+# rule and stays live, which is what keeps the task a proof and not an
+# empty one.
 #
 # rule 4.2.5 (README.md:462) -- "the assertion of VALID must not depend
 # on the assertion of READY" -- is proven on the DUT in three parts:
@@ -40,6 +51,7 @@ prove_z3
 bypass
 cover
 rule5
+prove_mask_off
 fault_valid
 fault_data
 fault_rule5
@@ -50,6 +62,7 @@ prove_z3: mode prove
 bypass: mode prove
 cover: mode cover
 rule5: mode cover
+prove_mask_off: mode prove
 fault_valid: mode bmc
 fault_data: mode bmc
 fault_rule5: mode cover
@@ -73,7 +86,9 @@ prove: read_verilog -formal -sv fv_umi_buffer.sv
 prove_z3: read_verilog -formal -sv fv_umi_buffer.sv
 cover: read_verilog -formal -sv fv_umi_buffer.sv
 bypass: read_verilog -formal -sv fv_umi_buffer.sv
+prove_mask_off: read_verilog -formal -sv -DFV_FAULT_VALID fv_umi_buffer.sv
 bypass: chparam -set MODE 0 fv_umi_buffer
+prove_mask_off: chparam -set RULE_EN 0 fv_umi_buffer
 prep -top fv_umi_buffer
 
 [files]

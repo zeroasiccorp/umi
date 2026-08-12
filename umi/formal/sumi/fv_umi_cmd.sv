@@ -50,7 +50,9 @@ module fv_umi_cmd #(
     parameter CW = 32,
     parameter AW = 64,
     parameter DW = 256,
-    parameter CHECK_SA_RESERVED = 0
+    parameter CHECK_SA_RESERVED = 0,
+    parameter ALLOW_INVALID = 0,
+    parameter [9:0] RULE_EN = 10'h3FF
 ) (
     input wire clk
 );
@@ -84,6 +86,13 @@ module fv_umi_cmd #(
 `ifdef FV_FAULT_OPCODE
     // reserved opcode hole 0x19; SIZE=0 keeps every other rule content
     wire [CW-1:0] obs_cmd     = 32'h0000_0019;
+    wire [AW-1:0] obs_dstaddr = {AW{1'b0}};
+    wire [AW-1:0] obs_srcaddr = {AW{1'b0}};
+    wire [DW-1:0] obs_data    = in_data;
+`elsif FV_FAULT_INVALID
+    // the in-band INVALID beat (CMD[7:0]==0x00): legal only under the
+    // ALLOW_INVALID profile, and this task runs the strict default
+    wire [CW-1:0] obs_cmd     = 32'h0000_0000;
     wire [AW-1:0] obs_dstaddr = {AW{1'b0}};
     wire [AW-1:0] obs_srcaddr = {AW{1'b0}};
     wire [DW-1:0] obs_data    = in_data;
@@ -159,7 +168,9 @@ module fv_umi_cmd #(
     umi_cmd_checker #(
         .CW (CW), .AW (AW), .DW (DW),
         .ASSUME (1),                      // environment: assume legal beats
-        .CHECK_SA_RESERVED (CHECK_SA_RESERVED)
+        .CHECK_SA_RESERVED (CHECK_SA_RESERVED),
+        .ALLOW_INVALID (ALLOW_INVALID),
+        .RULE_EN (RULE_EN)
     ) env_legal (
         .clk     (clk),
         .nreset  (nreset),
@@ -174,7 +185,9 @@ module fv_umi_cmd #(
     umi_cmd_checker #(
         .CW (CW), .AW (AW), .DW (DW),
         .ASSUME (0),                      // requirement: assert legal beats
-        .CHECK_SA_RESERVED (CHECK_SA_RESERVED)
+        .CHECK_SA_RESERVED (CHECK_SA_RESERVED),
+        .ALLOW_INVALID (ALLOW_INVALID),
+        .RULE_EN (RULE_EN)
     ) chk_beat (
         .clk     (clk),
         .nreset  (nreset),

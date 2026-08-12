@@ -135,6 +135,27 @@
  *            The same file is both requirement and environment, so the
  *            two can never drift apart.
  *
+ * RULE_EN parameter: one enable bit per rule, so a link that breaks a
+ * single rule -- or an integrator who reads one rule differently --
+ * can drop that one rule instead of unbinding the whole checker. A
+ * cleared bit removes the rule from BOTH the assert and the assume
+ * face, so a masked instance stays the same property in either
+ * direction. The default 20'hFFFFF enables every rule and is
+ * behaviour-identical to the previous release.
+ *
+ *   bit  rule                bit  rule
+ *   ---  ------------------  ---  ------------------
+ *    0   TXN_p5_outstanding   10  TXN_frm2_eof
+ *    1   TXN_kind             11  TXN_err_len
+ *    2   TXN_size             12  TXN_err_first
+ *    3   TXN_qos              13  TXN_err_eom
+ *    4   TXN_prot             14  TXN_err_zero
+ *    5   TXN_hostid           15  TXN_bytes_le
+ *    6   TXN_exok             16  TXN_eom_iff_closed
+ *    7   TXN_da_first         17  TXN_msgbytes
+ *    8   TXN_da_cont          18  TXN_occ_bound
+ *    9   TXN_frm2_err         19  TXN_reconcile
+ *
  * Parameters:
  *   CW / AW / DW    command / address / data bus widths.
  *   CAP             outstanding-request tracker capacity (the overflow
@@ -147,6 +168,7 @@
  *                   spec maximum). Lower it (e.g. 256) to make the
  *                   accumulator boundary observable at shallow depth.
  *   ASSUME          assert (0) vs assume (1) the rules.
+ *   RULE_EN         per-rule enables (see the table above).
  *
  * Bind guidance: instantiate one per point-to-point UMI link, wiring
  * the request channel to the host->device path and the response channel
@@ -180,7 +202,8 @@ module umi_txn_checker #(
     parameter DW = 256,                      // data width
     parameter CAP = 2,                       // outstanding-tracker report threshold
     parameter [31:0] MAX_MSG_BYTES = 32768,  // per-message byte ceiling
-    parameter ASSUME = 0                     // 0: assert the rules, 1: assume them
+    parameter ASSUME = 0,                    // 0: assert the rules, 1: assume them
+    parameter [19:0] RULE_EN = 20'hFFFFF     // per-rule enables (see header table)
 ) (
     input wire          clk,
     input wire          nreset,
@@ -500,117 +523,157 @@ module umi_txn_checker #(
             always @(posedge clk) begin
                 if (nreset) begin
                     if (resp_hit) begin
-                        TXN_p5_outstanding : assert (occ != 2'd0);
+                        if (RULE_EN[0]) begin
+                            TXN_p5_outstanding : assert (occ != 2'd0);
 `ifndef FORMAL
-                        if ((occ != 2'd0) !== 1'b1)
-                            $error("UMI-TXN p5 %m: response beat with nothing outstanding (README 3: a response answers a request)");
+                            if ((occ != 2'd0) !== 1'b1)
+                                $error("UMI-TXN p5 %m: response beat with nothing outstanding (README 3: a response answers a request)");
 `endif
-                        TXN_kind : assert (f_op5(resp_cmd) == e0_ropc);
+                        end
+                        if (RULE_EN[1]) begin
+                            TXN_kind : assert (f_op5(resp_cmd) == e0_ropc);
 `ifndef FORMAL
-                        if ((f_op5(resp_cmd) == e0_ropc) !== 1'b1)
-                            $error("UMI-TXN kind %m: response OPCODE does not match the request's response kind (README 3.2.3)");
+                            if ((f_op5(resp_cmd) == e0_ropc) !== 1'b1)
+                                $error("UMI-TXN kind %m: response OPCODE does not match the request's response kind (README 3.2.3)");
 `endif
-                        TXN_size : assert (f_size(resp_cmd) == e0_size);
+                        end
+                        if (RULE_EN[2]) begin
+                            TXN_size : assert (f_size(resp_cmd) == e0_size);
 `ifndef FORMAL
-                        if ((f_size(resp_cmd) == e0_size) !== 1'b1)
-                            $error("UMI-TXN size %m: response SIZE != request SIZE (README 3.2.3)");
+                            if ((f_size(resp_cmd) == e0_size) !== 1'b1)
+                                $error("UMI-TXN size %m: response SIZE != request SIZE (README 3.2.3)");
 `endif
-                        TXN_qos : assert (f_qos(resp_cmd) == e0_qos);
+                        end
+                        if (RULE_EN[3]) begin
+                            TXN_qos : assert (f_qos(resp_cmd) == e0_qos);
 `ifndef FORMAL
-                        if ((f_qos(resp_cmd) == e0_qos) !== 1'b1)
-                            $error("UMI-TXN qos %m: response QOS != request QOS (README 3.2.3)");
+                            if ((f_qos(resp_cmd) == e0_qos) !== 1'b1)
+                                $error("UMI-TXN qos %m: response QOS != request QOS (README 3.2.3)");
 `endif
-                        TXN_prot : assert (f_prot(resp_cmd) == e0_prot);
+                        end
+                        if (RULE_EN[4]) begin
+                            TXN_prot : assert (f_prot(resp_cmd) == e0_prot);
 `ifndef FORMAL
-                        if ((f_prot(resp_cmd) == e0_prot) !== 1'b1)
-                            $error("UMI-TXN prot %m: response PROT != request PROT (README 3.2.3)");
+                            if ((f_prot(resp_cmd) == e0_prot) !== 1'b1)
+                                $error("UMI-TXN prot %m: response PROT != request PROT (README 3.2.3)");
 `endif
-                        TXN_hostid : assert (f_hostid(resp_cmd) == e0_hostid);
+                        end
+                        if (RULE_EN[5]) begin
+                            TXN_hostid : assert (f_hostid(resp_cmd) == e0_hostid);
 `ifndef FORMAL
-                        if ((f_hostid(resp_cmd) == e0_hostid) !== 1'b1)
-                            $error("UMI-TXN hostid %m: response HOSTID != request HOSTID (README 3.2.3)");
+                            if ((f_hostid(resp_cmd) == e0_hostid) !== 1'b1)
+                                $error("UMI-TXN hostid %m: response HOSTID != request HOSTID (README 3.2.3)");
 `endif
-                        TXN_exok : assert ((f_user(resp_cmd) != UMI_ERR_EXOK) || e0_ex);
+                        end
+                        if (RULE_EN[6]) begin
+                            TXN_exok : assert ((f_user(resp_cmd) != UMI_ERR_EXOK) || e0_ex);
 `ifndef FORMAL
-                        if (((f_user(resp_cmd) != UMI_ERR_EXOK) || e0_ex) !== 1'b1)
-                            $error("UMI-TXN exok %m: EXOK response to a non-exclusive request (README 3.3.8/3.3.9)");
+                            if (((f_user(resp_cmd) != UMI_ERR_EXOK) || e0_ex) !== 1'b1)
+                                $error("UMI-TXN exok %m: EXOK response to a non-exclusive request (README 3.3.8/3.3.9)");
 `endif
+                        end
                         if (first) begin
-                            TXN_da_first : assert (resp_dstaddr == e0_da);
+                            if (RULE_EN[7]) begin
+                                TXN_da_first : assert (resp_dstaddr == e0_da);
 `ifndef FORMAL
-                            if ((resp_dstaddr == e0_da) !== 1'b1)
-                                $error("UMI-TXN da_first %m: first response DA != request SA (README 3.3.1)");
+                                if ((resp_dstaddr == e0_da) !== 1'b1)
+                                    $error("UMI-TXN da_first %m: first response DA != request SA (README 3.3.1)");
 `endif
+                            end
                         end else begin
-                            TXN_da_cont : assert (resp_dstaddr == next_da);
+                            if (RULE_EN[8]) begin
+                                TXN_da_cont : assert (resp_dstaddr == next_da);
 `ifndef FORMAL
-                            if ((resp_dstaddr == next_da) !== 1'b1)
-                                $error("UMI-TXN da_cont %m: split-response DA breaks the continuation law (README 3.3.3/4.1)");
+                                if ((resp_dstaddr == next_da) !== 1'b1)
+                                    $error("UMI-TXN da_cont %m: split-response DA breaks the continuation law (README 3.3.3/4.1)");
 `endif
-                            TXN_frm2_err : assert (f_user(resp_cmd) == f_user(last_cmd));
+                            end
+                            if (RULE_EN[9]) begin
+                                TXN_frm2_err : assert (f_user(resp_cmd) == f_user(last_cmd));
 `ifndef FORMAL
-                            if ((f_user(resp_cmd) == f_user(last_cmd)) !== 1'b1)
-                                $error("UMI-TXN frm2 %m: ERR changed mid-message (README 3.3.9)");
+                                if ((f_user(resp_cmd) == f_user(last_cmd)) !== 1'b1)
+                                    $error("UMI-TXN frm2 %m: ERR changed mid-message (README 3.3.9)");
 `endif
-                            TXN_frm2_eof : assert (f_eof(resp_cmd) == f_eof(last_cmd));
+                            end
+                            if (RULE_EN[10]) begin
+                                TXN_frm2_eof : assert (f_eof(resp_cmd) == f_eof(last_cmd));
 `ifndef FORMAL
-                            if ((f_eof(resp_cmd) == f_eof(last_cmd)) !== 1'b1)
-                                $error("UMI-TXN frm2 %m: EOF changed mid-message (README 3.3.7)");
+                                if ((f_eof(resp_cmd) == f_eof(last_cmd)) !== 1'b1)
+                                    $error("UMI-TXN frm2 %m: EOF changed mid-message (README 3.3.7)");
 `endif
+                            end
                         end
                         if (resp_err) begin
-                            TXN_err_len : assert (f_len(resp_cmd) == e0_len);
+                            if (RULE_EN[11]) begin
+                                TXN_err_len : assert (f_len(resp_cmd) == e0_len);
 `ifndef FORMAL
-                            if ((f_len(resp_cmd) == e0_len) !== 1'b1)
-                                $error("UMI-TXN err_len %m: error response LEN != request LEN (README 3.3.9)");
+                                if ((f_len(resp_cmd) == e0_len) !== 1'b1)
+                                    $error("UMI-TXN err_len %m: error response LEN != request LEN (README 3.3.9)");
 `endif
-                            TXN_err_first : assert (first);
+                            end
+                            if (RULE_EN[12]) begin
+                                TXN_err_first : assert (first);
 `ifndef FORMAL
-                            if ((first) !== 1'b1)
-                                $error("UMI-TXN err_first %m: error response beat mid-message (README 3.3.9)");
+                                if ((first) !== 1'b1)
+                                    $error("UMI-TXN err_first %m: error response beat mid-message (README 3.3.9)");
 `endif
-                            TXN_err_eom : assert (f_eom(resp_cmd));
+                            end
+                            if (RULE_EN[13]) begin
+                                TXN_err_eom : assert (f_eom(resp_cmd));
 `ifndef FORMAL
-                            if ((f_eom(resp_cmd)) !== 1'b1)
-                                $error("UMI-TXN err_eom %m: error response not single-beat (README 3.3.9)");
+                                if ((f_eom(resp_cmd)) !== 1'b1)
+                                    $error("UMI-TXN err_eom %m: error response not single-beat (README 3.3.9)");
 `endif
-                            TXN_err_zero : assert (lanes_zero);
+                            end
+                            if (RULE_EN[14]) begin
+                                TXN_err_zero : assert (lanes_zero);
 `ifndef FORMAL
-                            if ((lanes_zero) !== 1'b1)
-                                $error("UMI-TXN err_zero %m: DEVERR/NETERR response carries nonzero data (README 3.3.9)");
+                                if ((lanes_zero) !== 1'b1)
+                                    $error("UMI-TXN err_zero %m: DEVERR/NETERR response carries nonzero data (README 3.3.9)");
 `endif
+                            end
                         end else begin
-                            TXN_bytes_le : assert (tot_bytes[15:0] <= e0_bytes
-                                                   && tot_bytes[31:16] == 16'd0);
+                            if (RULE_EN[15]) begin
+                                TXN_bytes_le : assert (tot_bytes[15:0] <= e0_bytes
+                                                       && tot_bytes[31:16] == 16'd0);
 `ifndef FORMAL
-                            if ((tot_bytes <= {16'd0, e0_bytes}) !== 1'b1)
-                                $error("UMI-TXN bytes_le %m: response over-returns bytes (README 3.3.2/3.3.3)");
+                                if ((tot_bytes <= {16'd0, e0_bytes}) !== 1'b1)
+                                    $error("UMI-TXN bytes_le %m: response over-returns bytes (README 3.3.2/3.3.3)");
 `endif
-                            TXN_eom_iff_closed : assert (f_eom(resp_cmd)
-                                                         == (tot_bytes == {16'd0, e0_bytes}));
+                            end
+                            if (RULE_EN[16]) begin
+                                TXN_eom_iff_closed : assert (f_eom(resp_cmd)
+                                                             == (tot_bytes == {16'd0, e0_bytes}));
 `ifndef FORMAL
-                            if ((f_eom(resp_cmd) == (tot_bytes == {16'd0, e0_bytes})) !== 1'b1)
-                                $error("UMI-TXN eom_iff_closed %m: EOM not exactly on the closing beat (README 3.3.6/4.1)");
+                                if ((f_eom(resp_cmd) == (tot_bytes == {16'd0, e0_bytes})) !== 1'b1)
+                                    $error("UMI-TXN eom_iff_closed %m: EOM not exactly on the closing beat (README 3.3.6/4.1)");
 `endif
+                            end
                             // real per-message byte accumulator
                             // (a per-beat check would be vacuous)
-                            TXN_msgbytes : assert (tot_bytes <= MAX_MSG_BYTES);
+                            if (RULE_EN[17]) begin
+                                TXN_msgbytes : assert (tot_bytes <= MAX_MSG_BYTES);
 `ifndef FORMAL
-                            if ((tot_bytes <= MAX_MSG_BYTES) !== 1'b1)
-                                $error("UMI-TXN msgbytes %m: message byte total exceeds MAX_MSG_BYTES (README 3.3.2/3.3.3)");
+                                if ((tot_bytes <= MAX_MSG_BYTES) !== 1'b1)
+                                    $error("UMI-TXN msgbytes %m: message byte total exceeds MAX_MSG_BYTES (README 3.3.2/3.3.3)");
 `endif
+                            end
                         end
                     end
-                    TXN_occ_bound : assert (occ <= CAP);
+                    if (RULE_EN[18]) begin
+                        TXN_occ_bound : assert (occ <= CAP);
 `ifndef FORMAL
-                    if ((occ <= CAP) !== 1'b1)
-                        $error("UMI-TXN occ_bound %m: outstanding-request tracker overflow (> CAP)");
+                        if ((occ <= CAP) !== 1'b1)
+                            $error("UMI-TXN occ_bound %m: outstanding-request tracker overflow (> CAP)");
 `endif
-                    TXN_reconcile : assert ((occ != 2'd0) || (got == 16'd0 && first));
+                    end
+                    if (RULE_EN[19]) begin
+                        TXN_reconcile : assert ((occ != 2'd0) || (got == 16'd0 && first));
 `ifndef FORMAL
-                    if (((occ != 2'd0) || (got == 16'd0 && first)) !== 1'b1)
-                        $error("UMI-TXN reconcile %m: idle link left a dangling half-message");
+                        if (((occ != 2'd0) || (got == 16'd0 && first)) !== 1'b1)
+                            $error("UMI-TXN reconcile %m: idle link left a dangling half-message");
 `endif
+                    end
                 end
             end
 
@@ -619,34 +682,54 @@ module umi_txn_checker #(
             always @(posedge clk) begin
                 if (nreset) begin
                     if (resp_hit) begin
-                        TXN_p5_outstanding : assume (occ != 2'd0);
-                        TXN_kind : assume (f_op5(resp_cmd) == e0_ropc);
-                        TXN_size : assume (f_size(resp_cmd) == e0_size);
-                        TXN_qos : assume (f_qos(resp_cmd) == e0_qos);
-                        TXN_prot : assume (f_prot(resp_cmd) == e0_prot);
-                        TXN_hostid : assume (f_hostid(resp_cmd) == e0_hostid);
-                        TXN_exok : assume ((f_user(resp_cmd) != UMI_ERR_EXOK) || e0_ex);
+                        if (RULE_EN[0])
+                            TXN_p5_outstanding : assume (occ != 2'd0);
+                        if (RULE_EN[1])
+                            TXN_kind : assume (f_op5(resp_cmd) == e0_ropc);
+                        if (RULE_EN[2])
+                            TXN_size : assume (f_size(resp_cmd) == e0_size);
+                        if (RULE_EN[3])
+                            TXN_qos : assume (f_qos(resp_cmd) == e0_qos);
+                        if (RULE_EN[4])
+                            TXN_prot : assume (f_prot(resp_cmd) == e0_prot);
+                        if (RULE_EN[5])
+                            TXN_hostid : assume (f_hostid(resp_cmd) == e0_hostid);
+                        if (RULE_EN[6])
+                            TXN_exok : assume ((f_user(resp_cmd) != UMI_ERR_EXOK) || e0_ex);
                         if (first) begin
-                            TXN_da_first : assume (resp_dstaddr == e0_da);
+                            if (RULE_EN[7])
+                                TXN_da_first : assume (resp_dstaddr == e0_da);
                         end else begin
-                            TXN_da_cont : assume (resp_dstaddr == next_da);
-                            TXN_frm2_err : assume (f_user(resp_cmd) == f_user(last_cmd));
-                            TXN_frm2_eof : assume (f_eof(resp_cmd) == f_eof(last_cmd));
+                            if (RULE_EN[8])
+                                TXN_da_cont : assume (resp_dstaddr == next_da);
+                            if (RULE_EN[9])
+                                TXN_frm2_err : assume (f_user(resp_cmd) == f_user(last_cmd));
+                            if (RULE_EN[10])
+                                TXN_frm2_eof : assume (f_eof(resp_cmd) == f_eof(last_cmd));
                         end
                         if (resp_err) begin
-                            TXN_err_len : assume (f_len(resp_cmd) == e0_len);
-                            TXN_err_first : assume (first);
-                            TXN_err_eom : assume (f_eom(resp_cmd));
-                            TXN_err_zero : assume (lanes_zero);
+                            if (RULE_EN[11])
+                                TXN_err_len : assume (f_len(resp_cmd) == e0_len);
+                            if (RULE_EN[12])
+                                TXN_err_first : assume (first);
+                            if (RULE_EN[13])
+                                TXN_err_eom : assume (f_eom(resp_cmd));
+                            if (RULE_EN[14])
+                                TXN_err_zero : assume (lanes_zero);
                         end else begin
-                            TXN_bytes_le : assume (tot_bytes <= {16'd0, e0_bytes});
-                            TXN_eom_iff_closed : assume (f_eom(resp_cmd)
-                                                         == (tot_bytes == {16'd0, e0_bytes}));
-                            TXN_msgbytes : assume (tot_bytes <= MAX_MSG_BYTES);
+                            if (RULE_EN[15])
+                                TXN_bytes_le : assume (tot_bytes <= {16'd0, e0_bytes});
+                            if (RULE_EN[16])
+                                TXN_eom_iff_closed : assume (f_eom(resp_cmd)
+                                                             == (tot_bytes == {16'd0, e0_bytes}));
+                            if (RULE_EN[17])
+                                TXN_msgbytes : assume (tot_bytes <= MAX_MSG_BYTES);
                         end
                     end
-                    TXN_occ_bound : assume (occ <= CAP);
-                    TXN_reconcile : assume ((occ != 2'd0) || (got == 16'd0 && first));
+                    if (RULE_EN[18])
+                        TXN_occ_bound : assume (occ <= CAP);
+                    if (RULE_EN[19])
+                        TXN_reconcile : assume ((occ != 2'd0) || (got == 16'd0 && first));
                 end
             end
 `endif

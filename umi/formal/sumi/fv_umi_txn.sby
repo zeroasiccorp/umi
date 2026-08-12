@@ -6,6 +6,7 @@
 #   sby -f fv_umi_txn.sby prove_bw        # expect PASS (bitwuzla)
 #   sby -f fv_umi_txn.sby cover           # expect PASS, all covers reached
 #   sby -f fv_umi_txn.sby cover_boundary  # expect PASS, byte ceiling reached
+#   sby -f fv_umi_txn.sby prove_mask_off  # expect PASS (RULE_EN=0)
 #   sby -f fv_umi_txn.sby fault_<name>    # must FAIL (see table)
 #
 # prove tasks are k-induction: a PASS is unbounded. The checker is
@@ -69,6 +70,7 @@ prove_deep
 prove_deep_bw
 cover
 cover_boundary
+prove_mask_off
 fault_wrongda
 fault_size
 fault_eom_early
@@ -91,6 +93,8 @@ cover: mode cover
 cover: depth 22
 cover_boundary: mode cover
 cover_boundary: depth 24
+prove_mask_off: mode prove
+prove_mask_off: depth 20
 fault_wrongda: mode bmc
 fault_size: mode bmc
 fault_eom_early: mode bmc
@@ -116,6 +120,7 @@ prove_deep: smtbmc boolector
 prove_deep_bw: smtbmc bitwuzla
 cover: smtbmc boolector
 cover_boundary: smtbmc boolector
+prove_mask_off: smtbmc boolector
 fault_wrongda: smtbmc boolector
 fault_size: smtbmc boolector
 fault_eom_early: smtbmc boolector
@@ -140,6 +145,7 @@ prove_deep: read_verilog -formal -sv -I. fv_umi_txn.sv
 prove_deep_bw: read_verilog -formal -sv -I. fv_umi_txn.sv
 cover: read_verilog -formal -sv -I. fv_umi_txn.sv
 cover_boundary: read_verilog -formal -sv -I. fv_umi_txn.sv
+prove_mask_off: read_verilog -formal -sv -I. fv_umi_txn.sv
 fault_wrongda: read_verilog -formal -sv -I. -DFV_FAULT_WRONGDA fv_umi_txn.sv
 fault_size: read_verilog -formal -sv -I. -DFV_FAULT_SIZE fv_umi_txn.sv
 fault_eom_early: read_verilog -formal -sv -I. -DFV_FAULT_EOM_EARLY fv_umi_txn.sv
@@ -151,6 +157,14 @@ fault_occ: read_verilog -formal -sv -I. fv_umi_txn.sv
 cover_boundary: chparam -set MAX_MSG_BYTES 256 fv_umi_txn
 fault_msgbytes: chparam -set MAX_MSG_BYTES 64 fv_umi_txn
 fault_occ: chparam -set CAP 1 fv_umi_txn
+# mask soundness: the fault_occ configuration (CAP=1, two legal
+# outstanding requests) with every rule masked off. TXN_occ_bound is the
+# one rule that configuration falsifies, so leaving any rule outside its
+# RULE_EN guard turns this task back into fault_occ -- it is the exact
+# complement of that task, and passes only if the mask really removes
+# every obligation the checker would otherwise raise.
+prove_mask_off: chparam -set CAP 1 fv_umi_txn
+prove_mask_off: chparam -set RULE_EN 0 fv_umi_txn
 # deep proof: raise the request-LEN ceiling to 3 (messages up to 4 beats),
 # DW kept at 64 (default) for tractability. MAXLEN is a HARNESS-only knob.
 prove_deep: chparam -set MAXLEN 3 fv_umi_txn
