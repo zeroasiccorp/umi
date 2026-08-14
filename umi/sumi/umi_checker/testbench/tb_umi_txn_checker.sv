@@ -18,12 +18,12 @@
  *                     Expect: one UMI-TXN da_cont error, nonzero exit.
  *
  * The verdict is self-checking: for every response beat the tb
- * reconstructs the checker's OWN address verdict from the checker's
- * exposed shadow state (f_first selects the reference -- the first beat
- * checks DA == request SA held in f_e0's DA field, a continuation checks
- * DA == f_next_da, the running address) and compares it against the tb's
- * independent legal/illegal expectation for that beat. Any mismatch
- * prints "TB FAIL" and ends in $fatal.
+ * reconstructs the checker's OWN address verdict from the shadow state the
+ * checker publishes on its f_* observation ports (f_first selects the
+ * reference -- the first beat checks DA == request SA held in f_e0's DA
+ * field, a continuation checks DA == f_next_da, the running address) and
+ * compares it against the tb's independent legal/illegal expectation for
+ * that beat. Any mismatch prints "TB FAIL" and ends in $fatal.
  *
  * Exit codes gate pass/fail, but the exit code alone cannot distinguish a
  * working checker from a broken one: an inject run whose checker missed
@@ -72,6 +72,11 @@ module tb_umi_txn_checker;
 
     always #5 clk = ~clk;
 
+    // the checker's shadow state, taken from its observation PORTS
+    wire              tap_first;
+    wire [AW-1:0]     tap_next_da;
+    wire [AW+43:0]    tap_e0;
+
     umi_txn_checker #(
         .CW (CW), .AW (AW), .DW (DW)
     ) chk (
@@ -89,22 +94,24 @@ module tb_umi_txn_checker;
         .resp_dstaddr (resp_dstaddr),
         .resp_srcaddr (resp_srcaddr),
         .resp_data    (resp_data),
-        // formal observation taps -- read here to reconstruct verdicts
+        // shadow-state observation ports; the three the verdict
+        // reconstruction below needs are brought out, the rest are left
+        // unconnected as the checker's header prescribes
         .f_occ        (),
         .f_got        (),
-        .f_first      (),
-        .f_next_da    (),
+        .f_first      (tap_first),
+        .f_next_da    (tap_next_da),
         .f_last_cmd   (),
-        .f_e0         (),
+        .f_e0         (tap_e0),
         .f_e1         ()
     );
 
-    // the checker's OWN shadow state, observed hierarchically. The DA law
-    // reference for a response beat is e0_da (packed in f_e0's DA field)
-    // on the first beat, or f_next_da (running address) on a continuation.
-    wire [AW-1:0] tap_e0_da   = chk.f_e0[AW+27:28];
-    wire [AW-1:0] tap_next_da = chk.f_next_da;
-    wire          tap_first   = chk.f_first;
+    // The DA law reference for a response beat is the DA of the oldest
+    // tracker entry on the first beat, or f_next_da (the running address)
+    // on a continuation. f_e0 packs, from the LSB, {bytes[15:0],
+    // da[AW-1:0], hostid[4:0], ex, prot[1:0], qos[3:0], len[7:0],
+    // size[2:0], ropc[4:0]}, which puts DA at bit 28.
+    wire [AW-1:0] tap_e0_da = tap_e0[AW+27:28];
 
     // drive one request beat (host->device); pushes a response obligation
     task drive_req(input [CW-1:0] t_cmd,
