@@ -204,6 +204,73 @@ profile `CHECK_SA_RESERVED=1` (request SA reserved bits zero). It defaults
 * **Width.** The harness runs DW=64 (the checker ships DW=256) to keep the SMT
   problem tractable; the framing rules are DW-agnostic.
 
+## Binding a checker into a design
+
+The checkers under `umi/sumi/umi_checker/` are ordinary modules with no
+package or interface dependencies, so `bind` attaches one to a design without
+editing that design. The worked example is two files in the checker block's
+own testbench directory:
+
+    umi/sumi/umi_checker/testbench/umi_buffer_checker_bind.sv
+        the bind itself -- one umi_handshake_checker on each SUMI channel of
+        umi_buffer, wired to that block's own clk, nreset and payload
+    umi/sumi/umi_checker/testbench/tb_umi_buffer_bind.sv
+        a testbench that drives the buffer through a stall and a drain, plus
+        a +inject run that breaks README 4.2 rule 3 on purpose
+
+Run it through pytest:
+
+    pytest tests/sumi/test_checker_bind.py
+
+or by hand, from the testbench directory:
+
+    verilator --binary --assert --timing -o tb tb_umi_buffer_bind.sv \
+              umi_buffer_checker_bind.sv ../rtl/umi_handshake_checker.sv \
+              ../../umi_buffer/rtl/umi_buffer.v
+    ./obj_dir/tb            # expect: EXAMPLE PASS
+    ./obj_dir/tb +inject    # expect: RULE3_cmd_stable against u_umi_hs_in
+
+The `+inject` run is the point of the example, not a footnote to it. A clean
+run cannot distinguish a checker that is silent from one that is not there:
+comment the two bind directives out and the injected violation goes
+unreported, the example prints its pass line and exits zero. Keep a run that
+must fail beside every run that must pass.
+
+Icarus does not support `bind`. Use Verilator or a commercial simulator.
+
+### Attaching one to your own block
+
+Give the checker the channel's `valid` and `ready`, its four packet fields,
+and the clock and reset. Every name in a bind port connection resolves in the
+target block's scope, so a block whose ports are already `umi_*_cmd`,
+`umi_*_dstaddr` and so on connects straight across; `umi_buffer` carries the
+packet as one wide payload, so the example slices it back apart. Bind one
+instance per channel: an instance on an input channel asserts against whoever
+drives that channel, an instance on an output channel asserts against the
+block itself.
+
+| parameter | meaning |
+|---|---|
+| `CW` / `AW` / `DW` | command, address and data widths of the channel |
+| `ASSUME` | 0 asserts the rules, 1 assumes them |
+| `CHECK_RESET` | 1 also requires VALID low while `nreset` is asserted |
+
+`ASSUME=0` is the only face that means anything in simulation: it reports a
+rule break as a simulation error. `ASSUME=1` turns the same properties into
+assumptions, which is useful only in a formal harness, where it constrains
+free stimulus so the solver explores legal traffic. In simulation nothing is
+free, and an assumption checks nothing. Set `CHECK_RESET=0` for a channel that
+legitimately asserts VALID during reset; README 4.2 says nothing about reset,
+and the default follows the convention every block in this repository keeps.
+
+### Simulation only
+
+This example is for simulation. yosys has dropped `bind` directives without
+reporting it, so a property reached through a bind must never be the only
+thing standing behind a formal claim. Every proof above instantiates its
+checkers directly in the harness for that reason, and the formal counterpart
+of this example is `sumi/fv_umi_buffer`.
+
 ## Adding a proof
 
 1. Add `fv_<name>.sv` + `fv_<name>.sby` under the layer directory, with at
