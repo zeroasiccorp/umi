@@ -60,8 +60,8 @@ the Design filesets, it does not bundle a solver.
 
 ## Engines
 
-**boolector gates everything.** It is the engine siliconcompiler's sby task
-offers in the released 0.38.x versions, and the only solver in the CI
+Every result here is gated on boolector: it is the engine siliconcompiler's
+sby task offers in the released 0.38.x versions, and the only solver in the CI
 container.
 
 `z3` and `bitwuzla` add independent-solver corroboration on the `.sby` lane
@@ -123,7 +123,7 @@ miter method (`a_mux2_r5_valid_indep`) and uses it in the other direction to
 witness the rule 6 dependence its input ports do have.
 
 **`fv_umi_demux`** -- the onehot-select assumption is the boundary of correct
-usage, not decoration. The `hazard` task drops it and witnesses both real
+usage. The `hazard` task drops it and witnesses both real
 behaviours: `select==0` **accepts and silently drops** a beat, and a multi-hot
 select **duplicates** it. `fault_drop` / `fault_dup` weaken the assumption in
 each direction so it is falsifiable rather than trusted.
@@ -203,6 +203,29 @@ profile `CHECK_SA_RESERVED=1` (request SA reserved bits zero). It defaults
   (HOSTID) folding downstream of a merge is not covered.
 * **Width.** The harness runs DW=64 (the checker ships DW=256) to keep the SMT
   problem tractable; the framing rules are DW-agnostic.
+
+### What the covers witness
+
+Covers do two jobs here. Most are reachability witnesses: they show an
+environment is not silently starving its proof, which is why the convention
+above requires every one of them to be reached. The rest stand in for
+behaviour that is real but cannot be asserted -- a hazard a block genuinely
+has, or a structural property a cycle-sampled monitor cannot state.
+
+| cover | witnesses |
+|---|---|
+| `c_dx_drop` / `c_dx_dup` | `umi_demux` accepting and dropping a beat at `select==0`, and duplicating one under a multi-hot select |
+| `c_mux_r5_path` | the combinational valid-to-ready path in `umi_mux` |
+| `c_xb_quiet` | `umi_crossbar` raising READY for an input that asked for nothing |
+| `c_xb_multicast` | an output accept with no input accept, the traffic `a_xb_conserve` excludes |
+| `c_xb_r6_path` | the combinational request-to-ready path in `umi_crossbar` |
+| `c_mux2_offer_lost` / `c_mux2_beat_swap` | what `umi_mux2` does when `sel` moves under a pending offer |
+| `c_mux2_r6_selfdep` | `umi_mux2`'s READY depending on its own channel's VALID |
+| the `rule5` tasks | VALID asserting while READY is held low for the whole trace |
+
+Deliberately not covered anywhere: data widths above the per-harness value in
+the table above, and any behaviour of the LUMI link layer, which has no proofs
+in this directory.
 
 ## Binding a checker into a design
 
