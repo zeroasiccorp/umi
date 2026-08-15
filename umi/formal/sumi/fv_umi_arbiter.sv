@@ -168,22 +168,10 @@ module fv_umi_arbiter #(
     always @(posedge clk) begin
 
         a_arb_onehot0 : assert ($onehot0(obs_grants));
-`ifndef FORMAL
-        if (($onehot0(obs_grants)) !== 1'b1)
-            $error("UMI-ARB onehot0 %m: more than one grant asserted");
-`endif
 
         a_arb_subset : assert ((obs_grants & ~requests) == {N{1'b0}});
-`ifndef FORMAL
-        if (((obs_grants & ~requests) == {N{1'b0}}) !== 1'b1)
-            $error("UMI-ARB subset %m: granted a requester that is not asking");
-`endif
 
         a_arb_nomask : assert ((obs_grants & mask) == {N{1'b0}});
-`ifndef FORMAL
-        if (((obs_grants & mask) == {N{1'b0}}) !== 1'b1)
-            $error("UMI-ARB nomask %m: granted a masked requester");
-`endif
 
 `ifdef FV_MODE_PRIO
         // with the thermometer at its reset value, the grant is exactly
@@ -196,10 +184,6 @@ module fv_umi_arbiter #(
         // proof it cannot support -- see fv_umi_arbiter.sby.
         if (f_past_exists & nreset) begin
             a_arb_prio : assert (obs_grants == lowest);
-`ifndef FORMAL
-            if ((obs_grants == lowest) !== 1'b1)
-                $error("UMI-ARB prio %m: grant is not the lowest unmasked requester");
-`endif
         end
 `endif
     end

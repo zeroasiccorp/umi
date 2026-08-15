@@ -355,50 +355,21 @@ module fv_umi_mux2 #(
 
         a_mux2_valid_eq : assert (umi_out_valid ==
                                   (sel ? umi_in_valid[1] : umi_in_valid[0]));
-`ifndef FORMAL
-        if ((umi_out_valid == (sel ? umi_in_valid[1] : umi_in_valid[0])) !== 1'b1)
-            $error("UMI-MUX2 valid_eq %m: out_valid is not the selected input's valid");
-`endif
 
         a_mux2_route_cmd : assert (obs_route_cmd == sel_cmd);
-`ifndef FORMAL
-        if ((obs_route_cmd == sel_cmd) !== 1'b1)
-            $error("UMI-MUX2 route %m: CMD is not the selected input's");
-`endif
 
         a_mux2_route_dstaddr : assert (umi_out_dstaddr == sel_dstaddr);
-`ifndef FORMAL
-        if ((umi_out_dstaddr == sel_dstaddr) !== 1'b1)
-            $error("UMI-MUX2 route %m: DSTADDR is not the selected input's");
-`endif
 
         a_mux2_route_srcaddr : assert (umi_out_srcaddr == sel_srcaddr);
-`ifndef FORMAL
-        if ((umi_out_srcaddr == sel_srcaddr) !== 1'b1)
-            $error("UMI-MUX2 route %m: SRCADDR is not the selected input's");
-`endif
 
         a_mux2_route_data : assert (umi_out_data == sel_data);
-`ifndef FORMAL
-        if ((umi_out_data == sel_data) !== 1'b1)
-            $error("UMI-MUX2 route %m: DATA is not the selected input's");
-`endif
 
         a_mux2_unsel_quiet : assert ((in_acc_unsel & unsel) == 2'b00);
-`ifndef FORMAL
-        if (((in_acc_unsel & unsel) == 2'b00) !== 1'b1)
-            $error("UMI-MUX2 unsel_quiet %m: the unselected input was accepted");
-`endif
 
         // aggregation form: a two-bit sum, so a double accept breaks
         // this label as well as a swallowed or invented beat
         a_mux2_xfer_agg : assert (({1'b0, in_acc[0]} + {1'b0, in_acc[1]}) ==
                                   {1'b0, out_acc_agg});
-`ifndef FORMAL
-        if ((({1'b0, in_acc[0]} + {1'b0, in_acc[1]}) ==
-             {1'b0, out_acc_agg}) !== 1'b1)
-            $error("UMI-MUX2 xfer_agg %m: in and out accept counts disagree");
-`endif
     end
 
     // ----------------------------------------------------------------
@@ -480,34 +451,14 @@ module fv_umi_mux2 #(
         if (fv_active && pending) begin
 
             a_mux2_hold_valid : assert (obs_hold_valid);
-`ifndef FORMAL
-            if ((obs_hold_valid) !== 1'b1)
-                $error("UMI-MUX2 hold %m: a pending output offer was withdrawn");
-`endif
 
             a_mux2_hold_cmd : assert (umi_out_cmd == prev_out_cmd);
-`ifndef FORMAL
-            if ((umi_out_cmd == prev_out_cmd) !== 1'b1)
-                $error("UMI-MUX2 hold %m: CMD moved under a pending offer");
-`endif
 
             a_mux2_hold_dstaddr : assert (umi_out_dstaddr == prev_out_dstaddr);
-`ifndef FORMAL
-            if ((umi_out_dstaddr == prev_out_dstaddr) !== 1'b1)
-                $error("UMI-MUX2 hold %m: DSTADDR moved under a pending offer");
-`endif
 
             a_mux2_hold_srcaddr : assert (umi_out_srcaddr == prev_out_srcaddr);
-`ifndef FORMAL
-            if ((umi_out_srcaddr == prev_out_srcaddr) !== 1'b1)
-                $error("UMI-MUX2 hold %m: SRCADDR moved under a pending offer");
-`endif
 
             a_mux2_hold_data : assert (umi_out_data == prev_out_data);
-`ifndef FORMAL
-            if ((umi_out_data == prev_out_data) !== 1'b1)
-                $error("UMI-MUX2 hold %m: DATA moved under a pending offer");
-`endif
         end
 
     // ----------------------------------------------------------------
@@ -583,16 +534,8 @@ module fv_umi_mux2 #(
     always @(posedge clk) begin
 
         a_mux2_r5_valid_indep : assert (r5_valid_a == out_valid_c);
-`ifndef FORMAL
-        if ((r5_valid_a == out_valid_c) !== 1'b1)
-            $error("UMI-MUX2 r5 %m: out_valid depends on out_ready (README 4.2 rule 5)");
-`endif
 
         a_mux2_r6_nocross : assert (umi_in_ready[0] == in_ready_b[0]);
-`ifndef FORMAL
-        if ((umi_in_ready[0] == in_ready_b[0]) !== 1'b1)
-            $error("UMI-MUX2 r6 %m: an input's READY depends on the other channel");
-`endif
     end
 
     // ----------------------------------------------------------------

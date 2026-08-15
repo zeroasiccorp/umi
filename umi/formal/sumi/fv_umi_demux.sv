@@ -172,26 +172,11 @@ module fv_umi_demux #(
     // ----------------------------------------------------------------
     always @(posedge clk) begin
         a_dx_valid_eq : assert (obs_out_valid == ({M{umi_in_valid}} & select));
-`ifndef FORMAL
-        if ((obs_out_valid == ({M{umi_in_valid}} & select)) !== 1'b1)
-            $error("UMI-DMX valid_eq %m: out_valid is not (in_valid & select)");
-`endif
         a_dx_quiet : assert ((obs_out_valid & ~select) == {M{1'b0}});
-`ifndef FORMAL
-        if (((obs_out_valid & ~select) == {M{1'b0}}) !== 1'b1)
-            $error("UMI-DMX quiet %m: an unselected output is valid");
-`endif
         a_dx_bcast_cmd  : assert (umi_out_cmd     == {M{umi_in_cmd}});
         a_dx_bcast_dst  : assert (umi_out_dstaddr == {M{umi_in_dstaddr}});
         a_dx_bcast_src  : assert (umi_out_srcaddr == {M{umi_in_srcaddr}});
         a_dx_bcast_data : assert (obs_out_data    == {M{umi_in_data}});
-`ifndef FORMAL
-        if (((umi_out_cmd     == {M{umi_in_cmd}})     &&
-             (umi_out_dstaddr == {M{umi_in_dstaddr}}) &&
-             (umi_out_srcaddr == {M{umi_in_srcaddr}}) &&
-             (obs_out_data    == {M{umi_in_data}})) !== 1'b1)
-            $error("UMI-DMX broadcast %m: an output does not carry the input beat verbatim");
-`endif
     end
 
     // ----------------------------------------------------------------
@@ -283,15 +268,7 @@ module fv_umi_demux #(
     always @(posedge clk)
         if (fv_active) begin
             a_dx_fork_xfer : assert (in_xfer == (out_xfer != {M{1'b0}}));
-`ifndef FORMAL
-            if ((in_xfer == (out_xfer != {M{1'b0}})) !== 1'b1)
-                $error("UMI-DMX fork_xfer %m: accepted beats and delivered beats disagree");
-`endif
             a_dx_fork_one : assert ($onehot0(out_xfer));
-`ifndef FORMAL
-            if (($onehot0(out_xfer)) !== 1'b1)
-                $error("UMI-DMX fork_one %m: one accepted beat was delivered to several outputs");
-`endif
         end
 
     // ----------------------------------------------------------------
@@ -337,10 +314,6 @@ module fv_umi_demux #(
 
     always @(posedge clk) begin
         a_dx_r5_indep : assert (r5_a == in_ready_b);
-`ifndef FORMAL
-        if ((r5_a == in_ready_b) !== 1'b1)
-            $error("UMI-DMX r5_indep %m: in_ready depends on in_valid (README 4.2 rule 6)");
-`endif
     end
 
     // ----------------------------------------------------------------

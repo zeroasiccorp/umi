@@ -457,60 +457,24 @@ module fv_umi_crossbar #(
     always @(posedge clk) begin
 
         a_xb_dlv_onehot0 : assert (dlv_oh0 == {N{1'b1}});
-`ifndef FORMAL
-        if ((dlv_oh0 == {N{1'b1}}) !== 1'b1)
-            $error("UMI-XB onehot0 %m: two inputs delivered to one output");
-`endif
 
         a_xb_dlv_acc : assert ((dlv_any & ~out_acc) == {N{1'b0}});
-`ifndef FORMAL
-        if (((dlv_any & ~out_acc) == {N{1'b0}}) !== 1'b1)
-            $error("UMI-XB deliver %m: an input was accepted at an output that did not accept");
-`endif
 
         a_xb_nomask : assert ((deliver & mask) == {(N*N){1'b0}});
-`ifndef FORMAL
-        if (((deliver & mask) == {(N*N){1'b0}}) !== 1'b1)
-            $error("UMI-XB nomask %m: a masked path delivered a beat");
-`endif
 
         a_xb_valid_req : assert ((obs_out_valid & ~req_any) == {N{1'b0}});
-`ifndef FORMAL
-        if (((obs_out_valid & ~req_any) == {N{1'b0}}) !== 1'b1)
-            $error("UMI-XB valid_req %m: an output offers a beat no input requested");
-`endif
 
         // operating condition: every input asks for at most one output
         // this cycle -- see the header for what lies outside it
         a_xb_conserve : assert ((out_acc & ~dlv_any & {N{unicast}}) == {N{1'b0}});
-`ifndef FORMAL
-        if (((out_acc & ~dlv_any & {N{unicast}}) == {N{1'b0}}) !== 1'b1)
-            $error("UMI-XB conserve %m: an output accepted a beat no input delivered");
-`endif
 
         a_xb_route_cmd : assert (bad_cmd == {N{1'b0}});
-`ifndef FORMAL
-        if ((bad_cmd == {N{1'b0}}) !== 1'b1)
-            $error("UMI-XB route %m: CMD is not the delivering input's");
-`endif
 
         a_xb_route_dstaddr : assert (bad_dstaddr == {N{1'b0}});
-`ifndef FORMAL
-        if ((bad_dstaddr == {N{1'b0}}) !== 1'b1)
-            $error("UMI-XB route %m: DSTADDR is not the delivering input's");
-`endif
 
         a_xb_route_srcaddr : assert (bad_srcaddr == {N{1'b0}});
-`ifndef FORMAL
-        if ((bad_srcaddr == {N{1'b0}}) !== 1'b1)
-            $error("UMI-XB route %m: SRCADDR is not the delivering input's");
-`endif
 
         a_xb_route_data : assert (bad_data == {N{1'b0}});
-`ifndef FORMAL
-        if ((bad_data == {N{1'b0}}) !== 1'b1)
-            $error("UMI-XB route %m: DATA is not the delivering input's");
-`endif
     end
 
     // ----------------------------------------------------------------

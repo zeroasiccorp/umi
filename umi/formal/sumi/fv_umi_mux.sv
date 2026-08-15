@@ -286,46 +286,18 @@ module fv_umi_mux #(
     always @(posedge clk) begin
 
         a_mux_acc_onehot0 : assert ($onehot0(in_acc));
-`ifndef FORMAL
-        if (($onehot0(in_acc)) !== 1'b1)
-            $error("UMI-MUX onehot0 %m: more than one input accepted");
-`endif
 
         a_mux_cnt_eq : assert ((|in_acc) == out_acc);
-`ifndef FORMAL
-        if (((|in_acc) == out_acc) !== 1'b1)
-            $error("UMI-MUX conserve %m: in and out accepts disagree");
-`endif
 
         a_mux_nomask : assert ((in_acc & arbmask) == {N{1'b0}});
-`ifndef FORMAL
-        if (((in_acc & arbmask) == {N{1'b0}}) !== 1'b1)
-            $error("UMI-MUX nomask %m: accepted a masked input");
-`endif
 
         a_mux_route_cmd : assert (!one_acc || obs_out_cmd == exp_cmd);
-`ifndef FORMAL
-        if ((!one_acc || obs_out_cmd == exp_cmd) !== 1'b1)
-            $error("UMI-MUX route %m: CMD is not the accepted input's");
-`endif
 
         a_mux_route_dstaddr : assert (!one_acc || umi_out_dstaddr == exp_dstaddr);
-`ifndef FORMAL
-        if ((!one_acc || umi_out_dstaddr == exp_dstaddr) !== 1'b1)
-            $error("UMI-MUX route %m: DSTADDR is not the accepted input's");
-`endif
 
         a_mux_route_srcaddr : assert (!one_acc || umi_out_srcaddr == exp_srcaddr);
-`ifndef FORMAL
-        if ((!one_acc || umi_out_srcaddr == exp_srcaddr) !== 1'b1)
-            $error("UMI-MUX route %m: SRCADDR is not the accepted input's");
-`endif
 
         a_mux_route_data : assert (!one_acc || umi_out_data == exp_data);
-`ifndef FORMAL
-        if ((!one_acc || umi_out_data == exp_data) !== 1'b1)
-            $error("UMI-MUX route %m: DATA is not the accepted input's");
-`endif
     end
 
     // ----------------------------------------------------------------
