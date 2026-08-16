@@ -36,10 +36,11 @@
  *
  * Fault tasks (see fv_umi_buffer.sby): under FV_FAULT_VALID /
  * FV_FAULT_DATA the harness lets the solver corrupt the observed
- * output for one cycle. The proof must then FAIL, with a
- * counterexample trace. A checker that cannot fail a broken design
- * proves nothing about a working one; these tasks are the checker's
- * own regression.
+ * output for one cycle, and under FV_FAULT_SWAP the observed beat
+ * carries DSTADDR and SRCADDR exchanged for the whole trace. The proof
+ * must then FAIL, with a counterexample trace. A checker that cannot
+ * fail a broken design proves nothing about a working one; these tasks
+ * are the checker's own regression.
  *
  * Rule 5 (README 4.2 rule 5, README.md:462): "The assertion of VALID
  * must not depend on the assertion of READY. In other words, it is not
@@ -63,6 +64,57 @@
  *      under stuck-low ready that can never be covered, so the `rule5`
  *      cover goes unreachable and the task FAILs -- the honest cover has
  *      teeth.
+ *
+ * PAYLOAD IDENTITY (FV_IDENTITY; tasks `identity`, `identity_bypass`,
+ * `identity_cover`, `fault_swap`). The handshake rules say WHEN a beat
+ * moves, never WHICH beat: a buffer that exchanged DSTADDR and SRCADDR,
+ * or handed its beats back out of order, obeys every one of them. Two
+ * laws close that, both read off the ports:
+ *
+ *   a_id_occupancy  the beats taken in and not yet let out are exactly
+ *                   the beats the buffer says it is holding, so none is
+ *                   dropped, duplicated or invented. MODE 1 reads that
+ *                   count off the two status outs -- EMPTY (valid 0,
+ *                   ready 1), BUSY (1,1), FULL (1,0), both registered
+ *                   from one next_state (umi_buffer.v:102-118), with
+ *                   (0,0) ruled out by a_rule5_state above. MODE 0
+ *                   stores nothing, so there the law is insert==remove.
+ *   a_id_beat       the beat now offered is the beat that entered with
+ *                   that beat number, whole: CMD, DSTADDR, SRCADDR and
+ *                   DATA compared as one vector. Order rides along,
+ *                   because the number IS the accept order -- a swapped
+ *                   pair of beats delivers the wrong payload against it.
+ *                   MODE 0 has no numbering to keep: the beat offered
+ *                   IS the input beat, checked every cycle.
+ *
+ * The tracked beat number is (* anyconst *), held for the whole trace:
+ * the solver picks which beat is checked, so proving the tracked one
+ * proves every one, and no shadow queue is needed. Numbers are three
+ * bits and wrap, which is sound because a buffer that holds at most two
+ * beats -- a_id_occupancy is that bound -- retires a number long before
+ * it comes round again.
+ *
+ * ENGINE. `identity` runs `abc pdr`, not the smtbmc k-induction every
+ * other prove task here uses. Both are unbounded; what differs is where
+ * the inductive invariant comes from. The skid register
+ * (umi_buffer.v:90-93) reaches out_data only one cycle after a FULL
+ * buffer drains, and no port shows it before then. k-induction starts
+ * from an arbitrary state, so it starts from a FULL buffer whose skid
+ * slot holds a value no accepted beat put there, keeps out_ready low
+ * for the whole window, and reports `Assert failed in fv_umi_buffer:
+ * a_id_beat`. No assertion written over ports alone can rule that start
+ * out: two states differing only in the skid register are identical at
+ * the boundary, and only one of them breaks the law. PDR derives its
+ * invariant over the design's own registers instead, and closes the
+ * property with no environment assumption -- in particular with no
+ * bound on how long READY may stay low. fv_umi_mux settles for a
+ * bounded task at this same fence, for the same reason: its captured
+ * input is not port-observable either.
+ *
+ * Outside these two laws: progress (nothing here says a held beat is
+ * ever delivered -- this file asserts no liveness property), latency,
+ * and payload widths above the face the identity tasks run, which
+ * fv_umi_buffer.sby sets and explains.
  ******************************************************************************/
 
 `default_nettype none
@@ -103,6 +155,7 @@ module fv_umi_buffer #(
     wire        in_ready;
     wire        out_valid;
     wire [PW-1:0] out_packet;
+    wire [PW-1:0] in_packet = {in_cmd, in_dstaddr, in_srcaddr, in_data};
 
     // ----------------------------------------------------------------
     // the design under test, exactly as shipped
@@ -114,7 +167,7 @@ module fv_umi_buffer #(
         .clk       (clk),
         .nreset    (nreset),
         .in_valid  (in_valid),
-        .in_data   ({in_cmd, in_dstaddr, in_srcaddr, in_data}),
+        .in_data   (in_packet),
         .in_ready  (in_ready),
         .out_valid (out_valid),
         .out_data  (out_packet),
@@ -145,6 +198,21 @@ module fv_umi_buffer #(
     wire [DW-1:0] obs_data = out_data;
 `endif
 
+`ifdef FV_FAULT_SWAP
+    // the observed beat carries DSTADDR and SRCADDR exchanged. The swap
+    // is static, so VALID still holds and the observed payload is still
+    // stable across a stall: every README 4.2 rule survives it and only
+    // a_id_beat can break. That is the point of the task -- it is the
+    // corruption the handshake checker is blind to by construction.
+    wire [AW-1:0] obs_dstaddr = out_srcaddr;
+    wire [AW-1:0] obs_srcaddr = out_dstaddr;
+`else
+    wire [AW-1:0] obs_dstaddr = out_dstaddr;
+    wire [AW-1:0] obs_srcaddr = out_srcaddr;
+`endif
+
+    wire [CW-1:0] obs_cmd = out_cmd;
+
     // ----------------------------------------------------------------
     // the same file, both directions
     // ----------------------------------------------------------------
@@ -172,9 +240,9 @@ module fv_umi_buffer #(
         .nreset  (nreset),
         .valid   (obs_valid),
         .ready   (out_ready),
-        .cmd     (out_cmd),
-        .dstaddr (out_dstaddr),
-        .srcaddr (out_srcaddr),
+        .cmd     (obs_cmd),
+        .dstaddr (obs_dstaddr),
+        .srcaddr (obs_srcaddr),
         .data    (obs_data)
     );
 
@@ -258,6 +326,93 @@ module fv_umi_buffer #(
                     a_rule5_state : assert (!in_valid || out_valid);
         end
     endgenerate
+
+    // ----------------------------------------------------------------
+    // PAYLOAD IDENTITY (FV_IDENTITY, see the file header). Every beat
+    // that leaves is the beat that entered, unchanged in all four SUMI
+    // fields and in accept order. Ports only: a beat enters on
+    // in_valid & in_ready, leaves on the observed out_valid & out_ready,
+    // and the buffer's occupancy is read off the two status outs.
+    // ----------------------------------------------------------------
+`ifdef FV_IDENTITY
+    wire [PW-1:0] obs_packet = {obs_cmd, obs_dstaddr, obs_srcaddr, obs_data};
+
+    wire insert = in_valid & in_ready;      // a beat enters
+    wire remove = obs_valid & out_ready;    // a beat leaves
+
+    generate
+        if (MODE == 1) begin : g_id_skid
+            // beat numbers, modulo 8. The buffer holds at most two, so a
+            // number is always retired long before it comes round again.
+            localparam IW = 3;
+
+            reg [IW-1:0] in_cnt;
+            reg [IW-1:0] out_cnt;
+            always @(posedge clk or negedge nreset)
+                if (!nreset) begin
+                    in_cnt  <= {IW{1'b0}};
+                    out_cnt <= {IW{1'b0}};
+                end else begin
+                    if (insert)
+                        in_cnt  <= in_cnt  + {{(IW-1){1'b0}}, 1'b1};
+                    if (remove)
+                        out_cnt <= out_cnt + {{(IW-1){1'b0}}, 1'b1};
+                end
+
+            // ONE arbitrary beat number, constant for the whole trace.
+            // The solver picks it, so proving the tracked beat proves
+            // every beat -- no shadow queue needed for the claim.
+            (* anyconst *) wire [IW-1:0] fv_beat;
+            reg [PW-1:0] tracked;
+            always @(posedge clk)
+                if (insert && (in_cnt == fv_beat))
+                    tracked <= in_packet;
+
+            // occupancy the ports advertise: EMPTY (valid 0, ready 1),
+            // BUSY (1,1), FULL (1,0). Both status outs are registered
+            // from the same next_state, so this decode is exact and the
+            // (0,0) corner is unreachable -- a_rule5_state above.
+            wire [IW-1:0] port_occ = {{(IW-1){1'b0}}, obs_valid}
+                                   + {{(IW-1){1'b0}}, ~in_ready};
+
+            always @(posedge clk)
+                if (f_past_exists & nreset & past_nreset) begin
+                    // nothing lost, nothing invented: the beats taken in
+                    // and not yet let out are exactly the beats the
+                    // buffer says it is holding
+                    a_id_occupancy : assert ((in_cnt - out_cnt) == port_occ);
+                    // and the beat now at the head is the tracked one,
+                    // whole, whenever the tracked number is the one due
+                    if (obs_valid && (out_cnt == fv_beat)
+                                  && (in_cnt != out_cnt))
+                        a_id_beat : assert (obs_packet == tracked);
+                end
+
+            // witnesses (formal-only): the claim is not vacuous -- the
+            // tracked beat really is delivered, and the skid slot really
+            // is used
+`ifdef FORMAL
+            always @(posedge clk)
+                if (f_past_exists & nreset & past_nreset) begin
+                    c_id_deliver : cover (remove && (out_cnt == fv_beat));
+                    c_id_full    : cover ((in_cnt - out_cnt)
+                                          == {{(IW-2){1'b0}}, 2'd2});
+                end
+`endif
+
+        end else begin : g_id_bypass
+            // MODE 0 stores nothing: the output IS the input, so the two
+            // laws collapse to a cycle-local pair. Same labels, same
+            // claims -- accounting, then payload.
+            always @(posedge clk)
+                if (f_past_exists & nreset) begin
+                    a_id_occupancy : assert (insert == remove);
+                    if (obs_valid)
+                        a_id_beat : assert (obs_packet == in_packet);
+                end
+        end
+    endgenerate
+`endif
 
 endmodule
 

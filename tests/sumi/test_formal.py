@@ -45,6 +45,11 @@ GREEN_TASKS = [
     ("fv_umi_buffer", "cover"),
     ("fv_umi_buffer", "rule5"),
     ("fv_umi_buffer", "prove_mask_off"),
+    # payload identity: the two abc pdr rows need yosys' own abc, not an
+    # external solver, so they run wherever yosys does
+    ("fv_umi_buffer", "identity"),
+    ("fv_umi_buffer", "identity_bypass"),
+    ("fv_umi_buffer", "identity_cover"),
     ("fv_umi_cmd", "prove"),
     pytest.param("fv_umi_cmd", "prove_z3", marks=_needs_z3),
     ("fv_umi_cmd", "prove_dw64"),
@@ -78,6 +83,7 @@ FAULT_TASKS = [
     ("fv_umi_buffer", "fault_valid"),
     ("fv_umi_buffer", "fault_data"),
     ("fv_umi_buffer", "fault_rule5"),
+    ("fv_umi_buffer", "fault_swap"),
     ("fv_umi_cmd", "fault_opcode"),
     ("fv_umi_cmd", "fault_atype"),
     ("fv_umi_cmd", "fault_align_da"),

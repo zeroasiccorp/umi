@@ -76,9 +76,12 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 * `fault_*` tasks inject a bug and **must FAIL**; every other task must PASS.
   The pytest lane enforces both directions -- a fault task that passes is
   reported as the error it is.
-* `prove` tasks are k-induction: a PASS is **unbounded**, not a bounded search.
-  `bmc` tasks are bounded, and are used where a proof would otherwise rest on
-  DUT-internal state; the harness header says why in each case.
+* `prove` tasks are **unbounded**, not a bounded search. Nearly all close by
+  k-induction on boolector; `fv_umi_buffer`'s `identity` pair runs `abc pdr`,
+  which is equally unbounded but derives its own invariant instead of being
+  handed one at the ports. `bmc` tasks are bounded, and are used where a proof
+  would otherwise rest on DUT-internal state; the harness header says why in
+  each case.
 * Every `cover` witness must be REACHED, or the environment is over-constrained.
 * A fault may falsify several related rules at once, and which label the solver
   reports can vary. Each `.sby` names the intended label per fault task.
@@ -91,7 +94,7 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 | proof | judges | claim | green | fault |
 |---|---|---|---|---|
 | `sumi/fv_umi_codec` | `umi_pack` / `umi_unpack` | CMD codec round-trips over the 13 structured opcodes | 3 | 1 |
-| `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5 | 5 | 3 |
+| `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5, and delivers every beat unchanged in all four SUMI fields and in accept order, with none dropped or invented | 8 | 4 |
 | `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 6 | 6 |
 | `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 6 | 3 |
 | `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in ⇔ one accept out, and the output beat is the accepting input's (bounded; SC lane only) | 2 | 3 |
@@ -121,6 +124,23 @@ on VALID but not combinationally) -- a self-composition miter proving
 `in_ready` does not depend on `in_valid`. Both blocks are clean on both rules. `fv_umi_mux2` proves rule 5 by the same
 miter method (`a_mux2_r5_valid_indep`) and uses it in the other direction to
 witness the rule 6 dependence its input ports do have.
+
+**`fv_umi_buffer`** -- payload identity (`a_id_occupancy`, `a_id_beat`) is
+proven with **no environment assumption**: no bound on how long READY may stay
+low, and no restriction on the traffic beyond the legal-SUMI stimulus the
+handshake tasks already use. Two things about it are worth knowing:
+
+* **`abc pdr`, not k-induction.** The skid register is not observable at any
+  port, so the step case starts from a full buffer whose skid slot holds a
+  value no accepted beat put there and fails on `a_id_beat` -- the limit
+  `fv_umi_mux` records for its own captured input. No assertion written over
+  ports alone can exclude that start. PDR derives its invariant over the
+  design's registers and closes the same property unbounded.
+* **A narrower face, and only on the `.sby` lane.** The identity tasks run
+  AW=16 / DW=32, because PDR relates the payload registers bit by bit; the
+  law is width-agnostic and the harness defaults close too, about five times
+  slower. They stay off the SiliconCompiler lane, whose sby task offers
+  boolector alone.
 
 **`fv_umi_demux`** -- the onehot-select assumption is the boundary of correct
 usage. The `hazard` task drops it and witnesses both real
