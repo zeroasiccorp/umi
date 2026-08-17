@@ -88,9 +88,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # the sc_tools image already ships yosys + sby + boolector, so the
-      # formal lane runs here with no extra tool-install step; z3 and
-      # bitwuzla are absent, so those local-evidence rows skip cleanly
+      # the sc_tools image ships yosys, sby, yosys-abc and boolector,
+      # which is every tool the lane needs; it pins boolector itself
+      # rather than inheriting the sby task's default engine
       - name: pytest
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -98,4 +98,7 @@ jobs:
           . venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .[test]
-          pytest -m "formal" --durations=0
+          # a lane that skips entirely would otherwise report success
+          # having verified nothing, so require rows to have actually run
+          pytest -m "formal" --durations=0 | tee /tmp/formal.log
+          grep -qE "[0-9]+ passed" /tmp/formal.log

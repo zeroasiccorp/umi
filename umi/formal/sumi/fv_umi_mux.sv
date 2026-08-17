@@ -20,15 +20,15 @@
  * Formal harness: the umi_mux merge contract.
  *
  * umi_mux is the first block in this directory that instantiates other
- * blocks -- umi_arbiter and lambdalib's la_vmux (umi_mux.v:59, 105-140).
+ * blocks -- umi_arbiter and lambdalib's la_vmux (umi_mux.v:63, 105-140).
  * lambdalib resolves out of site-packages, a path that varies by
- * environment, so this proof has no checked-in .sby: it runs through the
- * SiliconCompiler lane (tests/sumi/test_formal_sc.py), where the sources
- * come from the repo's own fileset graph.
+ * environment; the lane (tests/sumi/test_formal_sc.py) takes the
+ * sources from the repo's own fileset graph, so that path is resolved
+ * at run time rather than written down anywhere.
  *
  * The block is a select-and-merge around the arbiter:
  *
- *     grants        = umi_arbiter(requests = umi_in_valid)   (:59)
+ *     grants        = umi_arbiter(requests = umi_in_valid)   (:63)
  *     sel_oh        = stalled ? stalled_input : grants       (:91)
  *     umi_out_valid = |sel_oh                                (:73)
  *     umi_in_ready  = sel_oh & {N{umi_out_ready}}            (:98)
@@ -55,8 +55,8 @@
  * window, so k-induction's step case starts from fabricated values no
  * trace can reach. The fix is an assume/guarantee composition replacing
  * umi_arbiter with a stub licensed by fv_umi_arbiter's grant contract;
- * it is not attempted here. A hierarchical invariant was tried and
- * rejected -- `stalled_input` does not resolve to one signal in the
+ * it is not attempted here. A hierarchical invariant is not an
+ * alternative: `stalled_input` does not resolve to one signal in the
  * elaborated netlist (a 2-bit register and a 1-bit artifact share the
  * name), so an assertion against it binds ambiguously.
  *
@@ -88,11 +88,12 @@
  *
  * 2. README 4.2 rule 6 (README.md:463), input-facing. Rule 6 allows
  *    READY to depend on VALID but not combinationally, and umi_in_ready
- *    is combinational in umi_in_valid through the arbiter (umi_mux.v:59
+ *    is combinational in umi_in_valid through the arbiter (umi_mux.v:63
  *    -> :91 -> :98), so the argument fv_umi_buffer and fv_umi_demux make
  *    does not transfer here. Rule 5 is the opposite direction -- VALID
- *    on READY -- and is not claimed either way. c_mux_r5_path witnesses
- *    the dependency rather than leaving it as a reading of the source.
+ *    on READY -- and is not claimed either way. The dependency is read
+ *    off the source above; c_mux_r5_path only shows the cycle is
+ *    reachable. No miter is built here to prove it.
  *
  * Fault tasks corrupt only OBSERVED signals, never the DUT, and each is
  * constrained so exactly one law can break:
@@ -318,9 +319,12 @@ module fv_umi_mux #(
             // an input asks while masked and is held off
             c_mux_mask     : cover (|(umi_in_valid & arbmask)
                                     && (in_acc & arbmask) == {N{1'b0}});
-            // scope note 2, witnessed: umi_out_ready is high and an
-            // input's ready tracks its own valid in the same cycle --
-            // the combinational valid->ready path is live, not inferred
+            // reachability only: a cycle in which the output is ready
+            // and some input is both offering and ready. It does NOT
+            // demonstrate the dependency -- a cover cannot. Proving
+            // in_ready independent of in_valid needs a self-composition
+            // miter, as fv_umi_demux (a_dx_r5_indep) and fv_umi_mux2
+            // (a_mux2_r6_nocross) do; neither is built for umi_mux.
             c_mux_r5_path  : cover (umi_out_ready && |umi_in_valid
                                     && (umi_in_ready != {N{1'b0}}));
         end

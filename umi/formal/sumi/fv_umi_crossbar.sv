@@ -20,11 +20,10 @@
  * Formal harness: the umi_crossbar routing contract.
  *
  * umi_crossbar instantiates umi_arbiter and lambdalib's la_vmux
- * (umi_crossbar.v:76, 119-149), so like fv_umi_mux it ships no .sby --
- * lambdalib resolves out of site-packages and a committed job file
- * cannot name that path portably. It runs through the SiliconCompiler
- * lane (tests/sumi/test_formal_sc.py), where the sources are assembled
- * from the Crossbar block's own fileset graph.
+ * (umi_crossbar.v:76, 119-149), which resolves out of site-packages.
+ * The lane (tests/sumi/test_formal_sc.py) assembles the sources from
+ * the Crossbar block's own fileset graph, so that path is resolved at
+ * run time rather than written down anywhere.
  *
  * INDEX CONVENTION. umi_in_request[k*N + j] is "input j requests output
  * k" (umi_crossbar.v:20-31). A ROW of the N*N vector is one output's
@@ -147,8 +146,8 @@
  *    (umi_crossbar.v:76 -> :102-109). The request vector is this block's
  *    VALID, so that is a rule 6 dependency, not the rule 5 one: rule 5
  *    constrains VALID on READY, the opposite direction, and nothing here
- *    claims it either way. c_xb_r6_path witnesses the dependency rather
- *    than leaving it as a reading of the source.
+ *    claims it either way. The dependency is read off the source above;
+ *    c_xb_r6_path only shows the cycle is reachable.
  *
  * Fault tasks corrupt only OBSERVED signals, never the DUT, and each is
  * constrained so exactly one law can break:
@@ -502,9 +501,10 @@ module fv_umi_crossbar #(
             // output accepts a beat while no input is accepted at all
             c_xb_multicast : cover (!unicast && |out_acc
                                     && in_acc == {N{1'b0}});
-            // scope note 3, witnessed: umi_out_ready is high and an
-            // input's ready tracks its own request in the same cycle --
-            // the combinational request->ready path is live
+            // reachability only: a cycle in which some output is ready
+            // and some input both offers and is ready. It does NOT
+            // demonstrate the dependency -- a cover cannot. That needs a
+            // self-composition miter, which this harness does not build.
             c_xb_r6_path   : cover (|umi_out_ready && |in_offer
                                     && umi_in_ready != {N{1'b0}});
         end

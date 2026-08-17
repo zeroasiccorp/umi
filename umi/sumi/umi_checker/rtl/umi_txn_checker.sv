@@ -141,7 +141,7 @@
  * cleared bit removes the rule from BOTH the assert and the assume
  * face, so a masked instance stays the same property in either
  * direction. The default 20'hFFFFF enables every rule and is
- * behaviour-identical to the previous release.
+ * behaviour-identical to leaving the parameter unset.
  *
  *   bit  rule                bit  rule
  *   ---  ------------------  ---  ------------------

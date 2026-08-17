@@ -1,2 +1,4 @@
-# sby work directories (build products; recreated on every run)
-*/fv_*_*/
+# sby work directories. The lane runs its jobs in a temporary build
+# directory, but a job file rerun by hand in this directory (see the
+# README) drops its work directory here instead.
+fv_*/

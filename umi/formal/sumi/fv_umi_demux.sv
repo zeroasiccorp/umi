@@ -72,14 +72,70 @@
  *               offered beat is ACCEPTED and goes nowhere. A demux with
  *               no output selected silently drops traffic; it does not
  *               stall and does not error.
- *   c_dx_dup    a multi-hot select DELIVERS to several outputs while the
- *               upstream sees a single accept.
- * The fault_drop / fault_dup tasks then WEAKEN the assumption and show
+ *   c_dx_dup    a multi-hot select with every selected output ready
+ *               DELIVERS the beat to two or more outputs against the
+ *               single accept the upstream sees -- the duplication. The
+ *               cover says exactly that: in_xfer AND two or more
+ *               out_xfer bits.
+ *   c_dx_noaccept  the other half of a multi-hot select: only some of the
+ *               selected outputs are ready, so a beat is DELIVERED while
+ *               in_ready stays low. The upstream never sees an accept and
+ *               offers the same beat again, which duplicates it in time
+ *               rather than in space.
+ * The fault_drop / fault_dup rows then WEAKEN the assumption and show
  * the fork laws convicting -- the assumption is auditable, not asserted.
  *
- * Fault tasks corrupt only what the harness OBSERVES, never the DUT. A
+ * Fault rows corrupt only what the harness OBSERVES, never the DUT. A
  * checker that cannot fail a broken design proves nothing about a
  * working one.
+ *
+ * ROWS (tests/sumi/test_formal_sc.py):
+ *   demux:prove       M=2, unbounded
+ *   demux:prove_m4    M=4, unbounded
+ *   demux:cover       witnesses: expect all reached
+ *   demux:rule5       rule 4.2.5 witness (face 3 above)
+ *   demux:hazard      the fork hazards, assumption dropped
+ *   demux:fault_*     must FAIL, labels below
+ *
+ * Fault rows and the assertion label each is intended to trip. A fault
+ * may falsify several related rules on the same cycle and which label
+ * BMC reports can be solver-dependent; the INTENDED label is the one
+ * guaranteed to appear in the log's failed-assertion list:
+ *   fault_valid   a_dx_valid_eq    an observed output valid is dropped.
+ *                                  Also trips the output handshake
+ *                                  checker's RULE2_valid_hold when the
+ *                                  counterexample drops a held VALID --
+ *                                  legal here and NOT a regression.
+ *   fault_bcast   a_dx_bcast_data  an output's data no longer equals the
+ *                                  input's.
+ *   fault_drop    a_dx_fork_xfer   env weakened to $onehot0: select==0 is
+ *                                  now permitted, so an accepted beat is
+ *                                  delivered nowhere (the silent drop).
+ *   fault_dup     a_dx_fork_one    env weakened the other way: at least TWO
+ *                                  destinations AND every output ready, so
+ *                                  one accept is delivered to several outputs
+ *                                  (the duplication). BOTH halves of that env
+ *                                  are load-bearing -- multi-hot select alone
+ *                                  still lets a partial ready deliver without
+ *                                  an accept, which convicts a_dx_fork_xfer
+ *                                  instead. Pinning ready high forces the
+ *                                  accept so only the one-accept-one-delivery
+ *                                  law can break. Removing the assumption
+ *                                  entirely admits both hazards and lets the
+ *                                  solver pick -- that unconstrained case is
+ *                                  the `hazard` row, whose job is to cover
+ *                                  both.
+ *   fault_r5      a_dx_r5_indep    models the illegal design in which
+ *                                  ready waits for valid; the self-
+ *                                  composition miter separates.
+ *   fault_rule5   (covers)         models the illegal design in which
+ *                                  VALID waits for READY; under stuck-low
+ *                                  ready c_rule5_valid_stuck_low and
+ *                                  c_rule5_valid_held go UNREACHED.
+ *
+ * The rule5 / fault_rule5 rows carry FV_NO_WITNESS so the handshake
+ * checkers' own transaction covers, unreachable under stuck-low ready,
+ * do not spuriously fail the cover run.
  ******************************************************************************/
 
 `default_nettype none
@@ -149,7 +205,8 @@ module fv_umi_demux #(
         .umi_out_ready   (umi_out_ready));
 
     // ----------------------------------------------------------------
-    // fault injection (formal known-answer tests -- see the .sby tasks)
+    // fault injection (formal known-answer tests -- one define per
+    // fault row; the header tabulates the label each is intended to trip)
     // ----------------------------------------------------------------
 `ifdef FV_FAULT_VALID
     // the solver may drop an observed output valid at any moment
@@ -349,9 +406,17 @@ module fv_umi_demux #(
             c_dx_stall   : cover (umi_in_valid && !umi_in_ready);
             c_dx_selmove : cover (select != prev_select && |select);
 `ifdef FV_NO_SEL_ASSUME
-            // demonstrated: what the onehot-select assumption is buying
+            // demonstrated: what the onehot-select assumption is buying.
+            // Three distinct hazards, one cover each -- the accept side
+            // and the delivery side of a multi-hot select are separate
+            // failures and neither implies the other.
             c_dx_drop : cover (in_xfer && select == {M{1'b0}});
-            c_dx_dup  : cover (out_xfer != {M{1'b0}} && !in_xfer);
+            // DUPLICATION: one accepted input beat, delivered to two or
+            // more outputs at once
+            c_dx_dup  : cover (in_xfer && !$onehot0(out_xfer));
+            // and the other half: a delivery the upstream never sees as
+            // an accept, so the same beat is offered again afterwards
+            c_dx_noaccept : cover (out_xfer != {M{1'b0}} && !in_xfer);
 `endif
         end
 `endif

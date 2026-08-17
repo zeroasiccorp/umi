@@ -34,13 +34,14 @@
  * that the checker attaches to any block with two or three wires of
  * glue.
  *
- * Fault tasks (see fv_umi_buffer.sby): under FV_FAULT_VALID /
- * FV_FAULT_DATA the harness lets the solver corrupt the observed
- * output for one cycle, and under FV_FAULT_SWAP the observed beat
- * carries DSTADDR and SRCADDR exchanged for the whole trace. The proof
- * must then FAIL, with a counterexample trace. A checker that cannot
- * fail a broken design proves nothing about a working one; these tasks
- * are the checker's own regression.
+ * Fault rows: under FV_FAULT_VALID / FV_FAULT_DATA the harness lets
+ * the solver corrupt the observed output for one cycle, under
+ * FV_FAULT_SWAP the observed beat carries DSTADDR and SRCADDR
+ * exchanged for the whole trace, and under FV_FAULT_FREEOUT the whole
+ * observed channel is free (the mask rows, below). The proof must then
+ * FAIL, with a counterexample trace. A checker that cannot fail a broken
+ * design proves nothing about a working one; these rows are the
+ * checker's own regression.
  *
  * Rule 5 (README 4.2 rule 5, README.md:462): "The assertion of VALID
  * must not depend on the assertion of READY. In other words, it is not
@@ -65,7 +66,7 @@
  *      cover goes unreachable and the task FAILs -- the honest cover has
  *      teeth.
  *
- * PAYLOAD IDENTITY (FV_IDENTITY; tasks `identity`, `identity_bypass`,
+ * PAYLOAD IDENTITY (FV_IDENTITY; rows `identity`, `identity_bypass`,
  * `identity_cover`, `fault_swap`). The handshake rules say WHEN a beat
  * moves, never WHICH beat: a buffer that exchanged DSTADDR and SRCADDR,
  * or handed its beats back out of order, obeys every one of them. Two
@@ -95,7 +96,7 @@
  * it comes round again.
  *
  * ENGINE. `identity` runs `abc pdr`, not the smtbmc k-induction every
- * other prove task here uses. Both are unbounded; what differs is where
+ * other prove row here uses. Both are unbounded; what differs is where
  * the inductive invariant comes from. The skid register
  * (umi_buffer.v:90-93) reaches out_data only one cycle after a FULL
  * buffer drains, and no port shows it before then. k-induction starts
@@ -108,13 +109,93 @@
  * invariant over the design's own registers instead, and closes the
  * property with no environment assumption -- in particular with no
  * bound on how long READY may stay low. fv_umi_mux settles for a
- * bounded task at this same fence, for the same reason: its captured
+ * bounded row at this same fence, for the same reason: its captured
  * input is not port-observable either.
+ *
+ * WHAT PDR REPORTS. abc names a failing property by its AIGER output
+ * index, not by label. sby can translate that back through a witness
+ * replay, but the step needs an SMT solver beyond the four this lane
+ * requires and aborts on these harnesses with a witness signal
+ * mismatch, turning a genuine FAIL into a tool ERROR. The lane runs the
+ * pdr rows with `aigsmt none` so the engine's own verdict stands, and
+ * `fault_swap_pdr` is therefore a verdict-only row: it shows this engine
+ * convicts a broken buffer, while `fault_swap` -- the same corruption
+ * under bmc -- pins the label to a_id_beat.
+ *
+ * The identity rows run a narrower face than the rest of this harness,
+ * AW=16 and DW=32, because PDR relates the payload registers bit by
+ * bit. The law is width-agnostic -- the datapath is bit-parallel -- and
+ * the two params on those rows are the whole change needed to widen it;
+ * the harness defaults (AW=64, DW=64) close too, about five times
+ * slower.
  *
  * Outside these two laws: progress (nothing here says a held beat is
  * ever delivered -- this file asserts no liveness property), latency,
- * and payload widths above the face the identity tasks run, which
- * fv_umi_buffer.sby sets and explains.
+ * and payload widths above that face.
+ *
+ * ROWS (tests/sumi/test_formal_sc.py):
+ *   buffer:prove            MODE=1 skid buffer, unbounded
+ *   buffer:bypass           MODE=0, unbounded
+ *   buffer:cover            witnesses: expect all reached
+ *   buffer:rule5            rule 4.2.5 witness (part 1 above)
+ *   buffer:prove_mask_off   RULE_EN=0, see below
+ *   buffer:identity         a_id_occupancy + a_id_beat, MODE=1, abc pdr
+ *   buffer:identity_bypass  the same two labels, MODE=0, abc pdr
+ *   buffer:identity_cover   the tracked beat is really delivered
+ *                           (c_id_deliver) and the skid slot is really
+ *                           used (c_id_full), so neither law is passing
+ *                           vacuously
+ *   buffer:identity_cover_bypass  the same job for the MODE=0 arm, which
+ *                           states the two laws over different logic: a
+ *                           beat really passes through (c_id_deliver) and
+ *                           an offer really stands unaccepted
+ *                           (c_id_stall), the case a_id_beat covers that
+ *                           a delivery alone would not reach
+ *   buffer:fault_valid      must FAIL, chk_out.RULE2_valid_hold
+ *   buffer:fault_data       must FAIL, chk_out.RULE3_data_stable
+ *   buffer:fault_rule5      must FAIL: FV_FAULT_RULE5 models the
+ *                           illegal design where VALID waits for READY
+ *                           (out_valid & out_ready). Under stuck-low
+ *                           ready the covered signal is 0 forever, so
+ *                           c_rule5_valid_stuck_low and
+ *                           c_rule5_valid_held both go UNREACHED and
+ *                           the row FAILs -- the honest rule5 cover has
+ *                           teeth
+ *   buffer:fault_swap       must FAIL, a_id_beat alone: FV_FAULT_SWAP
+ *                           exchanges DSTADDR and SRCADDR on the
+ *                           OBSERVED beat only, and the swap is static,
+ *                           so VALID still holds and the payload is
+ *                           still stable across a stall -- every
+ *                           handshake rule survives it. That corruption
+ *                           is exactly what the handshake rows cannot
+ *                           see, which is why the identity laws are here
+ *   buffer:fault_swap_pdr   the same corruption on the abc pdr engine
+ *                           the identity rows are proven with, so that
+ *                           engine is shown convicting a broken buffer
+ *                           and not only answering "proved". Verdict
+ *                           only -- see WHAT PDR REPORTS above
+ *   buffer:fault_mask_*     must FAIL, one per RULE_EN bit -- see below
+ *
+ * THE PER-RULE MASK. RULE_EN is checked in both directions, over every
+ * bit, by one configuration: FV_FAULT_FREEOUT makes the OBSERVED output
+ * channel entirely free -- VALID and all four payload fields, in reset
+ * and out of it -- so every rule the handshake checker can raise is
+ * falsifiable at once. Then
+ *   prove_mask_off   RULE_EN=0: nothing is reported. A rule left outside
+ *                    its RULE_EN guard would be falsified here at once.
+ *   fault_mask_r2 / _r3cmd / _r3dst / _r3src / _r3data / _reset
+ *                    one bit set per row: each must FAIL, and must name
+ *                    that bit's own rule. Every bit is load-bearing or
+ *                    one of these six rows would pass.
+ * A targeted fault reaches one bit only -- FV_FAULT_VALID, for instance,
+ * can only ever break RULE2_valid_hold -- which is why the mask rows use
+ * the free channel instead. The DUT-level a_rule5_state assertion is not
+ * a checker rule and stays live throughout, which keeps prove_mask_off a
+ * proof and not an empty one.
+ *
+ * Both rule5 rows carry FV_NO_WITNESS so the handshake checker's own
+ * transaction covers (valid & ready), unreachable under stuck-low ready,
+ * do not spuriously fail the cover run.
  ******************************************************************************/
 
 `default_nettype none
@@ -180,8 +261,23 @@ module fv_umi_buffer #(
     wire [DW-1:0] out_data    = out_packet[DW-1          -: DW];
 
     // ----------------------------------------------------------------
-    // fault injection (formal known-answer tests -- see the .sby tasks)
+    // fault injection (formal known-answer tests -- one define per
+    // fault row; the header tabulates the label each is intended to trip)
     // ----------------------------------------------------------------
+`ifdef FV_FAULT_FREEOUT
+    // The observed output channel is ENTIRELY free -- VALID and all four
+    // payload fields, in reset and out of it. Every rule the handshake
+    // checker can raise is then falsifiable on this channel at once,
+    // which is what gives the RULE_EN matrix (the mask rows below) teeth
+    // on every bit rather than on the one bit a targeted fault happens
+    // to break. The DUT is untouched, as in every other fault row here.
+    (* anyseq *) wire            obs_valid;
+    (* anyseq *) wire [CW-1:0]   obs_cmd;
+    (* anyseq *) wire [AW-1:0]   obs_dstaddr;
+    (* anyseq *) wire [AW-1:0]   obs_srcaddr;
+    (* anyseq *) wire [DW-1:0]   obs_data;
+`else
+
 `ifdef FV_FAULT_VALID
     // the solver may drop the observed valid at any moment
     (* anyseq *) wire fault;
@@ -212,6 +308,8 @@ module fv_umi_buffer #(
 `endif
 
     wire [CW-1:0] obs_cmd = out_cmd;
+
+`endif  // FV_FAULT_FREEOUT
 
     // ----------------------------------------------------------------
     // the same file, both directions
@@ -410,6 +508,19 @@ module fv_umi_buffer #(
                     if (obs_valid)
                         a_id_beat : assert (obs_packet == in_packet);
                 end
+
+            // witnesses (formal-only): neither law is passing on an idle
+            // link. c_id_deliver reaches the cycle a_id_occupancy calls a
+            // matched insert/remove, c_id_stall reaches an offer standing
+            // unaccepted -- the case a_id_beat covers that a delivery
+            // alone would not
+`ifdef FORMAL
+            always @(posedge clk)
+                if (f_past_exists & nreset) begin
+                    c_id_deliver : cover (insert && remove);
+                    c_id_stall   : cover (obs_valid && !out_ready);
+                end
+`endif
         end
     endgenerate
 `endif

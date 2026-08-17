@@ -1,90 +1,141 @@
 # Formal property proofs
 
 Machine-checked proofs of UMI spec properties against the RTL in this repo,
-run with [SymbiYosys](https://symbiyosys.readthedocs.io) (yosys + SMT solvers).
+run with [SymbiYosys](https://symbiyosys.readthedocs.io) (yosys + solvers)
+through siliconcompiler's `PropertyCheckFlow`.
 
-Each proof is two files — no generators, no copied RTL:
+Each proof is one file -- no generators, no copied RTL, no job file:
 
     <layer>/fv_<name>.sv     harness: instantiates the shipped RTL,
                              constrains inputs, states the properties
-    <layer>/fv_<name>.sby    the sby job, one task per question
 
-`[files]` paths reference the RTL in place. Shared property modules (the
-checkers) are normal blocks under `umi/sumi/`, e.g. `umi/sumi/umi_checker/`.
-The `fv_*_<task>/` directories sby creates are build products: gitignored,
-never committed.
+The sby job is generated from the repo's own `Design` filesets: the harness on
+top, the DUT and the shared property modules pulled in as depfilesets. Include
+dirs, defines and top-level parameters ride in from those `Design` objects, and
+the RTL is read in place. The checkers are normal blocks under `umi/sumi/`,
+e.g. `umi/sumi/umi_checker/`. A block that instantiates lambdalib needs no
+special handling: site-packages paths are resolved at run time rather than
+written down anywhere.
 
-A block that instantiates lambdalib has **no `.sby`** — lambdalib resolves out
-of site-packages, and a committed job file cannot name that path portably.
-Those proofs are harness-only and run through the SiliconCompiler lane, which
-assembles sources from the block's own `Design` dependency graph.
-`fv_umi_mux`, `fv_umi_mux2` and `fv_umi_crossbar` are of that kind.
+One row per question, named `<family>:<task>` -- `codec:prove`,
+`buffer:identity`, `txn:fault_orphan`. The rows are the matrix in
+`tests/sumi/test_formal_sc.py`.
 
-**Each harness header documents its own properties, scope and fault table.**
-This file is the index; the detail lives next to the code.
+Each harness header documents its own properties, scope, rows and fault
+table. This file is the index; the detail lives next to the code.
 
 ## Run
 
-    # .sby lane -- every task, full solver matrix
-    pytest -m formal tests/sumi/test_formal.py
-
-    # SiliconCompiler lane -- same proofs as PropertyCheckFlow runs, with
-    # the sby jobs generated from the repo's own Design filesets
     pytest -m formal tests/sumi/test_formal_sc.py
 
-    # one task by hand
-    cd umi/formal/sumi && sby -f fv_umi_codec.sby prove
+    # one row
+    pytest -m formal tests/sumi/test_formal_sc.py -k 'buffer:identity'
 
-CI runs both in the "Formal CI" job (`.github/workflows/ci.yml`) inside
-`ghcr.io/siliconcompiler/sc_tools:latest`. It runs **serially** -- sby keeps a
-per-proof status database that concurrent tasks of the same proof corrupt, so
-this lane deliberately omits `-n`. The full set takes a few minutes.
+To debug a proof under sby or yosys directly, run its row once with a pinned
+build directory and reuse the job file it generated:
+
+    pytest -m formal tests/sumi/test_formal_sc.py -k 'buffer:identity' \
+           --basetemp=/tmp/formal
+    sby -f /tmp/formal/*/fv_umi_buffer/job0/prove/0/sby/fv_umi_buffer.sby
+
+Without `--basetemp` the job goes to a pytest temporary directory. The file
+names every source by absolute path and emits no `[files]` section, so it
+reruns exactly what the lane ran, and its `[script]` block pasted into `yosys`
+elaborates the same design.
+
+CI runs the lane in the "Formal CI" job (`.github/workflows/ci.yml`) inside
+`ghcr.io/siliconcompiler/sc_tools:latest`. The full set takes a couple of
+minutes.
+
+### Reading a counterexample
+
+The step sby names is one clock edge ahead of the VCD row that carries the
+violating values. A `bmc` run that prints
+
+    Checking assertions in step 5..
+    BMC failed!
+    Assert failed in fv_umi_buffer.chk_out: RULE2_valid_hold
+
+has its evidence at `smt_step` **4** of `engine_0/trace.vcd`: that is the row
+where the rule's enable is high and its condition is false, and in that trace
+step 5 does not violate the rule at all. Every assertion here is an immediate
+assertion inside `always @(posedge clk)`, so it is judged on the values the
+edge samples, and the trace numbers the state the edge produces. Open the row
+before the one the log names, or the waveform will not show the bug.
 
 ## Tools
 
-`sby`, `yosys`, `boolector` on PATH -- easiest via the
+`sby`, `yosys`, `yosys-abc` and `boolector` on PATH -- easiest via the
 [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases):
 
     source <extracted>/oss-cad-suite/environment
 
-Plus the repo's python env for the pytest lanes (the test-tree conftests
-import switchboard/cocotb, so collection fails without it):
+Plus the repo's python env (the test-tree conftests import
+switchboard/cocotb, so collection fails without it):
 
     python3 -m venv .venv && source .venv/bin/activate && pip install -e .[test]
 
 You need **both**: the python env alone collects the tests but every one
 of them skips. If the whole lane reports `skipped`, `sby` is not on PATH.
 
-The SiliconCompiler lane needs the same tools -- it generates sby jobs from
-the Design filesets, it does not bundle a solver.
+The lane generates sby jobs from the Design filesets; it does not bundle a
+solver.
 
 ## Engines
 
-Every result here is gated on boolector: it is the engine siliconcompiler's
-sby task offers in the released 0.38.x versions, and the only solver in the CI
-container.
+One SMT engine, `boolector`, answers every row but three. The lane pins it
+explicitly rather than inheriting the sby task's default, so a change upstream
+cannot quietly move which solver these results rest on -- newer siliconcompiler
+releases default that task to bitwuzla, boolector's maintained successor, which
+the CI tool image is too old to carry. Once the image ships it, the pin is a
+one-line change.
 
-`z3` and `bitwuzla` add independent-solver corroboration on the `.sby` lane
-only (`prove_z3`, `prove_bw`, `prove_deep_bw`). Those rows skip wherever the
-binary is absent -- notably in CI -- so install them locally if you want the
-cross-check. The SiliconCompiler lane cannot use them: its sby task offers
-boolector alone, because yosys' smtbmc drives solvers through the legacy
-`--smt2` interface that current bitwuzla releases dropped.
+The three exceptions are `buffer:identity`, `buffer:identity_bypass` and
+`buffer:fault_swap_pdr`, which run `abc pdr`. That is not a preference:
+k-induction cannot close payload identity at all -- see the scope note below --
+and no SMT engine changes that. sby's name for that engine is outside the sby
+task's engine enum, so the lane subclasses the prove task and rewrites the
+generated job file's `[engines]` section.
+
+Those rows also run with `aigsmt none`. abc reports a counterexample as an
+AIGER output index rather than a named assertion; sby can translate it back by
+replaying the witness through a second SMT solver, but that step needs a solver
+beyond the four above and aborts on these harnesses with a witness signal
+mismatch, which turns a real FAIL into a tool ERROR. With it off the engine's
+own verdict is what sby reports, which is why `buffer:fault_swap_pdr` pins a
+verdict and not a label -- `buffer:fault_swap` injects the same corruption
+under `bmc` and pins the label there.
+
+There is no independent-solver corroboration here: every SMT result is gated on
+boolector alone. Standing in its place is the fault matrix -- 54 rows that each
+inject a bug and must each still produce a counterexample, which a solver
+quietly answering "proved" to everything would not deliver. To re-check one
+result against another solver, run its row, edit the `[engines]` line of the
+job file it generated, and rerun that file by hand.
 
 ## Conventions
 
-* `fault_*` tasks inject a bug and **must FAIL**; every other task must PASS.
-  The pytest lane enforces both directions -- a fault task that passes is
-  reported as the error it is.
-* `prove` tasks are **unbounded**, not a bounded search. Nearly all close by
-  k-induction on boolector; `fv_umi_buffer`'s `identity` pair runs `abc pdr`,
-  which is equally unbounded but derives its own invariant instead of being
-  handed one at the ports. `bmc` tasks are bounded, and are used where a proof
-  would otherwise rest on DUT-internal state; the harness header says why in
-  each case.
+* `fault_*` rows inject a bug and **must FAIL**; every other row must PASS.
+  The lane enforces both directions -- a fault row that passes is reported as
+  the error it is, and a fault row that ERRORs rather than producing a
+  counterexample stays red too.
+* `prove` rows are **unbounded**, not a bounded search. Nearly all close by
+  k-induction; `fv_umi_buffer`'s `identity` pair runs `abc pdr`, which is
+  equally unbounded but derives its own invariant instead of being handed one
+  at the ports. `bmc` rows are bounded, and are used where a proof would
+  otherwise rest on DUT-internal state; the harness header says why in each
+  case.
 * Every `cover` witness must be REACHED, or the environment is over-constrained.
+* **A `cover` row says nothing about the assertions in the same harness.** sby's
+  cover mode does not evaluate them, so a cover row passes in configurations
+  where the harness's own rules are false. `demux:hazard` is one: it drops the
+  onehot-select assumption to witness the fork hazards, and under that
+  environment `a_dx_fork_one` is genuinely violated -- run the same
+  configuration in `bmc` mode and it fails on that label. The row is still
+  doing its job, but read it as "these behaviours are reachable", never as
+  "this configuration is legal".
 * A fault may falsify several related rules at once, and which label the solver
-  reports can vary. Each `.sby` names the intended label per fault task.
+  reports can vary. Each harness header names the intended label per fault row.
 * Rule identifiers are stable names, not a contiguous sequence. A gap in the
   numbering means a candidate rule was considered and not adopted; every
   identifier that appears is defined by the checker that implements it.
@@ -93,20 +144,23 @@ boolector alone, because yosys' smtbmc drives solvers through the legacy
 
 | proof | judges | claim | green | fault |
 |---|---|---|---|---|
-| `sumi/fv_umi_codec` | `umi_pack` / `umi_unpack` | CMD codec round-trips over the 13 structured opcodes | 3 | 1 |
-| `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5, and delivers every beat unchanged in all four SUMI fields and in accept order, with none dropped or invented | 8 | 4 |
-| `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 6 | 6 |
-| `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 6 | 3 |
-| `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in ⇔ one accept out, and the output beat is the accepting input's (bounded; SC lane only) | 2 | 3 |
-| `sumi/fv_umi_mux2` | `umi_mux2` | select-and-merge: the output is the selected input's beat, accepts are conserved, and the output channel is legal SUMI under a stable select (SC lane only) | 3 | 5 |
-| `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers (SC lane only) | 2 | 5 |
-| `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 5 | 10 |
-| `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 6 | 8 |
+| `sumi/fv_umi_codec` | `umi_pack` / `umi_unpack` | CMD codec round-trips over the 13 structured opcodes, and each field sits at the bit position `umi_messages.vh` defines | 2 | 1 |
+| `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5, and delivers every beat unchanged in all four SUMI fields and in accept order, with none dropped or invented | 9 | 11 |
+| `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 5 | 6 |
+| `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 5 | 4 |
+| `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in iff one accept out, and the output beat is the accepting input's (bounded) | 2 | 3 |
+| `sumi/fv_umi_mux2` | `umi_mux2` | select-and-merge: the output is the selected input's beat, accepts are conserved, and the output channel is legal SUMI under a stable select | 3 | 5 |
+| `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers | 2 | 5 |
+| `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 6 | 11 |
+| `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 5 | 8 |
+
+39 green rows and 54 fault rows, 93 in all.
 
 `fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux`, `fv_umi_arbiter`,
 `fv_umi_mux`, `fv_umi_mux2` and `fv_umi_crossbar` judge **shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify
-the **checkers themselves** -- one face against the other -- which is what makes
-them safe to bind elsewhere.
+the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
+`fv_umi_txn` elaborates the asserting face alone, against a responder model, so
+its ASSUME face is not covered (see the scope note below).
 
 ### Scope notes
 
@@ -118,35 +172,50 @@ of READY") is structural -- a cycle-sampled bind-in monitor cannot assert it.
 It is proven harness-side instead, on the DUT: a `rule5` cover pins READY low
 for the whole trace and reaches VALID asserting anyway, and `fault_rule5`
 models the illegal design where VALID waits for READY, under which that cover
-becomes unreachable and the task fails. `fv_umi_demux` adds a second,
+becomes unreachable and the row fails. `fv_umi_demux` adds a second,
 independent form for the neighbouring rule 6 (README.md:463, READY may depend
 on VALID but not combinationally) -- a self-composition miter proving
-`in_ready` does not depend on `in_valid`. Both blocks are clean on both rules. `fv_umi_mux2` proves rule 5 by the same
+`in_ready` does not depend on `in_valid`. That miter is `fv_umi_demux` only;
+`fv_umi_buffer` carries no rule-6 property, so it is proven clean on rule 5
+alone. `fv_umi_mux2` proves rule 5 by the same
 miter method (`a_mux2_r5_valid_indep`) and uses it in the other direction to
 witness the rule 6 dependence its input ports do have.
 
 **`fv_umi_buffer`** -- payload identity (`a_id_occupancy`, `a_id_beat`) is
 proven with **no environment assumption**: no bound on how long READY may stay
 low, and no restriction on the traffic beyond the legal-SUMI stimulus the
-handshake tasks already use. Two things about it are worth knowing:
+handshake rows already use. Two things about it are worth knowing:
 
 * **`abc pdr`, not k-induction.** The skid register is not observable at any
   port, so the step case starts from a full buffer whose skid slot holds a
   value no accepted beat put there and fails on `a_id_beat` -- the limit
   `fv_umi_mux` records for its own captured input. No assertion written over
-  ports alone can exclude that start. PDR derives its invariant over the
+  ports alone can exclude that start, and no choice of SMT solver helps: the
+  step case is genuinely satisfiable. PDR derives its invariant over the
   design's registers and closes the same property unbounded.
-* **A narrower face, and only on the `.sby` lane.** The identity tasks run
-  AW=16 / DW=32, because PDR relates the payload registers bit by bit; the
-  law is width-agnostic and the harness defaults close too, about five times
-  slower. They stay off the SiliconCompiler lane, whose sby task offers
-  boolector alone.
+* **A narrower face.** The identity rows run AW=16 / DW=32, because PDR
+  relates the payload registers bit by bit; the law is width-agnostic and the
+  harness defaults close too, about five times slower.
+* **The pdr engine has its own known-answer row.** `fault_swap_pdr` runs the
+  swap corruption on the engine the identity rows are proven with, so that
+  engine is shown convicting a broken buffer rather than only answering
+  "proved". It pins a verdict, not a label -- see the engines section.
+
+The per-rule `RULE_EN` mask is checked over **every** bit, not only the one a
+targeted fault reaches: `prove_mask_off` frees the whole observed output
+channel, so every handshake rule is breakable at once, and clears the mask --
+a rule left outside its guard fails there immediately. The six
+`fault_mask_*` rows are the other half, one enabled bit each, and every one
+must convict that bit's own rule.
 
 **`fv_umi_demux`** -- the onehot-select assumption is the boundary of correct
-usage. The `hazard` task drops it and witnesses both real
-behaviours: `select==0` **accepts and silently drops** a beat, and a multi-hot
-select **duplicates** it. `fault_drop` / `fault_dup` weaken the assumption in
-each direction so it is falsifiable rather than trusted.
+usage. The `hazard` row drops it and witnesses all three real behaviours:
+`select==0` **accepts and silently drops** a beat, a multi-hot select with its
+outputs ready **duplicates** one across them, and a multi-hot select with only
+some outputs ready **delivers without accepting**, so the upstream offers the
+beat again. `fault_drop` / `fault_dup` weaken the assumption in each direction
+so it is falsifiable rather than trusted. Read the row under the cover-mode
+caveat above: those hazards are reachable, not legal.
 
 **`fv_umi_mux`** -- three limits, all in the harness header:
 
@@ -163,25 +232,24 @@ each direction so it is falsifiable rather than trusted.
   direction and is not claimed either way. `c_mux_r5_path` witnesses the
   dependency instead of leaving it as a reading of the source.
 
-**`fv_umi_mux2`** — the same block family, the opposite result on stability,
+**`fv_umi_mux2`** -- the same block family, the opposite result on stability,
 because the select is a port rather than an internal arbiter:
 
 * **Unbounded, not bounded.** `umi_mux2` is combinational and holds no state
   the ports cannot see, so the green row is `prove` (k-induction) rather than
   the `bmc` `fv_umi_mux` has to settle for.
 * **Output stability IS claimed**, and an `ASSUME=0` handshake checker *is*
-  bound to the output channel — under one stated environment assumption,
+  bound to the output channel -- under one stated environment assumption,
   `m_mux2_sel_stable`: `sel` may not move while an output offer is pending.
   That is an integration requirement, not a convenience. Output VALID and
   payload are combinational in `sel`, so only the `sel` driver can discharge
-  README 4.2 rules 2 and 3 at the merged output. The `hazard` task drops the
+  README 4.2 rules 2 and 3 at the merged output. The `hazard` row drops the
   assumption and covers what the shipped RTL then does: `c_mux2_offer_lost`
   (a pending beat is withdrawn) and `c_mux2_beat_swap` (the offer stands but
   the payload is now the other input's).
 * **README 4.2 rule 6 is not met at the input ports.** `umi_in_ready[i]`
   contains the literal term `~umi_in_valid[i]`, so an idle input reads READY
-  high regardless of `umi_out_ready`. The accept sets are unharmed —
-  `VALID & READY` cancels the term — but `umi_in_ready` alone is not a usable
+  high regardless of `umi_out_ready`. The accept sets are unharmed -- `VALID & READY` cancels the term -- but `umi_in_ready` alone is not a usable
   "the sink can take a beat" signal. `c_mux2_r6_selfdep` witnesses the path
   constructively with a self-composition twin, and `a_mux2_r6_nocross` bounds
   the exposure by proving one input's READY does not depend on the other
@@ -214,7 +282,18 @@ limits, all in the harness header:
 profile `CHECK_SA_RESERVED=1` (request SA reserved bits zero). It defaults
 **off**: the repo's own reference traffic uses the high SA bytes for routing.
 
-**`fv_umi_txn`** -- three limits:
+* **The prove rows test the rules' form, not their content.** With no fault
+  injected the asserting instance sees exactly the channel the assuming
+  instance constrains, so each `assert (P)` is the `assume (P)` already made
+  about the same signals from the same source line -- true for any `P`. What
+  the rows establish is that the two faces cannot drift apart, in either
+  profile and under any `RULE_EN`. The content is carried by the eleven fault
+  rows, each an illegal beat one named rule must reject. Closing the gap in
+  the prove rows wants a reference predicate written independently of the
+  checker, which is a second implementation of the CMD rules rather than an
+  added row.
+
+**`fv_umi_txn`** -- five limits:
 
 * **Framing depth.** `prove` runs MAXLEN=1 (up to two beats); `prove_deep`
   raises the harness LEN ceiling to MAXLEN=3 (four beats). Unbounded at each.
@@ -223,6 +302,17 @@ profile `CHECK_SA_RESERVED=1` (request SA reserved bits zero). It defaults
   (HOSTID) folding downstream of a merge is not covered.
 * **Width.** The harness runs DW=64 (the checker ships DW=256) to keep the SMT
   problem tractable; the framing rules are DW-agnostic.
+* **Obligation filtering is never exercised.** The checker enqueues a request
+  only if it expects a response and closes its message; the requester model
+  here emits single-beat READ/WRITE/ATOMIC requests with EOM set, so both
+  terms are true on every request and neither is ever seen to reject one. A
+  posted write and a multi-beat request would test them, and need a requester
+  model that can emit both plus glue lemmas rewritten around them.
+* **Only the asserting face is elaborated.** `umi_txn_checker` appears here as
+  `ASSUME=0` alone. Nothing in this directory would notice if its `ASSUME=1`
+  face drifted from it -- the property `fv_umi_cmd` establishes for the CMD
+  checker has no counterpart for this one, and building it means a second
+  harness rather than an added row.
 
 ### What the covers witness
 
@@ -234,14 +324,17 @@ has, or a structural property a cycle-sampled monitor cannot state.
 
 | cover | witnesses |
 |---|---|
-| `c_dx_drop` / `c_dx_dup` | `umi_demux` accepting and dropping a beat at `select==0`, and duplicating one under a multi-hot select |
+| `c_dx_drop` | `umi_demux` accepting a beat at `select==0` and dropping it |
+| `c_dx_dup` | one accepted input beat delivered to two or more outputs under a multi-hot select |
+| `c_dx_noaccept` | a delivery with no accept, when only some selected outputs are ready -- the same beat is then offered again |
+| `c_arb_rotate` | `umi_arbiter` moving the grant to another requester while the request and mask pattern is held still, which only the thermometer can do |
 | `c_mux_r5_path` | the combinational valid-to-ready path in `umi_mux` |
 | `c_xb_quiet` | `umi_crossbar` raising READY for an input that asked for nothing |
 | `c_xb_multicast` | an output accept with no input accept, the traffic `a_xb_conserve` excludes |
 | `c_xb_r6_path` | the combinational request-to-ready path in `umi_crossbar` |
 | `c_mux2_offer_lost` / `c_mux2_beat_swap` | what `umi_mux2` does when `sel` moves under a pending offer |
 | `c_mux2_r6_selfdep` | `umi_mux2`'s READY depending on its own channel's VALID |
-| the `rule5` tasks | VALID asserting while READY is held low for the whole trace |
+| the `rule5` rows | VALID asserting while READY is held low for the whole trace |
 
 Deliberately not covered anywhere: data widths above the per-harness value in
 the table above, and any behaviour of the LUMI link layer, which has no proofs
@@ -316,11 +409,13 @@ of this example is `sumi/fv_umi_buffer`.
 
 ## Adding a proof
 
-1. Add `fv_<name>.sv` + `fv_<name>.sby` under the layer directory, with at
-   least one `fault_*` task and covers for every assumed corner.
-2. Add its tasks to the lists in `tests/sumi/test_formal.py`.
-3. Add a family entry (deps, depth, params) plus one green and one fault row
-   in `tests/sumi/test_formal_sc.py` so it also rides the SiliconCompiler lane.
+1. Add `fv_<name>.sv` under the layer directory, with at least one `fault_*`
+   define and covers for every assumed corner. Document its rows and its
+   fault-to-label table in the harness header.
+2. Add a family entry (deps, depth, timeout) to `FAMILIES` in
+   `tests/sumi/test_formal_sc.py`, then one `Proof` row per question in
+   `GREEN` and `FAULTS`.
+3. Add a line to the table above.
 
-If the block instantiates lambdalib, skip the `.sby` and steps 2 — the
-SiliconCompiler lane is the only portable home. Follow `fv_umi_mux`.
+Follow `fv_umi_mux` for a block that instantiates lambdalib, and
+`fv_umi_buffer` for a property that needs `abc pdr`.

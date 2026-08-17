@@ -20,7 +20,7 @@
  * Formal harness: the umi_arbiter grant contract.
  *
  * umi_arbiter already carries `assert property ($onehot0(grants))` behind
- * `ifdef VERILATOR (umi_arbiter.v:94) -- a concurrent SVA that yosys does
+ * `ifdef VERILATOR (umi_arbiter.v:95) -- a concurrent SVA that yosys does
  * not see and that the default simulation flow does not compile. This
  * harness proves that claim, and three more, unbounded.
  *
@@ -63,9 +63,38 @@
  * discrepancy: `prio` uses 2'b00, and the rotation witness uses 2'b10
  * because that is where rotation actually happens.
  *
- * Fault tasks corrupt only the OBSERVED grant vector, never the DUT, so
+ * Fault rows corrupt only the OBSERVED grant vector, never the DUT, so
  * the proof must FAIL. A checker that cannot fail a broken design proves
  * nothing about a working one.
+ *
+ * ROWS (tests/sumi/test_formal_sc.py):
+ *   arbiter:prove          N=4, mode free, unbounded
+ *   arbiter:prove_n2       the same, N=2
+ *   arbiter:prio           mode 2'b00, bounded (see MODE PINNING above)
+ *   arbiter:cover          witnesses: expect all reached
+ *   arbiter:rotate         mode 2'b10, the rotation witness
+ *   arbiter:fault_*        must FAIL, labels below
+ *
+ * Fault rows and the assertion label each is intended to trip:
+ *   fault_onehot   a_arb_onehot0   a second grant bit is lit, on an input
+ *                                  that is itself requesting and unmasked.
+ *                                  subset and nomask therefore still hold
+ *                                  by construction and a_arb_onehot0 is
+ *                                  the sole reported label.
+ *   fault_subset   a_arb_subset    a grant appears on an input that is
+ *                                  not requesting (sole).
+ *   fault_mask     a_arb_nomask    a grant appears on a masked input
+ *                                  (sole).
+ *   fault_rotate   c_arb_rotate    the rotation witness with the
+ *                                  thermometer inert (mode pinned 2'b00):
+ *                                  the cover goes UNREACHED, so a
+ *                                  c_arb_rotate that could be satisfied
+ *                                  without rotation would show up here as
+ *                                  a pass. Also reports c_arb_hold, which
+ *                                  is likewise only reachable while the
+ *                                  thermometer holds a requester off.
+ * The intended label must appear in the log's failed-assertion list, or
+ * for a cover row in its unreached-cover list.
  ******************************************************************************/
 
 `default_nettype none
@@ -100,8 +129,17 @@ module fv_umi_arbiter #(
     // so it holds its reset value and the lowest-index law is observable
     wire [1:0] mode = 2'b00;
 `elsif FV_MODE_RR
+`ifdef FV_FAULT_ROTATE
+    // The rotation witness run with the thermometer INERT: mode 2'b00
+    // never advances it, so the grant network is a pure function of the
+    // request/mask pattern. c_arb_rotate holds that pattern still, so it
+    // can only be reached by a thermometer advance and here goes
+    // UNREACHED -- the row must FAIL.
+    wire [1:0] mode = 2'b00;
+`else
     // the encoding that actually rotates (see the scope note above)
     wire [1:0] mode = 2'b10;
+`endif
 `else
     wire [1:0] mode = mode_free;
 `endif
@@ -120,7 +158,8 @@ module fv_umi_arbiter #(
         .grants   (grants));
 
     // ----------------------------------------------------------------
-    // fault injection (formal known-answer tests -- see the .sby tasks)
+    // fault injection (formal known-answer tests -- one define per
+    // fault row; the header tabulates the label each is intended to trip)
     // ----------------------------------------------------------------
 `ifdef FV_FAULT_ONEHOT
     // A SECOND grant on another input that is also requesting and
@@ -181,7 +220,7 @@ module fv_umi_arbiter #(
         // fabricated state with a hot thermometer, which no real trace
         // can produce under a pinned priority mode. The task therefore
         // runs bounded (mode bmc) rather than claiming an unbounded
-        // proof it cannot support -- see fv_umi_arbiter.sby.
+        // proof it cannot support.
         if (f_past_exists & nreset) begin
             a_arb_prio : assert (obs_grants == lowest);
         end
@@ -193,8 +232,13 @@ module fv_umi_arbiter #(
     // ----------------------------------------------------------------
 `ifdef FORMAL
     reg [N-1:0] prev_grants = {N{1'b0}};
-    always @(posedge clk)
-        prev_grants <= grants;
+    reg [N-1:0] prev_requests = {N{1'b0}};
+    reg [N-1:0] prev_mask = {N{1'b0}};
+    always @(posedge clk) begin
+        prev_grants   <= grants;
+        prev_requests <= requests;
+        prev_mask     <= mask;
+    end
 
     always @(posedge clk)
         if (f_past_exists & nreset) begin
@@ -208,8 +252,18 @@ module fv_umi_arbiter #(
             // the fill penalty; it is a real, reachable state)
             c_arb_hold    : cover (|(requests & ~mask) && !(|grants));
 `ifdef FV_MODE_RR
-            // the grant moves to a different requester: rotation
-            c_arb_rotate  : cover (|grants && |prev_grants && (grants != prev_grants));
+            // the grant MOVES to a different requester while the request
+            // and mask pattern is held still. The pattern clause is what
+            // makes this a rotation witness: with the thermometer at its
+            // reset value the grant is a pure function of
+            // `requests & ~mask`, so a still pattern gives a still grant.
+            // Only a thermometer advance can move it, which is exactly
+            // the mechanism under witness. `fault_rotate` runs this same
+            // cover with the thermometer inert and must go unreached.
+            c_arb_rotate  : cover (|grants && |prev_grants
+                                   && (grants != prev_grants)
+                                   && (requests == prev_requests)
+                                   && (mask == prev_mask));
 `endif
         end
 `endif

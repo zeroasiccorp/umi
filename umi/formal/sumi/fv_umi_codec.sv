@@ -23,14 +23,27 @@
  *   bit positions (LEN reads back 0), and CMD[26:25] is USER on
  *   requests / ERR on responses.
  *   REV_cmd: pack(unpack(word)) == word for structured words.
+ * - POS_*: the packed word's ABSOLUTE field positions, against the
+ *   localparams in umi_messages.vh. The round-trip laws above hold of
+ *   any layout the two blocks agree on, so a coordinated edit to both
+ *   would keep them green while breaking compatibility with every other
+ *   UMI implementation. These say where each field IS.
+ * - ATYPE is deliberately unconstrained: the round trip holds for all
+ *   256 values of the field, not only the defined ADD..SWAP encodings,
+ *   because pack and unpack move those bits without interpreting them.
  * - Full-byte opcodes (REQ_ERROR 0x0F, REQ_LINK 0x2F, RESP_LINK 0x0E)
  *   redefine the field layout and are excluded here. The whitelist
  *   also avoids opcode 5'h19, which the codec's 4-bit atomic compare
  *   (packet_cmd[3:0] == 4'h9) reads as an atomic.
  * - Purely combinational, so induction closes immediately; the value
  *   of prove mode is the quantifier over all inputs.
- * - fault_eom (see .sby) flips the EOM bit in transit; FWD_eom must
+ * - The fault_eom row flips the EOM bit in transit; FWD_eom must
  *   fail. A proof that cannot fail proves nothing.
+ *
+ * ROWS (tests/sumi/test_formal_sc.py):
+ *   codec:prove      round-trip, unbounded
+ *   codec:cover      witnesses: expect all reached
+ *   codec:fault_eom  must FAIL, intended label FWD_eom
  *
  ******************************************************************************/
 
@@ -75,9 +88,6 @@ module fv_umi_codec #(
 
     always @(*) begin
         legal_opcode : assume (f_structured);
-        // ATYPE is an 8-bit field but only ADD..SWAP are defined
-        legal_atype : assume (!f_is_atomic
-                              || (f_atype <= UMI_REQ_ATOMICSWAP));
     end
 
     // ----------------------------------------------------------------
@@ -157,6 +167,36 @@ module fv_umi_codec #(
         FWD_user : assert (f_is_response || (u_user == f_user));
         FWD_err : assert (f_is_response ? (u_err == f_err)
                                         : (u_err == 2'd0));
+    end
+
+    // ----------------------------------------------------------------
+    // absolute positions: the packed word against umi_messages.vh
+    //
+    // FWD_* and REV_cmd are round-trip laws, and a round trip is blind
+    // to where the fields sit. Move a field in umi_pack and move it the
+    // same way in umi_unpack and every one of them still passes, while
+    // the wire format has silently changed under every other UMI
+    // implementation and every one of this repo's own decoders. These
+    // assertions pin each field to the bit range umi_messages.vh
+    // defines -- the same header the rest of the RTL slices with.
+    // ----------------------------------------------------------------
+    always @(*) begin
+        POS_opcode : assert (packed_cmd[UMI_OPCODE_MSB:UMI_OPCODE_LSB]
+                             == f_opcode);
+        POS_size : assert (packed_cmd[UMI_SIZE_MSB:UMI_SIZE_LSB] == f_size);
+        // the LEN/ATYPE alias occupies one field position
+        POS_len : assert (packed_cmd[UMI_LEN_MSB:UMI_LEN_LSB]
+                          == (f_is_atomic ? f_atype : f_len));
+        POS_qos : assert (packed_cmd[UMI_QOS_MSB:UMI_QOS_LSB] == f_qos);
+        POS_prot : assert (packed_cmd[UMI_PROT_MSB:UMI_PROT_LSB] == f_prot);
+        POS_eom : assert (packed_cmd[UMI_EOM_BIT] == f_eom);
+        POS_eof : assert (packed_cmd[UMI_EOF_BIT] == f_eof);
+        POS_ex : assert (packed_cmd[UMI_EX_BIT] == f_ex);
+        // and the USER/ERR alias likewise
+        POS_user : assert (packed_cmd[UMI_USER_MSB:UMI_USER_LSB]
+                           == (f_is_response ? f_err : f_user));
+        POS_hostid : assert (packed_cmd[UMI_HOSTID_MSB:UMI_HOSTID_LSB]
+                             == f_hostid);
     end
 
     // ----------------------------------------------------------------

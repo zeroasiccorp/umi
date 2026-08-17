@@ -21,26 +21,25 @@
  * output-channel stability that umi_mux cannot offer.
  *
  * umi_mux2 is the 2:1 merge whose select is an EXTERNAL input port --
- * "arbiter is external" (umi_mux2.v:19). It is purely combinational: no
- * clk, no nreset (umi_mux2.v:24-42). The harness supplies a clock only
+ * "arbiter is external" (umi_mux2.v:18). It is purely combinational: no
+ * clk, no nreset (umi_mux2.v:27-43). The harness supplies a clock only
  * to host the named immediate assertions, the same way fv_umi_demux
  * does for the equally combinational umi_demux.
  *
- * It instantiates lambdalib's la_vmux2b (umi_mux2.v:50-85), which
- * resolves out of site-packages -- a path that varies by environment --
- * so this proof has no checked-in .sby. It runs through the
- * SiliconCompiler lane (tests/sumi/test_formal_sc.py), where the
- * sources come from the repo's own fileset graph. fv_umi_mux
- * established that lane.
+ * It instantiates lambdalib's la_vmux2b (umi_mux2.v:52-79), which
+ * resolves out of site-packages -- a path that varies by environment.
+ * The lane (tests/sumi/test_formal_sc.py) takes the sources from the
+ * repo's own fileset graph, so that path is resolved at run time
+ * rather than written down anywhere.
  *
  * THE BLOCK IS FOUR EQUATIONS:
  *
  *     umi_out_valid   = ( sel & umi_in_valid[1])
- *                     | (~sel & umi_in_valid[0])                (:87-88)
- *     umi_in_ready[0] = ~umi_in_valid[0] | (~sel & umi_out_ready)  (:90)
- *     umi_in_ready[1] = ~umi_in_valid[1] | ( sel & umi_out_ready)  (:91)
+ *                     | (~sel & umi_in_valid[0])                (:91-92)
+ *     umi_in_ready[0] = ~umi_in_valid[0] | (~sel & umi_out_ready)  (:94)
+ *     umi_in_ready[1] = ~umi_in_valid[1] | ( sel & umi_out_ready)  (:95)
  *     umi_out_<f>     = la_vmux2b(sel, in1 = <f>[1], in0 = <f>[0])
- *                                                               (:50-85)
+ *                                                               (:52-79)
  *
  * la_vmux2b is out = (~sel & in0) | (sel & in1), so the payload path is
  * an unconditional select: the output fields equal the selected input's
@@ -174,7 +173,7 @@
  *    assertion to be dependent on the VALID assertion (as long as this
  *    dependence is not combinational)" -- is NOT met at the input ports.
  *    umi_in_ready[i] contains the literal term ~umi_in_valid[i]
- *    (umi_mux2.v:90-91), so an idle input reads READY=1 regardless of
+ *    (umi_mux2.v:94-95), so an idle input reads READY=1 regardless of
  *    umi_out_ready. c_mux2_r6_selfdep witnesses the path rather than
  *    leaving it as a reading of the source, and no rule 6 assertion is
  *    made. Two consequences a reader must know:
@@ -254,7 +253,7 @@ module fv_umi_mux2 #(
             assume (!nreset);
 
     // ----------------------------------------------------------------
-    // free stimulus. Input UMI order is {in1, in0} (umi_mux2.v:26).
+    // free stimulus. Input UMI order is {in1, in0} (umi_mux2.v:28).
     // ----------------------------------------------------------------
     (* anyseq *) wire            sel;
     (* anyseq *) wire [1:0]      umi_in_valid;

@@ -47,13 +47,17 @@
  *          by an illegal circuit. A cycle-sampled monitor therefore can
  *          not ASSERT them, so they remain out of scope for this
  *          bind-in checker. What it does contribute is the c_rule5
- *          cover below: a free per-bind reachability witness that VALID
- *          fires while READY is low (README 4.2 rule 5, README.md:462).
- *          The COMPLETE method for rule 5 is harness-level, on the DUT
- *          being proven -- umi/formal/sumi/fv_umi_buffer.sby task
- *          `rule5` assumes READY stuck low for the whole trace and
- *          covers VALID asserting anyway, the literal negation of
- *          "VALID waits for READY".
+ *          cover below: a per-bind reachability witness that VALID fires
+ *          while READY is low. That is a necessary condition for rule 5
+ *          (README.md:462) to be interesting, not evidence for it.
+ *          The harness-level method is stronger but still partial: the
+ *          fv_umi_buffer buffer:rule5 row assumes READY stuck low for
+ *          the whole trace and covers VALID asserting anyway, which
+ *          negates "VALID never fires without READY". It does NOT catch
+ *          a design that waits for READY only in some states -- a
+ *          buffer whose VALID waits only while BUSY still reaches that
+ *          cover. Deciding rule 5 in general needs a self-composition
+ *          miter over READY, as fv_umi_mux2 builds for its own ports.
  *
  * ASSUME parameter: the same properties can face two directions.
  *   ASSUME=0 (default): assert the rules. Use on any channel the
@@ -77,7 +81,7 @@
  * cleared bit removes the rule from BOTH the assert and the assume
  * face, so a masked instance stays the same property in either
  * direction. The default 6'h3F enables every rule and is
- * behaviour-identical to the previous release.
+ * behaviour-identical to leaving the parameter unset.
  *
  *   bit  rule
  *   ---  -----------------------------------------------------------
@@ -247,8 +251,11 @@ module umi_handshake_checker #(
             // README 4.2 rule 5 (README.md:462): VALID must not wait for
             // READY. This monitor can not ASSERT that structural rule
             // (see header), but every bind gets this free witness that
-            // VALID does fire while READY is low. The complete proof is
-            // the harness-level fv_umi_buffer `rule5` task. FV_NO_WITNESS
+            // VALID does fire while READY is low. This is the same
+            // predicate as RULE1_stall above, kept under its own name
+            // because the stuck-low-ready rows drop that one; it is a
+            // reachability witness, not evidence about which way the
+            // dependence runs. FV_NO_WITNESS
             // drops all covers for the stuck-low-ready harness task,
             // where the transaction covers above are unreachable by
             // construction.

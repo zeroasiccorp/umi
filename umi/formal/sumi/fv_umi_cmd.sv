@@ -33,15 +33,70 @@
  * language that can not express them would make every downstream
  * proof vacuous).
  *
- * Fault tasks (see fv_umi_cmd.sby): each FV_FAULT_* define replaces
- * the beat chk_beat observes with a known-answer illegal beat while
- * env_legal still sees the clean channel. Every fault task must FAIL
- * with the intended assertion label -- the checker's own regression.
- * The known answers are constants (not free corruptions) so each one
- * trips exactly the rule under test; the two full-byte faults
- * necessarily also trip CMD1_opcode_legal, because any full-byte
- * aliasing error is also outside the legal opcode set (CMD-1 implies
- * CMD-10/CMD-12 over the whole language -- see the checker header).
+ * Fault rows: each FV_FAULT_* define replaces the beat chk_beat
+ * observes with a known-answer illegal beat while env_legal still sees
+ * the clean channel. Every fault row must FAIL with the intended
+ * assertion label -- the checker's own regression. The known answers
+ * are constants (not free corruptions) so each one trips exactly the
+ * rule under test; the two full-byte faults necessarily also trip
+ * CMD1_opcode_legal, because any full-byte aliasing error is also
+ * outside the legal opcode set (CMD-1 implies CMD-10/CMD-12 over the
+ * whole language -- see the checker header).
+ *
+ * ROWS (tests/sumi/test_formal_sc.py):
+ *   cmd:prove           DW=256, the shipped checker width, unbounded
+ *   cmd:prove_dw64      the same proof at DW=64
+ *   cmd:cover           witnesses: expect all reached
+ *   cmd:cover_sa        CHECK_SA_RESERVED=1
+ *   cmd:cover_invalid   ALLOW_INVALID=1
+ *   cmd:prove_mask_off  RULE_EN=0, see below
+ *   cmd:fault_<rule>    must FAIL, labels below
+ *
+ * Fault rows and the assertion label each must trip:
+ *   fault_opcode       CMD1_opcode_legal      reserved opcode hole 0x19
+ *   fault_atype        CMD2_atype_legal       REQ_ATOMIC ATYPE=0x09
+ *   fault_align_da     CMD4_da_aligned        REQ_RD SIZE=1, odd DA
+ *   fault_align_sa     CMD4_sa_aligned        REQ_RD SIZE=1, odd SA
+ *   fault_fullbyte     CMD10_fullbyte_decode  opcode5 0x0E, CMD[7:5]=1
+ *   fault_ex           CMD11_ex_zero          REQ_WRPOSTED with EX=1
+ *   fault_errsize      CMD12_error_size       opcode5 0x0F, CMD[7:5]=2
+ *   fault_cap          CMD15_beat_capacity    REQ_WR SIZE=7 (128B > DW/8)
+ *   fault_respdata     CMD16_err_data_zero    NETERR RESP_RD, data lane 0 != 0
+ *   fault_sa_reserved  CMD6_sa_reserved       SA[44]=1 (CHECK_SA_RESERVED=1)
+ *   fault_invalid      CMD1_opcode_legal      CMD[7:0]=0x00 (ALLOW_INVALID=0)
+ * fault_fullbyte and fault_errsize also trip CMD1_opcode_legal (and
+ * fault_errsize CMD10): a full-byte aliasing error is by construction
+ * outside the CMD-1 legal-opcode set. The intended label must appear
+ * in the log's failed-assertion list.
+ *
+ * cover_invalid runs the ALLOW_INVALID profile: with the profile on, an
+ * INVALID beat is part of the assumed language and SAW_invalid must be
+ * reachable. fault_invalid is the same beat against the strict default,
+ * where CMD1_opcode_legal must reject it -- the profile's two faces.
+ *
+ * WHAT THE PROVE ROWS DO NOT SHOW. With no fault injected chk_beat sees
+ * exactly the channel env_legal constrains, and both instances carry the
+ * same parameters, so every `assert (P)` in the asserting face is the
+ * `assume (P)` the assuming face has already made about the same signals
+ * from the same source line. The rows therefore hold for ANY P: they
+ * test the rules' FORM -- that the file cannot say one thing as an
+ * assumption and another as an assertion, in either profile or under any
+ * RULE_EN -- and not their content. A checker whose rules were all
+ * constant 1 would pass them.
+ *
+ * The content is carried entirely by the fault rows below: each is an
+ * illegal beat that one named rule must reject, and a checker with the
+ * rules hollowed out fails every one of them. Closing the gap in the
+ * prove rows themselves wants a reference predicate written
+ * independently of the checker to assert against -- a second
+ * implementation of the CMD legality rules, not an added row.
+ *
+ * prove_mask_off is the soundness check for the per-rule mask itself.
+ * RULE_EN=0 reaches BOTH checker instances, so env_legal constrains
+ * nothing and the channel is entirely free -- every illegal beat the
+ * fault rows above rely on is reachable here. chk_beat must still
+ * assert nothing: a rule left outside its RULE_EN guard would be
+ * falsified at once. It is the exact complement of the fault rows.
  ******************************************************************************/
 
 `default_nettype none
@@ -80,8 +135,8 @@ module fv_umi_cmd #(
 
     // ----------------------------------------------------------------
     // fault injection (formal known-answer tests -- one define per
-    // .sby fault task; every constant is analyzed in the task table
-    // of fv_umi_cmd.sby so it trips exactly the intended rule)
+    // fault row; every constant is analyzed in the fault table in
+    // this file's header so it trips exactly the intended rule)
     // ----------------------------------------------------------------
 `ifdef FV_FAULT_OPCODE
     // reserved opcode hole 0x19; SIZE=0 keeps every other rule content
@@ -150,7 +205,7 @@ module fv_umi_cmd #(
     wire [DW-1:0] obs_data    = {{(DW-1){1'b0}}, 1'b1};
 `elsif FV_FAULT_SA_RESERVED
     // REQ_RD with SA bit 44 set: reserved SA[63:40] nonzero (the
-    // .sby task turns the gate on with chparam CHECK_SA_RESERVED=1)
+    // fault row turns the gate on with CHECK_SA_RESERVED=1)
     wire [CW-1:0] obs_cmd     = 32'h0000_0001;
     wire [AW-1:0] obs_dstaddr = {AW{1'b0}};
     wire [AW-1:0] obs_srcaddr = 64'h0000_1000_0000_0000;
