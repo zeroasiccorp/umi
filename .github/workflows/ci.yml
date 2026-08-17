@@ -88,8 +88,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      # the sc_tools image ships yosys, sby, yosys-abc and boolector,
-      # which is every tool the lane needs; it pins boolector itself
+      # the sc_tools image ships yosys, sby, yosys-abc, boolector and
+      # bitwuzla; the lane pins bitwuzla itself
       # rather than inheriting the sby task's default engine
       - name: pytest
         run: |

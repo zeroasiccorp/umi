@@ -16,7 +16,7 @@ red instead of counting as a catch, and the label sby blames is the
 one the row named in expect, so a fault cannot convict the wrong rule
 and still pass.
 
-Engines: boolector answers every row but the three buffer identity
+Engines: bitwuzla answers every row but the three buffer identity
 rows. Those run abc pdr, and cannot run anything else -- the skid
 register is not observable at any port, so k-induction starts its step
 case from a buffer state no trace reaches and fails a_id_beat whichever
@@ -53,19 +53,18 @@ SUMI_INCLUDE = REPO / "umi" / "sumi" / "include"
 
 # the lane pins its engine rather than inheriting the sby task's
 # default, so a change of default upstream cannot silently move which
-# solver the results are gated on. boolector is what the CI tool image
-# ships; newer siliconcompiler defaults this to bitwuzla, the
-# maintained successor, which the image is simply too old to carry.
+# solver the results are gated on. bitwuzla is boolector's maintained
+# successor and is what the sc_tools image ships alongside it.
 # Once it ships bitwuzla this becomes a one-line switch.
-SMT_ENGINE = "smtbmc boolector"
+SMT_ENGINE = "smtbmc bitwuzla"
 PDR_ENGINE = "abc pdr"
 
-_TOOLS = ("sby", "yosys", "yosys-abc", "boolector")
+_TOOLS = ("sby", "yosys", "yosys-abc", "bitwuzla")
 
 pytestmark = [
     pytest.mark.formal,
     pytest.mark.skipif(any(shutil.which(t) is None for t in _TOOLS),
-                       reason="formal toolchain (sby/yosys/yosys-abc/boolector) "
+                       reason="formal toolchain (sby/yosys/yosys-abc/bitwuzla) "
                               "not on PATH"),
     pytest.mark.skipif(not _HAVE_SC_FORMAL,
                        reason="siliconcompiler PropertyCheckFlow/sby "

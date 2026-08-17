@@ -65,7 +65,7 @@ before the one the log names, or the waveform will not show the bug.
 
 ## Tools
 
-`sby`, `yosys`, `yosys-abc` and `boolector` on PATH -- easiest via the
+`sby`, `yosys`, `yosys-abc` and `bitwuzla` on PATH -- easiest via the
 [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases):
 
     source <extracted>/oss-cad-suite/environment
@@ -83,12 +83,11 @@ solver.
 
 ## Engines
 
-One SMT engine, `boolector`, answers every row but three. The lane pins it
+One SMT engine, `bitwuzla`, answers every row but three. The lane pins it
 explicitly rather than inheriting the sby task's default, so a change upstream
-cannot quietly move which solver these results rest on -- newer siliconcompiler
-releases default that task to bitwuzla, boolector's maintained successor, which
-the CI tool image is too old to carry. Once the image ships it, the pin is a
-one-line change.
+cannot quietly move which solver these results rest on. bitwuzla is
+boolector's maintained successor; boolector remains in the tool image and
+swapping back is a one-line change.
 
 The three exceptions are `buffer:identity`, `buffer:identity_bypass` and
 `buffer:fault_swap_pdr`, which run `abc pdr`. That is not a preference:
@@ -107,7 +106,7 @@ verdict and not a label -- `buffer:fault_swap` injects the same corruption
 under `bmc` and pins the label there.
 
 There is no independent-solver corroboration here: every SMT result is gated on
-boolector alone. Standing in its place is the fault matrix -- 54 rows that each
+bitwuzla alone. Standing in its place is the fault matrix -- 54 rows that each
 inject a bug and must each still produce a counterexample, which a solver
 quietly answering "proved" to everything would not deliver. To re-check one
 result against another solver, run its row, edit the `[engines]` line of the
