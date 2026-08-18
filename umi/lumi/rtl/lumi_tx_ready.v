@@ -122,15 +122,15 @@ module lumi_tx_ready
     reg [AW-1:0]    umi_out_dstaddr_r;
     reg [AW-1:0]    umi_out_srcaddr_r;
 
-    always @(posedge clk or negedge nreset)
+    always @(posedge clk)
         if (umi_out_valid & umi_out_ready)
             umi_out_cmd_r <= umi_out_cmd;
 
-    always @(posedge clk or negedge nreset)
+    always @(posedge clk)
         if (umi_out_valid & umi_out_ready)
             umi_out_dstaddr_r <= umi_out_dstaddr;
 
-    always @(posedge clk or negedge nreset)
+    always @(posedge clk)
         if (umi_out_valid & umi_out_ready)
             umi_out_srcaddr_r <= umi_out_srcaddr;
 
