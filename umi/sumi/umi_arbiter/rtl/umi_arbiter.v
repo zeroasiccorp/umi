@@ -26,7 +26,7 @@ module umi_arbiter #(parameter N = 4,    // number of inputs
    (// controls
     input          clk,
     input          nreset,
-    input [1:0]    mode,     // [00]=priority,[01]=roundrobin,[1x]=reserved
+    input [1:0]    mode,     // [10]=roundrobin, all others=priority
     input [N-1:0]  mask,     // 1 = disable request, 0 = enable request
     input [N-1:0]  requests, // incoming requests
     output [N-1:0] grants    // outgoing grants
