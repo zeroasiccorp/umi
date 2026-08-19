@@ -44,8 +44,8 @@ try:
 except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
-from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Demux, Mux, Mux2,
-                      Pack, Pipeline, Unpack)
+from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux, Mux,
+                      Mux2, Pack, Pipeline, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -115,6 +115,7 @@ FAMILIES = {
     "fv_umi_crossbar": dict(deps=lambda: [Crossbar(), Checker()], depth=12, timeout=300),
     "fv_umi_pipeline": dict(deps=lambda: [Pipeline(), Checker()], depth=12,
                             timeout=300),
+    "fv_umi_decode": dict(deps=lambda: [Decode()], depth=4, timeout=300),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -215,6 +216,14 @@ GREEN = [
     # cleared reports nothing; the fault_mask_* rows enable one bit each
     Proof("pipeline:prove_mask_off", "fv_umi_pipeline", "prove",
           defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "0"),)),
+
+    # ---- fv_umi_decode ------------------------------------------------
+    Proof("decode:prove", "fv_umi_decode", "prove"),
+    Proof("decode:cover", "fv_umi_decode", "cover"),
+    # the legal-opcode assumption withdrawn: the structural laws still
+    # hold and the covers pin what the four-bit compares admit
+    Proof("decode:hazard", "fv_umi_decode", "cover",
+          defines=("FV_DEC_ANYOPCODE",)),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:prove", "fv_umi_demux", "prove"),
@@ -357,6 +366,16 @@ FAULTS = [
     Proof("pipeline:fault_mask_r3data", "fv_umi_pipeline", "bmc",
           defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "16"),),
           expect="RULE3_data_stable"),
+
+    # ---- fv_umi_decode ------------------------------------------------
+    Proof("decode:fault_read", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_READ",), expect="DEC_read"),
+    Proof("decode:fault_onehot", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_ONEHOT",), expect="DEC_class_onehot0"),
+    Proof("decode:fault_req", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_REQ",), expect="DEC_req_implies"),
+    Proof("decode:fault_atomic", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_ATOMIC",), expect="DEC_atomic_onehot0"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
