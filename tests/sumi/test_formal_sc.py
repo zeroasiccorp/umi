@@ -45,7 +45,7 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Demux, Mux, Mux2,
-                      Pack, Unpack)
+                      Pack, Pipeline, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -113,6 +113,8 @@ FAMILIES = {
     "fv_umi_mux": dict(deps=lambda: [Mux(), Checker()], depth=12, timeout=300),
     "fv_umi_mux2": dict(deps=lambda: [Mux2(), Checker()], depth=12, timeout=300),
     "fv_umi_crossbar": dict(deps=lambda: [Crossbar(), Checker()], depth=12, timeout=300),
+    "fv_umi_pipeline": dict(deps=lambda: [Pipeline(), Checker()], depth=12,
+                            timeout=300),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -198,6 +200,21 @@ GREEN = [
     Proof("buffer:identity_cover_bypass", "fv_umi_buffer", "cover",
           defines=("FV_IDENTITY",),
           params=(("MODE", "0"), ("AW", "16"), ("DW", "32"))),
+
+    # ---- fv_umi_pipeline ----------------------------------------------
+    Proof("pipeline:prove", "fv_umi_pipeline", "prove"),
+    Proof("pipeline:cover", "fv_umi_pipeline", "cover"),
+    # identity rides its own rows: the accounting law reads the same
+    # obs_valid the handshake faults corrupt and would convict a cycle
+    # ahead of the rule those rows are aimed at
+    Proof("pipeline:identity", "fv_umi_pipeline", "prove",
+          defines=("FV_IDENTITY",)),
+    Proof("pipeline:identity_cover", "fv_umi_pipeline", "cover",
+          defines=("FV_IDENTITY",)),
+    # as buffer:prove_mask_off -- a free output channel with the mask
+    # cleared reports nothing; the fault_mask_* rows enable one bit each
+    Proof("pipeline:prove_mask_off", "fv_umi_pipeline", "prove",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "0"),)),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:prove", "fv_umi_demux", "prove"),
@@ -320,6 +337,26 @@ FAULTS = [
     Proof("buffer:fault_mask_reset", "fv_umi_buffer", "bmc",
           defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "32"),),
           expect="RESET_valid_low"),
+
+    # ---- fv_umi_pipeline ----------------------------------------------
+    Proof("pipeline:fault_valid", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("pipeline:fault_data", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
+    # the two addresses exchanged: every handshake rule still holds, so
+    # only the identity law can see it
+    Proof("pipeline:fault_swap", "fv_umi_pipeline", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_SWAP"), expect="a_pipe_beat"),
+    # a beat the stage never accepted: the accounting law catches it
+    Proof("pipeline:fault_ghost", "fv_umi_pipeline", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_GHOST"),
+          expect="a_pipe_occupancy"),
+    Proof("pipeline:fault_mask_r2", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "1"),),
+          expect="RULE2_valid_hold"),
+    Proof("pipeline:fault_mask_r3data", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "16"),),
+          expect="RULE3_data_stable"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
