@@ -44,8 +44,8 @@ try:
 except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
-from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux, Mux,
-                      Mux2, Pack, Pipeline, Unpack)
+from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
+                      Isolate, Mux, Mux2, Pack, Pipeline, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -116,6 +116,7 @@ FAMILIES = {
     "fv_umi_pipeline": dict(deps=lambda: [Pipeline(), Checker()], depth=12,
                             timeout=300),
     "fv_umi_decode": dict(deps=lambda: [Decode()], depth=4, timeout=300),
+    "fv_umi_isolate": dict(deps=lambda: [Isolate()], depth=4, timeout=300),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -224,6 +225,14 @@ GREEN = [
     # hold and the covers pin what the four-bit compares admit
     Proof("decode:hazard", "fv_umi_decode", "cover",
           defines=("FV_DEC_ANYOPCODE",)),
+
+    # ---- fv_umi_isolate -----------------------------------------------
+    Proof("isolate:prove", "fv_umi_isolate", "prove"),
+    # the arm with the cells compiled out: a different circuit behind
+    # the same port list, so it gets judged rather than assumed
+    Proof("isolate:prove_iso0", "fv_umi_isolate", "prove",
+          params=(("ISO", "0"),)),
+    Proof("isolate:cover", "fv_umi_isolate", "cover"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:prove", "fv_umi_demux", "prove"),
@@ -376,6 +385,12 @@ FAULTS = [
           defines=("FV_FAULT_REQ",), expect="DEC_req_implies"),
     Proof("decode:fault_atomic", "fv_umi_decode", "bmc",
           defines=("FV_FAULT_ATOMIC",), expect="DEC_atomic_onehot0"),
+
+    # ---- fv_umi_isolate -----------------------------------------------
+    Proof("isolate:fault_pass", "fv_umi_isolate", "bmc",
+          defines=("FV_FAULT_PASS",), expect="a_iso_pass"),
+    Proof("isolate:fault_clamp", "fv_umi_isolate", "bmc",
+          defines=("FV_FAULT_CLAMP",), expect="a_iso_clamp"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
