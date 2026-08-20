@@ -45,7 +45,8 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
-                      Isolate, Monitor, Mux, Mux2, Pack, Pipeline, Unpack)
+                      Fifo, Isolate, Monitor, Mux, Mux2, Pack, Pipeline,
+                      Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -118,6 +119,8 @@ FAMILIES = {
     "fv_umi_decode": dict(deps=lambda: [Decode()], depth=4, timeout=300),
     "fv_umi_isolate": dict(deps=lambda: [Isolate()], depth=4, timeout=300),
     "fv_umi_monitor": dict(deps=lambda: [Monitor()], depth=12, timeout=300),
+    "fv_umi_fifo": dict(deps=lambda: [Fifo(), Checker()], depth=16,
+                        timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -238,6 +241,24 @@ GREEN = [
     # ---- fv_umi_monitor -----------------------------------------------
     Proof("monitor:prove", "fv_umi_monitor", "prove"),
     Proof("monitor:cover", "fv_umi_monitor", "cover"),
+
+    # ---- fv_umi_fifo --------------------------------------------------
+    # bounded, not prove: the pointers reach la_drsync registers no port
+    # shows, so induction starts from states no trace reaches. See the
+    # note in fv_umi_fifo.sv
+    Proof("fifo:bmc", "fv_umi_fifo", "bmc"),
+    Proof("fifo:bmc_bypass", "fv_umi_fifo", "bmc", params=(("BYPASS", "1"),)),
+    Proof("fifo:cover", "fv_umi_fifo", "cover"),
+    Proof("fifo:identity", "fv_umi_fifo", "bmc", defines=("FV_IDENTITY",),
+          params=(("DEPTH", "2"),)),
+    Proof("fifo:identity_bypass", "fv_umi_fifo", "bmc",
+          defines=("FV_IDENTITY",), params=(("BYPASS", "1"),)),
+    Proof("fifo:identity_cover", "fv_umi_fifo", "cover",
+          defines=("FV_IDENTITY",), params=(("DEPTH", "2"),)),
+    # the bypass arm states the same three laws over different logic, so
+    # it needs its own witnesses
+    Proof("fifo:identity_cover_bypass", "fv_umi_fifo", "cover",
+          defines=("FV_IDENTITY",), params=(("BYPASS", "1"),)),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:prove", "fv_umi_demux", "prove"),
@@ -400,6 +421,18 @@ FAULTS = [
     # ---- fv_umi_monitor -----------------------------------------------
     Proof("monitor:fault_or", "fv_umi_monitor", "bmc",
           defines=("FV_FAULT_OR",), expect="a_mon_beat"),
+
+    # ---- fv_umi_fifo --------------------------------------------------
+    Proof("fifo:fault_valid", "fv_umi_fifo", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("fifo:fault_data", "fv_umi_fifo", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
+    Proof("fifo:fault_swap", "fv_umi_fifo", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_SWAP"), params=(("DEPTH", "2"),),
+          expect="a_fifo_beat"),
+    Proof("fifo:fault_ghost", "fv_umi_fifo", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_GHOST"), params=(("DEPTH", "2"),),
+          expect="a_fifo_no_underflow"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
