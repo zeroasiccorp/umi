@@ -46,7 +46,7 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
                       Fifo, Isolate, Monitor, Mux, Mux2, Pack, Pipeline,
-                      Unpack)
+                      Stream, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -121,6 +121,8 @@ FAMILIES = {
     "fv_umi_monitor": dict(deps=lambda: [Monitor()], depth=12, timeout=300),
     "fv_umi_fifo": dict(deps=lambda: [Fifo(), Checker()], depth=16,
                         timeout=900),
+    "fv_umi_stream": dict(deps=lambda: [Stream(), Checker()], depth=14,
+                          timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -259,6 +261,12 @@ GREEN = [
     # it needs its own witnesses
     Proof("fifo:identity_cover_bypass", "fv_umi_fifo", "cover",
           defines=("FV_IDENTITY",), params=(("BYPASS", "1"),)),
+
+    # ---- fv_umi_stream ------------------------------------------------
+    # bounded for the reason fv_umi_fifo gives: the FIFO pointers cross
+    # synchroniser registers no port shows
+    Proof("stream:bmc", "fv_umi_stream", "bmc"),
+    Proof("stream:cover", "fv_umi_stream", "cover"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:prove", "fv_umi_demux", "prove"),
@@ -433,6 +441,16 @@ FAULTS = [
     Proof("fifo:fault_ghost", "fv_umi_fifo", "bmc",
           defines=("FV_IDENTITY", "FV_FAULT_GHOST"), params=(("DEPTH", "2"),),
           expect="a_fifo_no_underflow"),
+
+    # ---- fv_umi_stream ------------------------------------------------
+    Proof("stream:fault_valid", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("stream:fault_data", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
+    Proof("stream:fault_usi_hold", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_USI_HOLD",), expect="a_usi_out_hold"),
+    Proof("stream:fault_usi_stable", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_USI_STABLE",), expect="a_usi_out_stable"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
