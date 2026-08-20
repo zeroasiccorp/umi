@@ -45,7 +45,7 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
-                      Isolate, Mux, Mux2, Pack, Pipeline, Unpack)
+                      Isolate, Monitor, Mux, Mux2, Pack, Pipeline, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -117,6 +117,7 @@ FAMILIES = {
                             timeout=300),
     "fv_umi_decode": dict(deps=lambda: [Decode()], depth=4, timeout=300),
     "fv_umi_isolate": dict(deps=lambda: [Isolate()], depth=4, timeout=300),
+    "fv_umi_monitor": dict(deps=lambda: [Monitor()], depth=12, timeout=300),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -233,6 +234,10 @@ GREEN = [
     Proof("isolate:prove_iso0", "fv_umi_isolate", "prove",
           params=(("ISO", "0"),)),
     Proof("isolate:cover", "fv_umi_isolate", "cover"),
+
+    # ---- fv_umi_monitor -----------------------------------------------
+    Proof("monitor:prove", "fv_umi_monitor", "prove"),
+    Proof("monitor:cover", "fv_umi_monitor", "cover"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:prove", "fv_umi_demux", "prove"),
@@ -391,6 +396,10 @@ FAULTS = [
           defines=("FV_FAULT_PASS",), expect="a_iso_pass"),
     Proof("isolate:fault_clamp", "fv_umi_isolate", "bmc",
           defines=("FV_FAULT_CLAMP",), expect="a_iso_clamp"),
+
+    # ---- fv_umi_monitor -----------------------------------------------
+    Proof("monitor:fault_or", "fv_umi_monitor", "bmc",
+          defines=("FV_FAULT_OR",), expect="a_mon_beat"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
