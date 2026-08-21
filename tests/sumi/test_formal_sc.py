@@ -328,6 +328,36 @@ GREEN = [
     # closes over an arbitrary arbiter thermometer state
     Proof("crossbar:prove", "fv_umi_crossbar", "prove"),
     Proof("crossbar:cover", "fv_umi_crossbar", "cover"),
+
+    # ---- configuration matrix -----------------------------------------
+    # The harnesses above run one face each, chosen for solve time, and
+    # three of them (demux, mux2, crossbar) run AW=16/DW=32 -- narrower
+    # than README 4.1 permits, which is fine for a routing law but is
+    # not a configuration any UMI device ships. These rows re-answer the
+    # same questions at widths the specification allows and at the width
+    # nine blocks in this repo actually default to, so a truncation that
+    # only appears in a wide counter cannot hide behind a narrow proof.
+    Proof("buffer:prove_dw256", "fv_umi_buffer", "prove",
+          params=(("DW", "256"),)),
+    Proof("buffer:prove_aw32", "fv_umi_buffer", "prove",
+          params=(("AW", "32"),)),
+    Proof("demux:prove_legal", "fv_umi_demux", "prove",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("mux2:prove_legal", "fv_umi_mux2", "prove",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("crossbar:prove_legal", "fv_umi_crossbar", "prove",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("pipeline:prove_dw256", "fv_umi_pipeline", "prove",
+          params=(("DW", "256"),)),
+    # the repo's own RAM testbench instantiates the arbiter at N=5; the
+    # proofs above stop at 4, and the thermometer is N-asymmetric
+    Proof("arbiter:prove_n5", "fv_umi_arbiter", "prove",
+          params=(("N", "5"),)),
+    # a widened face could pass vacuously if it made some assumption
+    # unsatisfiable, so one cover row rides the matrix: the environment
+    # must still reach every witness at the legal width
+    Proof("demux:cover_legal", "fv_umi_demux", "cover",
+          params=(("AW", "64"), ("DW", "64"))),
 ]
 
 FAULTS = [
