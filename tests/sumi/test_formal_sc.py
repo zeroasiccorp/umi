@@ -45,8 +45,8 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
-                      Fifo, Isolate, Monitor, Mux, Mux2, Pack, Pipeline,
-                      Stream, Unpack)
+                      Fifo, Isolate, Memif, Monitor, Mux, Mux2, Pack,
+                      Pipeline, Stream, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -123,6 +123,7 @@ FAMILIES = {
                         timeout=900),
     "fv_umi_stream": dict(deps=lambda: [Stream(), Checker()], depth=14,
                           timeout=900),
+    "fv_umi_memif": dict(deps=lambda: [Memif()], depth=6, timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -329,6 +330,10 @@ GREEN = [
     Proof("crossbar:prove", "fv_umi_crossbar", "prove"),
     Proof("crossbar:cover", "fv_umi_crossbar", "cover"),
 
+    # ---- fv_umi_memif -------------------------------------------------
+    Proof("memif:prove", "fv_umi_memif", "prove"),
+    Proof("memif:cover", "fv_umi_memif", "cover"),
+
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
     # three of them (demux, mux2, crossbar) run AW=16/DW=32 -- narrower
@@ -481,6 +486,18 @@ FAULTS = [
           defines=("FV_FAULT_USI_HOLD",), expect="a_usi_out_hold"),
     Proof("stream:fault_usi_stable", "fv_umi_stream", "bmc",
           defines=("FV_FAULT_USI_STABLE",), expect="a_usi_out_stable"),
+
+    # ---- fv_umi_memif -------------------------------------------------
+    # each fault is confined to one ATYPE so it can convict only its
+    # own law
+    Proof("memif:fault_add", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_ADD",), expect="a_alu_add"),
+    Proof("memif:fault_smax", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_SMAX",), expect="a_alu_smax"),
+    Proof("memif:fault_swap", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_SWAP",), expect="a_alu_swap"),
+    Proof("memif:fault_default", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_DEFAULT",), expect="a_alu_default"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
