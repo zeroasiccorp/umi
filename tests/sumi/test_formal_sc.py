@@ -46,7 +46,7 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
                       Fifo, Isolate, Memif, Monitor, Mux, Mux2, Pack,
-                      Pipeline, Stream, Unpack)
+                      Pipeline, Regif, Stream, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -124,6 +124,8 @@ FAMILIES = {
     "fv_umi_stream": dict(deps=lambda: [Stream(), Checker()], depth=14,
                           timeout=900),
     "fv_umi_memif": dict(deps=lambda: [Memif()], depth=6, timeout=900),
+    "fv_umi_regif": dict(deps=lambda: [Regif(), Checker()], depth=12,
+                         timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -334,6 +336,16 @@ GREEN = [
     Proof("memif:prove", "fv_umi_memif", "prove"),
     Proof("memif:cover", "fv_umi_memif", "cover"),
 
+    # ---- fv_umi_regif -------------------------------------------------
+    Proof("regif:prove", "fv_umi_regif", "prove"),
+    Proof("regif:cover", "fv_umi_regif", "cover"),
+    # SAFE=1 breaks the resp_ready to req_ready path on purpose, so a
+    # second request can land while the first answer still stands. The
+    # response checker is lifted and the overwrite is witnessed
+    Proof("regif:hazard", "fv_umi_regif", "cover",
+          defines=("FV_REGIF_NOCHK", "FV_REGIF_HAZARD"),
+          params=(("SAFE", "1"),)),
+
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
     # three of them (demux, mux2, crossbar) run AW=16/DW=32 -- narrower
@@ -498,6 +510,22 @@ FAULTS = [
           defines=("FV_FAULT_SWAP",), expect="a_alu_swap"),
     Proof("memif:fault_default", "fv_umi_memif", "bmc",
           defines=("FV_FAULT_DEFAULT",), expect="a_alu_default"),
+
+    # ---- fv_umi_regif -------------------------------------------------
+    Proof("regif:fault_valid", "fv_umi_regif", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    # the xor swaps the two response opcodes, so either half of the
+    # kind law can catch it; the solver reaches the write side first
+    Proof("regif:fault_kind", "fv_umi_regif", "bmc",
+          defines=("FV_FAULT_KIND",), expect="a_regif_kind_wr"),
+    Proof("regif:fault_posted", "fv_umi_regif", "bmc",
+          defines=("FV_FAULT_POSTED",), expect="a_regif_no_invent"),
+    # nothing injected: SAFE=1 is the shipped default, and it breaks the
+    # accounting law on its own. Pinned so the finding cannot regress
+    # into silence
+    Proof("regif:fault_safe", "fv_umi_regif", "bmc",
+          defines=("FV_REGIF_NOCHK",), params=(("SAFE", "1"),),
+          expect="a_regif_outstanding"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
