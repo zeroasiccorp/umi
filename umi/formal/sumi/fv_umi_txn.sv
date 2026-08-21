@@ -49,17 +49,87 @@
  * live response beat equals the responder's head. Together they discharge
  * every checker assertion. They are ASSERTED (proven), never assumed.
  *
- * Fault tasks (see fv_umi_txn.sby). Each FV_FAULT_* corrupts ONLY the
- * response view the CHECKER sees (the [corrupt] block), leaving the
- * responder -- and therefore every glue lemma -- clean, so each fault
- * trips its intended checker assertion. Some corruptions violate several
- * related rules on the same beat, and which label BMC reports is
- * solver-dependent (fv_umi_txn.sby tabulates the intended and alternate
- * labels per fault). The
- * two exceptions carry no corruption at all: fault_msgbytes shrinks the
- * FRM-4 ceiling (chparam MAX_MSG_BYTES) under a legal over-long message,
- * and fault_occ shrinks the tracker capacity (chparam CAP) under two
- * legal outstanding requests -- the checker convicts its own bound.
+ * Fault rows. Each FV_FAULT_* corrupts ONLY the response view the
+ * CHECKER sees (the [corrupt] block), leaving the responder -- and
+ * therefore every glue lemma -- clean, so each fault trips its intended
+ * checker assertion. The two exceptions carry no corruption at all:
+ * fault_msgbytes shrinks the message-byte ceiling (param MAX_MSG_BYTES)
+ * under a legal over-long message, and fault_occ shrinks the tracker
+ * capacity (param CAP) under two legal outstanding requests -- the
+ * checker convicts its own bound.
+ *
+ * ROWS (tests/sumi/test_formal_sc.py):
+ *   txn:prove           MAXLEN=1 (up to two beats), k-induction
+ *   txn:prove_deep      MAXLEN=3 (four beats), k-induction
+ *   txn:cover           witnesses: expect all reached
+ *   txn:cover_boundary  the byte ceiling reached (MAX_MSG_BYTES=256)
+ *   txn:prove_mask_off  RULE_EN=0, the per-rule mask's own soundness
+ *   txn:fault_<name>    must FAIL, labels below
+ *
+ * Fault rows and the assertion label each must trip. A corruption can
+ * violate several related rules on the same beat; BMC then reports the
+ * whole set that its counterexample falsifies at that step, and which
+ * extras appear is not guaranteed to be stable across solvers or builds.
+ * The INTENDED label is the one the row pins; the extras recorded below
+ * are what the lane's engine reports today and are NOT a regression.
+ *   fault_wrongda      TXN_da_first        first-beat DA off by 8 (sole)
+ *   fault_size         TXN_size            mid-message SIZE mutation. Also
+ *                                          trips TXN_eom_iff_closed: one
+ *                                          SIZE flip corrupts the byte-count
+ *                                          arithmetic the two rules share,
+ *                                          so they fail together
+ *   fault_eom_early    TXN_eom_iff_closed  EOM on a non-closing split beat
+ *                                          (sole)
+ *   fault_eom_missing  TXN_eom_iff_closed  EOM dropped on the closing beat
+ *                                          of a NON-ERROR message (sole).
+ *                                          Error responses are left intact
+ *                                          on purpose: they are single-beat
+ *                                          by law, so dropping their EOM
+ *                                          convicts TXN_err_eom instead and
+ *                                          the closing-beat rule this row
+ *                                          exists for is never reached
+ *   fault_msgbytes     TXN_msgbytes        byte-ceiling overrun (MAX_MSG_BYTES
+ *                                          =64, FV_BIGMSG legal >64 B message)
+ *   fault_err_len      TXN_err_len         error response LEN != request LEN
+ *   fault_orphan       TXN_p5_outstanding  response into an empty tracker
+ *                                          (sole). An orphan beat is outside
+ *                                          several rules at once, so a
+ *                                          different engine may report more
+ *                                          of them at the same step
+ *   fault_occ          TXN_occ_bound       tracker overflow (CAP=1, two
+ *                                          legal outstanding requests)
+ *
+ * NOT EXERCISED HERE. Three gaps in what this harness reaches, recorded
+ * so a reader does not credit the checker with more than the proof
+ * covers:
+ *
+ *   Fault coverage. The checker asserts 20 TXN_* rules; 7 of them have a
+ *   fault row pinning the label they must trip. The other 13 --
+ *   TXN_bytes_le, TXN_da_cont, TXN_err_eom, TXN_err_first, TXN_err_zero,
+ *   TXN_exok, TXN_frm2_eof, TXN_frm2_err, TXN_hostid, TXN_kind,
+ *   TXN_prot, TXN_qos and TXN_reconcile -- are proven to hold against
+ *   the responder model but nothing shows they can fail, so a rule that
+ *   was accidentally trivial would still pass.
+ *
+ *   Obligation filtering. The checker enqueues a request only when it
+ *   both expects a response and closes its message:
+ *   `push = req_beat & f_expects_resp(req_cmd) & f_eom(req_cmd)`. The
+ *   requester here builds single-beat READ/WRITE/ATOMIC requests with
+ *   EOM=1, so both terms are true on every accepted request and neither
+ *   filter is ever seen to reject one. A posted write (no response
+ *   expected) and a multi-beat request (EOM=0 on the opening beat) would
+ *   test them; that needs a requester model that can emit both, and the
+ *   glue lemmas rewritten around a queue those requests do not enter.
+ *
+ *   The ASSUME=1 face. umi_txn_checker is instantiated here only as
+ *   ASSUME=0, the asserting face. Its assuming face -- the one an
+ *   integrator would bind on a response channel it wants constrained --
+ *   is never elaborated by any row, so nothing here would notice if the
+ *   two faces drifted apart. fv_umi_cmd shows the shape a proof of that
+ *   takes: both faces on one channel, the assumed language feeding the
+ *   asserted one. Doing it for this checker means a second harness whose
+ *   response stream is free and constrained by the assume face, which is
+ *   new proof work rather than an added row.
  *
  * Decode note: the checker keeps its own module-local field decoders
  * (portable subset, no package). This formal-only harness shares its
@@ -328,7 +398,8 @@ module fv_umi_txn #(
     parameter DW = 64,
     parameter CAP = 2,
     parameter [31:0] MAX_MSG_BYTES = 32768,
-    parameter [7:0]  MAXLEN = 8'd1        // request LEN ceiling (shallow proof)
+    parameter [7:0]  MAXLEN = 8'd1,       // request LEN ceiling (shallow proof)
+    parameter [19:0] RULE_EN = 20'hFFFFF  // checker per-rule enables
 ) (
     input wire clk
 );
@@ -423,8 +494,8 @@ module fv_umi_txn #(
     // The responder outputs (rsp_*) stay clean, so every glue lemma holds
     // and each fault trips its intended checker assertion. A given fault
     // may also falsify several related rules on the same beat, and which
-    // label the solver reports can vary; fv_umi_txn.sby tabulates the
-    // intended label and the extra/alternate labels for each fault.
+    // label the solver reports can vary; this file's header tabulates
+    // the intended label and the extra/alternate labels for each fault.
     localparam [CW-1:0] SPUR_RESP = {27'd0, UMI_RESP_READ[4:0]}
                                   | (32'd1 << UMI_EOM_BIT)
                                   | (32'd1 << UMI_EOF_BIT);   // idle-orphan beat
@@ -457,9 +528,16 @@ module fv_umi_txn #(
     assign c_dstaddr = rsp_dstaddr;
     assign c_data    = rsp_data;
 `elsif FV_FAULT_EOM_MISSING
-    // EOM never reaches the checker: the closing beat looks unterminated
+    // EOM never reaches the checker on a NON-ERROR beat: the closing beat
+    // of a data message looks unterminated, which is what
+    // TXN_eom_iff_closed states. Error responses are deliberately left
+    // alone. They are single-beat by law, so dropping their EOM breaks
+    // TXN_err_eom -- an earlier and unrelated conviction that would hide
+    // the rule this row exists to exercise.
+    wire fem_err = (txf::user(rsp_cmd) == ERR_DEVERR)
+                || (txf::user(rsp_cmd) == ERR_NETERR);
     assign c_valid   = rsp_valid;
-    assign c_cmd     = rsp_cmd & ~(32'd1 << UMI_EOM_BIT);
+    assign c_cmd     = rsp_cmd & ~(fem_err ? 32'd0 : (32'd1 << UMI_EOM_BIT));
     assign c_dstaddr = rsp_dstaddr;
     assign c_data    = rsp_data;
 `elsif FV_FAULT_ERR_LEN
@@ -496,7 +574,8 @@ module fv_umi_txn #(
 
     umi_txn_checker #(
         .CW(CW), .AW(AW), .DW(DW),
-        .CAP(CAP), .MAX_MSG_BYTES(MAX_MSG_BYTES), .ASSUME(0)
+        .CAP(CAP), .MAX_MSG_BYTES(MAX_MSG_BYTES), .ASSUME(0),
+        .RULE_EN(RULE_EN)
     ) u_chk (
         .clk(clk), .nreset(nreset),
         .req_valid(req_valid), .req_ready(req_ready), .req_cmd(req_cmd),
@@ -651,9 +730,14 @@ module fv_umi_txn #(
     end
 
     // ---- witnesses (formal-only): the assumed language is alive ----
+    // `guard` is registered from the PREVIOUS cycle's nreset, so it is
+    // still high on the edge reset re-asserts. A witness admitted there
+    // is a beat the checker is not judging -- it stops asserting the
+    // moment nreset drops -- so the covers would not witness the
+    // language the proof rests on. Both conditions are required.
 `ifdef FORMAL
     always @(posedge clk) begin
-        if (guard) begin
+        if (guard && nreset) begin
             c_journey  : cover (c_valid && resp_ready && txf::eom(c_cmd)
                                 && txf::op5(c_cmd) == UMI_RESP_READ[4:0]);
             c_multibeat: cover (c_valid && resp_ready && !txf::eom(c_cmd));

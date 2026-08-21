@@ -9,7 +9,21 @@
  *                     Expect: "TB PASS", exit 0.
  *   +inject         : same sequence, but CMD is changed in the middle
  *                     of the stall (a rule 3 violation).
- *                     Expect: one UMI-HS RULE3 error, nonzero exit.
+ *                     Expect: one UMI-HS RULE3 error.
+ *
+ * Unlike the command and transaction testbenches beside it, this one has
+ * no independent verdict of its own to disagree with, so both runs end in
+ * $finish. Under Icarus the inject run therefore exits ZERO even though
+ * the checker fired, and under Verilator it exits nonzero because the
+ * failing assert stops the simulation. The exit code is not the verdict
+ * in either case: the caller must check the output text -- a working
+ * inject run prints the UMI-HS RULE3 line.
+ *
+ * Run (Icarus, from this directory):
+ *   iverilog -g2012 -I ../../include -o tb_umi_handshake_checker.vvp \
+ *            tb_umi_handshake_checker.sv ../rtl/umi_handshake_checker.sv
+ *   vvp tb_umi_handshake_checker.vvp             # expect: TB PASS
+ *   vvp tb_umi_handshake_checker.vvp +inject     # expect: RULE3 error
  *
  * Run (Verilator):
  *   verilator --binary --assert --timing -o tb tb_umi_handshake_checker.sv \

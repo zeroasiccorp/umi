@@ -31,7 +31,9 @@
  *                        the 3 full-byte specials REQ_ERROR/REQ_LINK/
  *                        RESP_LINK (README 3.2.3 message-types table).
  *                        INVALID (CMD[7:0]==0x00) and the reserved
- *                        opcode holes are rejected on an offered beat.
+ *                        opcode holes are rejected on an offered beat
+ *                        (INVALID is admitted by ALLOW_INVALID,
+ *                        default OFF, see below).
  *   CMD2_atype_legal     REQ_ATOMIC carries ATYPE in the LEN bit
  *                        positions; only 0x00..0x08 (ADD..SWAP) are
  *                        defined (README 3.3.9 ATYPE table).
@@ -107,6 +109,40 @@
  * the whole checker off, so the strict reserved-zero profile is opt-in
  * (CHECK_SA_RESERVED=1).
  *
+ * ALLOW_INVALID parameter (default 0 = OFF): README 3.4.1 says of the
+ * INVALID message that "a receiver can choose to ignore the message or
+ * to take corrective action", so a link whose receiver is specified to
+ * ignore INVALID is not broken by an INVALID beat appearing on it.
+ * README 3.2.3 gives that message no field encodings at all, though,
+ * so a command word that reached zero by accident is indistinguishable
+ * from one sent deliberately; the strict reading -- an offered beat
+ * must name a real message -- is what ships. ALLOW_INVALID=1 admits
+ * CMD[7:0]==0x00 through CMD1_opcode_legal and, because README 3.2.3
+ * leaves the DA column of the INVALID row blank, also drops the
+ * CMD4_da_aligned obligation on that beat. No other rule is affected,
+ * and at the default no rule is affected at all.
+ *
+ * RULE_EN parameter: one enable bit per rule, so a channel that breaks
+ * a single rule -- or an integrator who reads one rule differently --
+ * can drop that one rule instead of unbinding the whole checker. A
+ * cleared bit removes the rule from BOTH the assert and the assume
+ * face, so a masked instance stays the same property in either
+ * direction. The default 10'h3FF enables every rule and is
+ * behaviour-identical to leaving the parameter unset.
+ *
+ *   bit  rule
+ *   ---  -----------------------------------------------------------
+ *    0   CMD1_opcode_legal
+ *    1   CMD2_atype_legal
+ *    2   CMD4_da_aligned
+ *    3   CMD4_sa_aligned
+ *    4   CMD6_sa_reserved (also gated by CHECK_SA_RESERVED)
+ *    5   CMD10_fullbyte_decode
+ *    6   CMD11_ex_zero
+ *    7   CMD12_error_size
+ *    8   CMD15_beat_capacity
+ *    9   CMD16_err_data_zero
+ *
  * Implementation notes (same portable subset as umi_handshake_checker):
  *  - Field positions and opcode values come from umi_messages.vh, the
  *    repo's single source of truth. The only locally declared
@@ -128,7 +164,9 @@ module umi_cmd_checker #(
     parameter AW = 64,              // address width
     parameter DW = 256,             // data width
     parameter ASSUME = 0,           // 0: assert the rules, 1: assume them
-    parameter CHECK_SA_RESERVED = 0 // 1: also require request SA reserved bits zero
+    parameter CHECK_SA_RESERVED = 0, // 1: also require request SA reserved bits zero
+    parameter ALLOW_INVALID = 0,     // 1: admit an in-band INVALID beat
+    parameter [9:0] RULE_EN = 10'h3FF // per-rule enables (see header table)
 ) (
     input wire          clk,
     input wire          nreset,
@@ -196,14 +234,21 @@ module umi_cmd_checker #(
     wire dec_is_link  = (dec_opbyte == UMI_REQ_LINK)
                       | (dec_opbyte == UMI_RESP_LINK);
 
+    // the in-band INVALID beat a receiver may be specified to ignore
+    // (README 3.4.1); admitted only under the ALLOW_INVALID profile
+    wire dec_is_invalid = (dec_opbyte == UMI_INVALID);
+    wire dec_invalid_ok = (ALLOW_INVALID != 0) & dec_is_invalid;
+
     // requests odd / responses even; INVALID (0x00) is neither
-    wire dec_is_req   =  cmd[0] & (dec_opbyte != UMI_INVALID);
-    wire dec_is_resp  = ~cmd[0] & (dec_opbyte != UMI_INVALID);
+    wire dec_is_req   =  cmd[0] & ~dec_is_invalid;
+    wire dec_is_resp  = ~cmd[0] & ~dec_is_invalid;
 
     // field applicability (README 3.2.3 DATA/SA/DA columns):
     // DA everywhere but LINK; SA on requests only (README 3.3.1 leaves
-    // response SA undefined, so it is never an obligation)
-    wire dec_has_da   = ~dec_is_link;
+    // response SA undefined, so it is never an obligation). An admitted
+    // INVALID beat has no DA either -- README 3.2.3 leaves the whole
+    // INVALID row blank
+    wire dec_has_da   = ~dec_is_link & ~dec_invalid_ok;
     wire dec_has_sa   = dec_is_req & ~dec_is_link;
     wire dec_has_data = (dec_op5 == UMI_REQ_WRITE)
                       | (dec_op5 == UMI_REQ_POSTED)
@@ -260,7 +305,7 @@ module umi_cmd_checker #(
     // # assumed depending on ASSUME)
     // #################################################################
 
-    wire dec_cmd1_ok  = dec_structured | dec_fullbyte;
+    wire dec_cmd1_ok  = dec_structured | dec_fullbyte | dec_invalid_ok;
 
     wire dec_cmd2_ok  = (dec_op5 != UMI_REQ_ATOMIC)
                       | (dec_len <= UMI_REQ_ATOMICSWAP);
@@ -306,58 +351,76 @@ module umi_cmd_checker #(
 
             always @(posedge clk) begin
                 if (nreset & valid) begin
-                    CMD1_opcode_legal : assert (dec_cmd1_ok);
+                    if (RULE_EN[0]) begin
+                        CMD1_opcode_legal : assert (dec_cmd1_ok);
 `ifndef FORMAL
-                    if ((dec_cmd1_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-1 %m: illegal OPCODE on a valid beat (README 3.2.3 message-types table)");
+                        if ((dec_cmd1_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-1 %m: illegal OPCODE on a valid beat (README 3.2.3 message-types table)");
 `endif
-                    CMD2_atype_legal : assert (dec_cmd2_ok);
+                    end
+                    if (RULE_EN[1]) begin
+                        CMD2_atype_legal : assert (dec_cmd2_ok);
 `ifndef FORMAL
-                    if ((dec_cmd2_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-2 %m: REQ_ATOMIC with ATYPE above ATOMICSWAP (README 3.3.9 ATYPE table)");
+                        if ((dec_cmd2_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-2 %m: REQ_ATOMIC with ATYPE above ATOMICSWAP (README 3.3.9 ATYPE table)");
 `endif
-                    CMD4_da_aligned : assert (dec_cmd4a_ok);
+                    end
+                    if (RULE_EN[2]) begin
+                        CMD4_da_aligned : assert (dec_cmd4a_ok);
 `ifndef FORMAL
-                    if ((dec_cmd4a_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-4 %m: DSTADDR not aligned to 2^SIZE (README 3.1)");
+                        if ((dec_cmd4a_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-4 %m: DSTADDR not aligned to 2^SIZE (README 3.1)");
 `endif
-                    CMD4_sa_aligned : assert (dec_cmd4b_ok);
+                    end
+                    if (RULE_EN[3]) begin
+                        CMD4_sa_aligned : assert (dec_cmd4b_ok);
 `ifndef FORMAL
-                    if ((dec_cmd4b_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-4 %m: request SRCADDR not aligned to 2^SIZE (README 3.1)");
+                        if ((dec_cmd4b_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-4 %m: request SRCADDR not aligned to 2^SIZE (README 3.1)");
 `endif
-                    if (CHECK_SA_RESERVED != 0) begin
+                    end
+                    if ((CHECK_SA_RESERVED != 0) && RULE_EN[4]) begin
                         CMD6_sa_reserved : assert (dec_cmd6_ok);
 `ifndef FORMAL
                         if ((dec_cmd6_ok) !== 1'b1)
                             $error("UMI-CMD CMD-6 %m: request SRCADDR reserved bits nonzero (README 3.3.1/3.3.12)");
 `endif
                     end
-                    CMD10_fullbyte_decode : assert (dec_cmd10_ok);
+                    if (RULE_EN[5]) begin
+                        CMD10_fullbyte_decode : assert (dec_cmd10_ok);
 `ifndef FORMAL
-                    if ((dec_cmd10_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-10 %m: full-byte opcode family aliased outside REQ_ERROR/REQ_LINK/RESP_LINK (README 3.2.3)");
+                        if ((dec_cmd10_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-10 %m: full-byte opcode family aliased outside REQ_ERROR/REQ_LINK/RESP_LINK (README 3.2.3)");
 `endif
-                    CMD11_ex_zero : assert (dec_cmd11_ok);
+                    end
+                    if (RULE_EN[6]) begin
+                        CMD11_ex_zero : assert (dec_cmd11_ok);
 `ifndef FORMAL
-                    if ((dec_cmd11_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-11 %m: EX set on REQ_WRPOSTED/REQ_RDMA/REQ_ATOMIC (README 3.2.3)");
+                        if ((dec_cmd11_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-11 %m: EX set on REQ_WRPOSTED/REQ_RDMA/REQ_ATOMIC (README 3.2.3)");
 `endif
-                    CMD12_error_size : assert (dec_cmd12_ok);
+                    end
+                    if (RULE_EN[7]) begin
+                        CMD12_error_size : assert (dec_cmd12_ok);
 `ifndef FORMAL
-                    if ((dec_cmd12_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-12 %m: REQ_ERROR with SIZE != 0 (README 3.2.3 REQ_ERROR row)");
+                        if ((dec_cmd12_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-12 %m: REQ_ERROR with SIZE != 0 (README 3.2.3 REQ_ERROR row)");
 `endif
-                    CMD15_beat_capacity : assert (dec_cmd15_ok);
+                    end
+                    if (RULE_EN[8]) begin
+                        CMD15_beat_capacity : assert (dec_cmd15_ok);
 `ifndef FORMAL
-                    if ((dec_cmd15_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-15 %m: SIZE/LEN imply more bytes than one DW-bit beat carries (README 3.3.2/3.3.3)");
+                        if ((dec_cmd15_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-15 %m: SIZE/LEN imply more bytes than one DW-bit beat carries (README 3.3.2/3.3.3)");
 `endif
-                    CMD16_err_data_zero : assert (dec_cmd16_ok);
+                    end
+                    if (RULE_EN[9]) begin
+                        CMD16_err_data_zero : assert (dec_cmd16_ok);
 `ifndef FORMAL
-                    if ((dec_cmd16_ok) !== 1'b1)
-                        $error("UMI-CMD CMD-16 %m: DEVERR/NETERR response carrying nonzero data in relevant byte lanes (README 3.3.9)");
+                        if ((dec_cmd16_ok) !== 1'b1)
+                            $error("UMI-CMD CMD-16 %m: DEVERR/NETERR response carrying nonzero data in relevant byte lanes (README 3.3.9)");
 `endif
+                    end
                 end
             end
 
@@ -365,17 +428,26 @@ module umi_cmd_checker #(
 `ifdef FORMAL
             always @(posedge clk) begin
                 if (nreset & valid) begin
-                    CMD1_opcode_legal : assume (dec_cmd1_ok);
-                    CMD2_atype_legal : assume (dec_cmd2_ok);
-                    CMD4_da_aligned : assume (dec_cmd4a_ok);
-                    CMD4_sa_aligned : assume (dec_cmd4b_ok);
-                    if (CHECK_SA_RESERVED != 0)
+                    if (RULE_EN[0])
+                        CMD1_opcode_legal : assume (dec_cmd1_ok);
+                    if (RULE_EN[1])
+                        CMD2_atype_legal : assume (dec_cmd2_ok);
+                    if (RULE_EN[2])
+                        CMD4_da_aligned : assume (dec_cmd4a_ok);
+                    if (RULE_EN[3])
+                        CMD4_sa_aligned : assume (dec_cmd4b_ok);
+                    if ((CHECK_SA_RESERVED != 0) && RULE_EN[4])
                         CMD6_sa_reserved : assume (dec_cmd6_ok);
-                    CMD10_fullbyte_decode : assume (dec_cmd10_ok);
-                    CMD11_ex_zero : assume (dec_cmd11_ok);
-                    CMD12_error_size : assume (dec_cmd12_ok);
-                    CMD15_beat_capacity : assume (dec_cmd15_ok);
-                    CMD16_err_data_zero : assume (dec_cmd16_ok);
+                    if (RULE_EN[5])
+                        CMD10_fullbyte_decode : assume (dec_cmd10_ok);
+                    if (RULE_EN[6])
+                        CMD11_ex_zero : assume (dec_cmd11_ok);
+                    if (RULE_EN[7])
+                        CMD12_error_size : assume (dec_cmd12_ok);
+                    if (RULE_EN[8])
+                        CMD15_beat_capacity : assume (dec_cmd15_ok);
+                    if (RULE_EN[9])
+                        CMD16_err_data_zero : assume (dec_cmd16_ok);
                 end
             end
 `endif
@@ -409,6 +481,8 @@ module umi_cmd_checker #(
             SAW_full_capacity : cover (dec_bytes_rel == BEAT_BYTES);
             if (CHECK_SA_RESERVED != 0)
                 SAW_sa_checked : cover (dec_has_sa & dec_cmd6_ok);
+            if (ALLOW_INVALID != 0)
+                SAW_invalid : cover (dec_is_invalid & dec_cmd1_ok);
         end
     end
 `endif
