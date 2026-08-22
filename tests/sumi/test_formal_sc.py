@@ -46,7 +46,7 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
                       Endpoint, Fifo, Isolate, Memif, Monitor, Mux, Mux2,
-                      Pack, Pipeline, Regif, Stream, Unpack)
+                      Pack, Pipeline, RAM, Regif, Stream, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -128,6 +128,8 @@ FAMILIES = {
                          timeout=900),
     "fv_umi_endpoint": dict(deps=lambda: [Endpoint(), Checker()], depth=12,
                             timeout=900),
+    "fv_umi_ram": dict(deps=lambda: [RAM(), Checker()], depth=10,
+                       timeout=1800),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -164,9 +166,12 @@ class Proof:
 # sby names the label that broke the run on one of two engine lines:
 #   ##  0:00:00  Assert failed in <scope>: <label>
 #   ##  0:00:00  Unreached cover statement at <scope>: <label>
-# bmc/prove rows land on the first, cover rows on the second.
+# bmc/prove rows land on the first, cover rows on the second. A scope
+# inside a generate loop is printed as a Verilog escaped identifier,
+# which terminates with a SPACE -- "fv_umi_ram.\g_port[1].chk_resp :
+# RULE3_dstaddr_stable" -- so the separator is not always a bare colon.
 _FAIL_LABEL = re.compile(
-    r"(?:Assert failed in|Unreached cover statement at) \S+: (\w+)")
+    r"(?:Assert failed in|Unreached cover statement at) \S+\s*: (\w+)")
 
 
 def _failed_labels(log: str):
@@ -356,6 +361,20 @@ GREEN = [
     Proof("endpoint:bmc_reg", "fv_umi_endpoint", "bmc",
           params=(("REG", "1"),)),
     Proof("endpoint:cover", "fv_umi_endpoint", "cover"),
+
+    # ---- fv_umi_ram ---------------------------------------------------
+    # bounded: the memory array and the arbiter thermometer are both
+    # unobservable from these ports, so induction starts from states no
+    # trace reaches
+    # the response checker is lifted on the green rows: the block does
+    # not keep rule 3 on its response ports, which ram:fault_stable
+    # pins. a_ram_route is what this row proves
+    Proof("ram:bmc", "fv_umi_ram", "bmc", defines=("FV_RAM_NOCHK",)),
+    Proof("ram:cover", "fv_umi_ram", "cover", defines=("FV_RAM_NOCHK",)),
+    # the routing convention dropped: the two failures it holds off are
+    # behaviour of the shipped block, so they are witnessed not asserted
+    Proof("ram:hazard", "fv_umi_ram", "cover",
+          defines=("FV_RAM_NOCHK", "FV_RAM_ANYID")),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -552,6 +571,15 @@ FAULTS = [
     Proof("endpoint:fault_cap", "fv_umi_endpoint", "bmc",
           defines=("FV_EP_EXACT",), params=(("REG", "1"),),
           expect="a_ep_outstanding"),
+
+    # ---- fv_umi_ram ---------------------------------------------------
+    Proof("ram:fault_route", "fv_umi_ram", "bmc",
+          defines=("FV_RAM_NOCHK", "FV_FAULT_ROUTE"), expect="a_ram_route"),
+    # nothing injected: with the response checker in place the shipped
+    # block moves its broadcast response address while an answer is
+    # standing unaccepted. Pinned so the finding cannot regress
+    Proof("ram:fault_stable", "fv_umi_ram", "bmc",
+          expect="RULE3_dstaddr_stable"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
