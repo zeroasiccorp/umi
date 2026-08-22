@@ -45,8 +45,8 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
-                      Fifo, Isolate, Memif, Monitor, Mux, Mux2, Pack,
-                      Pipeline, Regif, Stream, Unpack)
+                      Endpoint, Fifo, Isolate, Memif, Monitor, Mux, Mux2,
+                      Pack, Pipeline, Regif, Stream, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -126,6 +126,8 @@ FAMILIES = {
     "fv_umi_memif": dict(deps=lambda: [Memif()], depth=6, timeout=900),
     "fv_umi_regif": dict(deps=lambda: [Regif(), Checker()], depth=12,
                          timeout=900),
+    "fv_umi_endpoint": dict(deps=lambda: [Endpoint(), Checker()], depth=12,
+                            timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -346,6 +348,15 @@ GREEN = [
           defines=("FV_REGIF_NOCHK", "FV_REGIF_HAZARD"),
           params=(("SAFE", "1"),)),
 
+    # ---- fv_umi_endpoint ----------------------------------------------
+    Proof("endpoint:prove", "fv_umi_endpoint", "prove"),
+    # bounded, not prove: REG=1 holds a second answer in a pipeline
+    # stage no port shows, so the exact count is not expressible and a
+    # bare bound on wrapping counters does not close by induction
+    Proof("endpoint:bmc_reg", "fv_umi_endpoint", "bmc",
+          params=(("REG", "1"),)),
+    Proof("endpoint:cover", "fv_umi_endpoint", "cover"),
+
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
     # three of them (demux, mux2, crossbar) run AW=16/DW=32 -- narrower
@@ -526,6 +537,21 @@ FAULTS = [
     Proof("regif:fault_safe", "fv_umi_regif", "bmc",
           defines=("FV_REGIF_NOCHK",), params=(("SAFE", "1"),),
           expect="a_regif_outstanding"),
+
+    # ---- fv_umi_endpoint ----------------------------------------------
+    Proof("endpoint:fault_valid", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("endpoint:fault_kind", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_KIND",), expect="a_ep_kind_wr"),
+    Proof("endpoint:fault_da", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_DA",), expect="a_ep_da"),
+    Proof("endpoint:fault_posted", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_POSTED",), expect="a_ep_outstanding"),
+    # nothing injected: the REG=1 arm really can hold two answers, so
+    # the REG=0 accounting law must fail there
+    Proof("endpoint:fault_cap", "fv_umi_endpoint", "bmc",
+          defines=("FV_EP_EXACT",), params=(("REG", "1"),),
+          expect="a_ep_outstanding"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
