@@ -45,8 +45,8 @@ except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
 from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
-                      Endpoint, Fifo, Isolate, Memif, Monitor, Mux, Mux2,
-                      Pack, Pipeline, RAM, Regif, Stream, Unpack)
+                      Endpoint, Fifo, FifoFlex, Isolate, Memif, Monitor, Mux,
+                      Mux2, Pack, Pipeline, RAM, Regif, Stream, Unpack)
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -130,6 +130,8 @@ FAMILIES = {
                             timeout=900),
     "fv_umi_ram": dict(deps=lambda: [RAM(), Checker()], depth=10,
                        timeout=1800),
+    "fv_umi_fifoflex": dict(deps=lambda: [FifoFlex(), Checker()], depth=12,
+                            timeout=1800),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -376,6 +378,21 @@ GREEN = [
     Proof("ram:hazard", "fv_umi_ram", "cover",
           defines=("FV_RAM_NOCHK", "FV_RAM_ANYID")),
 
+    # ---- fv_umi_fifoflex ----------------------------------------------
+    # bounded: a conservation law over running counters is not
+    # inductive, and the exact in-flight figure lives in latch_bytes,
+    # which is not a port. See the harness header.
+    Proof("fifoflex:bmc", "fv_umi_fifoflex", "bmc", params=(("SPLIT", "0"),)),
+    # the merge arm is a separate circuit and keeps the law with the
+    # splitter enabled
+    Proof("fifoflex:bmc_merge", "fv_umi_fifoflex", "bmc",
+          params=(("IDW", "64"), ("ODW", "128"))),
+    Proof("fifoflex:cover", "fv_umi_fifoflex", "cover"),
+    # alignment withdrawn: the split arm's length arithmetic underflows
+    # on an unaligned address, which is behaviour of the shipped block
+    Proof("fifoflex:hazard", "fv_umi_fifoflex", "cover",
+          defines=("FV_FLEX_NOALIGN",), params=(("IDW", "128"), ("ODW", "64"))),
+
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
     # three of them (demux, mux2, crossbar) run AW=16/DW=32 -- narrower
@@ -580,6 +597,16 @@ FAULTS = [
     # standing unaccepted. Pinned so the finding cannot regress
     Proof("ram:fault_stable", "fv_umi_ram", "bmc",
           expect="RULE3_dstaddr_stable"),
+
+    # ---- fv_umi_fifoflex ----------------------------------------------
+    Proof("fifoflex:fault_valid", "fv_umi_fifoflex", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("fifoflex:fault_invent", "fv_umi_fifoflex", "bmc",
+          defines=("FV_FAULT_INVENT",), expect="a_flex_conserve"),
+    # nothing injected: with SPLIT=1 the block delivers bytes it was
+    # never given. umi_memagent instantiates it exactly this way
+    Proof("fifoflex:fault_split", "fv_umi_fifoflex", "bmc",
+          params=(("SPLIT", "1"),), expect="a_flex_conserve"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
