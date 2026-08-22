@@ -48,6 +48,12 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
                       Endpoint, Fifo, FifoFlex, Isolate, Memif, Monitor, Mux,
                       Mux2, Pack, Pipeline, RAM, Regif, Stream, Unpack)
 
+# umi_switch is deliberately not re-exported from umi.sumi -- see
+# "Disabling umi_switch in api for safety reasons". Reaching past the
+# package API keeps that decision intact while still letting the block
+# be judged; fv_umi_switch.sv states what the disabled path does.
+from umi.sumi.umi_switch.umi_switch import Switch
+
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
 SUMI_INCLUDE = REPO / "umi" / "sumi" / "include"
@@ -132,6 +138,8 @@ FAMILIES = {
                        timeout=1800),
     "fv_umi_fifoflex": dict(deps=lambda: [FifoFlex(), Checker()], depth=12,
                             timeout=1800),
+    "fv_umi_switch": dict(deps=lambda: [Switch(), Checker()], depth=12,
+                          timeout=1800),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -393,6 +401,18 @@ GREEN = [
     Proof("fifoflex:hazard", "fv_umi_fifoflex", "cover",
           defines=("FV_FLEX_NOALIGN",), params=(("IDW", "128"), ("ODW", "64"))),
 
+    # ---- fv_umi_switch ------------------------------------------------
+    # bounded: the arbiter thermometer and the mux's captured
+    # stalled_input are not observable from these ports, the same fence
+    # fv_umi_mux documents
+    Proof("switch:bmc", "fv_umi_switch", "bmc"),
+    # M=2 turns the ready merge on: every output's per-input ready is
+    # ANDed together, so acceptance depends on the stalled-grant history
+    # of outputs an input is not even asking for. See the harness header
+    Proof("switch:bmc_m2", "fv_umi_switch", "bmc", params=(("M", "2"),)),
+    Proof("switch:cover_m2", "fv_umi_switch", "cover", params=(("M", "2"),)),
+    Proof("switch:cover", "fv_umi_switch", "cover"),
+
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
     # three of them (demux, mux2, crossbar) run AW=16/DW=32 -- narrower
@@ -607,6 +627,10 @@ FAULTS = [
     # never given. umi_memagent instantiates it exactly this way
     Proof("fifoflex:fault_split", "fv_umi_fifoflex", "bmc",
           params=(("SPLIT", "1"),), expect="a_flex_conserve"),
+
+    # ---- fv_umi_switch ------------------------------------------------
+    Proof("switch:fault_valid", "fv_umi_switch", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
 
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
