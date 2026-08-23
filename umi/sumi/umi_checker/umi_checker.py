@@ -8,12 +8,14 @@ class Checker(UMI):
       rtl/umi_handshake_checker.sv   README 4.2 ready/valid handshake
       rtl/umi_cmd_checker.sv         CMD-word (command field) legality
       rtl/umi_txn_checker.sv         request/response pairing + framing
+      rtl/umi_frame_checker.sv       intra-message framing, one channel
     """
     def __init__(self):
         super().__init__('umi_checker',
                          files=['rtl/umi_handshake_checker.sv',
                                 'rtl/umi_cmd_checker.sv',
-                                'rtl/umi_txn_checker.sv'],
+                                'rtl/umi_txn_checker.sv',
+                                'rtl/umi_frame_checker.sv'],
                          deps=[])
         # the block name is the family home, not a module. test_lint
         # elaborates this fileset under a single top, so point it at the

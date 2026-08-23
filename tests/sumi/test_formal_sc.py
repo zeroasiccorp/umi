@@ -140,6 +140,7 @@ FAMILIES = {
                             timeout=1800),
     "fv_umi_switch": dict(deps=lambda: [Switch(), Checker()], depth=12,
                           timeout=1800),
+    "fv_umi_frame": dict(deps=lambda: [Checker()], depth=10, timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -317,6 +318,19 @@ GREEN = [
     Proof("cmd:cover_invalid", "fv_umi_cmd", "cover",
           params=(("ALLOW_INVALID", "1"),)),
     Proof("cmd:prove_mask_off", "fv_umi_cmd", "prove", params=(("RULE_EN", "0"),)),
+
+    # ---- fv_umi_frame -------------------------------------------------
+    # the request-side half umi_txn_checker's header records as missing.
+    # Checker against checker, so induction closes on the shadow state
+    # bounded: FRAME_msgbytes accumulates over a message, and a free
+    # accumulator in the step case can start above the ceiling, so the
+    # rule does not close by induction. The other five are cycle-local
+    Proof("frame:bmc", "fv_umi_frame", "bmc"),
+    Proof("frame:cover", "fv_umi_frame", "cover"),
+    # as buffer:prove_mask_off -- a free observed channel with the mask
+    # cleared reports nothing; fault_mask_da enables one bit
+    Proof("frame:bmc_mask_off", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "0"),)),
 
     # ---- fv_umi_txn ---------------------------------------------------
     Proof("txn:prove", "fv_umi_txn", "prove"),
@@ -691,6 +705,28 @@ FAULTS = [
           expect="CMD6_sa_reserved"),
     Proof("cmd:fault_invalid", "fv_umi_cmd", "bmc", defines=("FV_FAULT_INVALID",),
           expect="CMD1_opcode_legal"),
+
+    # ---- fv_umi_frame -------------------------------------------------
+    # one row per rule, each bending exactly that rule on the observed
+    # channel while the driving channel stays legal
+    Proof("frame:fault_size", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_SIZE",), expect="FRAME_size_stable"),
+    Proof("frame:fault_opcode", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_OPCODE",), expect="FRAME_opcode_stable"),
+    Proof("frame:fault_fields", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_FIELDS",), expect="FRAME_fields_stable"),
+    Proof("frame:fault_da", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_DA",), expect="FRAME_da_cont"),
+    Proof("frame:fault_sa", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_SA",), expect="FRAME_sa_cont"),
+    # a message that never closes runs past the ceiling; lowered so the
+    # boundary is reachable inside the bounded depth
+    Proof("frame:fault_bytes", "fv_umi_frame", "bmc", depth=14,
+          defines=("FV_FAULT_BYTES",), expect="FRAME_msgbytes"),
+    # the mask is falsifiable: only bit 3 enabled, so FRAME_da_cont alone
+    Proof("frame:fault_mask_da", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "8"),),
+          expect="FRAME_da_cont"),
 
     # ---- fv_umi_txn ---------------------------------------------------
     Proof("txn:fault_wrongda", "fv_umi_txn", "bmc", defines=("FV_FAULT_WRONGDA",),
