@@ -11,18 +11,18 @@ header says so:
 
   * the handshake testbench ends in $finish on both passes, so its
     inject pass exits zero even though the checker fired;
-  * the command and transaction testbenches end in $fatal whenever their
-    own expectation disagrees with the checker, so a MISSED detection
-    also exits nonzero.
+  * the command, transaction and frame testbenches end in $fatal
+    whenever their own expectation disagrees with the checker, so a
+    MISSED detection also exits nonzero.
 
 The text is what separates the outcomes. A clean pass must print
 "TB PASS" and no checker error at all; an inject pass must print the
 expected checker error and no "TB FAIL".
 
-Icarus is the simulator here because all three testbenches run correctly
+Icarus is the simulator here because all four testbenches run correctly
 under it. Verilator defers $finish to the end of the time step, so the
-statements guarding the command and transaction verdicts still execute
-after the clean pass has asked to stop.
+statements guarding those verdicts still execute after the clean pass
+has asked to stop.
 """
 import shutil
 import subprocess
@@ -43,12 +43,13 @@ pytestmark = [
 
 # checker name, the message tag it prints on any violation, the specific
 # error the inject pass must produce, and whether that pass ends in
-# $fatal. Only the command and transaction testbenches have a verdict of
-# their own to disagree with, so only they exit nonzero.
+# $fatal. The handshake testbench has no verdict of its own to disagree
+# with, so it is the only one whose inject pass exits zero.
 CASES = [
     ("handshake", "UMI-HS", "UMI-HS RULE3", False),
     ("cmd", "UMI-CMD", "UMI-CMD CMD-1", True),
     ("txn", "UMI-TXN", "UMI-TXN da_cont", True),
+    ("frame", "UMI-FRAME", "UMI-FRAME size", True),
 ]
 
 
