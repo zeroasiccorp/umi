@@ -164,14 +164,15 @@ job file it generated, and rerun that file by hand.
 | `sumi/fv_umi_switch` | `umi_switch` | the output handshake on every port, with the ready merge active across one and two outputs (bounded) | 4 | 1 |
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 6 | 11 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 5 | 8 |
+| `sumi/fv_umi_frame` | `umi_frame_checker` | intra-message framing on a single channel, the request side included: the checker's assume face and assert face agree | 3 | 7 |
 
-88 green rows and 94 fault rows, 182 in all, over 21 harnesses.
+91 green rows and 101 fault rows, 192 in all, over 22 harnesses.
 
 Nineteen of them judge **shipped design RTL**, covering every SUMI block
 on a UMI path except `umi_memagent`, whose atomic unit is textually the
 same as `umi_memif`'s but reaches no port without a memory round trip,
 and `umi_tester`, which is test-bench infrastructure rather than a block
-on a path. `fv_umi_cmd` and `fv_umi_txn` qualify
+on a path. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
 the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
 `fv_umi_txn` elaborates the asserting face alone, against a responder model, so
 its ASSUME face is not covered (see the scope note below).
