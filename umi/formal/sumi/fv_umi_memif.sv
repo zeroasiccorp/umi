@@ -18,8 +18,14 @@
  * Documentation:
  *
  * - Proves the read-modify-write unit in umi_memif computes each of the
- *   nine atomic operations README.md section 3.4.6 defines, and pins
- *   down what it does with an ATYPE that names none of them.
+ *   atomic operations it implements, and pins down what it does with an
+ *   ATYPE that names none of them.
+ *
+ *   README.md section 3.4.6 names eight: ADD, OR, XOR, MAX, MIN, MAXU,
+ *   MINU, SWAP. The RTL implements a ninth, ATOMICAND, which
+ *   umi_messages.vh:85 assigns ATYPE 0x01 and no section of the
+ *   specification lists. It is proven here because it is shipped, not
+ *   because the specification asks for it.
  *
  * THE OPERAND ALIGNMENT, AND WHY THE HARNESS REMOVES IT. umi_memif does
  * not feed the ALU the raw operands. It left-justifies both of them --
@@ -215,7 +221,7 @@ module fv_umi_memif #(
 `endif
 
     // ----------------------------------------------------------------
-    // the nine defined operations, and the arm that catches the rest
+    // the nine implemented operations, and the arm that catches the rest
     // ----------------------------------------------------------------
     always @(posedge clk)
         if (f_past_exists & nreset & past_nreset & atomic_active) begin

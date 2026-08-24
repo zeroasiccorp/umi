@@ -63,6 +63,7 @@
  *   switch:bmc            M=1, output handshake, bounded
  *   switch:bmc_m2         M=2, the same handshake with the ready merge
  *                         active across two outputs
+ *   switch:cover_m2       witnesses at M=2: expect all reached
  *   switch:cover          witnesses: expect all reached
  *   switch:fault_valid    must FAIL, chk_out.RULE2_valid_hold
  *

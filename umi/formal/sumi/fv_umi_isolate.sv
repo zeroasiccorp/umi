@@ -28,11 +28,10 @@
  *                         accept a beat
  *            a_iso_pass   isolate low passes every wire through
  *                         unchanged
- *   ISO=0  no cells at all -- a_iso_pass alone, unconditionally, and
- *          a_iso_noclamp records what that means: with the cells
- *          compiled out the isolate input is inert, so a build that
- *          asks for isolation it did not compile in gets none. The row
- *          exists so that arm is judged rather than assumed harmless.
+ *   ISO=0  no cells at all -- a_iso_pass alone, unconditionally. That
+ *          is already the whole claim for this arm: the channel passes
+ *          through whatever isolate is doing, so a build that asks for
+ *          isolation it did not compile in gets none.
  *
  * Purely combinational, so induction closes immediately; the value of
  * prove mode is the quantifier over every input word.
@@ -138,9 +137,6 @@ module fv_umi_isolate #(
                 a_iso_pass : assert ((obs_valid == umi_valid)
                                      && (umi_ready_iso == umi_ready)
                                      && (out_bundle == in_bundle));
-                // and isolate is inert: asking for isolation in a build
-                // that did not compile it in changes nothing
-                a_iso_noclamp : assert (!isolate || (obs_valid == umi_valid));
             end
         end
     endgenerate

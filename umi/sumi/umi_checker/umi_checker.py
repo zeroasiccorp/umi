@@ -19,8 +19,8 @@ class Checker(UMI):
                          deps=[])
         # the block name is the family home, not a module. test_lint
         # elaborates this fileset under a single top, so point it at the
-        # handshake checker; umi_cmd_checker and umi_txn_checker ship in
-        # the same fileset and are elaborated as tops by the formal lane.
+        # handshake checker; the cmd, txn and frame checkers ship in the
+        # same fileset and are elaborated as tops by the formal lane.
         with self.active_fileset('rtl'):
             self.set_topmodule('umi_handshake_checker')
 

@@ -136,7 +136,6 @@ module fv_umi_pipeline #(
     wire in_ready = out_ready;
 
     wire [PW-1:0] in_packet  = {in_cmd, in_dstaddr, in_srcaddr, in_data};
-    wire [PW-1:0] out_packet = {out_cmd, out_dstaddr, out_srcaddr, out_data};
 
     umi_pipeline #(
         .CW (CW), .AW (AW), .DW (DW)

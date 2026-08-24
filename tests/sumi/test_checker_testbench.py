@@ -1,7 +1,10 @@
 """Simulation self-tests for the umi_checker protocol checkers.
 
 umi/sumi/umi_checker/testbench/ ships one self-checking testbench per
-checker. Each is run twice: a clean pass over legal traffic, and a
+checker, alongside the worked bind example that tests/sumi/
+test_checker_bind.py drives. This runner covers the four testbenches,
+not the bind example. Each is run twice: a clean pass over legal
+traffic, and a
 "+inject" pass carrying exactly one planted protocol violation that the
 checker must report. This runner drives both passes with Icarus Verilog
 and checks the printed output.

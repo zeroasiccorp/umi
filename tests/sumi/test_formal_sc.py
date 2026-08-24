@@ -502,7 +502,13 @@ GREEN = [
           params=(("DW", "256"),)),
     # the repo's own RAM testbench instantiates the arbiter at N=5; the
     # proofs above stop at 4, and the thermometer is N-asymmetric
+    Proof("mux2:cover_legal", "fv_umi_mux2", "cover",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("crossbar:cover_legal", "fv_umi_crossbar", "cover",
+          params=(("AW", "64"), ("DW", "64"))),
     Proof("arbiter:prove_n5", "fv_umi_arbiter", "prove",
+          params=(("N", "5"),)),
+    Proof("arbiter:cover_n5", "fv_umi_arbiter", "cover",
           params=(("N", "5"),)),
 ]
 

@@ -48,10 +48,13 @@
  *   FRAME_da_cont       a continuation beat's DA is the running address:
  *                      the previous DA advanced by the bytes the
  *                      previous beat carried. README 4.1.1 rule 4,
- *                      "only the destination address increments".
+ *                      DA_out[i] := DA_out[i-1] + (2^SIZE)*(LEN_out[i-1]+1).
  *   FRAME_sa_cont       and its SA likewise, README 4.1.1 rule 5 -- the
  *                      rule umi_txn_checker records as
- *                      observed-but-not-asserted.
+ *                      observed-but-not-asserted. Rule 5 applies to
+ *                      split REQUESTS; a response has no SA field, so
+ *                      switch this rule off (RULE_EN[4]) on a channel
+ *                      carrying responses.
  *   FRAME_msgbytes      the bytes accumulated over a message never
  *                      exceed MAX_MSG_BYTES (README 2, 32768).
  *

@@ -99,7 +99,6 @@ module fv_umi_monitor #(
     // observed output: the faults corrupt what the laws see, never the
     // DUT. No RTL is copied or edited.
     // ----------------------------------------------------------------
-    (* anyseq *) wire f_glitch;
 
 `ifdef FV_FAULT_OR
     // the classic mis-reading of rule 1: either signal rather than both
@@ -136,7 +135,7 @@ module fv_umi_monitor #(
             // taker, and a taker with no offer
             c_mon_stall : cover (valid & ~ready & ~obs_beat);
             c_mon_idle  : cover (~valid & ready & ~obs_beat);
-            // and a run of transfers, so a_mon_count is not passing on
+            // and a run of transfers, so a_mon_beat is not passing on
             // a link that moved at most one beat
             c_mon_run   : cover (beats_seen == {{(KW-2){1'b0}}, 2'd3});
         end

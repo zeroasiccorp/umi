@@ -250,7 +250,6 @@ module fv_umi_stream #(
     // which carries DATA and LAST rather than a UMI packet
     // ----------------------------------------------------------------
     reg        usi_in_valid_q;
-    reg        usi_in_last_q;
     reg [DW:0] usi_in_bundle_q;
     reg        usi_in_ready_q;
     always @(posedge clk) begin

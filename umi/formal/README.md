@@ -28,7 +28,8 @@ table. This file is the index; the detail lives next to the code.
 
     pytest -m formal tests/sumi/test_formal_sc.py
 
-    # one row
+    # one family of rows -- -k is a substring match, so this selects the
+    # four buffer identity rows, not one
     pytest -m formal tests/sumi/test_formal_sc.py -k 'buffer:identity'
 
 To debug a proof under sby or yosys directly, run its row once with a pinned
@@ -106,7 +107,7 @@ verdict and not a label -- `buffer:fault_swap` injects the same corruption
 under `bmc` and pins the label there.
 
 There is no independent-solver corroboration here: every SMT result is gated on
-bitwuzla alone. Standing in its place is the fault matrix -- 54 rows that each
+bitwuzla alone. Standing in its place is the fault matrix -- 101 rows that each
 inject a bug and must each still produce a counterexample, which a solver
 quietly answering "proved" to everything would not deliver. To re-check one
 result against another solver, run its row, edit the `[engines]` line of the
@@ -146,10 +147,10 @@ job file it generated, and rerun that file by hand.
 | `sumi/fv_umi_codec` | `umi_pack` / `umi_unpack` | CMD codec round-trips over the 13 structured opcodes, and each field sits at the bit position `umi_messages.vh` defines | 2 | 1 |
 | `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5, and delivers every beat unchanged in all four SUMI fields and in accept order, with none dropped or invented | 13 | 11 |
 | `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 7 | 6 |
-| `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 6 | 4 |
+| `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 7 | 4 |
 | `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in iff one accept out, and the output beat is the accepting input's (bounded) | 4 | 3 |
-| `sumi/fv_umi_mux2` | `umi_mux2` | select-and-merge: the output is the selected input's beat, accepts are conserved, and the output channel is legal SUMI under a stable select | 6 | 5 |
-| `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers | 5 | 5 |
+| `sumi/fv_umi_mux2` | `umi_mux2` | select-and-merge: the output is the selected input's beat, accepts are conserved, and the output channel is legal SUMI under a stable select | 7 | 5 |
+| `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers | 6 | 5 |
 | `sumi/fv_umi_pipeline` | `umi_pipeline` | the single-cycle register stage keeps the handshake and delivers every beat it accepts, once, in order, unchanged (unbounded -- every register is a port) | 9 | 6 |
 | `sumi/fv_umi_decode` | `umi_decode` | the class outputs are mutually exclusive and complete, and on the legal opcode set each matches the full five-bit encoding the four-bit compares stand in for | 3 | 4 |
 | `sumi/fv_umi_isolate` | `umi_isolate` | isolate high clamps the whole channel to zero and isolate low passes it through, over both build-time arms | 7 | 2 |
@@ -166,7 +167,7 @@ job file it generated, and rerun that file by hand.
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 5 | 8 |
 | `sumi/fv_umi_frame` | `umi_frame_checker` | intra-message framing on a single channel, the request side included: the checker's assume face and assert face agree | 3 | 7 |
 
-110 green rows and 101 fault rows, 211 in all, over 22 harnesses.
+113 green rows and 101 fault rows, 214 in all, over 22 harnesses.
 
 Nineteen of them judge **shipped design RTL**, covering every SUMI block
 on a UMI path except `umi_memagent`, whose atomic unit is textually the
