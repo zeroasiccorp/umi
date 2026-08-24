@@ -22,6 +22,10 @@
  * working inject run prints the UMI-CMD $error line and no "TB FAIL"
  * line; a missed detection prints "TB FAIL" before the nonzero exit.
  *
+ * No message printed by this testbench repeats the checker's error text.
+ * If it did, the caller's search for that text would match the
+ * testbench's own output and the run would pass with the checker silent.
+ *
  * Run (Icarus, from this directory):
  *   iverilog -g2012 -I ../../include -o tb_umi_cmd_checker.vvp \
  *            tb_umi_cmd_checker.sv ../rtl/umi_cmd_checker.sv
@@ -162,7 +166,7 @@ module tb_umi_cmd_checker;
             $display("TB PASS: legal sequence, checker silent");
             $finish;
         end
-        $display("TB DONE: inject run complete (the UMI-CMD CMD-1 error above is the expected result)");
+        $display("TB DONE: inject run complete (the checker error above is the expected result)");
         $fatal(0, "expected-violation run: nonzero exit by design");
     end
 
