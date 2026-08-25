@@ -54,14 +54,11 @@
  * `~mask & requests`. That is what makes the lowest-index law
  * port-observable. The task assumes the mode for the whole trace.
  *
- * SCOPE NOTE -- the mode encoding. The port comment reads
- * "[00]=priority,[01]=roundrobin,[1x]=reserved" (umi_arbiter.v:29), but
- * the thermometer advances on `mode[1:0]==2'b10` (umi_arbiter.v:63), the
- * encoding that comment calls reserved. The documented round-robin mode
- * 2'b01 leaves the thermometer at zero, making it behave as priority.
- * This harness pins the encodings it proves rather than resolving the
- * discrepancy: `prio` uses 2'b00, and the rotation witness uses 2'b10
- * because that is where rotation actually happens.
+ * SCOPE NOTE -- the mode encoding. The thermometer advances only on
+ * `mode[1:0]==2'b10` (umi_arbiter.v:63), so 2'b10 is round-robin and
+ * every other encoding leaves the thermometer at zero and behaves as
+ * fixed priority. This harness pins the encoding on each row: `prio`
+ * uses 2'b00, and the rotation witness uses 2'b10.
  *
  * Fault rows corrupt only the OBSERVED grant vector, never the DUT, so
  * the proof must FAIL. A checker that cannot fail a broken design proves

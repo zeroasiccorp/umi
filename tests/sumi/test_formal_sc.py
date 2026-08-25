@@ -44,8 +44,15 @@ try:
 except ImportError:  # pragma: no cover -- pre-formal-flow siliconcompiler
     _HAVE_SC_FORMAL = False
 
-from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Demux, Mux, Mux2,
-                      Pack, Unpack)
+from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
+                      Endpoint, Fifo, FifoFlex, Isolate, Memif, Monitor, Mux,
+                      Mux2, Pack, Pipeline, RAM, Regif, Stream, Unpack)
+
+# umi_switch is deliberately not re-exported from umi.sumi -- see
+# "Disabling umi_switch in api for safety reasons". Reaching past the
+# package API keeps that decision intact while still letting the block
+# be judged; fv_umi_switch.sv states what the disabled path does.
+from umi.sumi.umi_switch.umi_switch import Switch
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -113,6 +120,27 @@ FAMILIES = {
     "fv_umi_mux": dict(deps=lambda: [Mux(), Checker()], depth=12, timeout=300),
     "fv_umi_mux2": dict(deps=lambda: [Mux2(), Checker()], depth=12, timeout=300),
     "fv_umi_crossbar": dict(deps=lambda: [Crossbar(), Checker()], depth=12, timeout=300),
+    "fv_umi_pipeline": dict(deps=lambda: [Pipeline(), Checker()], depth=12,
+                            timeout=300),
+    "fv_umi_decode": dict(deps=lambda: [Decode()], depth=4, timeout=300),
+    "fv_umi_isolate": dict(deps=lambda: [Isolate()], depth=4, timeout=300),
+    "fv_umi_monitor": dict(deps=lambda: [Monitor()], depth=12, timeout=300),
+    "fv_umi_fifo": dict(deps=lambda: [Fifo(), Checker()], depth=16,
+                        timeout=900),
+    "fv_umi_stream": dict(deps=lambda: [Stream(), Checker()], depth=14,
+                          timeout=900),
+    "fv_umi_memif": dict(deps=lambda: [Memif()], depth=6, timeout=900),
+    "fv_umi_regif": dict(deps=lambda: [Regif(), Checker()], depth=12,
+                         timeout=900),
+    "fv_umi_endpoint": dict(deps=lambda: [Endpoint(), Checker()], depth=12,
+                            timeout=900),
+    "fv_umi_ram": dict(deps=lambda: [RAM(), Checker()], depth=10,
+                       timeout=1800),
+    "fv_umi_fifoflex": dict(deps=lambda: [FifoFlex(), Checker()], depth=12,
+                            timeout=1800),
+    "fv_umi_switch": dict(deps=lambda: [Switch(), Checker()], depth=12,
+                          timeout=1800),
+    "fv_umi_frame": dict(deps=lambda: [Checker()], depth=10, timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
 }
@@ -149,9 +177,12 @@ class Proof:
 # sby names the label that broke the run on one of two engine lines:
 #   ##  0:00:00  Assert failed in <scope>: <label>
 #   ##  0:00:00  Unreached cover statement at <scope>: <label>
-# bmc/prove rows land on the first, cover rows on the second.
+# bmc/prove rows land on the first, cover rows on the second. A scope
+# inside a generate loop is printed as a Verilog escaped identifier,
+# which terminates with a SPACE -- "fv_umi_ram.\g_port[1].chk_resp :
+# RULE3_dstaddr_stable" -- so the separator is not always a bare colon.
 _FAIL_LABEL = re.compile(
-    r"(?:Assert failed in|Unreached cover statement at) \S+: (\w+)")
+    r"(?:Assert failed in|Unreached cover statement at) \S+\s*: (\w+)")
 
 
 def _failed_labels(log: str):
@@ -199,6 +230,65 @@ GREEN = [
           defines=("FV_IDENTITY",),
           params=(("MODE", "0"), ("AW", "16"), ("DW", "32"))),
 
+    # ---- fv_umi_pipeline ----------------------------------------------
+    Proof("pipeline:prove", "fv_umi_pipeline", "prove"),
+    Proof("pipeline:cover", "fv_umi_pipeline", "cover"),
+    # identity rides its own rows: the accounting law reads the same
+    # obs_valid the handshake faults corrupt and would convict a cycle
+    # ahead of the rule those rows are aimed at
+    Proof("pipeline:identity", "fv_umi_pipeline", "prove",
+          defines=("FV_IDENTITY",)),
+    Proof("pipeline:identity_cover", "fv_umi_pipeline", "cover",
+          defines=("FV_IDENTITY",)),
+    # as buffer:prove_mask_off -- a free output channel with the mask
+    # cleared reports nothing; the fault_mask_* rows enable one bit each
+    Proof("pipeline:prove_mask_off", "fv_umi_pipeline", "prove",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "0"),)),
+
+    # ---- fv_umi_decode ------------------------------------------------
+    Proof("decode:prove", "fv_umi_decode", "prove"),
+    Proof("decode:cover", "fv_umi_decode", "cover"),
+    # the legal-opcode assumption withdrawn: the structural laws still
+    # hold and the covers pin what the four-bit compares admit
+    Proof("decode:hazard", "fv_umi_decode", "cover",
+          defines=("FV_DEC_ANYOPCODE",)),
+
+    # ---- fv_umi_isolate -----------------------------------------------
+    Proof("isolate:prove", "fv_umi_isolate", "prove"),
+    # the arm with the cells compiled out: a different circuit behind
+    # the same port list, so it gets judged rather than assumed
+    Proof("isolate:prove_iso0", "fv_umi_isolate", "prove",
+          params=(("ISO", "0"),)),
+    Proof("isolate:cover", "fv_umi_isolate", "cover"),
+
+    # ---- fv_umi_monitor -----------------------------------------------
+    Proof("monitor:prove", "fv_umi_monitor", "prove"),
+    Proof("monitor:cover", "fv_umi_monitor", "cover"),
+
+    # ---- fv_umi_fifo --------------------------------------------------
+    # bounded, not prove: the pointers reach la_drsync registers no port
+    # shows, so induction starts from states no trace reaches. See the
+    # note in fv_umi_fifo.sv
+    Proof("fifo:bmc", "fv_umi_fifo", "bmc"),
+    Proof("fifo:bmc_bypass", "fv_umi_fifo", "bmc", params=(("BYPASS", "1"),)),
+    Proof("fifo:cover", "fv_umi_fifo", "cover"),
+    Proof("fifo:identity", "fv_umi_fifo", "bmc", defines=("FV_IDENTITY",),
+          params=(("DEPTH", "2"),)),
+    Proof("fifo:identity_bypass", "fv_umi_fifo", "bmc",
+          defines=("FV_IDENTITY",), params=(("BYPASS", "1"),)),
+    Proof("fifo:identity_cover", "fv_umi_fifo", "cover",
+          defines=("FV_IDENTITY",), params=(("DEPTH", "2"),)),
+    # the bypass arm states the same three laws over different logic, so
+    # it needs its own witnesses
+    Proof("fifo:identity_cover_bypass", "fv_umi_fifo", "cover",
+          defines=("FV_IDENTITY",), params=(("BYPASS", "1"),)),
+
+    # ---- fv_umi_stream ------------------------------------------------
+    # bounded for the reason fv_umi_fifo gives: the FIFO pointers cross
+    # synchroniser registers no port shows
+    Proof("stream:bmc", "fv_umi_stream", "bmc"),
+    Proof("stream:cover", "fv_umi_stream", "cover"),
+
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:prove", "fv_umi_demux", "prove"),
     Proof("demux:prove_m4", "fv_umi_demux", "prove", params=(("M", "4"),)),
@@ -228,6 +318,19 @@ GREEN = [
     Proof("cmd:cover_invalid", "fv_umi_cmd", "cover",
           params=(("ALLOW_INVALID", "1"),)),
     Proof("cmd:prove_mask_off", "fv_umi_cmd", "prove", params=(("RULE_EN", "0"),)),
+
+    # ---- fv_umi_frame -------------------------------------------------
+    # the request-side half umi_txn_checker's header records as missing.
+    # Checker against checker, so induction closes on the shadow state
+    # bounded: FRAME_msgbytes accumulates over a message, and a free
+    # accumulator in the step case can start above the ceiling, so the
+    # rule does not close by induction. The other five are cycle-local
+    Proof("frame:bmc", "fv_umi_frame", "bmc"),
+    Proof("frame:cover", "fv_umi_frame", "cover"),
+    # as buffer:prove_mask_off -- a free observed channel with the mask
+    # cleared reports nothing; fault_mask_da enables one bit
+    Proof("frame:bmc_mask_off", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "0"),)),
 
     # ---- fv_umi_txn ---------------------------------------------------
     Proof("txn:prove", "fv_umi_txn", "prove"),
@@ -259,6 +362,154 @@ GREEN = [
     # closes over an arbitrary arbiter thermometer state
     Proof("crossbar:prove", "fv_umi_crossbar", "prove"),
     Proof("crossbar:cover", "fv_umi_crossbar", "cover"),
+
+    # ---- fv_umi_memif -------------------------------------------------
+    Proof("memif:prove", "fv_umi_memif", "prove"),
+    Proof("memif:cover", "fv_umi_memif", "cover"),
+
+    # ---- fv_umi_regif -------------------------------------------------
+    Proof("regif:prove", "fv_umi_regif", "prove"),
+    Proof("regif:cover", "fv_umi_regif", "cover"),
+    # SAFE=1 breaks the resp_ready to req_ready path on purpose, so a
+    # second request can land while the first answer still stands. The
+    # response checker is lifted and the overwrite is witnessed
+    Proof("regif:hazard", "fv_umi_regif", "cover",
+          defines=("FV_REGIF_NOCHK", "FV_REGIF_HAZARD"),
+          params=(("SAFE", "1"),)),
+
+    # ---- fv_umi_endpoint ----------------------------------------------
+    Proof("endpoint:prove", "fv_umi_endpoint", "prove"),
+    # bounded, not prove: REG=1 holds a second answer in a pipeline
+    # stage no port shows, so the exact count is not expressible and a
+    # bare bound on wrapping counters does not close by induction
+    Proof("endpoint:bmc_reg", "fv_umi_endpoint", "bmc",
+          params=(("REG", "1"),)),
+    Proof("endpoint:cover", "fv_umi_endpoint", "cover"),
+
+    # ---- fv_umi_ram ---------------------------------------------------
+    # bounded: the memory array and the arbiter thermometer are both
+    # unobservable from these ports, so induction starts from states no
+    # trace reaches
+    # the response checker is lifted on the green rows: the block does
+    # not keep rule 3 on its response ports, which ram:fault_stable
+    # pins. a_ram_route is what this row proves
+    Proof("ram:bmc", "fv_umi_ram", "bmc", defines=("FV_RAM_NOCHK",)),
+    Proof("ram:cover", "fv_umi_ram", "cover", defines=("FV_RAM_NOCHK",)),
+    # the routing convention dropped: the two failures it holds off are
+    # behaviour of the shipped block, so they are witnessed not asserted
+    Proof("ram:hazard", "fv_umi_ram", "cover",
+          defines=("FV_RAM_NOCHK", "FV_RAM_ANYID")),
+
+    # ---- fv_umi_fifoflex ----------------------------------------------
+    # bounded: a conservation law over running counters is not
+    # inductive, and the exact in-flight figure lives in latch_bytes,
+    # which is not a port. See the harness header.
+    Proof("fifoflex:bmc", "fv_umi_fifoflex", "bmc", params=(("SPLIT", "0"),)),
+    # the merge arm is a separate circuit and keeps the law with the
+    # splitter enabled
+    Proof("fifoflex:bmc_merge", "fv_umi_fifoflex", "bmc",
+          params=(("IDW", "64"), ("ODW", "128"))),
+    Proof("fifoflex:cover", "fv_umi_fifoflex", "cover"),
+    # alignment withdrawn: the split arm's length arithmetic underflows
+    # on an unaligned address, which is behaviour of the shipped block
+    Proof("fifoflex:hazard", "fv_umi_fifoflex", "cover",
+          defines=("FV_FLEX_NOALIGN",), params=(("IDW", "128"), ("ODW", "64"))),
+
+    # ---- fv_umi_switch ------------------------------------------------
+    # bounded: the arbiter thermometer and the mux's captured
+    # stalled_input are not observable from these ports, the same fence
+    # fv_umi_mux documents
+    Proof("switch:bmc", "fv_umi_switch", "bmc"),
+    # M=2 turns the ready merge on: every output's per-input ready is
+    # ANDed together, so acceptance depends on the stalled-grant history
+    # of outputs an input is not even asking for. See the harness header
+    Proof("switch:bmc_m2", "fv_umi_switch", "bmc", params=(("M", "2"),)),
+    Proof("switch:cover_m2", "fv_umi_switch", "cover", params=(("M", "2"),)),
+    Proof("switch:cover", "fv_umi_switch", "cover"),
+
+    # ---- configuration matrix -----------------------------------------
+    # The harnesses above run one face each, chosen for solve time, and
+    # four of them (demux, mux, mux2, crossbar) run AW=16/DW=32 --
+    # narrower than README 4.1 permits, which is fine for a routing law
+    # but is not a configuration any UMI device ships. These rows
+    # re-answer the same questions at widths the specification allows
+    # and at the width nine blocks in this repo actually default to, so
+    # a truncation that only appears in a wide counter cannot hide
+    # behind a narrow proof.
+    #
+    # Every proof here is paired with a cover row at the SAME face. A
+    # proof at a new width can pass for the wrong reason: if widening
+    # made some assumption unsatisfiable, every assertion under it holds
+    # vacuously and the row goes green while checking nothing. The
+    # paired cover is what rules that out -- it must still reach every
+    # witness, and the counts are in the folder README.
+    Proof("buffer:prove_dw256", "fv_umi_buffer", "prove",
+          params=(("DW", "256"),)),
+    Proof("buffer:cover_dw256", "fv_umi_buffer", "cover",
+          params=(("DW", "256"),)),
+    Proof("buffer:prove_aw32", "fv_umi_buffer", "prove",
+          params=(("AW", "32"),)),
+    Proof("buffer:cover_aw32", "fv_umi_buffer", "cover",
+          params=(("AW", "32"),)),
+    Proof("demux:prove_legal", "fv_umi_demux", "prove",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("demux:cover_legal", "fv_umi_demux", "cover",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("mux2:prove_legal", "fv_umi_mux2", "prove",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("crossbar:prove_legal", "fv_umi_crossbar", "prove",
+          params=(("AW", "64"), ("DW", "64"))),
+    # umi_mux runs the same narrow face as its three neighbours above
+    # and was left out of the first widening. It answers bmc, not
+    # prove, for the reason its harness header gives.
+    Proof("mux:bmc_legal", "fv_umi_mux", "bmc",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("mux:cover_legal", "fv_umi_mux", "cover",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("pipeline:prove_dw256", "fv_umi_pipeline", "prove",
+          params=(("DW", "256"),)),
+    Proof("pipeline:cover_dw256", "fv_umi_pipeline", "cover",
+          params=(("DW", "256"),)),
+    # AW=32 is the other address width README 4.1 permits, and the one
+    # nothing was elaborated at until the buffer rows above
+    Proof("mux2:prove_aw32", "fv_umi_mux2", "prove",
+          params=(("AW", "32"), ("DW", "64"))),
+    Proof("mux2:cover_aw32", "fv_umi_mux2", "cover",
+          params=(("AW", "32"), ("DW", "64"))),
+    Proof("crossbar:prove_aw32", "fv_umi_crossbar", "prove",
+          params=(("AW", "32"), ("DW", "64"))),
+    Proof("crossbar:cover_aw32", "fv_umi_crossbar", "cover",
+          params=(("AW", "32"), ("DW", "64"))),
+    Proof("pipeline:prove_aw32", "fv_umi_pipeline", "prove",
+          params=(("AW", "32"),)),
+    Proof("pipeline:cover_aw32", "fv_umi_pipeline", "cover",
+          params=(("AW", "32"),)),
+    Proof("isolate:prove_dw256", "fv_umi_isolate", "prove",
+          params=(("DW", "256"),)),
+    Proof("isolate:cover_dw256", "fv_umi_isolate", "cover",
+          params=(("DW", "256"),)),
+    Proof("isolate:prove_aw32", "fv_umi_isolate", "prove",
+          params=(("AW", "32"),)),
+    Proof("isolate:cover_aw32", "fv_umi_isolate", "cover",
+          params=(("AW", "32"),)),
+    Proof("regif:prove_dw256", "fv_umi_regif", "prove",
+          params=(("DW", "256"),)),
+    Proof("regif:cover_dw256", "fv_umi_regif", "cover",
+          params=(("DW", "256"),)),
+    Proof("monitor:prove_dw256", "fv_umi_monitor", "prove",
+          params=(("DW", "256"),)),
+    Proof("monitor:cover_dw256", "fv_umi_monitor", "cover",
+          params=(("DW", "256"),)),
+    # the repo's own RAM testbench instantiates the arbiter at N=5; the
+    # proofs above stop at 4, and the thermometer is N-asymmetric
+    Proof("mux2:cover_legal", "fv_umi_mux2", "cover",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("crossbar:cover_legal", "fv_umi_crossbar", "cover",
+          params=(("AW", "64"), ("DW", "64"))),
+    Proof("arbiter:prove_n5", "fv_umi_arbiter", "prove",
+          params=(("N", "5"),)),
+    Proof("arbiter:cover_n5", "fv_umi_arbiter", "cover",
+          params=(("N", "5"),)),
 ]
 
 FAULTS = [
@@ -321,6 +572,134 @@ FAULTS = [
           defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "32"),),
           expect="RESET_valid_low"),
 
+    # ---- fv_umi_pipeline ----------------------------------------------
+    Proof("pipeline:fault_valid", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("pipeline:fault_data", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
+    # the two addresses exchanged: every handshake rule still holds, so
+    # only the identity law can see it
+    Proof("pipeline:fault_swap", "fv_umi_pipeline", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_SWAP"), expect="a_pipe_beat"),
+    # a beat the stage never accepted: the accounting law catches it
+    Proof("pipeline:fault_ghost", "fv_umi_pipeline", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_GHOST"),
+          expect="a_pipe_occupancy"),
+    Proof("pipeline:fault_mask_r2", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "1"),),
+          expect="RULE2_valid_hold"),
+    Proof("pipeline:fault_mask_r3data", "fv_umi_pipeline", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "16"),),
+          expect="RULE3_data_stable"),
+
+    # ---- fv_umi_decode ------------------------------------------------
+    Proof("decode:fault_read", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_READ",), expect="DEC_read"),
+    Proof("decode:fault_onehot", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_ONEHOT",), expect="DEC_class_onehot0"),
+    Proof("decode:fault_req", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_REQ",), expect="DEC_req_implies"),
+    Proof("decode:fault_atomic", "fv_umi_decode", "bmc",
+          defines=("FV_FAULT_ATOMIC",), expect="DEC_atomic_onehot0"),
+
+    # ---- fv_umi_isolate -----------------------------------------------
+    Proof("isolate:fault_pass", "fv_umi_isolate", "bmc",
+          defines=("FV_FAULT_PASS",), expect="a_iso_pass"),
+    Proof("isolate:fault_clamp", "fv_umi_isolate", "bmc",
+          defines=("FV_FAULT_CLAMP",), expect="a_iso_clamp"),
+
+    # ---- fv_umi_monitor -----------------------------------------------
+    Proof("monitor:fault_or", "fv_umi_monitor", "bmc",
+          defines=("FV_FAULT_OR",), expect="a_mon_beat"),
+
+    # ---- fv_umi_fifo --------------------------------------------------
+    Proof("fifo:fault_valid", "fv_umi_fifo", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("fifo:fault_data", "fv_umi_fifo", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
+    Proof("fifo:fault_swap", "fv_umi_fifo", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_SWAP"), params=(("DEPTH", "2"),),
+          expect="a_fifo_beat"),
+    Proof("fifo:fault_ghost", "fv_umi_fifo", "bmc",
+          defines=("FV_IDENTITY", "FV_FAULT_GHOST"), params=(("DEPTH", "2"),),
+          expect="a_fifo_no_underflow"),
+
+    # ---- fv_umi_stream ------------------------------------------------
+    Proof("stream:fault_valid", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("stream:fault_data", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
+    Proof("stream:fault_usi_hold", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_USI_HOLD",), expect="a_usi_out_hold"),
+    Proof("stream:fault_usi_stable", "fv_umi_stream", "bmc",
+          defines=("FV_FAULT_USI_STABLE",), expect="a_usi_out_stable"),
+
+    # ---- fv_umi_memif -------------------------------------------------
+    # each fault is confined to one ATYPE so it can convict only its
+    # own law
+    Proof("memif:fault_add", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_ADD",), expect="a_alu_add"),
+    Proof("memif:fault_smax", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_SMAX",), expect="a_alu_smax"),
+    Proof("memif:fault_swap", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_SWAP",), expect="a_alu_swap"),
+    Proof("memif:fault_default", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_DEFAULT",), expect="a_alu_default"),
+
+    # ---- fv_umi_regif -------------------------------------------------
+    Proof("regif:fault_valid", "fv_umi_regif", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    # the xor swaps the two response opcodes, so either half of the
+    # kind law can catch it; the solver reaches the write side first
+    Proof("regif:fault_kind", "fv_umi_regif", "bmc",
+          defines=("FV_FAULT_KIND",), expect="a_regif_kind_wr"),
+    Proof("regif:fault_posted", "fv_umi_regif", "bmc",
+          defines=("FV_FAULT_POSTED",), expect="a_regif_no_invent"),
+    # nothing injected: SAFE=1 is the shipped default, and it breaks the
+    # accounting law on its own. Pinned so the finding cannot regress
+    # into silence
+    Proof("regif:fault_safe", "fv_umi_regif", "bmc",
+          defines=("FV_REGIF_NOCHK",), params=(("SAFE", "1"),),
+          expect="a_regif_outstanding"),
+
+    # ---- fv_umi_endpoint ----------------------------------------------
+    Proof("endpoint:fault_valid", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("endpoint:fault_kind", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_KIND",), expect="a_ep_kind_wr"),
+    Proof("endpoint:fault_da", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_DA",), expect="a_ep_da"),
+    Proof("endpoint:fault_posted", "fv_umi_endpoint", "bmc",
+          defines=("FV_FAULT_POSTED",), expect="a_ep_outstanding"),
+    # nothing injected: the REG=1 arm really can hold two answers, so
+    # the REG=0 accounting law must fail there
+    Proof("endpoint:fault_cap", "fv_umi_endpoint", "bmc",
+          defines=("FV_EP_EXACT",), params=(("REG", "1"),),
+          expect="a_ep_outstanding"),
+
+    # ---- fv_umi_ram ---------------------------------------------------
+    Proof("ram:fault_route", "fv_umi_ram", "bmc",
+          defines=("FV_RAM_NOCHK", "FV_FAULT_ROUTE"), expect="a_ram_route"),
+    # nothing injected: with the response checker in place the shipped
+    # block moves its broadcast response address while an answer is
+    # standing unaccepted. Pinned so the finding cannot regress
+    Proof("ram:fault_stable", "fv_umi_ram", "bmc",
+          expect="RULE3_dstaddr_stable"),
+
+    # ---- fv_umi_fifoflex ----------------------------------------------
+    Proof("fifoflex:fault_valid", "fv_umi_fifoflex", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+    Proof("fifoflex:fault_invent", "fv_umi_fifoflex", "bmc",
+          defines=("FV_FAULT_INVENT",), expect="a_flex_conserve"),
+    # nothing injected: with SPLIT=1 the block delivers bytes it was
+    # never given. umi_memagent instantiates it exactly this way
+    Proof("fifoflex:fault_split", "fv_umi_fifoflex", "bmc",
+          params=(("SPLIT", "1"),), expect="a_flex_conserve"),
+
+    # ---- fv_umi_switch ------------------------------------------------
+    Proof("switch:fault_valid", "fv_umi_switch", "bmc",
+          defines=("FV_FAULT_VALID",), expect="RULE2_valid_hold"),
+
     # ---- fv_umi_demux -------------------------------------------------
     Proof("demux:fault_valid", "fv_umi_demux", "bmc", defines=("FV_FAULT_VALID",),
           expect="a_dx_valid_eq"),
@@ -380,6 +759,28 @@ FAULTS = [
           expect="CMD6_sa_reserved"),
     Proof("cmd:fault_invalid", "fv_umi_cmd", "bmc", defines=("FV_FAULT_INVALID",),
           expect="CMD1_opcode_legal"),
+
+    # ---- fv_umi_frame -------------------------------------------------
+    # one row per rule, each bending exactly that rule on the observed
+    # channel while the driving channel stays legal
+    Proof("frame:fault_size", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_SIZE",), expect="FRAME_size_stable"),
+    Proof("frame:fault_opcode", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_OPCODE",), expect="FRAME_opcode_stable"),
+    Proof("frame:fault_fields", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_FIELDS",), expect="FRAME_fields_stable"),
+    Proof("frame:fault_da", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_DA",), expect="FRAME_da_cont"),
+    Proof("frame:fault_sa", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_SA",), expect="FRAME_sa_cont"),
+    # a message that never closes runs past the ceiling; lowered so the
+    # boundary is reachable inside the bounded depth
+    Proof("frame:fault_bytes", "fv_umi_frame", "bmc", depth=14,
+          defines=("FV_FAULT_BYTES",), expect="FRAME_msgbytes"),
+    # the mask is falsifiable: only bit 3 enabled, so FRAME_da_cont alone
+    Proof("frame:fault_mask_da", "fv_umi_frame", "bmc",
+          defines=("FV_FAULT_FREEOUT",), params=(("RULE_EN", "8"),),
+          expect="FRAME_da_cont"),
 
     # ---- fv_umi_txn ---------------------------------------------------
     Proof("txn:fault_wrongda", "fv_umi_txn", "bmc", defines=("FV_FAULT_WRONGDA",),

@@ -28,7 +28,8 @@ table. This file is the index; the detail lives next to the code.
 
     pytest -m formal tests/sumi/test_formal_sc.py
 
-    # one row
+    # one family of rows -- -k is a substring match, so this selects the
+    # four buffer identity rows, not one
     pytest -m formal tests/sumi/test_formal_sc.py -k 'buffer:identity'
 
 To debug a proof under sby or yosys directly, run its row once with a pinned
@@ -106,7 +107,7 @@ verdict and not a label -- `buffer:fault_swap` injects the same corruption
 under `bmc` and pins the label there.
 
 There is no independent-solver corroboration here: every SMT result is gated on
-bitwuzla alone. Standing in its place is the fault matrix -- 54 rows that each
+bitwuzla alone. Standing in its place is the fault matrix -- 101 rows that each
 inject a bug and must each still produce a counterexample, which a solver
 quietly answering "proved" to everything would not deliver. To re-check one
 result against another solver, run its row, edit the `[engines]` line of the
@@ -144,27 +145,69 @@ job file it generated, and rerun that file by hand.
 | proof | judges | claim | green | fault |
 |---|---|---|---|---|
 | `sumi/fv_umi_codec` | `umi_pack` / `umi_unpack` | CMD codec round-trips over the 13 structured opcodes, and each field sits at the bit position `umi_messages.vh` defines | 2 | 1 |
-| `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5, and delivers every beat unchanged in all four SUMI fields and in accept order, with none dropped or invented | 9 | 11 |
-| `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 5 | 6 |
-| `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 5 | 4 |
-| `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in iff one accept out, and the output beat is the accepting input's (bounded) | 2 | 3 |
-| `sumi/fv_umi_mux2` | `umi_mux2` | select-and-merge: the output is the selected input's beat, accepts are conserved, and the output channel is legal SUMI under a stable select | 3 | 5 |
-| `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers | 2 | 5 |
+| `sumi/fv_umi_buffer` | `umi_buffer` | obeys the README 4.2 ready/valid handshake, including rule 5, and delivers every beat unchanged in all four SUMI fields and in accept order, with none dropped or invented | 13 | 11 |
+| `sumi/fv_umi_demux` | `umi_demux` | routing, broadcast and fork conservation; every output channel legal SUMI; rule 5 clean | 7 | 6 |
+| `sumi/fv_umi_arbiter` | `umi_arbiter` | grant contract: at most one grant, never to an idle or masked requester, and in priority mode the lowest unmasked requester wins | 7 | 4 |
+| `sumi/fv_umi_mux` | `umi_mux` | merge identity at accept time: one accept in iff one accept out, and the output beat is the accepting input's (bounded) | 4 | 3 |
+| `sumi/fv_umi_mux2` | `umi_mux2` | select-and-merge: the output is the selected input's beat, accepts are conserved, and the output channel is legal SUMI under a stable select | 7 | 5 |
+| `sumi/fv_umi_crossbar` | `umi_crossbar` | NxN routing at accept time: one delivery per output, the delivered beat is the delivering input's, and no masked path delivers | 6 | 5 |
+| `sumi/fv_umi_pipeline` | `umi_pipeline` | the single-cycle register stage keeps the handshake and delivers every beat it accepts, once, in order, unchanged (unbounded -- every register is a port) | 9 | 6 |
+| `sumi/fv_umi_decode` | `umi_decode` | the class outputs are mutually exclusive and complete, and on the legal opcode set each matches the full five-bit encoding the four-bit compares stand in for | 3 | 4 |
+| `sumi/fv_umi_isolate` | `umi_isolate` | isolate high clamps the whole channel to zero and isolate low passes it through, over both build-time arms | 7 | 2 |
+| `sumi/fv_umi_monitor` | `umi_monitor` | the passive tap reports a transfer on exactly the cycles README 4.2 rule 1 defines one | 4 | 1 |
+| `sumi/fv_umi_fifo` | `umi_fifo` | handshake and carriage over both the stored and bypass paths: nothing dropped, duplicated, invented or reordered (bounded, clocks tied) | 7 | 4 |
+| `sumi/fv_umi_stream` | `umi_stream` | a legal handshake on all four faces at once, the two UMI and the two USI (bounded, clocks tied) | 2 | 4 |
+| `sumi/fv_umi_memif` | `umi_memif` | the nine atomic operations against their arithmetic, and the arm that resolves an undefined ATYPE | 2 | 4 |
+| `sumi/fv_umi_regif` | `umi_regif` | the register interface answers the right kind of request and keeps the response handshake at `SAFE=0`; `SAFE=1` loses answers and is pinned | 5 | 4 |
+| `sumi/fv_umi_endpoint` | `umi_endpoint` | request to memory operation to response: one memory op per request, the right response kind, back to the requester, and the answers owed are accounted for | 3 | 5 |
+| `sumi/fv_umi_ram` | `umi_ram` | an answer is only offered to a port whose id bit it carries; the response channel's rule 3 failure is pinned (bounded) | 3 | 2 |
+| `sumi/fv_umi_fifoflex` | `umi_fifoflex` | bytes are conserved across a width change at `SPLIT=0` and on the merge arm; `SPLIT=1` is pinned as not conserving them (bounded) | 4 | 3 |
+| `sumi/fv_umi_switch` | `umi_switch` | the output handshake on every port, with the ready merge active across one and two outputs (bounded) | 4 | 1 |
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 6 | 11 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 5 | 8 |
+| `sumi/fv_umi_frame` | `umi_frame_checker` | intra-message framing on a single channel, the request side included: the checker's assume face and assert face agree | 3 | 7 |
 
-39 green rows and 54 fault rows, 93 in all.
+113 green rows and 101 fault rows, 214 in all, over 22 harnesses.
 
-`fv_umi_codec`, `fv_umi_buffer`, `fv_umi_demux`, `fv_umi_arbiter`,
-`fv_umi_mux`, `fv_umi_mux2` and `fv_umi_crossbar` judge **shipped design RTL**. `fv_umi_cmd` and `fv_umi_txn` qualify
+Nineteen of them judge **shipped design RTL**, covering every SUMI block
+on a UMI path except `umi_memagent`, whose atomic unit is textually the
+same as `umi_memif`'s but reaches no port without a memory round trip,
+and `umi_tester`, which is test-bench infrastructure rather than a block
+on a path. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
 the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
 `fv_umi_txn` elaborates the asserting face alone, against a responder model, so
 its ASSUME face is not covered (see the scope note below).
+
+### Results that are pinned rather than proven
+
+Four blocks do not satisfy a law a reader would expect, and each has a
+row that REQUIRES the failure so it cannot regress into silence. Nothing
+is injected on any of them -- the shipped configuration is the subject:
+
+| row | what it requires to fail | why |
+|---|---|---|
+| `regif:fault_safe` | `a_regif_outstanding` | at `SAFE=1`, the default, a second request is accepted while the first answer still stands and the response is overwritten |
+| `endpoint:fault_cap` | `a_ep_outstanding` | the `REG=1` arm holds two answers, not one, so the `REG=0` accounting law does not carry over |
+| `ram:fault_stable` | `RULE3_dstaddr_stable` | the broadcast response address moves while an answer is standing unaccepted |
+| `fifoflex:fault_split` | `a_flex_conserve` | at `SPLIT=1`, the arm `umi_memagent` instantiates, more bytes are delivered than were accepted |
+
+If any of these ever goes green, the block changed and the lane says so.
 
 ### Scope notes
 
 Only the caveats a reader must know before trusting a result; full rationale
 is in each harness header.
+
+**Clocks are tied** in `fv_umi_fifo`, `fv_umi_stream` and `fv_umi_fifoflex`.
+Those blocks span two domains through `la_asyncfifo`; the harnesses drive both
+from one clock. That covers everything independent of the clock ratio and says
+nothing about true asynchrony, which needs a delay model on the synchroniser
+outputs that this directory does not have yet.
+
+**`umi_switch` is not re-exported** from `umi.sumi`, so the parametrized lint
+does not reach it and `fv_umi_switch` imports it directly. That keeps the
+existing decision to keep it out of the public API intact while still letting
+the block be judged.
 
 **README 4.2 rule 5** ("the assertion of VALID must not depend on the assertion
 of READY") is structural -- a cycle-sampled bind-in monitor cannot assert it.
