@@ -53,7 +53,7 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
-from umi.adapters import UMI2APB
+from umi.adapters import UMI2APB, UMI2AXIL
 
 REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -149,6 +149,8 @@ FAMILIES = {
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
     "fv_umi2apb": dict(deps=lambda: [UMI2APB(), Checker()], depth=10,
                        timeout=1800, root=FORMAL_ADAPTERS),
+    "fv_umi2axil": dict(deps=lambda: [UMI2AXIL(), Checker()], depth=12,
+                        timeout=1800, root=FORMAL_ADAPTERS),
 }
 
 
@@ -442,6 +444,15 @@ GREEN = [
     # the block header says atomics and RDMA are dropped silently. This
     # row withdraws the opcode assumption and covers what they really do
     Proof("apb:hazard", "fv_umi2apb", "cover", defines=("FV_APB_ANYOP",)),
+
+    # ---- fv_umi2axil --------------------------------------------------
+    # AXI4-Lite manager: three channels the block owns, two it does not
+    # RESP_RULE_EN 47 = 6'h2F masks RULE3_data_stable (bit 4): the
+    # response data field is driven by RDATA even on a write response,
+    # which axil:fault_data pins. The other five rules are still proven
+    Proof("axil:bmc", "fv_umi2axil", "bmc",
+          params=(("RESP_RULE_EN", "47"),)),
+    Proof("axil:cover", "fv_umi2axil", "cover"),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -874,6 +885,24 @@ FAULTS = [
     Proof("apb:fault_drop", "fv_umi2apb", "bmc",
           defines=("FV_APB_ANYOP", "FV_APB_ASSERT_DROP"),
           expect="a_apb_unsupported_dropped"),
+
+    # ---- fv_umi2axil --------------------------------------------------
+    Proof("axil:fault_aw", "fv_umi2axil", "bmc", defines=("FV_FAULT_AW",),
+          expect="AXIL_aw_hold"),
+    Proof("axil:fault_w", "fv_umi2axil", "bmc", defines=("FV_FAULT_W",),
+          expect="AXIL_w_stable"),
+    Proof("axil:fault_ar", "fv_umi2axil", "bmc", defines=("FV_FAULT_AR",),
+          expect="AXIL_ar_hold"),
+    Proof("axil:fault_kind", "fv_umi2axil", "bmc", defines=("FV_FAULT_KIND",),
+          expect="a_axil_kind"),
+    # Nothing is injected here. The byte-lane shift amount is computed at
+    # the width of a 3-bit signal and is therefore always zero
+    Proof("axil:fault_lane", "fv_umi2axil", "bmc",
+          defines=("FV_AXIL_ASSERT_LANE",), expect="a_axil_wdata_lane"),
+    # Nothing injected: with the full rule set the response data field
+    # moves under a standing offer on a write response
+    Proof("axil:fault_data", "fv_umi2axil", "bmc",
+          expect="RULE3_data_stable"),
 ]
 
 
