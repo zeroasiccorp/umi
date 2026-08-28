@@ -53,9 +53,11 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
+from umi.adapters import UMI2APB
 
 REPO = Path(__file__).resolve().parents[2]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
+FORMAL_ADAPTERS = REPO / "umi" / "formal" / "adapters"
 SUMI_INCLUDE = REPO / "umi" / "sumi" / "include"
 
 # the lane pins its engine rather than inheriting the sby task's
@@ -112,6 +114,8 @@ if _HAVE_SC_FORMAL:
 
 # One entry per proof family: the dependency blocks (DUT + property
 # modules), the default unrolling depth, and the sby wall-clock ceiling.
+# root is where the harness file lives, and defaults to umi/formal/sumi;
+# the adapter harnesses sit beside their own layer instead.
 FAMILIES = {
     "fv_umi_codec": dict(deps=lambda: [Pack(), Unpack()], depth=4, timeout=300),
     "fv_umi_buffer": dict(deps=lambda: [Buffer(), Checker()], depth=12, timeout=300),
@@ -143,6 +147,8 @@ FAMILIES = {
     "fv_umi_frame": dict(deps=lambda: [Checker()], depth=10, timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
+    "fv_umi2apb": dict(deps=lambda: [UMI2APB(), Checker()], depth=10,
+                       timeout=1800, root=FORMAL_ADAPTERS),
 }
 
 
@@ -426,6 +432,16 @@ GREEN = [
     Proof("switch:bmc_m2", "fv_umi_switch", "bmc", params=(("M", "2"),)),
     Proof("switch:cover_m2", "fv_umi_switch", "cover", params=(("M", "2"),)),
     Proof("switch:cover", "fv_umi_switch", "cover"),
+
+    # ---- fv_umi2apb ---------------------------------------------------
+    # the first adapter: one UMI face and one AMBA APB face, each held
+    # to its own specification. Bounded -- the DUT carries request and
+    # response registers no port shows, the same fence umi_buffer met
+    Proof("apb:bmc", "fv_umi2apb", "bmc"),
+    Proof("apb:cover", "fv_umi2apb", "cover"),
+    # the block header says atomics and RDMA are dropped silently. This
+    # row withdraws the opcode assumption and covers what they really do
+    Proof("apb:hazard", "fv_umi2apb", "cover", defines=("FV_APB_ANYOP",)),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -843,13 +859,29 @@ FAULTS = [
           expect="a_xb_conserve"),
     Proof("crossbar:fault_blend", "fv_umi_crossbar", "bmc", defines=("FV_FAULT_BLEND",),
           expect="a_xb_route_cmd"),
+
+    # ---- fv_umi2apb ---------------------------------------------------
+    Proof("apb:fault_enable", "fv_umi2apb", "bmc", defines=("FV_FAULT_ENABLE",),
+          expect="APB2_setup_to_access"),
+    Proof("apb:fault_stable", "fv_umi2apb", "bmc", defines=("FV_FAULT_STABLE",),
+          expect="APB4_payload_stable"),
+    Proof("apb:fault_kind", "fv_umi2apb", "bmc", defines=("FV_FAULT_KIND",),
+          expect="a_apb_kind"),
+    Proof("apb:fault_posted", "fv_umi2apb", "bmc", defines=("FV_FAULT_POSTED",),
+          expect="a_apb_posted_quiet"),
+    # Nothing is injected here. The block header says atomics and RDMA
+    # are dropped silently; they are not, and this row pins that
+    Proof("apb:fault_drop", "fv_umi2apb", "bmc",
+          defines=("FV_APB_ANYOP", "FV_APB_ASSERT_DROP"),
+          expect="a_apb_unsupported_dropped"),
 ]
 
 
 def _harness(proof):
     """The proof's Design: harness on top, repo blocks as deps."""
     design = Design(proof.family)
-    design.set_dataroot("umi_formal_sumi", str(FORMAL_SUMI))
+    root = FAMILIES[proof.family].get("root", FORMAL_SUMI)
+    design.set_dataroot(f"umi_formal_{root.name}", str(root))
     with design.active_fileset("rtl"):
         design.set_topmodule(proof.family)
         design.add_file(f"{proof.family}.sv")

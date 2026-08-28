@@ -166,21 +166,22 @@ job file it generated, and rerun that file by hand.
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 6 | 11 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 5 | 8 |
 | `sumi/fv_umi_frame` | `umi_frame_checker` | intra-message framing on a single channel, the request side included: the checker's assume face and assert face agree | 3 | 7 |
+| `adapters/fv_umi2apb` | `umi2apb` | the AMBA APB requester face (phase order, hold, payload stability) and the SUMI response the block builds for the request it served (bounded) | 3 | 5 |
 
-113 green rows and 101 fault rows, 214 in all, over 22 harnesses.
+116 green rows and 106 fault rows, 222 in all, over 23 harnesses.
 
-Nineteen of them judge **shipped design RTL**, covering every SUMI block
-on a UMI path except `umi_memagent`, whose atomic unit is textually the
-same as `umi_memif`'s but reaches no port without a memory round trip,
-and `umi_tester`, which is test-bench infrastructure rather than a block
-on a path. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
+Twenty of them judge **shipped design RTL**: every SUMI block on a UMI
+path except `umi_memagent`, whose atomic unit is textually the same as
+`umi_memif`'s but reaches no port without a memory round trip, and
+`umi_tester`, which is test-bench infrastructure rather than a block on
+a path; plus `umi2apb`, the first of the bus adapters. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
 the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
 `fv_umi_txn` elaborates the asserting face alone, against a responder model, so
 its ASSUME face is not covered (see the scope note below).
 
 ### Results that are pinned rather than proven
 
-Four blocks do not satisfy a law a reader would expect, and each has a
+Five blocks do not satisfy a law a reader would expect, and each has a
 row that REQUIRES the failure so it cannot regress into silence. Nothing
 is injected on any of them -- the shipped configuration is the subject:
 
@@ -190,6 +191,7 @@ is injected on any of them -- the shipped configuration is the subject:
 | `endpoint:fault_cap` | `a_ep_outstanding` | the `REG=1` arm holds two answers, not one, so the `REG=0` accounting law does not carry over |
 | `ram:fault_stable` | `RULE3_dstaddr_stable` | the broadcast response address moves while an answer is standing unaccepted |
 | `fifoflex:fault_split` | `a_flex_conserve` | at `SPLIT=1`, the arm `umi_memagent` instantiates, more bytes are delivered than were accepted |
+| `apb:fault_drop` | `a_apb_unsupported_dropped` | the block header says atomics and RDMA are "dropped silently"; `incoming_req` has no opcode term, so both start a real APB transfer |
 
 If any of these ever goes green, the block changed and the lane says so.
 
