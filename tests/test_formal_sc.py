@@ -53,7 +53,7 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
-from umi.adapters import UMI2APB, UMI2AXIL
+from umi.adapters import AXIL2UMI, UMI2APB, UMI2AXIL
 
 REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -150,6 +150,8 @@ FAMILIES = {
     "fv_umi2apb": dict(deps=lambda: [UMI2APB(), Checker()], depth=10,
                        timeout=1800, root=FORMAL_ADAPTERS),
     "fv_umi2axil": dict(deps=lambda: [UMI2AXIL(), Checker()], depth=12,
+                        timeout=1800, root=FORMAL_ADAPTERS),
+    "fv_axil2umi": dict(deps=lambda: [AXIL2UMI(), Checker()], depth=12,
                         timeout=1800, root=FORMAL_ADAPTERS),
 }
 
@@ -453,6 +455,16 @@ GREEN = [
     Proof("axil:bmc", "fv_umi2axil", "bmc",
           params=(("RESP_RULE_EN", "47"),)),
     Proof("axil:cover", "fv_umi2axil", "cover"),
+
+    # ---- fv_axil2umi --------------------------------------------------
+    # the same AXI4-Lite law set from the subordinate side: this block
+    # owns B and R, so those are asserted and AW/W/AR assumed
+    Proof("axil2:bmc", "fv_axil2umi", "bmc"),
+    Proof("axil2:cover", "fv_axil2umi", "cover"),
+    # AWVALID and ARVALID on one edge: both address channels report the
+    # same ready, so both are accepted. Witnessed here, pinned below
+    Proof("axil2:hazard", "fv_axil2umi", "cover",
+          defines=("FV_AXIL2_CONCURRENT",)),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -903,6 +915,21 @@ FAULTS = [
     # moves under a standing offer on a write response
     Proof("axil:fault_data", "fv_umi2axil", "bmc",
           expect="RULE3_data_stable"),
+
+    # ---- fv_axil2umi --------------------------------------------------
+    Proof("axil2:fault_b", "fv_axil2umi", "bmc", defines=("FV_FAULT_B",),
+          expect="AXIL_b_hold"),
+    Proof("axil2:fault_r", "fv_axil2umi", "bmc", defines=("FV_FAULT_R",),
+          expect="AXIL_r_stable"),
+    Proof("axil2:fault_kind", "fv_axil2umi", "bmc", defines=("FV_FAULT_KIND",),
+          expect="a_axil2_kind"),
+    Proof("axil2:fault_inflight", "fv_axil2umi", "bmc",
+          defines=("FV_FAULT_INFLIGHT",), expect="a_axil2_one_inflight"),
+    # Nothing injected. With a concurrent read and write accepted, the
+    # response steering drains the UMI answer on BREADY and RVALID falls
+    # without RREADY
+    Proof("axil2:fault_concurrent", "fv_axil2umi", "bmc",
+          defines=("FV_AXIL2_CONCURRENT",), expect="AXIL_r_hold"),
 ]
 
 

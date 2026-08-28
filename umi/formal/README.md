@@ -168,21 +168,23 @@ job file it generated, and rerun that file by hand.
 | `sumi/fv_umi_frame` | `umi_frame_checker` | intra-message framing on a single channel, the request side included: the checker's assume face and assert face agree | 3 | 7 |
 | `adapters/fv_umi2apb` | `umi2apb` | the AMBA APB requester face (phase order, hold, payload stability) and the SUMI response the block builds for the request it served (bounded) | 3 | 5 |
 | `adapters/fv_umi2axil` | `umi2axil` | the AXI4-Lite manager face: VALID hold and payload stability on the three channels the block owns, against a completer model that answers only what it was asked (bounded) | 2 | 6 |
+| `adapters/fv_axil2umi` | `axil2umi` | the same AXI4-Lite law set from the subordinate side -- B and R asserted, AW/W/AR assumed -- plus the SUMI request channel the block drives (bounded) | 3 | 5 |
 
-118 green rows and 112 fault rows, 230 in all, over 24 harnesses.
+121 green rows and 117 fault rows, 238 in all, over 25 harnesses.
 
-Twenty-one of them judge **shipped design RTL**: every SUMI block on a
+Twenty-two of them judge **shipped design RTL**: every SUMI block on a
 UMI path except `umi_memagent`, whose atomic unit is textually the same as
 `umi_memif`'s but reaches no port without a memory round trip, and
 `umi_tester`, which is test-bench infrastructure rather than a block on
-a path; plus `umi2apb` and `umi2axil`, the first of the bus adapters. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
+a path; plus `umi2apb`, `umi2axil` and `axil2umi`, the first of the
+bus adapters. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
 the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
 `fv_umi_txn` elaborates the asserting face alone, against a responder model, so
 its ASSUME face is not covered (see the scope note below).
 
 ### Results that are pinned rather than proven
 
-Six blocks do not satisfy a law a reader would expect, and each has a
+Seven blocks do not satisfy a law a reader would expect, and each has a
 row that REQUIRES the failure so it cannot regress into silence. Nothing
 is injected on any of them -- the shipped configuration is the subject:
 
@@ -195,6 +197,7 @@ is injected on any of them -- the shipped configuration is the subject:
 | `apb:fault_drop` | `a_apb_unsupported_dropped` | the block header says atomics and RDMA are "dropped silently"; `incoming_req` has no opcode term, so both start a real APB transfer |
 | `axil:fault_lane` | `a_axil_wdata_lane` | the byte-lane shift amount `(req_data_shift << 3)` is evaluated at the 3-bit width of `req_data_shift`, so it is always zero and an unaligned access is never shifted into its lane |
 | `axil:fault_data` | `RULE3_data_stable` | `udev_resp_data` is driven by `axi_rdata` with no term selecting the live response channel, so on a write response the UMI payload moves under a standing offer |
+| `axil2:fault_concurrent` | `AXIL_r_hold` | `axi_awready` and `axi_arready` are the same expression, so a manager raising AWVALID and ARVALID together has both accepted on one edge; the response steering then drains the UMI answer on BREADY and RVALID falls without RREADY |
 
 If any of these ever goes green, the block changed and the lane says so.
 
