@@ -73,7 +73,7 @@
  * Purely combinational, so induction closes immediately; the value of
  * prove mode is the quantifier over all 2^CW command words.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   decode:prove          all laws over the legal set, unbounded
  *   decode:cover          witnesses: expect all reached
  *   decode:hazard         legal assumption dropped, aliasing witnessed

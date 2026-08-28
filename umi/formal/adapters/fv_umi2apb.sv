@@ -70,7 +70,7 @@
  * of at most RW bits are the supported set per the block header, and
  * the harness assumes that shape.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   apb:bmc               the APB and UMI laws, bounded
  *   apb:cover             witnesses: expect all reached
  *   apb:fault_enable      must FAIL, APB2_setup_to_access

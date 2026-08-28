@@ -64,7 +64,7 @@
  * the proof must FAIL. A checker that cannot fail a broken design proves
  * nothing about a working one.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   arbiter:prove          N=4, mode free, unbounded
  *   arbiter:prove_n2       the same, N=2
  *   arbiter:prio           mode 2'b00, bounded (see MODE PINNING above)

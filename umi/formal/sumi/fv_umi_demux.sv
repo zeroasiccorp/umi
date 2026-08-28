@@ -89,7 +89,7 @@
  * checker that cannot fail a broken design proves nothing about a
  * working one.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   demux:prove       M=2, unbounded
  *   demux:prove_m4    M=4, unbounded
  *   demux:cover       witnesses: expect all reached

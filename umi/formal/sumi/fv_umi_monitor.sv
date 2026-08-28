@@ -46,7 +46,7 @@
  * c_mon_run only, as a witness that the link really moved several
  * beats, and nothing asserts on it.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   monitor:prove       a_mon_beat, unbounded
  *   monitor:cover       witnesses: expect all reached
  *   monitor:fault_or    must FAIL, a_mon_beat -- beat driven from

@@ -84,7 +84,7 @@
  * own header records partial writes as unsupported), the memory
  * interface timing, and the read path.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   memif:prove           all ten laws, unbounded
  *   memif:cover           witnesses: expect all reached
  *   memif:fault_add       must FAIL, a_alu_add

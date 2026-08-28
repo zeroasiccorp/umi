@@ -58,7 +58,7 @@
  * capacity (param CAP) under two legal outstanding requests -- the
  * checker convicts its own bound.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   txn:prove           MAXLEN=1 (up to two beats), k-induction
  *   txn:prove_deep      MAXLEN=3 (four beats), k-induction
  *   txn:cover           witnesses: expect all reached

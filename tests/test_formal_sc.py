@@ -55,7 +55,7 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 from umi.sumi.umi_switch.umi_switch import Switch
 from umi.adapters import UMI2APB
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
 FORMAL_ADAPTERS = REPO / "umi" / "formal" / "adapters"
 SUMI_INCLUDE = REPO / "umi" / "sumi" / "include"

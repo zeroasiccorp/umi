@@ -90,7 +90,7 @@
  * ever delivered -- this file asserts no liveness property), clock
  * ratios, and reset skew between the two domains.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   fifo:bmc              handshake, stored path, bounded
  *   fifo:bmc_bypass       handshake, bypass path, bounded
  *   fifo:cover            witnesses: expect all reached

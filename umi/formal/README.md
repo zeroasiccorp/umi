@@ -19,23 +19,23 @@ written down anywhere.
 
 One row per question, named `<family>:<task>` -- `codec:prove`,
 `buffer:identity`, `txn:fault_orphan`. The rows are the matrix in
-`tests/sumi/test_formal_sc.py`.
+`tests/test_formal_sc.py`.
 
 Each harness header documents its own properties, scope, rows and fault
 table. This file is the index; the detail lives next to the code.
 
 ## Run
 
-    pytest -m formal tests/sumi/test_formal_sc.py
+    pytest -m formal tests/test_formal_sc.py
 
     # one family of rows -- -k is a substring match, so this selects the
     # four buffer identity rows, not one
-    pytest -m formal tests/sumi/test_formal_sc.py -k 'buffer:identity'
+    pytest -m formal tests/test_formal_sc.py -k 'buffer:identity'
 
 To debug a proof under sby or yosys directly, run its row once with a pinned
 build directory and reuse the job file it generated:
 
-    pytest -m formal tests/sumi/test_formal_sc.py -k 'buffer:identity' \
+    pytest -m formal tests/test_formal_sc.py -k 'buffer:identity' \
            --basetemp=/tmp/formal
     sby -f /tmp/formal/*/fv_umi_buffer/job0/prove/0/sby/fv_umi_buffer.sby
 
@@ -457,7 +457,7 @@ of this example is `sumi/fv_umi_buffer`.
    define and covers for every assumed corner. Document its rows and its
    fault-to-label table in the harness header.
 2. Add a family entry (deps, depth, timeout) to `FAMILIES` in
-   `tests/sumi/test_formal_sc.py`, then one `Proof` row per question in
+   `tests/test_formal_sc.py`, then one `Proof` row per question in
    `GREEN` and `FAULTS`.
 3. Add a line to the table above.
 
