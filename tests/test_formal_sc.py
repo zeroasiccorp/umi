@@ -53,7 +53,7 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
-from umi.adapters import AXI2UMI, AXIL2UMI, UMI2APB, UMI2AXIL
+from umi.adapters import AXI2UMI, AXIL2UMI, TL2UMI, UMI2APB, UMI2AXIL
 
 REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -115,7 +115,8 @@ if _HAVE_SC_FORMAL:
 # One entry per proof family: the dependency blocks (DUT + property
 # modules), the default unrolling depth, and the sby wall-clock ceiling.
 # root is where the harness file lives, and defaults to umi/formal/sumi;
-# the adapter harnesses sit beside their own layer instead.
+# the adapter harnesses sit beside their own layer instead. defines are
+# applied to every row of the family, on top of the row's own.
 FAMILIES = {
     "fv_umi_codec": dict(deps=lambda: [Pack(), Unpack()], depth=4, timeout=300),
     "fv_umi_buffer": dict(deps=lambda: [Buffer(), Checker()], depth=12, timeout=300),
@@ -155,6 +156,14 @@ FAMILIES = {
                         timeout=1800, root=FORMAL_ADAPTERS),
     "fv_axi2umi": dict(deps=lambda: [AXI2UMI(), Checker()], depth=14,
                        timeout=1800, root=FORMAL_ADAPTERS),
+    # tl2umi guards four $display calls with `ifndef SYNTHESIS. yosys
+    # reads them as $check cells and async2sync rejects a $check with
+    # more than one trigger, which is what an always block with an async
+    # reset gives it. Defining SYNTHESIS takes the RTL's own escape and
+    # removes simulation-only output, no logic.
+    "fv_tl2umi": dict(deps=lambda: [TL2UMI(), Checker()], depth=12,
+                      timeout=1800, root=FORMAL_ADAPTERS,
+                      defines=("SYNTHESIS",)),
 }
 
 
@@ -478,6 +487,12 @@ GREEN = [
     Proof("axi:hazard", "fv_axi2umi", "cover", defines=("FV_AXI_ANYEOM",)),
     # a second read burst accepted while the first is still returning
     Proof("axi:hazard_multi", "fv_axi2umi", "cover", defines=("FV_AXI_MULTI",)),
+
+    # ---- fv_tl2umi ----------------------------------------------------
+    # TileLink-UL subordinate: the D channel must carry the source and
+    # size of the request it answers, and the opcode that request demands
+    Proof("tl:bmc", "fv_tl2umi", "bmc"),
+    Proof("tl:cover", "fv_tl2umi", "cover"),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -959,6 +974,14 @@ FAULTS = [
     # second burst overwrites RID while the first is still standing
     Proof("axi:fault_multi", "fv_axi2umi", "bmc", defines=("FV_AXI_MULTI",),
           expect="AXI_r_id"),
+
+    # ---- fv_tl2umi ----------------------------------------------------
+    Proof("tl:fault_d", "fv_tl2umi", "bmc", defines=("FV_FAULT_D",),
+          expect="TL_d_stable"),
+    Proof("tl:fault_hold", "fv_tl2umi", "bmc", defines=("FV_FAULT_HOLD",),
+          expect="TL_d_hold"),
+    Proof("tl:fault_opcode", "fv_tl2umi", "bmc", defines=("FV_FAULT_OPCODE",),
+          expect="TL_d_opcode_legal"),
 ]
 
 
@@ -973,7 +996,8 @@ def _harness(proof):
         design.add_idir(str(SUMI_INCLUDE))
         for dep in FAMILIES[proof.family]["deps"]():
             design.add_depfileset(dep, "rtl")
-        for define in proof.defines:
+        for define in (tuple(FAMILIES[proof.family].get("defines", ()))
+                       + proof.defines):
             design.add_define(define)
         for name, value in proof.params:
             design.set_param(name, value)

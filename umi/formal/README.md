@@ -170,15 +170,16 @@ job file it generated, and rerun that file by hand.
 | `adapters/fv_umi2axil` | `umi2axil` | the AXI4-Lite manager face: VALID hold and payload stability on the three channels the block owns, against a completer model that answers only what it was asked (bounded) | 2 | 6 |
 | `adapters/fv_axil2umi` | `axil2umi` | the same AXI4-Lite law set from the subordinate side -- B and R asserted, AW/W/AR assumed -- plus the SUMI request channel the block drives (bounded) | 3 | 5 |
 | `adapters/fv_axi2umi` | `axi2umi` | the AXI4 subordinate face including the burst obligations AXI4-Lite does not have: RID held across a burst, RLAST on beat ARLEN+1 and nowhere else (bounded) | 4 | 5 |
+| `adapters/fv_tl2umi` | `tl2umi` | the TileLink-UL subordinate D channel: the irrevocable rule and response-opcode legality, against a manager held to the TL-UL request rules. The D-to-A correspondence laws are written but not proven -- see the harness header (bounded) | 2 | 3 |
 
-125 green rows and 122 fault rows, 247 in all, over 26 harnesses.
+127 green rows and 125 fault rows, 252 in all, over 27 harnesses.
 
-Twenty-three of them judge **shipped design RTL**: every SUMI block on
+Twenty-four of them judge **shipped design RTL**: every SUMI block on
 a UMI path except `umi_memagent`, whose atomic unit is textually the same as
 `umi_memif`'s but reaches no port without a memory round trip, and
 `umi_tester`, which is test-bench infrastructure rather than a block on
-a path; plus `umi2apb`, `umi2axil`, `axil2umi` and `axi2umi`, four of
-the six bus adapters. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
+a path; plus `umi2apb`, `umi2axil`, `axil2umi`, `axi2umi` and
+`tl2umi`, five of the six bus adapters. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
 the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
 `fv_umi_txn` elaborates the asserting face alone, against a responder model, so
 its ASSUME face is not covered (see the scope note below).
