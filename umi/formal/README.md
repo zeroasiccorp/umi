@@ -172,21 +172,22 @@ job file it generated, and rerun that file by hand.
 | `adapters/fv_axi2umi` | `axi2umi` | the AXI4 subordinate face including the burst obligations AXI4-Lite does not have: RID held across a burst, RLAST on beat ARLEN+1 and nowhere else (bounded) | 4 | 5 |
 | `adapters/fv_tl2umi` | `tl2umi` | the TileLink-UL subordinate D channel: the irrevocable rule and response-opcode legality, against a manager held to the TL-UL request rules. The D-to-A correspondence laws are written but not proven -- see the harness header (bounded) | 2 | 3 |
 | `adapters/fv_umi2tl` | `umi2tl` | the TileLink-UL manager A channel: the irrevocable rule, opcode legality and address alignment; the size/mask consistency rule is pinned as a failure (bounded) | 2 | 3 |
+| `adapters/fv_umi_address_remap` | `umi_address_remap` | local traffic leaves its address untouched, only DSTADDR may change, and the output channel keeps the handshake (unbounded) | 3 | 3 |
 
-129 green rows and 128 fault rows, 257 in all, over 28 harnesses.
+132 green rows and 131 fault rows, 263 in all, over 29 harnesses.
 
-Twenty-five of them judge **shipped design RTL**: every SUMI block on
+Twenty-six of them judge **shipped design RTL**: every SUMI block on
 a UMI path except `umi_memagent`, whose atomic unit is textually the same as
 `umi_memif`'s but reaches no port without a memory round trip, and
 `umi_tester`, which is test-bench infrastructure rather than a block on
-a path; plus all six bus adapters. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
+a path; plus all six bus adapters and `umi_address_remap`. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
 the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
 `fv_umi_txn` elaborates the asserting face alone, against a responder model, so
 its ASSUME face is not covered (see the scope note below).
 
 ### Results that are pinned rather than proven
 
-Nine blocks do not satisfy a law a reader would expect, and each has a
+Ten blocks do not satisfy a law a reader would expect, and each has a
 row that REQUIRES the failure so it cannot regress into silence. Nothing
 is injected on any of them -- the shipped configuration is the subject:
 
@@ -203,6 +204,7 @@ is injected on any of them -- the shipped configuration is the subject:
 | `axi:fault_multi` | `AXI_r_id` | one `ar_id` register and no burst term on `s_axi_arready`, so a second read burst accepted while the first is still returning overwrites RID under a standing RVALID -- against the block's own claim that RID is "held constant for all beats" |
 | `axi:fault_burst` | `AXI_rlast_count` | RLAST is copied from the UMI response EOM with no beat counter, so a device that miscounts produces an AXI protocol violation at this block's output rather than a UMI error |
 | `tlm:fault_mask` | `TL_a_mask_size` | a one-byte request takes the `req_bytes == 1` arm of the size/mask table, which sets `a_size` to 1 -- two bytes -- beside a mask enabling a single lane, so `countones(a_mask)` is 1 where TileLink requires 2 |
+| `remap:fault_cfg` | `RULE3_dstaddr_stable` | DSTADDR is a combinational function of `chipid`, the remap table and the `set_dstaddress_*` pins, so an integrator that moves any of them while a beat is standing unaccepted moves the payload under a standing VALID |
 
 If any of these ever goes green, the block changed and the lane says so.
 

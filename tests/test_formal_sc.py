@@ -53,7 +53,8 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
-from umi.adapters import AXI2UMI, AXIL2UMI, TL2UMI, UMI2APB, UMI2AXIL, UMI2TL
+from umi.adapters import (AddressRemap, AXI2UMI, AXIL2UMI, TL2UMI, UMI2APB,
+                          UMI2AXIL, UMI2TL)
 
 REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -167,6 +168,8 @@ FAMILIES = {
     "fv_umi2tl": dict(deps=lambda: [UMI2TL(), Checker()], depth=12,
                       timeout=1800, root=FORMAL_ADAPTERS,
                       defines=("SYNTHESIS",)),
+    "fv_umi_address_remap": dict(deps=lambda: [AddressRemap(), Checker()],
+                                 depth=4, timeout=900, root=FORMAL_ADAPTERS),
 }
 
 
@@ -501,6 +504,14 @@ GREEN = [
     # the TileLink-UL manager side: the request-shape obligations
     Proof("tlm:bmc", "fv_umi2tl", "bmc"),
     Proof("tlm:cover", "fv_umi2tl", "cover"),
+
+    # ---- fv_umi_address_remap -----------------------------------------
+    # purely combinational, so prove closes and quantifies over every
+    # input word
+    Proof("remap:prove", "fv_umi_address_remap", "prove"),
+    Proof("remap:cover", "fv_umi_address_remap", "cover"),
+    Proof("remap:hazard", "fv_umi_address_remap", "cover",
+          defines=("FV_REMAP_FREECFG",)),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -1000,6 +1011,16 @@ FAULTS = [
     # with size 1 (two bytes) and a one-lane mask
     Proof("tlm:fault_mask", "fv_umi2tl", "bmc",
           defines=("FV_TLM_ASSERT_MASK",), expect="TL_a_mask_size"),
+
+    # ---- fv_umi_address_remap -----------------------------------------
+    Proof("remap:fault_local", "fv_umi_address_remap", "bmc",
+          defines=("FV_FAULT_LOCAL",), expect="a_remap_local"),
+    Proof("remap:fault_carry", "fv_umi_address_remap", "bmc",
+          defines=("FV_FAULT_CARRY",), expect="a_remap_carry"),
+    # Nothing injected: the configuration pins move, and DSTADDR is a
+    # combinational function of them
+    Proof("remap:fault_cfg", "fv_umi_address_remap", "bmc",
+          defines=("FV_REMAP_FREECFG",), expect="RULE3_dstaddr_stable"),
 ]
 
 
