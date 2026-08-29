@@ -222,6 +222,15 @@ does not reach it and `fv_umi_switch` imports it directly. That keeps the
 existing decision to keep it out of the public API intact while still letting
 the block be judged.
 
+**`umi_packet_merge_greedy` is not re-exported** either, for a different
+reason: it does not elaborate. `umi_packet_merge_greedy.v:158` reads
+`umi_in_mergeable_r` and `umi_in_bytes_r`, which are declared at `:240-241`,
+and slang rejects the forward reference. It has a `Design` now
+(`umi/adapters/umi_packet_merge_greedy.py`) so the block is packaged and the
+problem is recorded, but exporting it would turn the parametrized lint red.
+Moving the two declarations above their first use is behaviour-neutral and
+would let the export happen.
+
 **README 4.2 rule 5** ("the assertion of VALID must not depend on the assertion
 of READY") is structural -- a cycle-sampled bind-in monitor cannot assert it.
 It is proven harness-side instead, on the DUT: a `rule5` cover pins READY low
