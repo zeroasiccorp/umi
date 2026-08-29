@@ -53,7 +53,7 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
-from umi.adapters import AXIL2UMI, UMI2APB, UMI2AXIL
+from umi.adapters import AXI2UMI, AXIL2UMI, UMI2APB, UMI2AXIL
 
 REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -153,6 +153,8 @@ FAMILIES = {
                         timeout=1800, root=FORMAL_ADAPTERS),
     "fv_axil2umi": dict(deps=lambda: [AXIL2UMI(), Checker()], depth=12,
                         timeout=1800, root=FORMAL_ADAPTERS),
+    "fv_axi2umi": dict(deps=lambda: [AXI2UMI(), Checker()], depth=14,
+                       timeout=1800, root=FORMAL_ADAPTERS),
 }
 
 
@@ -465,6 +467,17 @@ GREEN = [
     # same ready, so both are accepted. Witnessed here, pinned below
     Proof("axil2:hazard", "fv_axil2umi", "cover",
           defines=("FV_AXIL2_CONCURRENT",)),
+
+    # ---- fv_axi2umi ---------------------------------------------------
+    # full AXI4 subordinate: the burst obligations are the part
+    # AXI4-Lite does not have
+    Proof("axi:bmc", "fv_axi2umi", "bmc"),
+    Proof("axi:cover", "fv_axi2umi", "cover"),
+    # the EOM integration condition withdrawn: what a device that
+    # miscounts its beats does to the AXI face
+    Proof("axi:hazard", "fv_axi2umi", "cover", defines=("FV_AXI_ANYEOM",)),
+    # a second read burst accepted while the first is still returning
+    Proof("axi:hazard_multi", "fv_axi2umi", "cover", defines=("FV_AXI_MULTI",)),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -930,6 +943,22 @@ FAULTS = [
     # without RREADY
     Proof("axil2:fault_concurrent", "fv_axil2umi", "bmc",
           defines=("FV_AXIL2_CONCURRENT",), expect="AXIL_r_hold"),
+
+    # ---- fv_axi2umi ---------------------------------------------------
+    Proof("axi:fault_r", "fv_axi2umi", "bmc", defines=("FV_FAULT_R",),
+          expect="AXI_r_data"),
+    Proof("axi:fault_rid", "fv_axi2umi", "bmc", defines=("FV_FAULT_RID",),
+          expect="AXI_rid_match"),
+    Proof("axi:fault_b", "fv_axi2umi", "bmc", defines=("FV_FAULT_B",),
+          expect="AXI_b_hold"),
+    # Nothing injected. The block copies the device's EOM straight to
+    # RLAST, so a device that miscounts breaks AXI at this output
+    Proof("axi:fault_burst", "fv_axi2umi", "bmc", defines=("FV_AXI_ANYEOM",),
+          expect="AXI_rlast_count"),
+    # Nothing injected. One ar_id register, no gating on arready, so a
+    # second burst overwrites RID while the first is still standing
+    Proof("axi:fault_multi", "fv_axi2umi", "bmc", defines=("FV_AXI_MULTI",),
+          expect="AXI_r_id"),
 ]
 
 
