@@ -53,7 +53,7 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
-from umi.adapters import AXI2UMI, AXIL2UMI, TL2UMI, UMI2APB, UMI2AXIL
+from umi.adapters import AXI2UMI, AXIL2UMI, TL2UMI, UMI2APB, UMI2AXIL, UMI2TL
 
 REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
@@ -162,6 +162,9 @@ FAMILIES = {
     # reset gives it. Defining SYNTHESIS takes the RTL's own escape and
     # removes simulation-only output, no logic.
     "fv_tl2umi": dict(deps=lambda: [TL2UMI(), Checker()], depth=12,
+                      timeout=1800, root=FORMAL_ADAPTERS,
+                      defines=("SYNTHESIS",)),
+    "fv_umi2tl": dict(deps=lambda: [UMI2TL(), Checker()], depth=12,
                       timeout=1800, root=FORMAL_ADAPTERS,
                       defines=("SYNTHESIS",)),
 }
@@ -493,6 +496,11 @@ GREEN = [
     # size of the request it answers, and the opcode that request demands
     Proof("tl:bmc", "fv_tl2umi", "bmc"),
     Proof("tl:cover", "fv_tl2umi", "cover"),
+
+    # ---- fv_umi2tl ----------------------------------------------------
+    # the TileLink-UL manager side: the request-shape obligations
+    Proof("tlm:bmc", "fv_umi2tl", "bmc"),
+    Proof("tlm:cover", "fv_umi2tl", "cover"),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -982,6 +990,16 @@ FAULTS = [
           expect="TL_d_hold"),
     Proof("tl:fault_opcode", "fv_tl2umi", "bmc", defines=("FV_FAULT_OPCODE",),
           expect="TL_d_opcode_legal"),
+
+    # ---- fv_umi2tl ----------------------------------------------------
+    Proof("tlm:fault_a", "fv_umi2tl", "bmc", defines=("FV_FAULT_A",),
+          expect="TL_a_hold"),
+    Proof("tlm:fault_stable", "fv_umi2tl", "bmc", defines=("FV_FAULT_STABLE",),
+          expect="TL_a_stable"),
+    # Nothing injected. A one-byte request becomes a TileLink request
+    # with size 1 (two bytes) and a one-lane mask
+    Proof("tlm:fault_mask", "fv_umi2tl", "bmc",
+          defines=("FV_TLM_ASSERT_MASK",), expect="TL_a_mask_size"),
 ]
 
 
