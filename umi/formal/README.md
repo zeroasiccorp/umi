@@ -173,14 +173,16 @@ job file it generated, and rerun that file by hand.
 | `adapters/fv_tl2umi` | `tl2umi` | the TileLink-UL subordinate D channel: the irrevocable rule and response-opcode legality, against a manager held to the TL-UL request rules. The D-to-A correspondence laws are written but not proven -- see the harness header (bounded) | 2 | 3 |
 | `adapters/fv_umi2tl` | `umi2tl` | the TileLink-UL manager A channel: the irrevocable rule, opcode legality and address alignment; the size/mask consistency rule is pinned as a failure (bounded) | 2 | 3 |
 | `adapters/fv_umi_address_remap` | `umi_address_remap` | local traffic leaves its address untouched, only DSTADDR may change, and the output channel keeps the handshake (unbounded) | 3 | 3 |
+| `adapters/fv_umi_data_aggregator` | `umi_data_aggregator` | a merged output carries the address of the first beat that went into it, and the output channel keeps the handshake. Byte conservation is not asserted -- see the harness header (bounded) | 2 | 2 |
 
-132 green rows and 131 fault rows, 263 in all, over 29 harnesses.
+134 green rows and 133 fault rows, 267 in all, over 30 harnesses.
 
-Twenty-six of them judge **shipped design RTL**: every SUMI block on
+Twenty-seven of them judge **shipped design RTL**: every SUMI block on
 a UMI path except `umi_memagent`, whose atomic unit is textually the same as
 `umi_memif`'s but reaches no port without a memory round trip, and
 `umi_tester`, which is test-bench infrastructure rather than a block on
-a path; plus all six bus adapters and `umi_address_remap`. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
+a path; plus all six bus adapters, `umi_address_remap` and
+`umi_data_aggregator`. `fv_umi_cmd`, `fv_umi_txn` and `fv_umi_frame` qualify
 the **checkers themselves**. `fv_umi_cmd` does so one face against the other;
 `fv_umi_txn` elaborates the asserting face alone, against a responder model, so
 its ASSUME face is not covered (see the scope note below).

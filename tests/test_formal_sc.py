@@ -170,6 +170,12 @@ FAMILIES = {
                       defines=("SYNTHESIS",)),
     "fv_umi_address_remap": dict(deps=lambda: [AddressRemap(), Checker()],
                                  depth=4, timeout=900, root=FORMAL_ADAPTERS),
+    # umi_data_aggregator ships inside the tl2umi fileset, so TL2UMI is
+    # how the harness reaches it without a second Design for one file
+    "fv_umi_data_aggregator": dict(deps=lambda: [TL2UMI(), Checker()],
+                                   depth=12, timeout=1800,
+                                   root=FORMAL_ADAPTERS,
+                                   defines=("SYNTHESIS",)),
 }
 
 
@@ -512,6 +518,10 @@ GREEN = [
     Proof("remap:cover", "fv_umi_address_remap", "cover"),
     Proof("remap:hazard", "fv_umi_address_remap", "cover",
           defines=("FV_REMAP_FREECFG",)),
+
+    # ---- fv_umi_data_aggregator ---------------------------------------
+    Proof("agg:bmc", "fv_umi_data_aggregator", "bmc"),
+    Proof("agg:cover", "fv_umi_data_aggregator", "cover"),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -1021,6 +1031,12 @@ FAULTS = [
     # combinational function of them
     Proof("remap:fault_cfg", "fv_umi_address_remap", "bmc",
           defines=("FV_REMAP_FREECFG",), expect="RULE3_dstaddr_stable"),
+
+    # ---- fv_umi_data_aggregator ---------------------------------------
+    Proof("agg:fault_addr", "fv_umi_data_aggregator", "bmc",
+          defines=("FV_FAULT_ADDR",), expect="a_agg_addr_first"),
+    Proof("agg:fault_data", "fv_umi_data_aggregator", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
 ]
 
 
