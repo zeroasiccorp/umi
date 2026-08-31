@@ -1006,17 +1006,17 @@ FAULTS = [
 
     # ---- fv_tl2umi ----------------------------------------------------
     Proof("tl:fault_d", "fv_tl2umi", "bmc", defines=("FV_FAULT_D",),
-          expect="TL_d_stable"),
+          expect="a_tl_d_stable"),
     Proof("tl:fault_hold", "fv_tl2umi", "bmc", defines=("FV_FAULT_HOLD",),
-          expect="TL_d_hold"),
+          expect="a_tl_d_hold"),
     Proof("tl:fault_opcode", "fv_tl2umi", "bmc", defines=("FV_FAULT_OPCODE",),
           expect="TL_d_opcode_legal"),
 
     # ---- fv_umi2tl ----------------------------------------------------
     Proof("tlm:fault_a", "fv_umi2tl", "bmc", defines=("FV_FAULT_A",),
-          expect="TL_a_hold"),
+          expect="a_tlm_a_hold"),
     Proof("tlm:fault_stable", "fv_umi2tl", "bmc", defines=("FV_FAULT_STABLE",),
-          expect="TL_a_stable"),
+          expect="a_tlm_a_stable"),
     # Nothing injected. A one-byte request becomes a TileLink request
     # with size 1 (two bytes) and a one-lane mask
     Proof("tlm:fault_mask", "fv_umi2tl", "bmc",

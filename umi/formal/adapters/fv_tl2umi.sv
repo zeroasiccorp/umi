@@ -27,22 +27,40 @@
  * subordinate, so it owns D and the manager owns A.
  *
  *   asserted (this block is the source of D)
- *     TL_d_hold / TL_d_stable    the irrevocable rule on D
  *     TL_d_opcode_legal          AccessAck or AccessAckData, nothing else
+ *     a_tl_d_hold / a_tl_d_stable    D holds still once offered -- see
+ *                                the note below, this is a property of
+ *                                the block and NOT a TileLink rule
  *
  *   assumed (the manager is the source of A)
- *     m_tl_a_hold / m_tl_a_stable   the same irrevocable rule on A
  *     m_tl_a_opcode                 Get, PutFullData or PutPartialData
  *     m_tl_a_align                  a_address aligned to a_size
- *     m_tl_a_mask                   countones(a_mask) == 2^a_size
+ *     m_tl_a_mask                   the section 4.5 mask rules, which
+ *                                   differ for PutPartialData
  *     m_tl_one_outstanding          one request in flight at a time
  *
- * The rule set is the one an implemented TL-UL protocol checker
- * enforces, not a reading of the prose: legal A opcodes are the three
- * above, a D opcode must match the request kind, d_source must
- * reference a request that was actually issued, response size must
- * match request size, a_address must be aligned to a_size, and
- * 2^a_size must equal countones(a_mask).
+ * TILELINK HAS NO IRREVOCABLE RULE, AND THIS HARNESS NO LONGER CLAIMS
+ * ONE. AXI gives every channel a hold-and-stay-stable obligation.
+ * TileLink does the opposite -- TL 1.9.3, "Anything not forbidden is
+ * allowed":
+ *
+ *     "a sender may raise valid and then lower it on the following
+ *      cycle, even if the message was not accepted on the previous
+ *      cycle ... Furthermore, the sender may change the contents of
+ *      the control and data signals when a message was not accepted."
+ *
+ * Figure 6 in the specification walks a manager through it: message H
+ * is presented, rejected, and never sent again. The only stability
+ * TileLink imposes is on a burst already in progress, and TL-UL has no
+ * bursts.
+ *
+ * Two consequences, and they run opposite ways. Nothing is assumed
+ * about the manager holding A, so the proofs here cover a manager that
+ * withdraws a request -- which is why those assumptions are gone
+ * rather than merely renamed. On the D side the block does hold its
+ * answer still, and a manager may want to rely on that, so it is still
+ * proven -- but under an `a_` label, because it is a fact about
+ * tl2umi and not an obligation TileLink imposes on it.
  *
  * THE CORRESPONDENCE LAWS ARE NOT PROVEN HERE, AND THAT IS THE MAIN
  * LIMITATION OF THIS FILE. Three of the rules above relate the D
@@ -87,13 +105,26 @@
  * (tl2umi.v:237-240); asserting a constant against itself is the code
  * read back, so they are not asserted.
  *
+ * ERROR STATUS IS NOT CARRIED, AND NOTHING HERE REQUIRES IT TO BE.
+ * That tie-off is benign for d_param and d_sink and is not for
+ * d_denied. The response ERR field is dropped on the way in --
+ * tl2umi.v:194 leaves umi_unpack's cmd_err output unconnected -- so a
+ * UMI device answering with ERR=DEVERR (README 3.3.9) reaches the
+ * manager as a clean AccessAck or AccessAckData with d_denied low.
+ * TileLink has no other way to report a failed access. It is left as a
+ * gap rather than a pinned row because closing it is an RTL change,
+ * and this directory does not modify shipped RTL. fv_umi2apb proves
+ * the equivalent mapping for APB (a_apb_err_map), so the shape of the
+ * property is settled; what is missing is somewhere to put it. The
+ * companion gap on the manager side is in fv_umi2tl's header.
+ *
  * SCOPE. Bounded. One clock. Single-beat requests only, per above.
  *
  * ROWS (tests/test_formal_sc.py):
  *   tl:bmc               the TileLink and UMI laws, bounded
  *   tl:cover             witnesses: expect all reached
- *   tl:fault_d           must FAIL, TL_d_stable
- *   tl:fault_hold        must FAIL, TL_d_hold
+ *   tl:fault_d           must FAIL, a_tl_d_stable
+ *   tl:fault_hold        must FAIL, a_tl_d_hold
  *   tl:fault_opcode      must FAIL, TL_d_opcode_legal
  *
  ******************************************************************************/
@@ -208,30 +239,20 @@ module fv_tl2umi #(
 `endif
 
     // ----------------------------------------------------------------
-    // the TileLink manager holds its side of the irrevocable rule, and
-    // issues only legal TL-UL requests
+    // the TileLink manager issues only legal TL-UL requests
     // ----------------------------------------------------------------
     wire a_fire = a_valid & a_ready;
     wire d_fire = d_valid & d_ready;
 
-    reg        a_valid_d, a_ready_d;
-    reg [2:0]  a_opcode_d, a_size_d;
-    reg [4:0]  a_source_d;
-    reg [55:0] a_address_d;
-    reg [7:0]  a_mask_d;
-    reg [63:0] a_data_d;
-
-    always @(posedge clk or negedge nreset)
-        if (!nreset) begin
-            a_valid_d <= 1'b0; a_ready_d <= 1'b0;
-        end else begin
-            a_valid_d <= a_valid; a_ready_d <= a_ready;
-        end
-    always @(posedge clk) begin
-        a_opcode_d <= a_opcode; a_size_d <= a_size;
-        a_source_d <= a_source; a_address_d <= a_address;
-        a_mask_d   <= a_mask;   a_data_d <= a_data;
-    end
+    // The aligned 2^a_size byte window inside the beat that a_address
+    // selects: the "active byte lanes" of TL 1.9.3 section 4.5. Every
+    // step is taken at 32 bits and truncated once at the end, so no
+    // shift amount is evaluated at the width of its own operand.
+    wire [31:0] f_size_bytes  = 32'd1 << a_size;              // 1, 2, 4, 8
+    wire [31:0] f_window_full = (32'd1 << f_size_bytes) - 32'd1;
+    wire [31:0] f_window_lsb  = {29'd0, a_address[2:0]}
+                                & ~(f_size_bytes - 32'd1);
+    wire [7:0]  f_mask_window = f_window_full[7:0] << f_window_lsb[2:0];
 
     always @(*) begin
         m_tl_reset_quiet : assume (nreset || !a_valid);
@@ -245,21 +266,34 @@ module fv_tl2umi #(
         // a_address aligned to a_size
         m_tl_a_align : assume ((a_address & ((56'd1 << a_size) - 56'd1))
                                == 56'd0);
-        // 2^a_size == countones(a_mask)
-        m_tl_a_mask  : assume ($countones(a_mask) == (32'd1 << a_size));
+        // Mask rules, TL 1.9.3 section 4.5. The mask is LOW on every
+        // inactive byte lane, and for every opcode BUT PutPartialData
+        // it is HIGH on every active one. PutPartialData "may lower
+        // individual bits of the mask and these bits do not have to be
+        // contiguous" -- only the HIGH bits have to stay inside the
+        // aligned a_size window. Holding it to the full-mask shape as
+        // well would put every genuine partial write outside the
+        // proof, which is the traffic a byte-enable decode is most
+        // likely to get wrong.
+        m_tl_a_mask  : assume ((a_opcode == `TL_OP_PutPartialData)
+                               ? ((a_mask & ~f_mask_window) == 8'd0)
+                               : (a_mask == f_mask_window));
     end
 
-    always @(posedge clk)
-        if (nreset & f_past_exists) begin
-            m_tl_a_hold   : assume (!(a_valid_d & ~a_ready_d) || a_valid);
-            m_tl_a_stable : assume (!(a_valid_d & ~a_ready_d)
-                                    || ((a_opcode  == a_opcode_d)
-                                        && (a_size    == a_size_d)
-                                        && (a_source  == a_source_d)
-                                        && (a_address == a_address_d)
-                                        && (a_mask    == a_mask_d)
-                                        && (a_data    == a_data_d)));
-        end
+    // NO HOLD OR STABILITY IS ASSUMED ON A. TileLink does not give the
+    // sender one. TL 1.9.3, "Anything not forbidden is allowed":
+    //
+    //   "a sender may raise valid and then lower it on the following
+    //    cycle, even if the message was not accepted on the previous
+    //    cycle ... Furthermore, the sender may change the contents of
+    //    the control and data signals when a message was not accepted."
+    //
+    // The specification's own Figure 6 walks through it: message H is
+    // presented, rejected, and never sent again. The only stability
+    // TileLink imposes is on a burst already in progress, and TL-UL has
+    // no bursts, so nothing here restricts the manager between beats.
+    // Assuming the AXI rule instead would hold every withdrawing
+    // manager out of the proof.
 
     // ----------------------------------------------------------------
     // the request in flight, tracked from the PORTS
@@ -358,8 +392,8 @@ module fv_tl2umi #(
 
     always @(posedge clk)
         if (nreset & f_past_exists) begin
-            TL_d_hold   : assert (!(d_valid_d & ~d_ready_d) || obs_d_valid);
-            TL_d_stable : assert (!(d_valid_d & ~d_ready_d)
+            a_tl_d_hold   : assert (!(d_valid_d & ~d_ready_d) || obs_d_valid);
+            a_tl_d_stable : assert (!(d_valid_d & ~d_ready_d)
                                   || ((obs_d_data   == d_data_d)
                                       && (obs_d_opcode == d_opcode_d)
                                       && (obs_d_size   == d_size_d)
@@ -384,8 +418,8 @@ module fv_tl2umi #(
             // should therefore return a_size, and it does not always.
             // Three hypotheses were tested and none held, so this is
             // recorded as an open question rather than shipped as
-            // either a proof or a finding. Run the row by hand with
-            // FV_TL_SIZE to reproduce.
+            // either a proof or a finding. Add FV_TL_CORRESPOND to a
+            // bmc row to reproduce.
             TL_d_size_match   : assert (obs_d_size == req_size);
             // a Get is answered with data, a Put with an ack
             TL_d_kind : assert (obs_d_opcode == ((req_opcode == `TL_OP_Get)
@@ -403,6 +437,16 @@ module fv_tl2umi #(
             c_tl_a       : cover (a_fire);
             c_tl_get     : cover (a_fire & (a_opcode == `TL_OP_Get));
             c_tl_put     : cover (a_fire & (a_opcode == `TL_OP_PutFullData));
+            // a PutPartialData whose mask really is partial, and one
+            // whose HIGH bits are not contiguous. Without these the
+            // widened m_tl_a_mask would merely permit partial writes
+            // rather than show the proof meeting one
+            c_tl_partial : cover (a_fire
+                                  & (a_opcode == `TL_OP_PutPartialData)
+                                  & (a_mask != f_mask_window));
+            c_tl_gapmask : cover (a_fire
+                                  & (a_opcode == `TL_OP_PutPartialData)
+                                  & (a_mask == 8'b0000_0101));
             c_tl_d       : cover (d_fire);
             c_tl_d_wait  : cover (d_valid & ~d_ready);
             c_tl_ackdata : cover (d_fire & (obs_d_opcode == `TL_OP_AccessAckData));

@@ -20,28 +20,48 @@
  * - Proves umi2tl issues legal TileLink-UL requests on the A channel,
  *   and shows the one shape it does not.
  *
- * THE OTHER HALF OF STEP 40'S LAW SET. fv_tl2umi asserts the TL-UL
+ * THE OTHER HALF OF THE TL-UL LAW SET. fv_tl2umi asserts the TL-UL
  * rules on D, where that block is the source. umi2tl is the manager, so
  * it owns A, and the obligations that fall on it are the request-side
- * ones a TL-UL protocol checker enforces:
+ * ones:
  *
  *   asserted (this block is the source of A)
- *     TL_a_hold / TL_a_stable   the irrevocable rule on A
  *     TL_a_opcode_legal         Get, PutFullData or PutPartialData
  *     TL_a_align                a_address aligned to a_size
  *     TL_a_mask_size            countones(a_mask) == 2^a_size --
  *                               behind `FV_TLM_ASSERT_MASK, because the
  *                               block does not satisfy it; see below
+ *     a_tlm_a_hold / a_tlm_a_stable   A holds still once offered -- a
+ *                               property of the block, NOT a TileLink
+ *                               rule; see the note below
  *
  *   assumed (the subordinate is the source of D)
- *     m_tl_d_hold / m_tl_d_stable   the same irrevocable rule on D
- *     m_tl_d_owed                   it answers only what it was asked
+ *     m_tl_d_owed               it answers only what it was asked
+ *     m_tl_d_kind               AccessAck or AccessAckData
  *
  * TL_a_mask_size is the one that matters. SIZE and MASK are not
  * independent in TileLink: a_size names a power-of-two byte count and
  * a_mask must have exactly that many lanes enabled. A request whose
  * size says one thing and whose mask says another is not a legal
  * TL-UL request, and a subordinate is entitled to do anything with it.
+ * The rule is asserted for the opcodes it governs; PutPartialData is
+ * the exception TL 1.9.3 section 4.5 carves out, and fv_tl2umi's
+ * m_tl_a_mask states the two halves for the request side.
+ *
+ * TILELINK HAS NO IRREVOCABLE RULE. AXI gives every channel a
+ * hold-and-stay-stable obligation; TileLink says the opposite --
+ * TL 1.9.3, "Anything not forbidden is allowed":
+ *
+ *     "a sender may raise valid and then lower it on the following
+ *      cycle, even if the message was not accepted on the previous
+ *      cycle ... Furthermore, the sender may change the contents of
+ *      the control and data signals when a message was not accepted."
+ *
+ * So nothing is assumed about the subordinate holding D -- the proofs
+ * here cover one that withdraws an answer. On the A side the block
+ * does hold its request still, and a subordinate may want to rely on
+ * that, so it is still proven, under an `a_` label because it is a
+ * fact about umi2tl rather than an obligation TileLink imposes.
  *
  * WHAT IS PROVEN ON THE UMI SIDE:
  *   RULE2_valid_hold / RULE3_*_stable   the UMI response channel this
@@ -53,14 +73,23 @@
  * through umi_fifoflex is byte accounting and is not attempted; the
  * harness holds requests to one bus word.
  *
+ * ERROR STATUS IS NOT CARRIED, AND NOTHING HERE REQUIRES IT TO BE.
+ * tl_d_denied and tl_d_corrupt are declared as inputs (umi2tl.v:55,
+ * :57) and never read anywhere in the module, so a subordinate that
+ * denies an access has that status dropped: the UMI response reports
+ * whatever the request path put in its ERR field. That is a real gap
+ * and it is left as one -- closing it is an RTL change, not a harness
+ * change, and this directory does not modify shipped RTL. The
+ * companion gap on the other side is in fv_tl2umi's header.
+ *
  * SCOPE. Bounded. One clock. IDW=128 and ODW=64, the configuration the
  * block header records as the tested one.
  *
  * ROWS (tests/test_formal_sc.py):
  *   tlm:bmc             the TileLink and UMI laws, bounded
  *   tlm:cover           witnesses: expect all reached
- *   tlm:fault_a         must FAIL, TL_a_hold
- *   tlm:fault_stable    must FAIL, TL_a_stable
+ *   tlm:fault_a         must FAIL, a_tlm_a_hold
+ *   tlm:fault_stable    must FAIL, a_tlm_a_stable
  *   tlm:fault_mask      must FAIL, TL_a_mask_size. Nothing injected --
  *                       the req_bytes == 1 arm of the size/mask table
  *                       (umi2tl.v:196-200) sets size 1 beside a
@@ -211,21 +240,6 @@ module fv_umi2tl #(
                 default: a_out <= a_out;
             endcase
 
-    reg d_valid_d, d_ready_d;
-    reg [2:0] d_opcode_d, d_size_d;
-    reg [3:0] d_source_d;
-    reg [ODW-1:0] d_data_d;
-    always @(posedge clk or negedge nreset)
-        if (!nreset) begin
-            d_valid_d <= 1'b0; d_ready_d <= 1'b0;
-        end else begin
-            d_valid_d <= d_valid; d_ready_d <= d_ready;
-        end
-    always @(posedge clk) begin
-        d_opcode_d <= d_opcode; d_size_d <= d_size;
-        d_source_d <= d_source; d_data_d <= d_data;
-    end
-
     always @(*) begin
         m_tl_reset_quiet : assume (nreset || !d_valid);
         m_tl_d_owed  : assume (!d_valid || (a_out != 2'd0));
@@ -234,15 +248,11 @@ module fv_umi2tl #(
         m_tl_no_wrap : assume (a_out != 2'd3);
     end
 
-    always @(posedge clk)
-        if (nreset & f_past_exists) begin
-            m_tl_d_hold   : assume (!(d_valid_d & ~d_ready_d) || d_valid);
-            m_tl_d_stable : assume (!(d_valid_d & ~d_ready_d)
-                                    || ((d_opcode == d_opcode_d)
-                                        && (d_size   == d_size_d)
-                                        && (d_source == d_source_d)
-                                        && (d_data   == d_data_d)));
-        end
+    // NO HOLD OR STABILITY IS ASSUMED ON D. TileLink does not give the
+    // sender one -- see the note in the header. The subordinate here is
+    // free to withdraw an answer it has offered and to change what it
+    // offers next, which is what TL 1.9.3 permits and what a real
+    // TL-UL subordinate may therefore do.
 
     // ----------------------------------------------------------------
     // the UMI response channel this block drives is judged
@@ -280,8 +290,8 @@ module fv_umi2tl #(
 
     always @(posedge clk)
         if (nreset & f_past_exists) begin
-            TL_a_hold   : assert (!(a_valid_d & ~a_ready_d) || obs_a_valid);
-            TL_a_stable : assert (!(a_valid_d & ~a_ready_d)
+            a_tlm_a_hold   : assert (!(a_valid_d & ~a_ready_d) || obs_a_valid);
+            a_tlm_a_stable : assert (!(a_valid_d & ~a_ready_d)
                                   || ((a_opcode == a_opcode_d)
                                       && (a_size   == a_size_d)
                                       && (a_source == a_source_d)
