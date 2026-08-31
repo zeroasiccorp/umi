@@ -73,10 +73,17 @@
  * ROWS (tests/test_formal_sc.py):
  *   apb:bmc               the APB and UMI laws, bounded
  *   apb:cover             witnesses: expect all reached
+ *   apb:hazard            the opcode assumption withdrawn: what an
+ *                         atomic and an RDMA request really do
  *   apb:fault_enable      must FAIL, APB2_setup_to_access
  *   apb:fault_stable      must FAIL, APB4_payload_stable
  *   apb:fault_kind        must FAIL, a_apb_kind
  *   apb:fault_posted      must FAIL, a_apb_posted_quiet
+ *   apb:fault_drop        must FAIL, a_apb_unsupported_dropped.
+ *                         Nothing injected -- atomics and RDMA are not
+ *                         dropped, contrary to the block header
+ *   apb:fault_strb        must FAIL, APB6_pstrb_read. Nothing injected
+ *                         -- PSTRB is tied high on reads too
  *
  ******************************************************************************/
 
@@ -390,6 +397,22 @@ module fv_umi2apb #(
             a_apb_unsupported_dropped :
                 assert (!(bus_fire & ((setup_op == UMI_REQ_ATOMIC)
                                       || (setup_op == UMI_REQ_RDMA))));
+`endif
+
+`ifdef FV_APB_ASSERT_STRB
+    // AMBA APB: PSTRB must not be active during a read transfer. The
+    // block drives it high always (umi2apb.v:140):
+    //
+    //   assign apb_pstrb = {(RW/8){1'b1}}; // TODO: Support strobe
+    //
+    // so every read this block issues asserts all write strobes.
+    // Pinned as a must-FAIL, like a_apb_unsupported_dropped above: the
+    // row goes green the day the RTL gains a real strobe, and the lane
+    // reports it. APB4_payload_stable already holds PSTRB still across
+    // ACCESS, which is a different obligation and is met.
+    always @(posedge clk)
+        if (nreset & f_past_exists & access)
+            APB6_pstrb_read : assert (pwrite || (pstrb == {(RW/8){1'b0}}));
 `endif
 
 `ifdef FV_APB_ANYOP

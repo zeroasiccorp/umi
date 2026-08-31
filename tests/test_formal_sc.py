@@ -954,6 +954,11 @@ FAULTS = [
     Proof("apb:fault_drop", "fv_umi2apb", "bmc",
           defines=("FV_APB_ANYOP", "FV_APB_ASSERT_DROP"),
           expect="a_apb_unsupported_dropped"),
+    # Nothing injected. AMBA APB forbids an active PSTRB on a read;
+    # umi2apb.v:140 ties every strobe high for both directions
+    Proof("apb:fault_strb", "fv_umi2apb", "bmc",
+          defines=("FV_APB_ASSERT_STRB",),
+          expect="APB6_pstrb_read"),
 
     # ---- fv_umi2axil --------------------------------------------------
     Proof("axil:fault_aw", "fv_umi2axil", "bmc", defines=("FV_FAULT_AW",),

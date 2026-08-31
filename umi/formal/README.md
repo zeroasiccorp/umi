@@ -166,7 +166,7 @@ job file it generated, and rerun that file by hand.
 | `sumi/fv_umi_cmd` | `umi_cmd_checker` | CMD-word legality: the checker's assume face and assert face agree | 6 | 11 |
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 5 | 8 |
 | `sumi/fv_umi_frame` | `umi_frame_checker` | intra-message framing on a single channel, the request side included: the checker's assume face and assert face agree | 3 | 7 |
-| `adapters/fv_umi2apb` | `umi2apb` | the AMBA APB requester face (phase order, hold, payload stability) and the SUMI response the block builds for the request it served (bounded) | 3 | 5 |
+| `adapters/fv_umi2apb` | `umi2apb` | the AMBA APB requester face (phase order, hold, payload stability, and PSTRB inactive on a read) and the SUMI response the block builds for the request it served (bounded) | 3 | 6 |
 | `adapters/fv_umi2axil` | `umi2axil` | the AXI4-Lite manager face: VALID hold and payload stability on the three channels the block owns, against a completer model that answers only what it was asked (bounded) | 2 | 6 |
 | `adapters/fv_axil2umi` | `axil2umi` | the same AXI4-Lite law set from the subordinate side -- B and R asserted, AW/W/AR assumed -- plus the SUMI request channel the block drives (bounded) | 3 | 5 |
 | `adapters/fv_axi2umi` | `axi2umi` | the AXI4 subordinate face including the burst obligations AXI4-Lite does not have: RID held across a burst, RLAST on beat ARLEN+1 and nowhere else (bounded) | 4 | 5 |
@@ -175,7 +175,7 @@ job file it generated, and rerun that file by hand.
 | `adapters/fv_umi_address_remap` | `umi_address_remap` | local traffic leaves its address untouched, only DSTADDR may change, and the output channel keeps the handshake (unbounded) | 3 | 3 |
 | `adapters/fv_umi_data_aggregator` | `umi_data_aggregator` | a merged output carries the address of the first beat that went into it, and the output channel keeps the handshake. Byte conservation is not asserted -- see the harness header (bounded) | 2 | 2 |
 
-134 green rows and 133 fault rows, 267 in all, over 30 harnesses.
+134 green rows and 134 fault rows, 268 in all, over 30 harnesses.
 
 Twenty-seven of them judge **shipped design RTL**: every SUMI block on
 a UMI path except `umi_memagent`, whose atomic unit is textually the same as
@@ -189,9 +189,10 @@ its ASSUME face is not covered (see the scope note below).
 
 ### Results that are pinned rather than proven
 
-Ten blocks do not satisfy a law a reader would expect, and each has a
-row that REQUIRES the failure so it cannot regress into silence. Nothing
-is injected on any of them -- the shipped configuration is the subject:
+Ten blocks do not satisfy a law a reader would expect, and each such
+law has a row that REQUIRES the failure so it cannot regress into
+silence -- thirteen rows over the ten blocks. Nothing is injected on
+any of them: the shipped configuration is the subject.
 
 | row | what it requires to fail | why |
 |---|---|---|
@@ -200,6 +201,7 @@ is injected on any of them -- the shipped configuration is the subject:
 | `ram:fault_stable` | `RULE3_dstaddr_stable` | the broadcast response address moves while an answer is standing unaccepted |
 | `fifoflex:fault_split` | `a_flex_conserve` | at `SPLIT=1`, the arm `umi_memagent` instantiates, more bytes are delivered than were accepted |
 | `apb:fault_drop` | `a_apb_unsupported_dropped` | the block header says atomics and RDMA are "dropped silently"; `incoming_req` has no opcode term, so both start a real APB transfer |
+| `apb:fault_strb` | `APB6_pstrb_read` | AMBA APB requires PSTRB inactive during a read; `umi2apb.v:140` ties every strobe high in both directions, with a `TODO: Support strobe` beside it |
 | `axil:fault_lane` | `a_axil_wdata_lane` | the byte-lane shift amount `(req_data_shift << 3)` is evaluated at the 3-bit width of `req_data_shift`, so it is always zero and an unaligned access is never shifted into its lane |
 | `axil:fault_data` | `RULE3_data_stable` | `udev_resp_data` is driven by `axi_rdata` with no term selecting the live response channel, so on a write response the UMI payload moves under a standing offer |
 | `axil2:fault_concurrent` | `AXIL_r_hold` | `axi_awready` and `axi_arready` are the same expression, so a manager raising AWVALID and ARVALID together has both accepted on one edge; the response steering then drains the UMI answer on BREADY and RVALID falls without RREADY |
