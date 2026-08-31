@@ -107,7 +107,7 @@ verdict and not a label -- `buffer:fault_swap` injects the same corruption
 under `bmc` and pins the label there.
 
 There is no independent-solver corroboration here: every SMT result is gated on
-bitwuzla alone. Standing in its place is the fault matrix -- 101 rows that each
+bitwuzla alone. Standing in its place is the fault matrix -- 134 rows that each
 inject a bug and must each still produce a counterexample, which a solver
 quietly answering "proved" to everything would not deliver. To re-check one
 result against another solver, run its row, edit the `[engines]` line of the

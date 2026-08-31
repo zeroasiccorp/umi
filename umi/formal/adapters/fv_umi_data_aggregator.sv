@@ -232,9 +232,6 @@ module fv_umi_data_aggregator #(
             c_agg_out     : cover (out_fire);
             c_agg_stall   : cover (out_valid & ~out_ready);
             c_agg_backup  : cover (in_valid & ~in_ready);
-            // more than one beat went in before one came out: the
-            // merge really happened rather than every beat passing
-            // straight through
             // a beat was accepted that did NOT open a group: the
             // merge really happened rather than every beat passing
             // straight through
