@@ -7,10 +7,6 @@ from .umi2tl.umi2tl import UMI2TL
 from .axi2umi.axi2umi import AXI2UMI
 from .umi_address_remap import AddressRemap
 
-# umi_packet_merge_greedy is deliberately NOT re-exported: it does
-# not elaborate under slang, so exporting it would turn the
-# parametrized lint red. See umi_packet_merge_greedy.py.
-
 __all__ = ['AddressRemap',
            'AXIL2UMI',
            'TL2UMI',
