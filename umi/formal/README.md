@@ -167,7 +167,7 @@ job file it generated, and rerun that file by hand.
 | `sumi/fv_umi_txn` | `umi_txn_checker` | response-side transaction / framing against a perfect in-order responder | 5 | 8 |
 | `sumi/fv_umi_frame` | `umi_frame_checker` | intra-message framing on a single channel, the request side included: the checker's assume face and assert face agree | 3 | 7 |
 | `adapters/fv_umi2apb` | `umi2apb` | the AMBA APB requester face (phase order, hold, payload stability, and PSTRB inactive on a read) and the SUMI response the block builds for the request it served (bounded) | 3 | 6 |
-| `adapters/fv_umi2axil` | `umi2axil` | the AXI4-Lite manager face: VALID hold and payload stability on the three channels the block owns, against a completer model that answers only what it was asked (bounded) | 2 | 6 |
+| `adapters/fv_umi2axil` | `umi2axil` | the AXI4-Lite manager face: VALID hold and payload stability on the three channels the block owns, against a completer model that answers only what it was asked (bounded) | 3 | 6 |
 | `adapters/fv_axil2umi` | `axil2umi` | the same AXI4-Lite law set from the subordinate side -- B and R asserted, AW/W/AR assumed -- plus the SUMI request channel the block drives (bounded) | 3 | 5 |
 | `adapters/fv_axi2umi` | `axi2umi` | the AXI4 subordinate face including the burst obligations AXI4-Lite does not have: RID held across a burst, RLAST on beat ARLEN+1 and nowhere else (bounded) | 4 | 5 |
 | `adapters/fv_tl2umi` | `tl2umi` | the TileLink-UL subordinate D channel: response-opcode legality, and that D holds still once offered -- which TileLink does not require, so it is claimed as a block property. The manager is held only to the TL-UL request rules it really has. The D-to-A correspondence laws are written but not proven -- see the harness header (bounded) | 2 | 3 |
@@ -175,7 +175,7 @@ job file it generated, and rerun that file by hand.
 | `adapters/fv_umi_address_remap` | `umi_address_remap` | local traffic leaves its address untouched, only DSTADDR may change, and the output channel keeps the handshake (unbounded) | 3 | 3 |
 | `adapters/fv_umi_data_aggregator` | `umi_data_aggregator` | a merged output carries the address of the first beat that went into it, and the output channel keeps the handshake. Byte conservation is not asserted -- see the harness header (bounded) | 2 | 2 |
 
-134 green rows and 134 fault rows, 268 in all, over 30 harnesses.
+135 green rows and 134 fault rows, 269 in all, over 30 harnesses.
 
 Twenty-seven of them judge **shipped design RTL**: every SUMI block on
 a UMI path except `umi_memagent`, whose atomic unit is textually the same as

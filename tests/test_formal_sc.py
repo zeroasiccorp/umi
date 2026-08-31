@@ -478,6 +478,9 @@ GREEN = [
     Proof("axil:bmc", "fv_umi2axil", "bmc",
           params=(("RESP_RULE_EN", "47"),)),
     Proof("axil:cover", "fv_umi2axil", "cover"),
+    # the opcode assumption withdrawn: what the block does with an
+    # opcode it has no mapping for, the question apb:hazard asks too
+    Proof("axil:hazard", "fv_umi2axil", "cover", defines=("FV_AXIL_ANYOP",)),
 
     # ---- fv_axil2umi --------------------------------------------------
     # the same AXI4-Lite law set from the subordinate side: this block

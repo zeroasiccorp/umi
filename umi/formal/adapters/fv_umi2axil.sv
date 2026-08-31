@@ -74,6 +74,15 @@
  * still proven, and axil:fault_data leaves the rule in and REQUIRES the
  * failure. Nothing is injected on that row.
  *
+ * THE OPCODE SET IS AN ASSUMPTION, AND IT IS FALSIFIABLE. m_axil_op
+ * holds the request channel to READ, WRITE and POSTED, the three this
+ * block maps. axil:hazard withdraws it and reaches both
+ * c_axil_atomic_bus and c_axil_rdma_bus, so an atomic request starts a
+ * real AXI write and an RDMA request a real AXI read -- the same
+ * absence of an opcode filter apb:hazard finds in umi2apb. Read those
+ * covers under the cover-mode caveat in the folder README: reachable,
+ * not legal.
+ *
  * NOT PROVEN HERE. The response address swap, the PROT mapping and the
  * AXI-to-UMI error code pass-through are single assigns off registered
  * request fields; asserting each against its own expression would be
@@ -91,13 +100,21 @@
  * untouched.
  *
  * ROWS (tests/test_formal_sc.py):
- *   axil:bmc              the AXI and UMI laws, bounded
+ *   axil:bmc              the AXI and UMI laws, bounded, with
+ *                         RESP_RULE_EN masking RULE3_data_stable
  *   axil:cover            witnesses: expect all reached
- *   axil:hazard           the posted-write drain, see below
+ *   axil:hazard           the opcode assumption withdrawn: an atomic
+ *                         and an RDMA request each reach the AXI bus
  *   axil:fault_aw         must FAIL, AXIL_aw_hold
  *   axil:fault_w          must FAIL, AXIL_w_stable
  *   axil:fault_ar         must FAIL, AXIL_ar_hold
  *   axil:fault_kind       must FAIL, a_axil_kind
+ *   axil:fault_lane       must FAIL, a_axil_wdata_lane. Nothing
+ *                         injected -- the byte-lane shift amount is
+ *                         evaluated at 3 bits and is always zero
+ *   axil:fault_data       must FAIL, RULE3_data_stable. Nothing
+ *                         injected -- the response data field moves
+ *                         under a standing offer on a write response
  *
  ******************************************************************************/
 
@@ -455,14 +472,27 @@ module fv_umi2axil #(
             c_axil_resp   : cover (resp_valid & resp_ready);
             c_axil_rd     : cover (resp_valid & (resp_op == UMI_RESP_READ));
             c_axil_wr     : cover (resp_valid & (resp_op == UMI_RESP_WRITE));
-            // an error code really reaches the response
             // an unaligned write really reaches the bus: the case the
             // byte-lane law is about
             c_axil_unaligned : cover (wvalid & (shadow_addr[DWLOG-1:0] != 0)
                                       & (shadow_data != {DW{1'b0}}));
+            // an error code really reaches the response
             c_axil_err    : cover (resp_valid
                                    & (obs_resp_cmd[UMI_USER_MSB:UMI_USER_LSB]
                                       != 2'b00));
+        end
+`endif
+
+`ifdef FV_AXIL_ANYOP
+    // The opcode assumption withdrawn. umi2axil maps READ, WRITE and
+    // POSTED; m_axil_op holds the request channel to those three on
+    // every other row. These witnesses record what the block does with
+    // an opcode it was never given a mapping for -- the same question
+    // apb:hazard asks of umi2apb.
+    always @(posedge clk)
+        if (nreset & f_past_exists) begin
+            c_axil_atomic_bus : cover (obs_awvalid & (req_op == UMI_REQ_ATOMIC));
+            c_axil_rdma_bus   : cover (obs_arvalid & (req_op == UMI_REQ_RDMA));
         end
 `endif
 
