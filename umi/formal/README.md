@@ -477,6 +477,244 @@ thing standing behind a formal claim. Every proof above instantiates its
 checkers directly in the harness for that reason, and the formal counterpart
 of this example is `sumi/fv_umi_buffer`.
 
+## Wiring the checkers onto a block of your own
+
+The checkers under `umi/sumi/umi_checker/` are ordinary modules with no
+package or interface dependency, so they attach to any block carrying a UMI
+channel -- including one that never goes near this repository. This section
+is the wiring. Writing properties of your own is Adding a proof below, and
+you do not need it to get value out of this.
+
+### The block
+
+`xyz` is a registered pass-through: it accepts a UMI beat and offers it again
+one cycle later, unchanged.
+
+```verilog
+// rtl/xyz.v
+module xyz #(parameter CW = 32, AW = 64, DW = 256) (
+    input clk, input nreset,
+    input           umi_in_valid,
+    input  [CW-1:0] umi_in_cmd,
+    input  [AW-1:0] umi_in_dstaddr,
+    input  [AW-1:0] umi_in_srcaddr,
+    input  [DW-1:0] umi_in_data,
+    output          umi_in_ready,
+    output          umi_out_valid,
+    output [CW-1:0] umi_out_cmd,
+    output [AW-1:0] umi_out_dstaddr,
+    output [AW-1:0] umi_out_srcaddr,
+    output [DW-1:0] umi_out_data,
+    input           umi_out_ready
+);
+   reg v_r; reg [CW-1:0] c_r; reg [AW-1:0] d_r, s_r; reg [DW-1:0] p_r;
+   assign umi_in_ready    = ~v_r | umi_out_ready;
+   assign umi_out_valid   = v_r;
+   assign umi_out_cmd     = c_r;
+   assign umi_out_dstaddr = d_r;
+   assign umi_out_srcaddr = s_r;
+   assign umi_out_data    = p_r;
+   always @(posedge clk or negedge nreset)
+     if (!nreset)                          v_r <= 1'b0;
+     else if (umi_in_valid & umi_in_ready) v_r <= 1'b1;
+     else if (umi_out_ready)               v_r <= 1'b0;
+   always @(posedge clk)
+     if (umi_in_valid & umi_in_ready) begin
+        c_r <= umi_in_cmd;     d_r <= umi_in_dstaddr;
+        s_r <= umi_in_srcaddr; p_r <= umi_in_data;
+     end
+endmodule
+```
+
+Substitute your own block; only the port connections below change.
+
+### Attaching it to the flow
+
+Three more files:
+
+    xyz.py                 a Design, so the flow can find the source
+    formal/fv_xyz.sv       the harness: your block plus the checkers
+    test_formal_xyz.py     the rows
+
+```python
+# xyz.py
+from pathlib import Path
+from siliconcompiler import Design
+from umi.sumi import Checker
+
+
+class XYZ(Design):
+    def __init__(self):
+        super().__init__("xyz")
+        self.set_dataroot("xyz", str(Path(__file__).parent))
+        with self.active_fileset("rtl"):
+            self.set_topmodule("xyz")
+            self.add_file("rtl/xyz.v")
+            self.add_depfileset(Checker(), "rtl")
+```
+
+`add_depfileset(Checker(), "rtl")` is what puts the checker sources in front
+of the solver. Without it the harness will not elaborate.
+
+The harness holds no properties of its own -- the checkers carry them:
+
+```systemverilog
+// formal/fv_xyz.sv
+`default_nettype none
+
+module fv_xyz #(parameter CW = 32, AW = 64, DW = 64) (input wire clk);
+
+    // reset is free, but must be low at time zero, or the solver starts
+    // mid-trace in a state no real reset sequence produces
+    (* anyseq *) wire nreset;
+    reg f_past_exists = 1'b0;
+    always @(posedge clk) f_past_exists <= 1'b1;
+    always @(*) if (!f_past_exists) assume (!nreset);
+
+    // the solver drives these. There is no testbench and no driver: you
+    // declare the inputs free, and the solver searches every legal way of
+    // wiggling them
+    (* anyseq *) wire          in_valid, out_ready;
+    (* anyseq *) wire [CW-1:0] in_cmd;
+    (* anyseq *) wire [AW-1:0] in_dstaddr, in_srcaddr;
+    (* anyseq *) wire [DW-1:0] in_data;
+
+    wire          in_ready, out_valid;
+    wire [CW-1:0] out_cmd;
+    wire [AW-1:0] out_dstaddr, out_srcaddr;
+    wire [DW-1:0] out_data;
+
+    xyz #(.CW (CW), .AW (AW), .DW (DW)) dut (
+        .clk (clk), .nreset (nreset),
+        .umi_in_valid (in_valid), .umi_in_cmd (in_cmd),
+        .umi_in_dstaddr (in_dstaddr), .umi_in_srcaddr (in_srcaddr),
+        .umi_in_data (in_data), .umi_in_ready (in_ready),
+        .umi_out_valid (out_valid), .umi_out_cmd (out_cmd),
+        .umi_out_dstaddr (out_dstaddr), .umi_out_srcaddr (out_srcaddr),
+        .umi_out_data (out_data), .umi_out_ready (out_ready)
+    );
+
+    // ASSUME=1 on a channel something else drives: the rules become
+    // constraints, so the solver offers only legal traffic
+    umi_handshake_checker #(.CW (CW), .AW (AW), .DW (DW), .ASSUME (1))
+    env_in (.clk (clk), .nreset (nreset),
+            .valid (in_valid), .ready (in_ready), .cmd (in_cmd),
+            .dstaddr (in_dstaddr), .srcaddr (in_srcaddr), .data (in_data));
+
+    // ASSUME=0 on a channel your block drives: the same rules, asserted.
+    // This one is the proof
+    umi_handshake_checker #(.CW (CW), .AW (AW), .DW (DW), .ASSUME (0))
+    chk_out (.clk (clk), .nreset (nreset),
+             .valid (out_valid), .ready (out_ready), .cmd (out_cmd),
+             .dstaddr (out_dstaddr), .srcaddr (out_srcaddr), .data (out_data));
+
+endmodule
+
+`default_nettype wire
+```
+
+One instance per channel, and `ASSUME` follows who drives it: assert what
+your block drives, assume what something else drives. Instantiate them --
+never `bind`. yosys has dropped bind directives without reporting it, and a
+dropped bind takes its assertions with it, so the run returns `proved` having
+checked nothing.
+
+```python
+# test_formal_xyz.py
+import shutil, sys
+from pathlib import Path
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parent))
+from xyz import XYZ
+
+from siliconcompiler import Design, Project
+from siliconcompiler.flows.formalflow import PropertyCheckFlow, PropertyCheckMode
+from siliconcompiler.tools.sby import SBYTask
+
+HERE = Path(__file__).resolve().parent
+
+pytestmark = pytest.mark.skipif(
+    any(shutil.which(t) is None for t in ("sby", "yosys", "bitwuzla")),
+    reason="formal toolchain not on PATH")
+
+
+def _project(mode):
+    design = Design("fv_xyz")
+    design.set_dataroot("fv_xyz", str(HERE / "formal"))
+    with design.active_fileset("rtl"):
+        design.set_topmodule("fv_xyz")
+        design.add_file("fv_xyz.sv")
+        design.add_depfileset(XYZ(), "rtl")
+    proj = Project(design)
+    proj.add_fileset("rtl")
+    proj.set_flow(PropertyCheckFlow(f"formal_{mode}",
+                                    modes=getattr(PropertyCheckMode, mode.upper())))
+    proj.option.set_builddir(str(HERE / "build"))
+    proj.option.set_novercheck(True)
+    SBYTask.find_task(proj).set_sby_depth(10)
+    SBYTask.find_task(proj).add_sby_engine("smtbmc bitwuzla", clobber=True)
+    return proj
+
+
+def test_xyz_bmc():
+    proj = _project("bmc")
+    assert proj.run().get("metric", "errors", step="bmc", index="0") == 0
+
+
+def test_xyz_cover():
+    proj = _project("cover")
+    assert proj.run().get("metric", "errors", step="cover", index="0") == 0
+```
+
+    pytest test_formal_xyz.py -v      # 2 passed, about 1 s
+
+README 4.2 rules 2 and 3 are now proven on `umi_out`, over all legal traffic
+rather than the traces you thought to write, and the cover row shows the
+environment is not starving the proof.
+
+### Check that it can fail
+
+Once, before believing any of it. Drop VALID whether or not the sink took the
+beat:
+
+```verilog
+-    else if (umi_out_ready)               v_r <= 1'b0;
++    else                                  v_r <= 1'b0;
+```
+
+    Assert failed in fv_xyz.chk_out: RULE2_valid_hold
+
+Then put it back. A checker that is silent and a checker that is not there
+look identical from the outside.
+
+### The other three checkers
+
+`Checker()` supplies three more, wired the same way and taking `ASSUME` the
+same way:
+
+| module | judges | reach for it when |
+|---|---|---|
+| `umi_cmd_checker` | CMD-word legality: opcode, ATYPE, size, alignment, error encoding | your block builds or rewrites a CMD word |
+| `umi_frame_checker` | intra-message framing on one channel | your block emits multi-beat messages |
+| `umi_txn_checker` | one answer per request, right kind, right address | your block answers requests, or forwards them and returns answers |
+
+`fv_umi_endpoint` shows a device block with its request face assumed and its
+response face asserted; `fv_umi_txn` drives the transaction checker against a
+responder model.
+
+All four are passive: they say whether a channel is legal UMI, and none of
+them knows what your block is *for*.
+
+### What this does not give you
+
+`umi_handshake_checker` asserts README 4.2 rules 2 and 3 and witnesses rule 1;
+rule 4 is permissive. Rules 5 and 6 are **not** in it and cannot be -- they
+are statements about what a signal *depends on*, and no property sampled once
+per cycle can say that. They are proven harness-side instead; see the rule-5
+scope note above, and `fv_umi_buffer` for the pattern.
+
+
 ## Adding a proof
 
 1. Add `fv_<name>.sv` under the layer directory, with at least one `fault_*`
