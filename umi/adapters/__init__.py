@@ -5,8 +5,10 @@ from .umi2apb.umi2apb import UMI2APB
 from .tl2umi.tl2umi import TL2UMI
 from .umi2tl.umi2tl import UMI2TL
 from .axi2umi.axi2umi import AXI2UMI
+from .umi_address_remap import AddressRemap
 
-__all__ = ['AXIL2UMI',
+__all__ = ['AddressRemap',
+           'AXIL2UMI',
            'TL2UMI',
            'UMI2APB',
            'UMI2AXIL',

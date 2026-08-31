@@ -73,7 +73,7 @@
  * Outside these laws: the register file behind the interface, error
  * propagation from reg_err, and the group-address decode.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   regif:prove            SAFE=0, all laws, unbounded
  *   regif:cover            witnesses: expect all reached
  *   regif:hazard           SAFE=1, response checker and the accounting

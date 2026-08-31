@@ -82,7 +82,7 @@
  * atomic arithmetic (that is fv_umi_memif), and multi-beat requests --
  * the harness holds LEN at zero, so every request here is one beat.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   endpoint:prove         REG=0, all laws, unbounded
  *   endpoint:bmc_reg       REG=1, BOUNDED -- the second answer sits in
  *                          a pipeline stage no port shows, so the exact

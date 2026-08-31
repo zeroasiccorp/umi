@@ -43,7 +43,7 @@
  * outside the legal opcode set (CMD-1 implies CMD-10/CMD-12 over the
  * whole language -- see the checker header).
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   cmd:prove           DW=256, the shipped checker width, unbounded
  *   cmd:prove_dw64      the same proof at DW=64
  *   cmd:cover           witnesses: expect all reached

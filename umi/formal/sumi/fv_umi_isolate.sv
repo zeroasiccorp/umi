@@ -36,7 +36,7 @@
  * Purely combinational, so induction closes immediately; the value of
  * prove mode is the quantifier over every input word.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   isolate:prove         ISO=1, both laws, unbounded
  *   isolate:prove_iso0    ISO=0, passthrough, unbounded
  *   isolate:cover         witnesses: expect all reached

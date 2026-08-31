@@ -40,7 +40,7 @@
  * - The fault_eom row flips the EOM bit in transit; FWD_eom must
  *   fail. A proof that cannot fail proves nothing.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   codec:prove      round-trip, unbounded
  *   codec:cover      witnesses: expect all reached
  *   codec:fault_eom  must FAIL, intended label FWD_eom

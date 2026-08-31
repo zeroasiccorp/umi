@@ -53,9 +53,12 @@ from umi.sumi import (Arbiter, Buffer, Checker, Crossbar, Decode, Demux,
 # package API keeps that decision intact while still letting the block
 # be judged; fv_umi_switch.sv states what the disabled path does.
 from umi.sumi.umi_switch.umi_switch import Switch
+from umi.adapters import (AddressRemap, AXI2UMI, AXIL2UMI, TL2UMI, UMI2APB,
+                          UMI2AXIL, UMI2TL)
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 FORMAL_SUMI = REPO / "umi" / "formal" / "sumi"
+FORMAL_ADAPTERS = REPO / "umi" / "formal" / "adapters"
 SUMI_INCLUDE = REPO / "umi" / "sumi" / "include"
 
 # the lane pins its engine rather than inheriting the sby task's
@@ -112,6 +115,9 @@ if _HAVE_SC_FORMAL:
 
 # One entry per proof family: the dependency blocks (DUT + property
 # modules), the default unrolling depth, and the sby wall-clock ceiling.
+# root is where the harness file lives, and defaults to umi/formal/sumi;
+# the adapter harnesses sit beside their own layer instead. defines are
+# applied to every row of the family, on top of the row's own.
 FAMILIES = {
     "fv_umi_codec": dict(deps=lambda: [Pack(), Unpack()], depth=4, timeout=300),
     "fv_umi_buffer": dict(deps=lambda: [Buffer(), Checker()], depth=12, timeout=300),
@@ -143,6 +149,33 @@ FAMILIES = {
     "fv_umi_frame": dict(deps=lambda: [Checker()], depth=10, timeout=900),
     "fv_umi_cmd": dict(deps=lambda: [Checker()], depth=6, timeout=300),
     "fv_umi_txn": dict(deps=lambda: [Checker()], depth=20, timeout=1200),
+    "fv_umi2apb": dict(deps=lambda: [UMI2APB(), Checker()], depth=10,
+                       timeout=1800, root=FORMAL_ADAPTERS),
+    "fv_umi2axil": dict(deps=lambda: [UMI2AXIL(), Checker()], depth=12,
+                        timeout=1800, root=FORMAL_ADAPTERS),
+    "fv_axil2umi": dict(deps=lambda: [AXIL2UMI(), Checker()], depth=12,
+                        timeout=1800, root=FORMAL_ADAPTERS),
+    "fv_axi2umi": dict(deps=lambda: [AXI2UMI(), Checker()], depth=14,
+                       timeout=1800, root=FORMAL_ADAPTERS),
+    # tl2umi guards four $display calls with `ifndef SYNTHESIS. yosys
+    # reads them as $check cells and async2sync rejects a $check with
+    # more than one trigger, which is what an always block with an async
+    # reset gives it. Defining SYNTHESIS takes the RTL's own escape and
+    # removes simulation-only output, no logic.
+    "fv_tl2umi": dict(deps=lambda: [TL2UMI(), Checker()], depth=12,
+                      timeout=1800, root=FORMAL_ADAPTERS,
+                      defines=("SYNTHESIS",)),
+    "fv_umi2tl": dict(deps=lambda: [UMI2TL(), Checker()], depth=12,
+                      timeout=1800, root=FORMAL_ADAPTERS,
+                      defines=("SYNTHESIS",)),
+    "fv_umi_address_remap": dict(deps=lambda: [AddressRemap(), Checker()],
+                                 depth=4, timeout=900, root=FORMAL_ADAPTERS),
+    # umi_data_aggregator ships inside the tl2umi fileset, so TL2UMI is
+    # how the harness reaches it without a second Design for one file
+    "fv_umi_data_aggregator": dict(deps=lambda: [TL2UMI(), Checker()],
+                                   depth=12, timeout=1800,
+                                   root=FORMAL_ADAPTERS,
+                                   defines=("SYNTHESIS",)),
 }
 
 
@@ -426,6 +459,72 @@ GREEN = [
     Proof("switch:bmc_m2", "fv_umi_switch", "bmc", params=(("M", "2"),)),
     Proof("switch:cover_m2", "fv_umi_switch", "cover", params=(("M", "2"),)),
     Proof("switch:cover", "fv_umi_switch", "cover"),
+
+    # ---- fv_umi2apb ---------------------------------------------------
+    # the first adapter: one UMI face and one AMBA APB face, each held
+    # to its own specification. Bounded -- the DUT carries request and
+    # response registers no port shows, the same fence umi_buffer met
+    Proof("apb:bmc", "fv_umi2apb", "bmc"),
+    Proof("apb:cover", "fv_umi2apb", "cover"),
+    # the block header says atomics and RDMA are dropped silently. This
+    # row withdraws the opcode assumption and covers what they really do
+    Proof("apb:hazard", "fv_umi2apb", "cover", defines=("FV_APB_ANYOP",)),
+
+    # ---- fv_umi2axil --------------------------------------------------
+    # AXI4-Lite manager: three channels the block owns, two it does not
+    # RESP_RULE_EN 47 = 6'h2F masks RULE3_data_stable (bit 4): the
+    # response data field is driven by RDATA even on a write response,
+    # which axil:fault_data pins. The other five rules are still proven
+    Proof("axil:bmc", "fv_umi2axil", "bmc",
+          params=(("RESP_RULE_EN", "47"),)),
+    Proof("axil:cover", "fv_umi2axil", "cover"),
+    # the opcode assumption withdrawn: what the block does with an
+    # opcode it has no mapping for, the question apb:hazard asks too
+    Proof("axil:hazard", "fv_umi2axil", "cover", defines=("FV_AXIL_ANYOP",)),
+
+    # ---- fv_axil2umi --------------------------------------------------
+    # the same AXI4-Lite law set from the subordinate side: this block
+    # owns B and R, so those are asserted and AW/W/AR assumed
+    Proof("axil2:bmc", "fv_axil2umi", "bmc"),
+    Proof("axil2:cover", "fv_axil2umi", "cover"),
+    # AWVALID and ARVALID on one edge: both address channels report the
+    # same ready, so both are accepted. Witnessed here, pinned below
+    Proof("axil2:hazard", "fv_axil2umi", "cover",
+          defines=("FV_AXIL2_CONCURRENT",)),
+
+    # ---- fv_axi2umi ---------------------------------------------------
+    # full AXI4 subordinate: the burst obligations are the part
+    # AXI4-Lite does not have
+    Proof("axi:bmc", "fv_axi2umi", "bmc"),
+    Proof("axi:cover", "fv_axi2umi", "cover"),
+    # the EOM integration condition withdrawn: what a device that
+    # miscounts its beats does to the AXI face
+    Proof("axi:hazard", "fv_axi2umi", "cover", defines=("FV_AXI_ANYEOM",)),
+    # a second read burst accepted while the first is still returning
+    Proof("axi:hazard_multi", "fv_axi2umi", "cover", defines=("FV_AXI_MULTI",)),
+
+    # ---- fv_tl2umi ----------------------------------------------------
+    # TileLink-UL subordinate: the D channel must carry the source and
+    # size of the request it answers, and the opcode that request demands
+    Proof("tl:bmc", "fv_tl2umi", "bmc"),
+    Proof("tl:cover", "fv_tl2umi", "cover"),
+
+    # ---- fv_umi2tl ----------------------------------------------------
+    # the TileLink-UL manager side: the request-shape obligations
+    Proof("tlm:bmc", "fv_umi2tl", "bmc"),
+    Proof("tlm:cover", "fv_umi2tl", "cover"),
+
+    # ---- fv_umi_address_remap -----------------------------------------
+    # purely combinational, so prove closes and quantifies over every
+    # input word
+    Proof("remap:prove", "fv_umi_address_remap", "prove"),
+    Proof("remap:cover", "fv_umi_address_remap", "cover"),
+    Proof("remap:hazard", "fv_umi_address_remap", "cover",
+          defines=("FV_REMAP_FREECFG",)),
+
+    # ---- fv_umi_data_aggregator ---------------------------------------
+    Proof("agg:bmc", "fv_umi_data_aggregator", "bmc"),
+    Proof("agg:cover", "fv_umi_data_aggregator", "cover"),
 
     # ---- configuration matrix -----------------------------------------
     # The harnesses above run one face each, chosen for solve time, and
@@ -843,20 +942,125 @@ FAULTS = [
           expect="a_xb_conserve"),
     Proof("crossbar:fault_blend", "fv_umi_crossbar", "bmc", defines=("FV_FAULT_BLEND",),
           expect="a_xb_route_cmd"),
+
+    # ---- fv_umi2apb ---------------------------------------------------
+    Proof("apb:fault_enable", "fv_umi2apb", "bmc", defines=("FV_FAULT_ENABLE",),
+          expect="APB2_setup_to_access"),
+    Proof("apb:fault_stable", "fv_umi2apb", "bmc", defines=("FV_FAULT_STABLE",),
+          expect="APB4_payload_stable"),
+    Proof("apb:fault_kind", "fv_umi2apb", "bmc", defines=("FV_FAULT_KIND",),
+          expect="a_apb_kind"),
+    Proof("apb:fault_posted", "fv_umi2apb", "bmc", defines=("FV_FAULT_POSTED",),
+          expect="a_apb_posted_quiet"),
+    # Nothing is injected here. The block header says atomics and RDMA
+    # are dropped silently; they are not, and this row pins that
+    Proof("apb:fault_drop", "fv_umi2apb", "bmc",
+          defines=("FV_APB_ANYOP", "FV_APB_ASSERT_DROP"),
+          expect="a_apb_unsupported_dropped"),
+    # Nothing injected. AMBA APB forbids an active PSTRB on a read;
+    # umi2apb.v:140 ties every strobe high for both directions
+    Proof("apb:fault_strb", "fv_umi2apb", "bmc",
+          defines=("FV_APB_ASSERT_STRB",),
+          expect="APB6_pstrb_read"),
+
+    # ---- fv_umi2axil --------------------------------------------------
+    Proof("axil:fault_aw", "fv_umi2axil", "bmc", defines=("FV_FAULT_AW",),
+          expect="AXIL_aw_hold"),
+    Proof("axil:fault_w", "fv_umi2axil", "bmc", defines=("FV_FAULT_W",),
+          expect="AXIL_w_stable"),
+    Proof("axil:fault_ar", "fv_umi2axil", "bmc", defines=("FV_FAULT_AR",),
+          expect="AXIL_ar_hold"),
+    Proof("axil:fault_kind", "fv_umi2axil", "bmc", defines=("FV_FAULT_KIND",),
+          expect="a_axil_kind"),
+    # Nothing is injected here. The byte-lane shift amount is computed at
+    # the width of a 3-bit signal and is therefore always zero
+    Proof("axil:fault_lane", "fv_umi2axil", "bmc",
+          defines=("FV_AXIL_ASSERT_LANE",), expect="a_axil_wdata_lane"),
+    # Nothing injected: with the full rule set the response data field
+    # moves under a standing offer on a write response
+    Proof("axil:fault_data", "fv_umi2axil", "bmc",
+          expect="RULE3_data_stable"),
+
+    # ---- fv_axil2umi --------------------------------------------------
+    Proof("axil2:fault_b", "fv_axil2umi", "bmc", defines=("FV_FAULT_B",),
+          expect="AXIL_b_hold"),
+    Proof("axil2:fault_r", "fv_axil2umi", "bmc", defines=("FV_FAULT_R",),
+          expect="AXIL_r_stable"),
+    Proof("axil2:fault_kind", "fv_axil2umi", "bmc", defines=("FV_FAULT_KIND",),
+          expect="a_axil2_kind"),
+    Proof("axil2:fault_inflight", "fv_axil2umi", "bmc",
+          defines=("FV_FAULT_INFLIGHT",), expect="a_axil2_one_inflight"),
+    # Nothing injected. With a concurrent read and write accepted, the
+    # response steering drains the UMI answer on BREADY and RVALID falls
+    # without RREADY
+    Proof("axil2:fault_concurrent", "fv_axil2umi", "bmc",
+          defines=("FV_AXIL2_CONCURRENT",), expect="AXIL_r_hold"),
+
+    # ---- fv_axi2umi ---------------------------------------------------
+    Proof("axi:fault_r", "fv_axi2umi", "bmc", defines=("FV_FAULT_R",),
+          expect="AXI_r_data"),
+    Proof("axi:fault_rid", "fv_axi2umi", "bmc", defines=("FV_FAULT_RID",),
+          expect="AXI_rid_match"),
+    Proof("axi:fault_b", "fv_axi2umi", "bmc", defines=("FV_FAULT_B",),
+          expect="AXI_b_hold"),
+    # Nothing injected. The block copies the device's EOM straight to
+    # RLAST, so a device that miscounts breaks AXI at this output
+    Proof("axi:fault_burst", "fv_axi2umi", "bmc", defines=("FV_AXI_ANYEOM",),
+          expect="AXI_rlast_count"),
+    # Nothing injected. One ar_id register, no gating on arready, so a
+    # second burst overwrites RID while the first is still standing
+    Proof("axi:fault_multi", "fv_axi2umi", "bmc", defines=("FV_AXI_MULTI",),
+          expect="AXI_r_id"),
+
+    # ---- fv_tl2umi ----------------------------------------------------
+    Proof("tl:fault_d", "fv_tl2umi", "bmc", defines=("FV_FAULT_D",),
+          expect="a_tl_d_stable"),
+    Proof("tl:fault_hold", "fv_tl2umi", "bmc", defines=("FV_FAULT_HOLD",),
+          expect="a_tl_d_hold"),
+    Proof("tl:fault_opcode", "fv_tl2umi", "bmc", defines=("FV_FAULT_OPCODE",),
+          expect="TL_d_opcode_legal"),
+
+    # ---- fv_umi2tl ----------------------------------------------------
+    Proof("tlm:fault_a", "fv_umi2tl", "bmc", defines=("FV_FAULT_A",),
+          expect="a_tlm_a_hold"),
+    Proof("tlm:fault_stable", "fv_umi2tl", "bmc", defines=("FV_FAULT_STABLE",),
+          expect="a_tlm_a_stable"),
+    # Nothing injected. A one-byte request becomes a TileLink request
+    # with size 1 (two bytes) and a one-lane mask
+    Proof("tlm:fault_mask", "fv_umi2tl", "bmc",
+          defines=("FV_TLM_ASSERT_MASK",), expect="TL_a_mask_size"),
+
+    # ---- fv_umi_address_remap -----------------------------------------
+    Proof("remap:fault_local", "fv_umi_address_remap", "bmc",
+          defines=("FV_FAULT_LOCAL",), expect="a_remap_local"),
+    Proof("remap:fault_carry", "fv_umi_address_remap", "bmc",
+          defines=("FV_FAULT_CARRY",), expect="a_remap_carry"),
+    # Nothing injected: the configuration pins move, and DSTADDR is a
+    # combinational function of them
+    Proof("remap:fault_cfg", "fv_umi_address_remap", "bmc",
+          defines=("FV_REMAP_FREECFG",), expect="RULE3_dstaddr_stable"),
+
+    # ---- fv_umi_data_aggregator ---------------------------------------
+    Proof("agg:fault_addr", "fv_umi_data_aggregator", "bmc",
+          defines=("FV_FAULT_ADDR",), expect="a_agg_addr_first"),
+    Proof("agg:fault_data", "fv_umi_data_aggregator", "bmc",
+          defines=("FV_FAULT_DATA",), expect="RULE3_data_stable"),
 ]
 
 
 def _harness(proof):
     """The proof's Design: harness on top, repo blocks as deps."""
     design = Design(proof.family)
-    design.set_dataroot("umi_formal_sumi", str(FORMAL_SUMI))
+    root = FAMILIES[proof.family].get("root", FORMAL_SUMI)
+    design.set_dataroot(f"umi_formal_{root.name}", str(root))
     with design.active_fileset("rtl"):
         design.set_topmodule(proof.family)
         design.add_file(f"{proof.family}.sv")
         design.add_idir(str(SUMI_INCLUDE))
         for dep in FAMILIES[proof.family]["deps"]():
             design.add_depfileset(dep, "rtl")
-        for define in proof.defines:
+        for define in (tuple(FAMILIES[proof.family].get("defines", ()))
+                       + proof.defines):
             design.add_define(define)
         for name, value in proof.params:
             design.set_param(name, value)
