@@ -95,7 +95,7 @@
  * throughout -- see fv_umi_fifo for why a synchroniser needs a delay
  * model before it means anything), and progress.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   fifoflex:bmc          SPLIT=0, IDW == ODW, bounded
  *   fifoflex:bmc_merge    IDW  < ODW, bounded
  *   fifoflex:cover        witnesses: expect all reached

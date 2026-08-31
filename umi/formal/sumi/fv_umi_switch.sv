@@ -59,7 +59,7 @@
  * and progress. MASK is left at its default of zero, so no path is
  * statically disabled.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   switch:bmc            M=1, output handshake, bounded
  *   switch:bmc_m2         M=2, the same handshake with the ready merge
  *                         active across two outputs

@@ -28,7 +28,7 @@
  *
  * It instantiates lambdalib's la_vmux2b (umi_mux2.v:52-79), which
  * resolves out of site-packages -- a path that varies by environment.
- * The lane (tests/sumi/test_formal_sc.py) takes the sources from the
+ * The lane (tests/test_formal_sc.py) takes the sources from the
  * repo's own fileset graph, so that path is resolved at run time
  * rather than written down anywhere.
  *

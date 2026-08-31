@@ -89,7 +89,7 @@
  * the arithmetic and fv_umi_endpoint for the request/response glue),
  * arbitration fairness between the ports, and progress.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   ram:bmc           a_ram_route, bounded, response checker lifted
  *   ram:cover         witnesses: expect all reached, including
  *                     c_ram_dup_conv

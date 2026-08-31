@@ -22,7 +22,7 @@
  * umi_mux is the first block in this directory that instantiates other
  * blocks -- umi_arbiter and lambdalib's la_vmux (umi_mux.v:63, 105-140).
  * lambdalib resolves out of site-packages, a path that varies by
- * environment; the lane (tests/sumi/test_formal_sc.py) takes the
+ * environment; the lane (tests/test_formal_sc.py) takes the
  * sources from the repo's own fileset graph, so that path is resolved
  * at run time rather than written down anywhere.
  *

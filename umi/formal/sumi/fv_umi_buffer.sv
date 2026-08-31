@@ -133,7 +133,7 @@
  * ever delivered -- this file asserts no liveness property), latency,
  * and payload widths above that face.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   buffer:prove            MODE=1 skid buffer, unbounded
  *   buffer:bypass           MODE=0, unbounded
  *   buffer:cover            witnesses: expect all reached

@@ -55,7 +55,7 @@
  * it is, and that is stated rather than split into two rows for a
  * better-looking label.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   frame:bmc            the two faces agree, bounded
  *   frame:cover          witnesses: expect all reached, including a
  *                        multi-beat message opening, continuing and

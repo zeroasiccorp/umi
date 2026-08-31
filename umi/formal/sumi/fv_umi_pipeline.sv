@@ -69,7 +69,7 @@
  * ever delivered -- this file asserts no liveness property), and any
  * fabric that broadcasts a different upstream ready.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   pipeline:prove         the handshake at both faces, unbounded
  *   pipeline:cover         handshake witnesses: expect all reached
  *   pipeline:identity      a_pipe_occupancy + a_pipe_beat, unbounded

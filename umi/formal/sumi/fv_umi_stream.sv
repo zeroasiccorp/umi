@@ -68,7 +68,7 @@
  * accounting umi_fifoflex also wants, and it is not attempted here.
  * This file is a handshake result and is labelled one.
  *
- * ROWS (tests/sumi/test_formal_sc.py):
+ * ROWS (tests/test_formal_sc.py):
  *   stream:bmc              all four faces, bounded
  *   stream:cover            witnesses: expect all reached
  *   stream:fault_valid      must FAIL, chk_umi_out.RULE2_valid_hold

@@ -21,7 +21,7 @@
  *
  * umi_crossbar instantiates umi_arbiter and lambdalib's la_vmux
  * (umi_crossbar.v:76, 119-149), which resolves out of site-packages.
- * The lane (tests/sumi/test_formal_sc.py) assembles the sources from
+ * The lane (tests/test_formal_sc.py) assembles the sources from
  * the Crossbar block's own fileset graph, so that path is resolved at
  * run time rather than written down anywhere.
  *
