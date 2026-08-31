@@ -29,7 +29,9 @@
  *
  *   asserted (this block is the source)
  *     AXI_b_hold / AXI_b_stable      BID and BRESP
- *     AXI_r_hold / AXI_r_stable      RID, RDATA, RRESP and RLAST
+ *     AXI_r_hold                     RVALID stays up until RREADY
+ *     AXI_r_data / AXI_r_id /        one label per R payload field, so
+ *     AXI_r_resp / AXI_r_last        a fault row names which one moved
  *     AXI_rid_match                  RID is the ARID of the burst being
  *                                    returned (axird2umi.v:185)
  *     AXI_rlast_count                RLAST lands on beat ARLEN+1 and
@@ -54,6 +56,17 @@
  * message on beat ARLEN+1, and AXI_rlast_count then proves the AXI
  * obligation follows.
  *
+ * WHICH SIDE THAT ASSUMPTION IS STATED ON DECIDES WHETHER THE PROOF
+ * SAYS ANYTHING. m_axi_resp_eom constrains resp_cmd[UMI_EOM_BIT], the
+ * device's own bit and free stimulus here. It would be one assign
+ * shorter to write it on s_axi_rlast instead -- the two are separated
+ * only by axird2umi.v:188 -- and that version is worthless: the
+ * assertion would then repeat the assumption word for word and hold
+ * whatever the block did with the bit in between. Inverting that
+ * assign is caught on axi:bmc, which is the check that the law still
+ * has work to do. For the same reason the burst model below closes on
+ * ARLEN+1 accepted beats rather than on the block's own RLAST.
+ *
  * The hazard row withdraws that assumption. What it shows is the size
  * of the condition: a device that miscounts by one beat does not
  * produce a UMI error, it produces an AXI protocol violation at this
@@ -73,20 +86,25 @@
  * attempted. The address and QOS/PROT mappings are single assigns.
  *
  * SCOPE. Bounded. One clock. DW is narrowed from the block default of
- * 128 to 64 for solve time; every law here is width-independent, and
- * the configuration matrix is where widths are re-answered.
+ * 128 to 64 for solve time. Every law here is width-independent, but
+ * that is an argument rather than a second elaboration: the
+ * configuration matrix in tests/test_formal_sc.py re-answers the SUMI
+ * families at other widths and carries no adapter row, so this face is
+ * the only one any adapter is proven at. Bursts are held to
+ * ARLEN <= MAXLEN = 2 and to INCR, which m_axi_len and m_axi_burst
+ * state; FIXED and WRAP are out of scope.
  *
  * ROWS (tests/test_formal_sc.py):
  *   axi:bmc              the AXI and UMI laws, bounded
  *   axi:cover            witnesses: expect all reached
  *   axi:hazard           the EOM integration condition withdrawn
- *   axi:fault_r          must FAIL, AXI_r_stable
+ *   axi:fault_r          must FAIL, AXI_r_data
  *   axi:fault_rid        must FAIL, AXI_rid_match
  *   axi:fault_b          must FAIL, AXI_b_hold
  *   axi:fault_burst      must FAIL, AXI_rlast_count. Nothing injected --
  *                        the device miscounts and the block passes it on
  *   axi:hazard_multi     a second AR while a burst returns: witness
- *   axi:fault_multi      must FAIL, AXI_r_stable. Nothing injected --
+ *   axi:fault_multi      must FAIL, AXI_r_id. Nothing injected --
  *                        the single ar_id register is overwritten
  *
  ******************************************************************************/
@@ -214,7 +232,7 @@ module fv_axi2umi #(
     reg awvalid_d, wvalid_d, arvalid_d, awready_d, wready_d, arready_d;
     // the WHOLE payload of each channel, not just the fields a law
     // happens to mention: AXI requires every one of them stable while
-    // VALID waits, and umi2umi builds its command word from arsize,
+    // VALID waits, and axird2umi builds its command word from arsize,
     // arprot and arqos as well as araddr and arlen
     reg [AW-1:0]   awaddr_d, araddr_d;
     reg [7:0]      awlen_d, arlen_d;
@@ -321,7 +339,12 @@ module fv_axi2umi #(
             burst_len <= arlen; beats <= 8'd0;
             burst_id  <= arid;  burst_open <= 1'b1;
         end else if (r_fire) begin
-            if (rlast) begin
+            // the burst closes on the beat AXI says is the last one --
+            // ARLEN+1 accepted beats -- not on the DUT's own RLAST.
+            // Counting on rlast would make this model agree with
+            // whatever the block drives, and AXI_rlast_count below
+            // would have nothing left to compare against
+            if (beats == burst_len) begin
                 beats <= 8'd0; burst_open <= 1'b0;
             end else
                 beats <= beats + 8'd1;
@@ -383,10 +406,19 @@ module fv_axi2umi #(
     // The integration condition axird2umi.v:22-23 states: the UMI device
     // closes the message on the beat that completes the burst. The
     // hazard row withdraws this.
+    //
+    // It is stated over the DEVICE's EOM bit, which is free stimulus
+    // here, and never over s_axi_rlast. The two are one assign apart
+    // (axird2umi.v:188), so constraining the output would make
+    // AXI_rlast_count below a restatement of this line rather than a
+    // check of the path between them: an inverted :188 would then still
+    // satisfy both, because the solver would simply pick the EOM that
+    // makes the equality hold.
 `ifndef FV_AXI_ANYEOM
     always @(*)
-        if (burst_open & rvalid)
-            m_axi_resp_eom : assume (rlast == (beats == burst_len));
+        if (burst_open & resp_valid & (resp_op == UMI_RESP_READ))
+            m_axi_resp_eom : assume (resp_cmd[UMI_EOM_BIT]
+                                     == (beats == burst_len));
 `endif
 
     // ----------------------------------------------------------------
