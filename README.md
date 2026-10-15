@@ -248,7 +248,7 @@ The ATYPE field indicates the type of the atomic transaction.
 | 0x06     | Atomic maxu |
 | 0x07     | Atomic minu |
 | 0x08     | Atomic swap |
-| 0x09     | Atomic compare and swap (CAS, see 3.4.6) |
+| 0x09     | Atomic cas  |
 | 0xFF     | Atomic reserved |
 
 ### 3.3.10 Host ID (HOSTID[4:0])
