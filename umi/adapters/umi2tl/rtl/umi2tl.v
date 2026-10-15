@@ -169,6 +169,14 @@ module umi2tl #(
         .cmd_hostid         (fifoflex_out_req_cmd_hostid)
     );
 
+    // TileLink-UL has no compare and swap: a CAS never reaches the A
+    // channel, it is answered here with RESP_RD, ERR=DEVERR and no data
+    // (README 3.4.6)
+    localparam [1:0] UMI_ERR_DEVERR = 2'b10;
+
+    wire req_deverr = (fifoflex_out_req_cmd_opcode == UMI_REQ_ATOMIC) &
+                      (fifoflex_out_req_cmd_atype == UMI_REQ_ATOMICCAS);
+
     // Calculate byte shift needed
     wire [8:0] fifoflex_out_req_cmd_len_plus_one = fifoflex_out_req_cmd_len + 1;
     wire [15:0] req_bytes = {7'b0, fifoflex_out_req_cmd_len_plus_one} << fifoflex_out_req_cmd_size;
@@ -229,7 +237,7 @@ module umi2tl #(
             tl_a_valid_r <= 1'b0;
         end
         else begin
-            if (fifoflex_out_req_ready & fifoflex_out_req_valid) begin
+            if (fifoflex_out_req_ready & fifoflex_out_req_valid & ~req_deverr) begin
                 tl_a_valid_r <= 1'b1;
             end
             else if (tl_a_ready & tl_a_valid) begin
@@ -309,6 +317,8 @@ module umi2tl #(
                         UMI_REQ_ATOMICMAXU: tl_a_param_r <= `TL_PA_MAXU;
                         UMI_REQ_ATOMICMINU: tl_a_param_r <= `TL_PA_MINU;
                         UMI_REQ_ATOMICSWAP: tl_a_param_r <= `TL_PL_SWAP;
+                        // answered with DEVERR, no A channel request
+                        UMI_REQ_ATOMICCAS:  tl_a_param_r <= 'b0;
                     `ifndef SYNTHESIS
                         default: begin
                             $display("[UMI2TL]: Unsupported UMI Atomic");
@@ -338,6 +348,7 @@ module umi2tl #(
     reg  [AW-1:0]           fifoflex_out_req_dstaddr_r;
     reg  [AW-1:0]           fifoflex_out_req_srcaddr_r;
     reg  [2:0]              masked_shift_r;
+    reg                     req_deverr_r;
 
     reg                     tl_transaction_in_flight;
     reg                     tl_transaction_done;
@@ -350,6 +361,7 @@ module umi2tl #(
             fifoflex_out_req_dstaddr_r <= 'b0;
             fifoflex_out_req_srcaddr_r <= 'b0;
             masked_shift_r             <= 'b0;
+            req_deverr_r               <= 1'b0;
         end
         else begin
             if (fifoflex_out_req_ready & fifoflex_out_req_valid) begin
@@ -357,6 +369,25 @@ module umi2tl #(
                 fifoflex_out_req_dstaddr_r <= fifoflex_out_req_dstaddr;
                 fifoflex_out_req_srcaddr_r <= fifoflex_out_req_srcaddr;
                 masked_shift_r             <= masked_shift;
+                req_deverr_r               <= req_deverr;
+            end
+        end
+    end
+
+    // A DEVERR response owed for a request that never went to TileLink
+    reg                     deverr_pending;
+    wire                    deverr_load;
+
+    always @(posedge clk or negedge nreset) begin
+        if (~nreset) begin
+            deverr_pending <= 1'b0;
+        end
+        else begin
+            if (fifoflex_out_req_ready & fifoflex_out_req_valid & req_deverr) begin
+                deverr_pending <= 1'b1;
+            end
+            else if (deverr_load) begin
+                deverr_pending <= 1'b0;
             end
         end
     end
@@ -437,7 +468,7 @@ module umi2tl #(
         .cmd_ex             (req2resp_cmd_ex),
         .cmd_user           (req2resp_cmd_user),
         .cmd_user_extended  (req2resp_cmd_user_extended),
-        .cmd_err            (req2resp_cmd_err),
+        .cmd_err            (req_deverr_r ? UMI_ERR_DEVERR : req2resp_cmd_err),
         .cmd_hostid         (req2resp_cmd_hostid),
 
         .packet_cmd         (udev_resp_cmd)
@@ -446,12 +477,18 @@ module umi2tl #(
     assign tl_d_ready = reset_done[1] &
                         (~udev_resp_valid | udev_resp_ready);
 
+    // the response register loads from TileLink D, or from a DEVERR owed
+    // for a request that never reached TileLink
+    assign deverr_load = deverr_pending & tl_d_ready;
+
+    wire resp_load = (tl_d_ready & tl_d_valid) | deverr_load;
+
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             udev_resp_valid_r <= 1'b0;
         end
         else begin
-            if (tl_d_ready & tl_d_valid & (req2resp_cmd_opcode != UMI_REQ_POSTED)) begin
+            if (resp_load & (req2resp_cmd_opcode != UMI_REQ_POSTED)) begin
                 udev_resp_valid_r <= 1'b1;
             end
             else if (udev_resp_ready & udev_resp_valid) begin
@@ -465,7 +502,7 @@ module umi2tl #(
             udev_resp_dstaddr_r <= 'b0;
             udev_resp_srcaddr_r <= 'b0;
         end
-        else if (tl_d_ready & tl_d_valid) begin
+        else if (resp_load) begin
                 udev_resp_dstaddr_r <= fifoflex_out_req_srcaddr_r;
                 udev_resp_srcaddr_r <= fifoflex_out_req_dstaddr_r;
         end
@@ -473,6 +510,9 @@ module umi2tl #(
 
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
+            udev_resp_data_r <= 'b0;
+        end
+        else if (deverr_load) begin
             udev_resp_data_r <= 'b0;
         end
         else if (tl_d_ready & tl_d_valid) begin
@@ -483,6 +523,9 @@ module umi2tl #(
     always @(posedge clk or negedge nreset) begin
         if (~nreset) begin
             udev_resp_cmd_opcode_r <= 'b0;
+        end
+        else if (deverr_load) begin
+            udev_resp_cmd_opcode_r <= UMI_RESP_READ;
         end
         else if (tl_d_ready & tl_d_valid) begin
             case (tl_d_opcode)
