@@ -35,14 +35,16 @@
  *                        (INVALID is admitted by ALLOW_INVALID,
  *                        default OFF, see below).
  *   CMD2_atype_legal     REQ_ATOMIC carries ATYPE in the LEN bit
- *                        positions; only 0x00..0x08 (ADD..SWAP) are
- *                        defined (README 3.3.9 ATYPE table).
+ *                        positions; only 0x00..0x09 (ADD..CAS) are
+ *                        defined (README 3.3.9 ATYPE table), and a CAS
+ *                        needs SIZE >= 1 (two operands, README 3.4.6).
  *   CMD4_da_aligned      DA aligned to 2^SIZE whenever the message has
  *   CMD4_sa_aligned      a DA (everything but LINK); SA aligned on
  *                        requests (README 3.1 "Device and source
  *                        addresses must be aligned to the native word
  *                        size"). Response SA is undefined by README
- *                        3.3.1 and never checked.
+ *                        3.3.1 and never checked. A CAS DA is aligned
+ *                        to its operand, 2^(SIZE-1) (README 3.4.6).
  *   CMD6_sa_reserved     (gated by CHECK_SA_RESERVED, default OFF, see
  *                        below) request SA reserved bits are zero:
  *                        SA[63:40] for AW>=64, SA[31:24] otherwise
@@ -269,10 +271,15 @@ module umi_cmd_checker #(
                               : (dec_op5 == UMI_REQ_ATOMIC) ? (16'd1 << dec_size)
                               : dec_bytes;
 
-    // alignment kernel (README 3.1): low SIZE bits of an address zero
+    // alignment kernel (README 3.1): low SIZE bits of an address zero.
+    // A CAS operand is half its data word (README 3.4.6): its DA is
+    // aligned to 2^(SIZE-1)
     localparam [AW-1:0] ADDR_ONE = {{(AW-1){1'b0}}, 1'b1};
+    wire dec_cas = (dec_op5 == UMI_REQ_ATOMIC) & (dec_len == UMI_REQ_ATOMICCAS);
     wire [AW-1:0] dec_align_mask = (ADDR_ONE << dec_size) - ADDR_ONE;
-    wire dec_da_aligned = ((dstaddr & dec_align_mask) == {AW{1'b0}});
+    wire [AW-1:0] dec_da_mask = (dec_cas & (dec_size != 3'd0)) ?
+                                (dec_align_mask >> 1) : dec_align_mask;
+    wire dec_da_aligned = ((dstaddr & dec_da_mask) == {AW{1'b0}});
     wire dec_sa_aligned = ((srcaddr & dec_align_mask) == {AW{1'b0}});
 
     // request SA reserved bits (README 3.3.1 SA bit map)
@@ -308,7 +315,8 @@ module umi_cmd_checker #(
     wire dec_cmd1_ok  = dec_structured | dec_fullbyte | dec_invalid_ok;
 
     wire dec_cmd2_ok  = (dec_op5 != UMI_REQ_ATOMIC)
-                      | (dec_len <= UMI_REQ_ATOMICSWAP);
+                      | ((dec_len <= UMI_REQ_ATOMICCAS)
+                         & ~(dec_cas & (dec_size == 3'd0)));
 
     wire dec_cmd4a_ok = ~dec_has_da | dec_da_aligned;
     wire dec_cmd4b_ok = ~dec_has_sa | dec_sa_aligned;
@@ -362,7 +370,7 @@ module umi_cmd_checker #(
                         CMD2_atype_legal : assert (dec_cmd2_ok);
 `ifndef FORMAL
                         if ((dec_cmd2_ok) !== 1'b1)
-                            $error("UMI-CMD CMD-2 %m: REQ_ATOMIC with ATYPE above ATOMICSWAP (README 3.3.9 ATYPE table)");
+                            $error("UMI-CMD CMD-2 %m: REQ_ATOMIC with ATYPE above ATOMICCAS, or a CAS with SIZE 0 (README 3.3.9, 3.4.6)");
 `endif
                     end
                     if (RULE_EN[2]) begin

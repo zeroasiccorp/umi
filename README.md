@@ -248,6 +248,8 @@ The ATYPE field indicates the type of the atomic transaction.
 | 0x06     | Atomic maxu |
 | 0x07     | Atomic minu |
 | 0x08     | Atomic swap |
+| 0x09     | Atomic cas  |
+| 0xFF     | Atomic reserved |
 
 ### 3.3.10 Host ID (HOSTID[4:0])
 
@@ -295,15 +297,27 @@ REQ_RDMA reads (2^SIZE)\*(LEN+1) bytes of data from a primary device destination
 
 REQ_RDMA may be dropped silently if it is determined to be unroutable, or if the request is unsupported by the primary device.
 
-### 3.4.6 REQ_ATOMIC{ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP}
+### 3.4.6 REQ_ATOMIC{ADD,AND,OR,XOR,MAX,MIN,MAXU,MINU,SWAP,CAS}
 
 REQ_ATOMIC initiates an atomic read-modify-write memory operation of size (2^SIZE) at destination address (DA). The REQ_ATOMIC sequence involves:
 
 1. Host sending data (DATA), destination address (DA), and source address (SA) to the device,
 2. Device reading data address DA
-3. Applying a binary operator {ADD,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data
+3. Applying a binary operator {ADD,AND,OR,XOR,MAX,MIN,MAXU,MINU,SWAP} between D and the original device data, or the CAS compare (below)
 4. Writing the result back to device address DA
 5. Returning the original device data to host address SA with a RESP_RD message.
+
+REQ_ATOMICCAS (compare and swap) carries two operands, the new value N and the compare value C, each of 2^(SIZE-1) bytes. As for every other message, SIZE gives the size of the data word, so DATA holds 2^SIZE bytes: N in the low half (at bit 0, like the operand of every other atomic) and C in the high half. The device writes N to DA if the original data at DA equals C, and leaves DA unchanged otherwise.
+
+* The operation size is 2^(SIZE-1) bytes: DA must be aligned to 2^(SIZE-1), and SIZE must be at least 1.
+* The largest CAS operand is half the data width of the path the message takes.
+* The RESP_RD has the request's SIZE. Its 2^SIZE data bytes hold the original data at DA in the low half and zeros in the high half.
+
+Example, a 32-bit CAS (SIZE=0b011, 8 data bytes):
+
+|DATA[63:32]   |DATA[31:0]   |
+|:------------:|:-----------:|
+| C (compare)  | N (new)     |
 
 If REQ_ATOMIC cannot be transmitted past a certain point in the network due to a narrowing in the data bus width, RESP_RD should be sent back to the SA of the request with ERR=NETERR and no data; all other fields (SIZE, LEN, etc.) should match those in the request.  The same behavior applies when REQ_ATOMIC is unroutable.
 

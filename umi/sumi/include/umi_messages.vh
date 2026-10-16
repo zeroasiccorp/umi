@@ -90,3 +90,4 @@ localparam UMI_REQ_ATOMICMIN   = 8'h05;
 localparam UMI_REQ_ATOMICMAXU  = 8'h06;
 localparam UMI_REQ_ATOMICMINU  = 8'h07;
 localparam UMI_REQ_ATOMICSWAP  = 8'h08;
+localparam UMI_REQ_ATOMICCAS   = 8'h09;

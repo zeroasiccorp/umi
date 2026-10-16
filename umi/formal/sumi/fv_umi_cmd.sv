@@ -54,7 +54,7 @@
  *
  * Fault rows and the assertion label each must trip:
  *   fault_opcode       CMD1_opcode_legal      reserved opcode hole 0x19
- *   fault_atype        CMD2_atype_legal       REQ_ATOMIC ATYPE=0x09
+ *   fault_atype        CMD2_atype_legal       REQ_ATOMIC ATYPE=0x0A
  *   fault_align_da     CMD4_da_aligned        REQ_RD SIZE=1, odd DA
  *   fault_align_sa     CMD4_sa_aligned        REQ_RD SIZE=1, odd SA
  *   fault_fullbyte     CMD10_fullbyte_decode  opcode5 0x0E, CMD[7:5]=1
@@ -152,8 +152,8 @@ module fv_umi_cmd #(
     wire [AW-1:0] obs_srcaddr = {AW{1'b0}};
     wire [DW-1:0] obs_data    = in_data;
 `elsif FV_FAULT_ATYPE
-    // REQ_ATOMIC with ATYPE=0x09 (one past ATOMICSWAP), SIZE=0
-    wire [CW-1:0] obs_cmd     = 32'h0000_0909;
+    // REQ_ATOMIC with ATYPE=0x0A (one past ATOMICCAS), SIZE=0
+    wire [CW-1:0] obs_cmd     = 32'h0000_0A09;
     wire [AW-1:0] obs_dstaddr = {AW{1'b0}};
     wire [AW-1:0] obs_srcaddr = {AW{1'b0}};
     wire [DW-1:0] obs_data    = in_data;

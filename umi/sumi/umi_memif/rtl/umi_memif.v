@@ -49,6 +49,8 @@ module umi_memif
    reg              umi_atomic_r;
    reg [7:0]        umi_atype_r;
    reg [DW-1:0]     umi_wrdata_r;
+   reg [DW-1:0]     umi_cmp_r;
+   reg              umi_cas_r;
    reg [DW-1:0]     wmask_r;
    reg [31:0]       postatomic_shift; // fixed 32b value
 
@@ -58,6 +60,8 @@ module umi_memif
    wire [DW-1:0]    mem_rddata_atomic;
    wire [11:0]      umi_lenp1;
    wire [11:0]      umi_bytes;
+   wire             umi_cas;
+   wire [2:0]       umi_opsize;
 
    // vars
    integer          i;
@@ -66,7 +70,11 @@ module umi_memif
    // Read alignment
    //##################################################
 
-   assign umi_rddata = mem_rddata >> (8*umi_addr_r[$clog2(DW/8)-1:0]);
+   // a CAS returns its operand (the low half of the word), the high half
+   // reads zero (README 3.4.6)
+   assign umi_rddata = (mem_rddata >> (8*umi_addr_r[$clog2(DW/8)-1:0])) &
+                       (umi_cas_r ? (wmask_r >> (8*umi_addr_r[$clog2(DW/8)-1:0])) :
+                                    {DW{1'b1}});
 
    //##################################################
    // Write Mask
@@ -75,8 +83,13 @@ module umi_memif
    // These are 12 bits wide - it works because the max data a SUMI
    // packet can transfer is 1024 bits/128 bytes.
 
+   // a CAS operand is half the data word (README 3.4.6): N in the low
+   // half, C in the high half
+   assign umi_cas         = umi_atomic & (umi_atype[7:0] == 8'h09);
+   assign umi_opsize[2:0] = umi_cas ? (umi_size[2:0] - 3'd1) : umi_size[2:0];
+
    assign umi_lenp1[11:0] = {4'h0,umi_len[7:0]} + 1'b1;
-   assign umi_bytes[11:0] = umi_lenp1[11:0] << umi_size[2:0];
+   assign umi_bytes[11:0] = umi_lenp1[11:0] << umi_opsize[2:0];
 
 
    always @(*)
@@ -103,6 +116,8 @@ module umi_memif
        umi_atomic_r     <= 'b0;
        umi_atype_r      <= 'b0;
        umi_wrdata_r     <= 'b0;
+       umi_cmp_r        <= 'b0;
+       umi_cas_r        <= 'b0;
        wmask_r          <= 'b0;
        postatomic_shift <= 'b0;
      end
@@ -113,6 +128,9 @@ module umi_memif
        umi_atomic_r     <= umi_atomic;
        umi_atype_r      <= umi_atype;
        umi_wrdata_r     <= umi_wrdata<<(DW - ({20'h0,umi_bytes}<<3));
+       umi_cmp_r        <= (umi_wrdata>>({20'h0,umi_bytes}<<3))<<
+                           (DW - ({20'h0,umi_bytes}<<3));
+       umi_cas_r        <= umi_cas;
        wmask_r          <= wmask;
        postatomic_shift <= DW -(({{32-$clog2(DW/8){1'b0}},umi_addr[$clog2(DW/8)-1:0]} +
                                  {20'h0,umi_bytes})<<3);
@@ -136,6 +154,8 @@ module umi_memif
         8'h07: umi_wrdata_atomic = ($unsigned(umi_wrdata_r) > $unsigned(mem_rddata_atomic)) ?
                                    mem_rddata_atomic : umi_wrdata_r;
         8'h08: umi_wrdata_atomic = umi_wrdata_r;
+        8'h09: umi_wrdata_atomic = (mem_rddata_atomic == umi_cmp_r) ?
+                                   umi_wrdata_r : mem_rddata_atomic;
         default: umi_wrdata_atomic = umi_wrdata_r;
       endcase
    end

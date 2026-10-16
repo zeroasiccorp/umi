@@ -156,8 +156,13 @@ module umi_memagent
    // Add support for partial writes - for now only 8B aligned addr
    // These are 12 bits wide - it works because the max data a SUMI
    // packet can transfer is 1024 bits/128 bytes.
+   // a CAS operand is half the data word (README 3.4.6): N in the low
+   // half, C in the high half
+   wire       loc_cas    = loc_atomic & (loc_atype[7:0] == 8'h09);
+   wire [2:0] loc_opsize = loc_cas ? (loc_size[2:0] - 3'd1) : loc_size[2:0];
+
    assign loc_lenp1[11:0] = {4'h0,loc_len[7:0]} + 1'b1;
-   assign loc_bytes[11:0] = loc_lenp1[11:0] << loc_size[2:0];
+   assign loc_bytes[11:0] = loc_lenp1[11:0] << loc_opsize[2:0];
 
    reg [DW-1:0] wmask;
    integer i;
@@ -177,6 +182,8 @@ module umi_memagent
    reg              loc_atomic_r;
    reg  [7:0]       loc_atype_r;
    reg  [DW-1:0]    loc_wrdata_r;
+   reg  [DW-1:0]    loc_cmp_r;
+   reg              loc_cas_r;
    reg  [DW-1:0]    wmask_r;
 
    reg  [DW-1:0]    loc_wrdata_atomic;
@@ -202,6 +209,8 @@ module umi_memagent
        loc_atomic_r     <= 'b0;
        loc_atype_r      <= 'b0;
        loc_wrdata_r     <= 'b0;
+       loc_cmp_r        <= 'b0;
+       loc_cas_r        <= 'b0;
        wmask_r          <= 'b0;
        postatomic_shift <= 'b0;
      end
@@ -212,6 +221,9 @@ module umi_memagent
        loc_atomic_r     <= loc_atomic;
        loc_atype_r      <= loc_atype;
        loc_wrdata_r     <= loc_wrdata<<(DW - ({20'h0,loc_bytes}<<3));
+       loc_cmp_r        <= (loc_wrdata>>({20'h0,loc_bytes}<<3))<<
+                           (DW - ({20'h0,loc_bytes}<<3));
+       loc_cas_r        <= loc_cas;
        wmask_r          <= wmask;
        postatomic_shift <= DW -
                            (({{32-$clog2(DW/8){1'b0}},loc_addr[$clog2(DW/8)-1:0]} +
@@ -244,6 +256,9 @@ module umi_memagent
                            mem_rddata_atomic : loc_wrdata_r;
      else if (loc_atype_r == 8'h08)
        loc_wrdata_atomic = loc_wrdata_r;
+     else if (loc_atype_r == 8'h09)
+       loc_wrdata_atomic = (mem_rddata_atomic == loc_cmp_r) ?
+                           loc_wrdata_r : mem_rddata_atomic;
      else
        loc_wrdata_atomic = loc_wrdata_r;
    end
@@ -273,7 +288,11 @@ module umi_memagent
             .ctrl             (sram_ctrl),
             .status           ());
 
-   assign loc_rddata = mem_rddata >> (8*loc_addr_r[$clog2(DW/8)-1:0]);
+   // a CAS returns its operand (the low half of the word), the high half
+   // reads zero (README 3.4.6)
+   assign loc_rddata = (mem_rddata >> (8*loc_addr_r[$clog2(DW/8)-1:0])) &
+                       (loc_cas_r ? (wmask_r >> (8*loc_addr_r[$clog2(DW/8)-1:0])) :
+                                    {DW{1'b1}});
 
 endmodule // ebrick_core
 // Local Variables:

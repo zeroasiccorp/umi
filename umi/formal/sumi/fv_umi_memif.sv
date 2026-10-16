@@ -21,11 +21,8 @@
  *   atomic operations it implements, and pins down what it does with an
  *   ATYPE that names none of them.
  *
- *   README.md section 3.4.6 names eight: ADD, OR, XOR, MAX, MIN, MAXU,
- *   MINU, SWAP. The RTL implements a ninth, ATOMICAND, which
- *   umi_messages.vh:85 assigns ATYPE 0x01 and no section of the
- *   specification lists. It is proven here because it is shipped, not
- *   because the specification asks for it.
+ *   README.md section 3.4.6 names ten: ADD, AND, OR, XOR, MAX, MIN,
+ *   MAXU, MINU, SWAP and CAS (compare and swap).
  *
  * THE OPERAND ALIGNMENT, AND WHY THE HARNESS REMOVES IT. umi_memif does
  * not feed the ALU the raw operands. It left-justifies both of them --
@@ -63,8 +60,16 @@
  *   a_alu_or    0x02  a | b        a_alu_umax  0x06  unsigned max
  *   a_alu_xor   0x03  a ^ b        a_alu_umin  0x07  unsigned min
  *   a_alu_swap  0x08  a
+ *   a_alu_cas   0x09  low half: a[low] if b[low] == a[high], else
+ *                     b[low]; high half zero
  *
- * AND THE TENTH. ATYPE is eight bits and only 0x00-0x08 name an
+ * CAS IS THE ONE SHAPE EXCEPTION. Its data word holds two operands, the
+ * new value in the low half and the compare value in the high half
+ * (README 3.4.6), so at the full-width shape its operand is DW/2: the
+ * shifts are not the identity, and the law states the half-width
+ * result the RTL writes (the write mask covers the low half).
+ *
+ * AND THE ELEVENTH. ATYPE is eight bits and only 0x00-0x09 name an
  * operation, so the case has a default arm, and that arm returns the
  * request data (umi_memif.v:139) -- the same thing SWAP returns.
  * a_alu_default asserts exactly that: an atomic carrying an ATYPE
@@ -75,7 +80,7 @@
  * from the other end: umi_decode raises cmd_atomic on a command whose
  * five-bit opcode is not REQ_ATOMIC, because it compares four bits
  * (see c_dec_alias_atomic there). A command that is not an atomic can
- * therefore reach this ALU, and if its ATYPE field is above 0x08 the
+ * therefore reach this ALU, and if its ATYPE field is above 0x09 the
  * result is a write of the request data. Neither block is doing
  * anything its own code does not say; the composition is what is worth
  * having written down. No property here calls it a defect.
@@ -85,7 +90,7 @@
  * interface timing, and the read path.
  *
  * ROWS (tests/test_formal_sc.py):
- *   memif:prove           all ten laws, unbounded
+ *   memif:prove           all eleven laws, unbounded
  *   memif:cover           witnesses: expect all reached
  *   memif:fault_add       must FAIL, a_alu_add
  *   memif:fault_smax      must FAIL, a_alu_smax
@@ -215,7 +220,7 @@ module fv_umi_memif #(
                       ^ ((atype_q == 8'h08) ? {DW{f_glitch}} : {DW{1'b0}});
 `elsif FV_FAULT_DEFAULT
     wire [DW-1:0] obs = mem_wrdata
-                      ^ ((atype_q > 8'h08) ? {DW{f_glitch}} : {DW{1'b0}});
+                      ^ ((atype_q > 8'h09) ? {DW{f_glitch}} : {DW{1'b0}});
 `else
     wire [DW-1:0] obs = mem_wrdata;
 `endif
@@ -245,9 +250,13 @@ module fv_umi_memif #(
                                  || (obs == ((a > b) ? b : a)));
             a_alu_swap : assert ((atype_q != UMI_REQ_ATOMICSWAP)
                                  || (obs == a));
+            a_alu_cas : assert ((atype_q != UMI_REQ_ATOMICCAS)
+                                || (obs == {{(DW/2){1'b0}},
+                                            ((b[DW/2-1:0] == a[DW-1:DW/2])
+                                             ? a[DW/2-1:0] : b[DW/2-1:0])}));
             // an ATYPE naming no operation writes the request data --
             // the same result SWAP gives
-            a_alu_default : assert ((atype_q <= UMI_REQ_ATOMICSWAP)
+            a_alu_default : assert ((atype_q <= UMI_REQ_ATOMICCAS)
                                     || (obs == a));
         end
 
@@ -259,9 +268,14 @@ module fv_umi_memif #(
         if (f_past_exists & nreset & past_nreset & atomic_active) begin
             c_alu_add     : cover (atype_q == UMI_REQ_ATOMICADD);
             c_alu_swap    : cover (atype_q == UMI_REQ_ATOMICSWAP);
+            // a CAS that writes and one that does not
+            c_alu_cas_hit : cover ((atype_q == UMI_REQ_ATOMICCAS)
+                                   && (b[DW/2-1:0] == a[DW-1:DW/2]));
+            c_alu_cas_miss : cover ((atype_q == UMI_REQ_ATOMICCAS)
+                                    && (b[DW/2-1:0] != a[DW-1:DW/2]));
             // the undefined arm is reachable, and this is the cover the
             // composition note in the header rests on
-            c_alu_default : cover (atype_q > UMI_REQ_ATOMICSWAP);
+            c_alu_default : cover (atype_q > UMI_REQ_ATOMICCAS);
             // an add that actually carries out of the low half, so the
             // law is not passing on trivial operands
             c_alu_carry   : cover ((atype_q == UMI_REQ_ATOMICADD)
