@@ -202,13 +202,31 @@ The EOF bit can be used to indicate the last message in a sequence of related UM
 
 ### 3.3.8 Exclusive Access (EX)
 
-The EX field is used to indicate exclusive access to an address. The function is used to enable atomic load-store exchanges. The sequence of operations is:
+The EX field is used to indicate exclusive access to an address. The function is used to enable atomic load-store exchanges, such as the RISC-V load-reserved/store-conditional (LR/SC) instructions (see A.1). The sequence of operations is:
 
-1. Host sends a REQ_RD to address A (with EX=1) with SA B
-2. Host sends a REQ_WR to address A (with EX=1) with SA B
-3. Device:
-   1. If address A has NOT been modified by another host (i.e., write with a different SA) since last exclusive read, device performs write to address A and returns ERR = 0b01 in RESP_WR to host.
-   2. If address A has been modified by another host since last exclusive read, device returns a ERR = 0b00 in RESP_WR to host and does not perform write to address A.
+1. Host H sends an exclusive read (REQ_RD with EX=1) to address A.
+2. Device returns the data at address A in RESP_RD:
+   1. If the device supports exclusive access, it registers a reservation for host H covering address A and returns ERR = 0b01 (EXOK).
+   2. If the device does not support exclusive access, it returns ERR = 0b00 (OK) and registers no reservation. Exclusive writes from host H to the device will then fail.
+3. Host H sends an exclusive write (REQ_WR with EX=1) to address A.
+4. Device:
+   1. If host H holds a valid reservation with the same address A and the same SIZE as the exclusive write, device performs the write to address A and returns ERR = 0b01 (EXOK) in RESP_WR to host.
+   2. Otherwise, device does not perform the write to address A and returns ERR = 0b00 (OK) in RESP_WR to host.
+   3. In both cases, device clears the reservation held by host H.
+
+Hosts are identified by the HOSTID field. Reservations follow the rules below.
+
+* Each host holds at most one reservation at a device. An exclusive read from a host replaces that host's previous reservation at the device.
+* An exclusive read, or any other read, must not clear or replace a reservation held by another host.
+* The reservation covers the 2^SIZE bytes at address A of the exclusive read. A device may reserve a larger naturally aligned region that contains these bytes, and must document the size of that region.
+* A write to any byte covered by a reservation clears that reservation. This applies to REQ_WR, REQ_WRPOSTED, REQ_ATOMIC and successful exclusive writes, from any host, including the host holding the reservation.
+* A device may clear a reservation at any other time, causing the exclusive write to fail. It must not do so in a way that prevents a host repeating an exclusive read and exclusive write to address A from eventually succeeding while no other host writes the reserved bytes.
+* Exclusive requests must have LEN = 0, and address A must be aligned to 2^SIZE. A device that cannot execute an exclusive request (including an unsupported SIZE or a misaligned address) returns ERR = 0b10 (DEVERR) and does not perform the write.
+* A host must send the exclusive read and the exclusive write with the same HOSTID, so that they remain in order (see 3.3.10).
+* A host must only send an exclusive write to the address and SIZE of its most recent exclusive read. Any other exclusive write is treated as failed by the host and is not sent.
+* The EX bit in the RESP_RD and RESP_WR responses is equal to the EX bit of the request.
+* Exclusive requests are never split or merged (see 4.1.1 and 4.1.2).
+* A device that returns EXOK for an exclusive read must observe every write to the reserved bytes. Reservations must therefore be tracked at the point where all writes to the address converge (e.g. the memory controller), and not ahead of a cache or a second write port.
 
 ### 3.3.9 Error Code (ERR[1:0])
 
@@ -220,6 +238,8 @@ The ERR field indicates the error status of a response (RESP_WR, RESP_RD) transa
 | 0b01   | EXOK (successful exclusive access) |
 | 0b10   | DEVERR (device error)              |
 | 0b11   | NETERR (network error)             |
+
+For exclusive requests (EX=1), OK indicates that the exclusive access failed (see 3.3.8). It is not an error.
 
 DEVERR trigger examples:
 
@@ -697,6 +717,22 @@ UMI transactions map naturally to RISC-V load store instructions. Extra informat
 | AMOADD.D rd,rs2,(rs1)| RD   | addr(RD) | RS1| REQ_ATOMADD |
 
 The address(RD)refers to the ID or source address associated with the RD register in a RISC-V CPU. In a bus based architecture, this would generally be the host-id of the CPU.
+
+The RISC-V A extension load-reserved/store-conditional (LR/SC) instructions map to the exclusive access sequence (see 3.3.8).
+
+| RISC-V Instruction   | DATA   | SA       | DA | CMD           |
+|:--------------------:|--------|----------|----|---------------|
+| LR.D rd,(rs1)        | --     | addr(RD) | RS1| REQ_RD (EX=1) |
+| SC.D rd,rs2,(rs1)    | RS2    | addr(RD) | RS1| REQ_WR (EX=1) |
+| AMOCAS.D rd,rs2,(rs1)| RD,RS2 | addr(RD) | RS1| REQ_ATOMICCAS |
+
+* LR.W/SC.W use SIZE = 0b010 and LR.D/SC.D use SIZE = 0b011, with LEN = 0.
+* SC writes 0 to RD when RESP_WR returns ERR = EXOK, and 1 (unspecified failure) when RESP_WR returns ERR = OK.
+* An LR that returns ERR = OK has no reservation at the device. The address is not in a region with the LR/SC eventuality property, and an SC to it always fails.
+* The LR and SC of a sequence must use the same HOSTID. The RISC-V aq/rl ordering bits are enforced by the host and are not transmitted.
+* The host tracks the address and size of its most recent LR. An SC that does not match it fails in the host without sending a UMI request (see 3.3.8).
+* The Zacas AMOCAS instruction maps to REQ_ATOMICCAS (see 3.4.6), with the new value (RS2) in the low half of DATA and the compare value (RD) in the high half. AMOCAS.W uses SIZE = 0b011 and AMOCAS.D uses SIZE = 0b100.
+* A host with a coherent cache may implement LR/SC within its cache, sending only plain REQ_RD and REQ_WR to UMI. A host may also convert a recognized LR/SC sequence into a single REQ_ATOMIC.
 
 ### A.2 TileLink
 
