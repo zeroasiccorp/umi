@@ -38,13 +38,13 @@ test = [
     "pytest == 9.1.1",
     "pytest-xdist == 3.8.0",
     "pytest-timeout == 2.4.0",
-    "flake8 == 7.3.0",
+    "flake8 == 7.4.1",
     "switchboard-hw==0.3.4",
     "cocotb==2.1.0",
     "cocotb-bus==0.3.0",
     "cocotbext-axi==0.1.28",
     "cocotbext-umi==0.0.5",
-    "cocotbext-apb==0.11.0"
+    "cocotbext-apb==1.1.0"
 ]
 
 [tool.check-wheel-contents]
