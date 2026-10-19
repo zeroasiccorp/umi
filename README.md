@@ -202,7 +202,7 @@ The EOF bit can be used to indicate the last message in a sequence of related UM
 
 ### 3.3.8 Exclusive Access (EX)
 
-The EX field is used to indicate exclusive access to an address. The function is used to enable atomic load-store exchanges, such as the RISC-V load-reserved/store-conditional (LR/SC) instructions (see A.1). The sequence of operations is:
+The EX field is used to indicate exclusive access to an address. The function is used to enable atomic load-store exchanges. Mappings to processor and bus exclusive access mechanisms are given in Appendix A. The sequence of operations is:
 
 1. Host H sends an exclusive read (REQ_RD with EX=1) to address A.
 2. Device returns the data at address A in RESP_RD:
@@ -755,7 +755,7 @@ Summary:
   * Channel D: Response messages from an address
   * Channel E: Final handshake for cache block transfer (TL-C only)
 
-### A.1.1 TileLink <-> UMI Mapping
+### A.2.2 TileLink <-> UMI Mapping
 
 This section outlines the recommended mapping between UMI transaction and the TileLink messages. Here, we only explore mapping TL/UH TileLink modes with UMI 64bit addressing and UMI bit mask support up to 128 bits.
 
@@ -811,9 +811,9 @@ The TileLink atomic operations encoded in the param field map to the UMI ATYPE f
 | AND  (2)       | ATOMICAND  |
 | SWAP  (3)      | ATOMICSWAP |
 
-### A.2 AXI4
+### A.3 AXI4
 
-### A.2.1 AXI4 Overview
+### A.3.1 AXI4 Overview
 
 AXI is a transaction based memory access protocol with five independent channels:
 
@@ -828,7 +828,7 @@ Constraints:
 * AXI transactions must not cross 4,096 Byte address boundaries
 * The maximum transaction size is 4,096 Bytes
 
-### A.2.2 AXI4 <-> UMI Mapping
+### A.3.2 AXI4 <-> UMI Mapping
 
 The table below maps AXI terminology to UMI terminology.
 
@@ -855,19 +855,28 @@ The AXI LEN, SIZE, ADDR, DATA, QOS, PROT[1:0], HOSTID, LOCK fields map directly 
 | 64b mode |R     | R   | R   |U     |U,REGION|U,CACHE,BURST|STRB|STRB|
 | 32b mode |--    | --  | --  | --   |R       |U,CACHE,BURST|STRB|STRB|
 
+The AXI RRESP/BRESP and UMI ERR fields use the same encoding: OKAY maps to OK, EXOKAY to EXOK, SLVERR to DEVERR and DECERR to NETERR.
+
+AXI exclusive accesses map to the UMI exclusive access sequence (see 3.3.8):
+
+* An exclusive read (ARLOCK = 1) maps to REQ_RD with EX = 1, and an exclusive write (AWLOCK = 1) maps to REQ_WR with EX = 1.
+* EXOKAY (ERR = EXOK) indicates a successful exclusive access. OKAY (ERR = OK) on an exclusive write indicates that the exclusive write failed and memory was not written. OKAY on an exclusive read indicates that the subordinate does not support exclusive access.
+* The AXI ID maps to HOSTID, which identifies the host holding a reservation.
+
 Restrictions:
  * PROT[2] is not supported.(set to 0)
  * Data width limited to 128 bits
  * HOSTID limited to 4 bits
  * REGION only supported in 64bit mode
+ * Exclusive accesses are limited to a single transfer (UMI exclusive requests have LEN = 0)
 
-### A.3 AXI Stream
+### A.4 AXI Stream
 
-### A.3.1 AXI Stream Overview
+### A.4.1 AXI Stream Overview
 
 AXI-Stream is a point-to-point protocol, connecting a single Transmitter and a single Receiver.
 
-### A.3.2 AXI Stream <-> UMI Mapping
+### A.4.2 AXI Stream <-> UMI Mapping
 
 The mapping between AXI stream and UMI is shown int he following tables.
 
