@@ -268,13 +268,14 @@ module umi_fifoflex
         //#################################
         // Merged byte counter
         //#################################
-        reg  [8:0]      latch_bytes;
-        wire [8:0]      latch_in_bytes;
-        wire [8:0]      latch_out_bytes;
+        // Up to 256 words of 128 bytes, including data-free commands.
+        reg  [15:0]     latch_bytes;
+        wire [15:0]     latch_in_bytes;
+        wire [15:0]     latch_out_bytes;
 
         wire [ODW-1:0]  umi_in_data_shifted;
 
-        assign latch_in_bytes = ((umi_in_cmd_len + 8'h01) << umi_in_cmd_size);
+        assign latch_in_bytes = (({8'b0, umi_in_cmd_len} + 16'h01) << umi_in_cmd_size);
 
         always @(posedge umi_in_clk or negedge umi_in_nreset)
           if (~umi_in_nreset)
@@ -310,10 +311,10 @@ module umi_fifoflex
                                 (umi_in_cmd_err == cmd_err) &
                                 (umi_in_cmd_hostid == cmd_hostid);
 
-        assign dstaddr_mergeable = (umi_in_dstaddr == (packet_dstaddr_latch + {{(AW-9){1'b0}}, latch_bytes}));
-        assign srcaddr_mergeable = (umi_in_srcaddr == (packet_srcaddr_latch + {{(AW-9){1'b0}}, latch_bytes})) |
+        assign dstaddr_mergeable = (umi_in_dstaddr == (packet_dstaddr_latch + {{(AW-16){1'b0}}, latch_bytes}));
+        assign srcaddr_mergeable = (umi_in_srcaddr == (packet_srcaddr_latch + {{(AW-16){1'b0}}, latch_bytes})) |
                                    umi_in_cmd_response;
-        assign len_mergeable = ({23'b0, latch_bytes} + {23'b0, latch_in_bytes}) <= (ODW >> 3);
+        assign len_mergeable = ({16'b0, latch_bytes} + {16'b0, latch_in_bytes}) <= (ODW >> 3);
 
         assign tx_mergeable = opcode_mergeable & misc_mergeable &
                               dstaddr_mergeable & srcaddr_mergeable &
@@ -334,7 +335,7 @@ module umi_fifoflex
         // cmd manipulation - at each cycle need to remove the bytes sent out
         assign latch2fifo_eom     = packet_latch_eom;
         /* verilator lint_off WIDTHTRUNC */
-        assign latch2fifo_len     = (latch_bytes >> cmd_size) - 8'h1;
+        assign latch2fifo_len     = (latch_bytes >> cmd_size) - 16'h1;
         /* verilator lint_on WIDTHTRUNC */
         assign latch2fifo_valid   = (packet_boundary | packet_boundary_latch) & (latch_bytes > 0);
         assign latch2fifo_ready   = (tx_mergeable & !packet_latch_eom) |
