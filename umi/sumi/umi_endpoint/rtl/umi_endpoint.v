@@ -19,6 +19,21 @@
  * - A simple register file UMI device endpoint.
  * - It can only receive UMI requests that require a single response beat.
  * - (udev_req_cmd.len + 1)*(1 << udev_req_cmd.size) <= DW/8.
+ * - Exclusive access (README 3.3.8):
+ *   - EXEN=0: no exclusive access support. An exclusive read returns
+ *     ERR=OK, an exclusive write returns ERR=OK and is not written.
+ *   - EXEN=1: one reservation per HOSTID (umi_exclusive). An exclusive
+ *     read returns ERR=EXOK, an exclusive write is written and returns
+ *     ERR=EXOK only with a matching reservation, otherwise it returns
+ *     ERR=OK and is not written. A write or atomic to a DW/8 byte row
+ *     clears all reservations in that row. An exclusive request with
+ *     LEN!=0, a misaligned address or 2^SIZE > DW/8 returns ERR=DEVERR,
+ *     no data, and is not written.
+ *   - EXAW is the number of address bits compared by the reservation
+ *     monitor. Set it to the address width of the memory behind the
+ *     endpoint, so that aliased addresses map to the same row.
+ *   - The device behind the endpoint must not be written by any other
+ *     path while EXEN=1.
  *
  ******************************************************************************/
 
@@ -28,7 +43,10 @@ module umi_endpoint
     // standard parameters
     parameter      CW = 32,
     parameter      AW = 64,
-    parameter      DW = 256)
+    parameter      DW = 256,
+    // exclusive access
+    parameter      EXEN = 0,  // 1=exclusive access support
+    parameter      EXAW = AW) // address bits compared by the monitor
    (// ctrl
     input           nreset,
     input           clk,
@@ -93,7 +111,6 @@ module umi_endpoint
    wire                 cmd_write_resp;
    wire                 loc_eof;
    wire                 loc_eom;
-   wire [1:0]           loc_err;
    wire                 loc_ex;
    wire [4:0]           loc_hostid;
    wire [1:0]           loc_prot;
@@ -123,6 +140,12 @@ module umi_endpoint
    wire                 request_stall;
    wire                 loc_resp;
    wire [4:0]           cmd_opcode;
+   wire                 ex_req;
+   wire                 ex_bad;
+   wire                 ex_ok;
+   wire [1:0]           ex_err;
+   reg                  ex_deverr_r;
+   wire [DW-1:0]        loc_rddata_m;
 
    //########################
    // UMI UNPACK
@@ -132,6 +155,7 @@ module umi_endpoint
 
    /* umi_unpack AUTO_TEMPLATE(
     .packet_\(.*\)   (udev_req_\1[]),
+    .cmd_err         (),
     .cmd_\(.*\)      (loc_\1[]),
     );
     */
@@ -150,7 +174,7 @@ module umi_endpoint
               .cmd_ex           (loc_ex),                // Templated
               .cmd_user         (loc_user[1:0]),         // Templated
               .cmd_user_extended(loc_user_extended[23:0]), // Templated
-              .cmd_err          (loc_err[1:0]),          // Templated
+              .cmd_err          (),                      // Templated
               .cmd_hostid       (loc_hostid[4:0]),       // Templated
               // Inputs
               .packet_cmd       (udev_req_cmd[CW-1:0])); // Templated
@@ -195,9 +219,62 @@ module umi_endpoint
               .command          (udev_req_cmd[CW-1:0])); // Templated
 
    assign loc_read   = cmd_read & udev_req_valid & ~request_stall;
-   assign loc_write  = (cmd_write | cmd_write_posted) & udev_req_valid & ~request_stall;
+   assign loc_write  = (cmd_write | cmd_write_posted) & udev_req_valid & ~request_stall &
+                       ~(cmd_write & loc_ex & (ex_err[1:0] != 2'b01));
    assign loc_atomic = cmd_atomic & udev_req_valid & ~request_stall;
    assign loc_resp   = (cmd_read | cmd_write | cmd_atomic) & udev_req_valid & loc_ready & ~request_stall;
+
+   //############################
+   //# Exclusive Access
+   //############################
+
+   // exclusive read and exclusive write, single word, size aligned
+   assign ex_req   = loc_ex & (cmd_read | cmd_write);
+   assign ex_bad   = (loc_len[7:0] != 8'h00) |
+                     ({29'b0,loc_size[2:0]} > $clog2(DW/8)) |
+                     (|(loc_addr[AW-1:0] & ~({AW{1'b1}} << loc_size[2:0])));
+
+   // response error code, an exclusive write is only written on EXOK
+   assign ex_err[1:0] = ((EXEN == 0) | ~ex_req) ? 2'b00 :
+                        ex_bad                  ? 2'b10 :
+                        (cmd_read | ex_ok)      ? 2'b01 :
+                                                  2'b00;
+
+   // a DEVERR response carries no data
+   always @(posedge clk or negedge nreset)
+     if (!nreset)
+       ex_deverr_r <= 1'b0;
+     else if (loc_resp)
+       ex_deverr_r <= ex_err[1];
+
+   assign loc_rddata_m[DW-1:0] = loc_rddata[DW-1:0] & {DW{~ex_deverr_r}};
+
+   generate
+      if (EXEN != 0)
+        begin : g_exen
+           // exclusive request accepted
+           wire ex_valid = ex_req & ~ex_bad & udev_req_valid & udev_req_ready;
+
+           umi_exclusive #(.AW (EXAW),
+                      .GW ($clog2(DW/8)))
+           umi_exclusive(// Outputs
+                    .ex_ok     (ex_ok),
+                    // Inputs
+                    .clk       (clk),
+                    .nreset    (nreset),
+                    .ex_valid  (ex_valid),
+                    .ex_write  (cmd_write),
+                    .ex_hostid (loc_hostid[4:0]),
+                    .ex_addr   (loc_addr[EXAW-1:0]),
+                    .ex_size   (loc_size[2:0]),
+                    .wr_valid  ((loc_write | loc_atomic) & loc_ready),
+                    .wr_addr   (loc_addr[EXAW-1:$clog2(DW/8)]));
+        end
+      else
+        begin : g_noexen
+           assign ex_ok = 1'b0;
+        end
+   endgenerate
 
    //############################
    //# Outgoing Transaction
@@ -214,6 +291,7 @@ module umi_endpoint
    assign cmd_opcode[4:0] = (cmd_read | cmd_atomic) ? UMI_RESP_READ : UMI_RESP_WRITE;
 
    /* umi_pack AUTO_TEMPLATE(
+    .cmd_err    (ex_err[]),
     .cmd_\(.*\) (loc_\1[]),
     .cmd_opcode (cmd_opcode[]),
     );
@@ -234,7 +312,7 @@ module umi_endpoint
             .cmd_eom            (loc_eom),               // Templated
             .cmd_eof            (loc_eof),               // Templated
             .cmd_user           (loc_user[1:0]),         // Templated
-            .cmd_err            (loc_err[1:0]),          // Templated
+            .cmd_err            (ex_err[1:0]),           // Templated
             .cmd_ex             (loc_ex),                // Templated
             .cmd_hostid         (loc_hostid[4:0]),       // Templated
             .cmd_user_extended  (loc_user_extended[23:0])); // Templated
@@ -268,7 +346,7 @@ module umi_endpoint
      if (!nreset)
        loc_data_keep[DW-1:0] <= {DW{1'b0}};
      else if (loc_resp_vld)
-       loc_data_keep[DW-1:0] <= loc_rddata[DW-1:0];
+       loc_data_keep[DW-1:0] <= loc_rddata_m[DW-1:0];
 
    // Valid set-clear
    always @(posedge clk or negedge nreset)
@@ -281,7 +359,7 @@ module umi_endpoint
 
    assign loc_vld_out = loc_resp_vld | loc_vld_keep;
 
-   assign loc_data_out[DW-1:0] = loc_resp_vld ? loc_rddata[DW-1:0] : loc_data_keep[DW-1:0];
+   assign loc_data_out[DW-1:0] = loc_resp_vld ? loc_rddata_m[DW-1:0] : loc_data_keep[DW-1:0];
 
    assign request_stall = (REG) ?
                           (vld_pipe | loc_vld_out) & ~udev_resp_ready :
