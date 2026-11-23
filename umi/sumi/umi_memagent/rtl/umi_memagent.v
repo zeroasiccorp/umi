@@ -123,7 +123,9 @@ module umi_memagent
    umi_endpoint #(.CW(CW),
                   .AW(AW),
                   .DW(DW),
-                  .REG(0))
+                  .REG(0),
+                  .EXEN(1),
+                  .EXAW($clog2(DW/8)+$clog2(RAMDEPTH)))
    umi_endpoint(.loc_ready      (loc_ready),
                 /*AUTOINST*/
                 // Outputs

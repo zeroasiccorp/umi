@@ -28,6 +28,9 @@
  *   a_ep_mem_onehot0  loc_read, loc_write and loc_atomic never overlap:
  *                     one request drives at most one kind of memory
  *                     operation
+ *   a_ep_ex_gate      an exclusive write is answered EXOK exactly when
+ *                     it reached memory: a failed exclusive write
+ *                     writes nothing (README 3.3.8)
  *   a_ep_kind         a read or an atomic is answered RESP_READ, a
  *                     write RESP_WRITE (README 3.4.11, 3.4.12, and the
  *                     RESP_READ-for-atomics rule in 3.4.6)
@@ -111,6 +114,8 @@ module fv_umi_endpoint #(
     parameter CW  = 32,
     parameter AW  = 64,
     parameter DW  = 64,
+    parameter EXEN = 1,
+    parameter EXAW = 8,
     parameter [5:0] RULE_EN = 6'h3F
 ) (
     input wire clk
@@ -184,7 +189,8 @@ module fv_umi_endpoint #(
     end
 
     umi_endpoint #(
-        .REG (REG), .CW (CW), .AW (AW), .DW (DW)
+        .REG (REG), .CW (CW), .AW (AW), .DW (DW),
+        .EXEN (EXEN), .EXAW (EXAW)
     ) dut (
         .nreset           (nreset),
         .clk              (clk),
@@ -329,8 +335,13 @@ module fv_umi_endpoint #(
     reg          exp_write;
     reg [AW-1:0] exp_da;
     reg [AW-1:0] exp_sa;
+    reg          exp_exw;
+    reg          exp_wrote;
     always @(posedge clk)
         if (beat & responds & (asked == fv_answer)) begin
+            // an exclusive write, and whether it reached memory
+            exp_exw   <= cmd_write & req_cmd[UMI_EX_BIT];
+            exp_wrote <= loc_write;
             // an atomic is answered as a read (README 3.4.6)
             exp_read  <= cmd_read | cmd_atomic;
             exp_write <= cmd_write;
@@ -357,6 +368,8 @@ module fv_umi_endpoint #(
                 a_ep_kind : assert (obs_cmd[4:0] == UMI_RESP_READ);
             if (acct_valid & tracked & exp_write & ~exp_read)
                 a_ep_kind_wr : assert (obs_cmd[4:0] == UMI_RESP_WRITE);
+            if (acct_valid & tracked & exp_exw)
+                a_ep_ex_gate : assert ((obs_cmd[26:25] == 2'b01) == exp_wrote);
             if (acct_valid & tracked) begin
                 a_ep_da : assert (obs_dstaddr == exp_da);
                 a_ep_sa : assert (resp_srcaddr == exp_sa);
@@ -431,6 +444,9 @@ module fv_umi_endpoint #(
             c_ep_atomic  : cover (loc_atomic);
             // a posted write really does reach memory without an answer
             c_ep_posted  : cover (beat & cmd_posted & loc_write);
+            // a granted exclusive write does reach memory
+            c_ep_exwr    : cover (beat & cmd_write & req_cmd[UMI_EX_BIT]
+                                  & loc_write);
         end
 `endif
 

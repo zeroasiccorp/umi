@@ -4,6 +4,7 @@ from .umi_checker.umi_checker import Checker
 from .umi_crossbar.umi_crossbar import Crossbar
 from .umi_decode.umi_decode import Decode
 from .umi_endpoint.umi_endpoint import Endpoint
+from .umi_exclusive.umi_exclusive import Exclusive
 from .umi_fifo.umi_fifo import Fifo
 from .umi_fifoflex.umi_fifoflex import FifoFlex
 from .umi_isolate.umi_isolate import Isolate
@@ -29,6 +30,7 @@ __all__ = ['Arbiter',
            'Crossbar',
            'Decode',
            'Endpoint',
+           'Exclusive',
            'Fifo',
            'FifoFlex',
            'Isolate',
