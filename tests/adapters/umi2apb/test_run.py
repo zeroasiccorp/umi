@@ -10,7 +10,7 @@ from cocotb_utils import CocotbSimEnv
 
 class TbDesign(CocotbSimEnv):
 
-    def __init__(self):
+    def __init__(self, param=None):
         super().__init__(
             name="tb_umi2apb",
             topmodule="umi2apb",
@@ -20,15 +20,20 @@ class TbDesign(CocotbSimEnv):
                 "adapters/umi2apb/test_full_throughput.py",
                 "adapters/umi2apb/test_posted_write.py",
                 "adapters/umi2apb/test_random_stimulus.py",
+                "adapters/umi2apb/test_subword_err.py",
             ],
-            dep=[UMI2APB()]
+            dep=[UMI2APB()],
+            param=param
         )
 
 
 @pytest.mark.cocotb
 @pytest.mark.parametrize("simulator", ["icarus", "verilator"])
-def test_umi2apb(simulator, output_wave=False):
-    project = Sim(TbDesign())
+@pytest.mark.parametrize("param", [
+    pytest.param([], id="rw64"),
+    pytest.param([("RW", "32"), ("RAW", "32"), ("GRPAW", "8")], id="rw32_grp")])
+def test_umi2apb(simulator, param, output_wave=False):
+    project = Sim(TbDesign(param))
     project.add_fileset("testbench.cocotb")
 
     dvflow_cocotb(
