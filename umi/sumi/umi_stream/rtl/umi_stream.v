@@ -92,6 +92,7 @@ module umi_stream
    wire                cmd_read;
    wire                cmd_write;
    wire                cmd_write_posted;
+   wire                read_too_big;
 
    // Transaction control signals
    wire                umi_resp;
@@ -119,6 +120,16 @@ module umi_stream
    assign cmd_write        = (umi_in_cmd[4:0] == UMI_REQ_WRITE);
    assign cmd_write_posted = (umi_in_cmd[4:0] == UMI_REQ_POSTED);
 
+   // A read is answered from one s2mm fifo entry, so it can return at most
+   // DW bits. Larger reads get RESP_RD with ERR=DEVERR and no data, and do
+   // not pop the fifo (README 3.4.2).
+   localparam [1:0] UMI_ERR_DEVERR = 2'b10;
+
+   wire [8:0]  read_len_plus_one = umi_in_cmd[UMI_LEN_MSB:UMI_LEN_LSB] + 9'd1;
+   wire [15:0] read_bytes = {7'b0, read_len_plus_one} << umi_in_cmd[UMI_SIZE_MSB:UMI_SIZE_LSB];
+
+   assign read_too_big = cmd_read & (read_bytes > DW/8);
+
    //###################################################
    // UMI Transaction Decode
    //###################################################
@@ -133,7 +144,7 @@ module umi_stream
    // Read: need s2mm not empty AND no stall (device mode only)
    assign umi_in_ready = (cmd_write_posted & ~mm2s_fifo_full) |
                          (cmd_write & devicemode & ~mm2s_fifo_full & ~request_stall) |
-                         (cmd_read & devicemode & ~s2mm_fifo_empty & ~request_stall);
+                         (cmd_read & devicemode & (~s2mm_fifo_empty | read_too_big) & ~request_stall);
 
    // Transaction accepted that generates a response (device mode only)
    // Write with ack (cmd_write) generates response, posted write does NOT
@@ -159,14 +170,16 @@ module umi_stream
 
    // In device mode: read when servicing a read request
    // In non-device mode, auto drain when umi_out is ready
-   assign s2mm_fifo_read = devicemode ? (umi_in_valid & umi_in_ready & cmd_read):
+   assign s2mm_fifo_read = devicemode ? (umi_in_valid & umi_in_ready & cmd_read & ~read_too_big):
                                         (~s2mm_fifo_empty & umi_out_ready);
 
    //###################################################
    // Response Generation
    //###################################################
 
-   assign resp_cmd[31:0] = {umi_in_cmd[31:5],
+   assign resp_cmd[31:0] = {umi_in_cmd[31:27],
+                            read_too_big ? UMI_ERR_DEVERR : umi_in_cmd[26:25],
+                            umi_in_cmd[24:5],
                             cmd_read ? UMI_RESP_READ : UMI_RESP_WRITE};
 
    // Response valid register
@@ -203,7 +216,7 @@ module umi_stream
      if (!umi_nreset)
        resp_data_r[DW-1:0] <= {DW{1'b0}};
      else if (umi_resp)
-       resp_data_r[DW-1:0] <= cmd_read ? s2mm_fifo_dout[DW-1:0] :
+       resp_data_r[DW-1:0] <= (cmd_read & ~read_too_big) ? s2mm_fifo_dout[DW-1:0] :
                                          {DW{1'b0}};
 
    // Valid keep - holds response when consumer not ready
