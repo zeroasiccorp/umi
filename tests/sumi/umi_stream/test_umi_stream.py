@@ -411,6 +411,65 @@ async def test_non_device_mode(
     raise env.scoreboard.result
 
 
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def test_read_larger_than_dw(dut, n_ops=40):
+    """Device mode: reads larger than DW get RESP_RD with ERR=DEVERR and no data,
+    and do not pop the s2mm fifo. Reads that fit in DW still return fifo data."""
+
+    env = Env(dut)
+    await env.setup(None, None)
+    dut.devicemode.value = 1
+    dut.umi_out_ready.value = 1
+    dut.usi_out_ready.value = 1
+
+    for _ in range(n_ops):
+        if random.random() < 0.5:
+            # LEN+1 words of 2^SIZE bytes, more than one bus beat
+            while True:
+                size = random.randint(0, 7)
+                length = random.randint(0, 255)
+                if ((length + 1) << size) > env.data_bytes:
+                    break
+        else:
+            size = random.randint(0, env.full_size)
+            length = random.randint(0, (env.data_bytes >> size) - 1)
+        too_big = ((length + 1) << size) > env.data_bytes
+
+        t = SumiTransaction(
+            cmd=SumiCmd.from_fields(
+                cmd_type=SumiCmdType.UMI_REQ_READ,
+                size=size,
+                len=length,
+                eom=1
+            ),
+            da=random.randint(0, (1 << env.aw) - 1),
+            sa=random.randint(0, (1 << env.aw) - 1),
+            data=bytes(env.data_bytes),
+            addr_width=env.aw
+        )
+
+        resp_cmd = copy.deepcopy(t.cmd)
+        resp_cmd.cmd_type.from_int(SumiCmdType.UMI_RESP_READ)
+        if too_big:
+            resp_cmd.err = 0b10  # DEVERR
+            data = bytes(env.data_bytes)
+        else:
+            data = random.randbytes(env.data_bytes)
+            env.usi_source.append(VRDTransaction(data=data, last=True))
+        env.expected_umi_output.append(SumiTransaction(
+            cmd=resp_cmd,
+            da=int(t.sa),
+            sa=0,
+            data=data[:(length + 1) << size],
+        ))
+        env.umi_driver.append(t)
+
+    while len(env.expected_umi_output) != 0:
+        await ClockCycles(dut.umi_clk, 1)
+
+    raise env.scoreboard.result
+
+
 class TbDesign(CocotbSimEnv):
     def __init__(self):
         super().__init__(
