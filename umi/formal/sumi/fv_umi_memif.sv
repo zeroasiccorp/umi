@@ -85,17 +85,25 @@
  * anything its own code does not say; the composition is what is worth
  * having written down. No property here calls it a defect.
  *
+ * AND THE TWELFTH. An atomic holds the block for its write cycle only:
+ * a_ready_one asserts umi_ready is never low two cycles running. An
+ * atomic presented during another's write cycle is not taken there, so
+ * it must not start a write cycle of its own until it is accepted (an
+ * earlier umi_memif registered umi_atomic unaccepted, and a second
+ * atomic held umi_ready low for good).
+ *
  * Outside these laws: partial-width and unaligned atomics (the RTL's
  * own header records partial writes as unsupported), the memory
- * interface timing, and the read path.
+ * interface timing beyond a_ready_one, and the read path.
  *
  * ROWS (tests/test_formal_sc.py):
- *   memif:prove           all eleven laws, unbounded
+ *   memif:prove           all twelve laws, unbounded
  *   memif:cover           witnesses: expect all reached
  *   memif:fault_add       must FAIL, a_alu_add
  *   memif:fault_smax      must FAIL, a_alu_smax
  *   memif:fault_swap      must FAIL, a_alu_swap
  *   memif:fault_default   must FAIL, a_alu_default
+ *   memif:fault_stall     must FAIL, a_ready_one
  *
  ******************************************************************************/
 
@@ -224,6 +232,26 @@ module fv_umi_memif #(
 `else
     wire [DW-1:0] obs = mem_wrdata;
 `endif
+
+    // ready as observed by a_ready_one; the stall fault holds it low a
+    // second cycle
+    reg ready_q;
+    always @(posedge clk or negedge nreset)
+        if (!nreset)
+            ready_q <= 1'b1;
+        else
+            ready_q <= umi_ready;
+
+`ifdef FV_FAULT_STALL
+    wire obs_ready = umi_ready & ~(f_glitch & ~ready_q);
+`else
+    wire obs_ready = umi_ready;
+`endif
+
+    // an atomic's write cycle is one cycle: never two low in a row
+    always @(posedge clk)
+        if (f_past_exists & nreset & past_nreset)
+            a_ready_one : assert (obs_ready | ready_q);
 
     // ----------------------------------------------------------------
     // the nine implemented operations, and the arm that catches the rest

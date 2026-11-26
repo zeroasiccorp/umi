@@ -744,6 +744,9 @@ FAULTS = [
           defines=("FV_FAULT_SWAP",), expect="a_alu_swap"),
     Proof("memif:fault_default", "fv_umi_memif", "bmc",
           defines=("FV_FAULT_DEFAULT",), expect="a_alu_default"),
+    # an atomic's write cycle held a second cycle
+    Proof("memif:fault_stall", "fv_umi_memif", "bmc",
+          defines=("FV_FAULT_STALL",), expect="a_ready_one"),
 
     # ---- fv_umi_regif -------------------------------------------------
     Proof("regif:fault_valid", "fv_umi_regif", "bmc",

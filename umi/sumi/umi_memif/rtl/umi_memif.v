@@ -125,7 +125,10 @@ module umi_memif
        umi_addr_r       <= umi_addr;
        umi_write_r      <= umi_write;
        umi_read_r       <= umi_read;
-       umi_atomic_r     <= umi_atomic;
+       // only an accepted atomic starts the write cycle: an atomic
+       // presented during another's write cycle (umi_ready low) waits,
+       // or umi_atomic_r would stay set and the block never take it
+       umi_atomic_r     <= umi_atomic & umi_ready;
        umi_atype_r      <= umi_atype;
        umi_wrdata_r     <= umi_wrdata<<(DW - ({20'h0,umi_bytes}<<3));
        umi_cmp_r        <= (umi_wrdata>>({20'h0,umi_bytes}<<3))<<
