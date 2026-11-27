@@ -1,5 +1,7 @@
 # Universal Memory Interface (UMI)
 
+[![Nightly Regression](https://github.com/zeroasiccorp/umi/actions/workflows/nightly.yml/badge.svg?event=schedule)](https://github.com/zeroasiccorp/umi/actions/workflows/nightly.yml)
+
 ## 1. Introduction
 
 ### 1.1 Design Philosophy
